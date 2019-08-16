@@ -3,7 +3,7 @@
 namespace vRPC
 {
     /// <summary>
-    /// Сериализуемое сообщение для удаленного соединения.
+    /// Сериализуемое сообщение для передачи удаленной стороне.
     /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
     internal sealed class Message
@@ -17,16 +17,12 @@ namespace vRPC
 
         public short Uid { get; set; }
         public bool IsRequest { get; }
-        //public StatusCode StatusCode { get; private set; }
         public string ActionName { get; private set; }
         /// <summary>
         /// Параметры для удаленного метода <see cref="ActionName"/>.
         /// </summary>
         public Arg[] Args { get; private set; }
         public object Result { get; private set; }
-
-        //public string Error { get; private set; }
-
         /// <summary>
         /// Связанный запрос. Может быть <see langword="null"/>.
         /// </summary>
@@ -39,7 +35,6 @@ namespace vRPC
         {
             ActionName = actionName;
             IsRequest = true;
-            //StatusCode = StatusCode.Request;
             Args = args;
         }
 
@@ -50,7 +45,6 @@ namespace vRPC
         {
             Uid = uid;
             Result = result;
-            //StatusCode = errorCode;
         }
 
         public static Message CreateRequest(string actionName, Arg[] args)
@@ -70,15 +64,5 @@ namespace vRPC
             message.ReceivedRequest = receivedRequest;
             return message;
         }
-
-        //public static Message FromError(short uid, RemoteException remoteException)
-        //{
-        //    return new Message(uid, result: new ErrorResult(remoteException.Message), remoteException.ErrorCode);
-        //}
-
-        //public static Message FromError(short uid, string errorMessage, StatusCode errorCode)
-        //{
-        //    return new Message(uid, result: new ErrorResult(errorMessage), errorCode);
-        //}
     }
 }

@@ -7,9 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
-using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
 
 namespace vRPC
 {
@@ -33,7 +31,6 @@ namespace vRPC
         /// </summary>
         public ConcurrentDictionary<int, UserConnections> Connections { get; } = new ConcurrentDictionary<int, UserConnections>();
         private bool _disposed;
-        //private int _status;
         private ServiceProvider _serviceProvider;
         public event EventHandler<ClientConnectedEventArgs> ClientConnected;
         private Action<ServiceCollection> _iocConfigure;

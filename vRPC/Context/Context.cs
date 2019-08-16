@@ -965,7 +965,7 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Возвращает инкапсулированный в Task тип результата функции.
+        /// Возвращает инкапсулированный в <see cref="Task"/> тип результата функции.
         /// </summary>
         private static Type GetActionReturnType(MethodInfo method)
         {
