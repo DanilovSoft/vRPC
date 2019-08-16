@@ -917,7 +917,7 @@ namespace vRPC
         /// Вызывает запрошенный метод контроллера и возвращает результат.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        private async Task<object> InvokeControllerAsync(RequestMessage receivedRequest)
+        private async ValueTask<object> InvokeControllerAsync(RequestMessage receivedRequest)
         {
             // Находим контроллер.
             Type controllerType = FindRequestedController(receivedRequest, out string controllerName, out string actionName);
@@ -1095,7 +1095,7 @@ namespace vRPC
         /// Выполняет запрос клиента и инкапсулирует результат в <see cref="Response"/>.
         /// Не бросает исключения.
         /// </summary>
-        private async Task<Message> GetResponseAsync(RequestMessage receivedRequest)
+        private async ValueTask<Message> GetResponseAsync(RequestMessage receivedRequest)
         {
             // Результат контроллера. Может быть Task.
             object rawResult;

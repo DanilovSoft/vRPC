@@ -28,7 +28,7 @@ namespace Client
                 });
 
                 var homeController = client.GetProxy<IHomeController>();
-
+                
                 while (true)
                 {
                     string echo = await homeController.EchoAsync();
