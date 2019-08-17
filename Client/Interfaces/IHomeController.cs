@@ -12,5 +12,7 @@ namespace Client
         Task<string> EchoAsync();
         ValueTask Test3Async();
         ValueTask<int> Test4Async();
+        Task<int> Test2Async();
+        Task<int> Test0Async();
     }
 }

@@ -26,9 +26,9 @@ namespace Server.Controllers
         }
             
 
-        public int Test0()
+        public IActionResult Test0()
         {
-            return 123;
+            return Ok(123);
         }
 
         public async Task Test1()
@@ -36,6 +36,7 @@ namespace Server.Controllers
             await Task.Delay(1000);
         }
 
+        [ProducesProtoBuf]
         public async Task<int> Test2()
         {
             await Task.Delay(1000);
