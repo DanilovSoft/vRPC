@@ -15,6 +15,7 @@ namespace Client
         static async Task Main()
         {
             Console.Title = "Клиент";
+            Thread.Sleep(1000);
 
             using (var client = new ServerContext("127.0.0.1", Port))
             {
