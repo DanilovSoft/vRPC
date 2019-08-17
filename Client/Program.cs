@@ -27,9 +27,6 @@ namespace Client
                     });
                 });
 
-                while((await client.ConnectAsync()).SocketError != SocketError.Success)
-                    await Task.Delay(1000);
-
                 var homeController = client.GetProxy<IHomeController>();
 
                 while (true)
