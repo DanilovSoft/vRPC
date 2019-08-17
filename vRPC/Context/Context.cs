@@ -208,6 +208,7 @@ namespace vRPC
         internal object OnProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
             ThrowIfDisposed();
+            ThrowIfStopRequired();
 
             #region CreateArgs()
             Arg[] CreateArgs()
@@ -234,7 +235,7 @@ namespace vRPC
             Type resultType = GetActionReturnType(targetMethod);
 
             // Отправляет запрос и получает результат от удалённой стороны.
-            Task<object> taskObject = ExecuteRequestAsync(requestToSend, resultType, Socket);
+            Task<object> taskObject = ExecuteRequestAsync(requestToSend, resultType, _socket);
 
             // Если возвращаемый тип функции — Task.
             if (targetMethod.IsAsyncMethod())
@@ -293,7 +294,7 @@ namespace vRPC
         /// Создает подключение или возвращает уже подготовленное соединение.
         /// </summary>
         /// <returns></returns>
-        private protected abstract Task<SocketWrapper> GetOrCreateConnectionAsync();
+        private protected abstract Task<ConnectionResult> GetOrCreateConnectionAsync();
 
         /// <summary>
         /// Происходит атомарно для экземпляра подключения.
@@ -307,17 +308,15 @@ namespace vRPC
         /// <param name="returnType">Тип в который будет десериализован результат запроса.</param>
         private protected async Task<object> ExecuteRequestAsync(Message requestToSend, Type returnType, SocketWrapper socketQueue)
         {
-            if (_stopRequired)
-            {
-                // Не позволять начинать новый запрос если происходит остановка.
-                throw new StopRequiredException();
-            }
-
             // У клиента соединение может быть ещё не установлено.
             if (socketQueue == null)
             {
                 // Никогда не вызывается серверным контекстом.
-                socketQueue = await GetOrCreateConnectionAsync().ConfigureAwait(false);
+                var connectionResult = await GetOrCreateConnectionAsync().ConfigureAwait(false);
+                if (connectionResult.SocketError == SocketError.Success)
+                    socketQueue = connectionResult.SocketWrapper;
+                else
+                    throw new SocketException((int)connectionResult.SocketError);
             }
 
             // Добавить запрос в словарь для дальнейшей связки с ответом.
@@ -1132,6 +1131,17 @@ namespace vRPC
         {
             if (IsDisposed)
                 throw new ObjectDisposedException(GetType().FullName);
+        }
+
+        [DebuggerStepThrough]
+        /// <summary>
+        /// Не позволять начинать новый запрос если происходит остановка.
+        /// </summary>
+        /// <exception cref="StopRequiredException"/>
+        private void ThrowIfStopRequired()
+        {
+            if (_stopRequired)
+                throw new StopRequiredException();
         }
 
         /// <summary>

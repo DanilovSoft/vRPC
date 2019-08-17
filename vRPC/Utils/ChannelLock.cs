@@ -38,6 +38,9 @@ namespace System.Threading
             return false;
         }
 
+        /// <summary>
+        /// Не бросает исключения.
+        /// </summary>
         public async ValueTask<Releaser> LockAsync()
         {
             await _channel.Reader.ReadAsync().ConfigureAwait(false);

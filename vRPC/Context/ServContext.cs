@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -87,14 +88,23 @@ namespace vRPC
 
         /// <summary>
         /// Производит предварительное подключение сокета к серверу. Может использоваться для повторного переподключения.
+        /// Может произойти исключение если одновременно вызвать Dispose или Stop.
         /// Потокобезопасно.
         /// </summary>
-        public async Task<Task> ConnectAsync()
+        public async Task<ConnectResult> ConnectAsync()
         {
-            await ConnectIfNeededAsync().ConfigureAwait(false);
-            lock(_idleObj)
+            ConnectionResult result = await ConnectIfNeededAsync().ConfigureAwait(false);
+
+            if (result.SocketError == SocketError.Success)
             {
-                return _idleTask.Task;
+                lock (_idleObj)
+                {
+                    return new ConnectResult(SocketError.Success, _idleTask.Task);
+                }
+            }
+            else
+            {
+                return new ConnectResult(result.SocketError, null);
             }
         }
 
@@ -121,23 +131,23 @@ namespace vRPC
             }
         }
 
-        private protected override Task<SocketWrapper> GetOrCreateConnectionAsync() => ConnectIfNeededAsync();
+        private protected override Task<ConnectionResult> GetOrCreateConnectionAsync() => ConnectIfNeededAsync();
 
         /// <summary>
         /// Выполнить подключение сокета если еще не подключен.
         /// </summary>
-        private async Task<SocketWrapper> ConnectIfNeededAsync()
+        private async Task<ConnectionResult> ConnectIfNeededAsync()
         {
             // Копия volatile ссылки.
-            SocketWrapper socketQueue = Socket;
+            SocketWrapper socketQueue = _socket;
 
             // Fast-path.
             if (socketQueue != null)
-                return socketQueue;
+                return new ConnectionResult(SocketError.Success, socketQueue);
 
             using (await _channelLock.LockAsync().ConfigureAwait(false))
             {
-                // Копия volatile ссылки.
+                // Требуется двойная проверка после блокировки.
                 socketQueue = _socket;
 
                 // Необходима повторная проверка.
@@ -157,10 +167,11 @@ namespace vRPC
                     ws.Options.KeepAliveInterval = _appBuilder.KeepAliveInterval;
                     ws.Options.ReceiveTimeout = _appBuilder.ReceiveTimeout;
 
+                    SocketError errorCode;
                     try
                     {
                         // Простое подключение веб-сокета.
-                        await ws.ConnectAsync(_uri, CancellationToken.None).ConfigureAwait(false);
+                        errorCode = await ws.ConnectExAsync(_uri, CancellationToken.None).ConfigureAwait(false);
                     }
                     catch
                     // Не удалось подключиться (сервер не запущен?).
@@ -169,74 +180,83 @@ namespace vRPC
                         throw;
                     }
 
-                    // Управляемая обвертка для сокета.
-                    socketQueue = new SocketWrapper(ws);
-
-                    lock (_idleObj)
+                    if (errorCode == SocketError.Success)
                     {
-                        _idleTask = new TaskCompletionSource<int>();
+                        // Управляемая обвертка для сокета.
+                        socketQueue = new SocketWrapper(ws);
+
+                        lock (_idleObj)
+                        {
+                            _idleTask = new TaskCompletionSource<int>();
+                        }
+
+                        // Начать бесконечное чтение из сокета. — может преждевременно вызвать AtomicDisconnect.
+                        StartReceivingLoop(socketQueue);
+
+                        // Копируем ссылку на публичный токен.
+                        //byte[] bearerTokenCopy = BearerToken;
+
+                        // TODO авторизация через Middleware
+                        // Если токен установлен то отправить его на сервер что-бы авторизовать текущее подключение.
+                        //if (bearerTokenCopy != null)
+                        //{
+                        //    try
+                        //    {
+                        //        IsAuthorized = await AuthorizeAsync(socketQueue, bearerTokenCopy).ConfigureAwait(false);
+                        //    }
+                        //    catch (Exception ex)
+                        //    // Обрыв соединения.
+                        //    {
+                        //        // Оповестить об обрыве.
+                        //        AtomicDisconnect(socketQueue, ex);
+                        //        throw;
+                        //    }
+                        //}
+
+                        //Debug.WriteIf(IsAuthorized, "Соединение успешно авторизовано");
+
+                        Task idleTask = null;
+                        lock (_idleObj)
+                        {
+                            if (_idleTask.Task.Status == TaskStatus.WaitingForActivation)
+                            {
+                                // Открыть публичный доступ к этому сокету.
+                                _socket = socketQueue;
+                            }
+                            else
+                            // Мог произойти AtomicDisconnect.
+                            {
+                                // В этом случае в Task будет записана причина.
+                                idleTask = _idleTask.Task;
+                            }
+                        }
+
+                        if (idleTask != null)
+                            await idleTask;
                     }
-
-                    // Начать бесконечное чтение из сокета. — может преждевременно вызвать AtomicDisconnect.
-                    StartReceivingLoop(socketQueue);
-
-                    // Копируем ссылку на публичный токен.
-                    byte[] bearerTokenCopy = BearerToken;
-
-                    // Если токен установлен то отправить его на сервер что-бы авторизовать текущее подключение.
-                    if (bearerTokenCopy != null)
+                    else
                     {
-                        try
-                        {
-                            IsAuthorized = await AuthorizeAsync(socketQueue, bearerTokenCopy).ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        // Обрыв соединения.
-                        {
-                            // Оповестить об обрыве.
-                            AtomicDisconnect(socketQueue, ex);
-                            throw;
-                        }
+                        ws.Dispose();
+                        return new ConnectionResult(errorCode, null);
                     }
-
-                    Debug.WriteIf(IsAuthorized, "Соединение успешно авторизовано");
-
-                    Task idleTask = null;
-                    lock (_idleObj)
-                    {
-                        if (_idleTask.Task.Status == TaskStatus.WaitingForActivation)
-                        {
-                            // Открыть публичный доступ к этому сокету.
-                            _socket = socketQueue;
-                        }
-                        else
-                        // Мог произойти AtomicDisconnect.
-                        {
-                            // В этом случае в Task будет записана причина.
-                            idleTask = _idleTask.Task;
-                        }
-                    }
-
-                    if (idleTask != null)
-                        await idleTask;
                 }
-                return socketQueue;
+                return new ConnectionResult(SocketError.Success, socketQueue);
             }
         }
 
-        /// <summary>
-        /// Отправляет специфический запрос содержащий токен авторизации. Ожидает ответ.
-        /// </summary>
-        private async Task<bool> AuthorizeAsync(SocketWrapper socketQueue, byte[] bearerToken)
-        {
-            // Запрос на авторизацию по токену.
-            var requestToSend = Message.CreateRequest("Auth/AuthorizeToken", new Arg[] { new Arg("token", bearerToken) });
+        ///// <summary>
+        ///// Отправляет специфический запрос содержащий токен авторизации. Ожидает ответ.
+        ///// </summary>
+        //private async Task<bool> AuthorizeAsync(SocketWrapper socketQueue, byte[] bearerToken)
+        //{
+        //    // Запрос на авторизацию по токену.
+        //    var requestToSend = Message.CreateRequest("Auth/AuthorizeToken", new Arg[] { new Arg("token", bearerToken) });
             
-            // Отправить запрос и получить ответ.
-            object result = await ExecuteRequestAsync(requestToSend, returnType: typeof(bool), socketQueue).ConfigureAwait(false);
+        //    // Отправить запрос и получить ответ.
+        //    object result = await ExecuteRequestAsync(requestToSend, returnType: typeof(bool), socketQueue).ConfigureAwait(false);
 
-            return (bool)result;
-        }
+        //    return (bool)result;
+        //}
 
         protected override void BeforeInvokePrepareController(Controller controller)
         {

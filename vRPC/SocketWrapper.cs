@@ -4,10 +4,16 @@ using System.Threading;
 
 namespace vRPC
 {
+    /// <summary>
+    /// Обвёртка для подключенного веб-сокета.
+    /// </summary>
     internal sealed class SocketWrapper : IDisposable
     {
         private int _state;
         private int _disposed;
+        /// <summary>
+        /// Объект можно использовать только для просмотра состояния.
+        /// </summary>
         public WebSocket WebSocket { get; }
         public bool IsDisposed => Volatile.Read(ref _disposed) == 1;
 
@@ -18,7 +24,7 @@ namespace vRPC
 
         public SocketWrapper(WebSocket webSocket)
         {
-            WebSocket = webSocket ?? throw new ArgumentNullException(nameof(webSocket));
+            WebSocket = webSocket;
             RequestCollection = new RequestQueue();
         }
 

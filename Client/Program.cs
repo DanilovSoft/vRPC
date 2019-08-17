@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using vRPC;
@@ -14,7 +15,6 @@ namespace Client
         static async Task Main()
         {
             Console.Title = "Клиент";
-            Thread.Sleep(1000);
 
             using (var client = new ServerContext("127.0.0.1", Port))
             {
@@ -26,6 +26,9 @@ namespace Client
                             .AddConsole();
                     });
                 });
+
+                while((await client.ConnectAsync()).SocketError != SocketError.Success)
+                    await Task.Delay(1000);
 
                 var homeController = client.GetProxy<IHomeController>();
 

@@ -258,10 +258,11 @@ namespace vRPC
             throw new BadRequestException("This action requires user authentication.", StatusCode.Unauthorized);
         }
 
-        private protected override Task<SocketWrapper> GetOrCreateConnectionAsync()
+        private protected override Task<ConnectionResult> GetOrCreateConnectionAsync()
+        // Текущий метод никогда не будет вызван.
         {
-            // Текущий метод никогда не будет вызван.
-            throw new NotImplementedException();
+            Debug.Assert(false, "Серверный контекст не должен вызывать метод подключения т.к. соединение изначально было установлено.");
+            throw new NotSupportedException();
         }
 
         public override void Dispose()
