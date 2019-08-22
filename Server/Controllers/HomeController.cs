@@ -27,11 +27,12 @@ namespace Server.Controllers
             _logger.LogInformation($"Клиент ответил: {resp}");
             return resp;
         }
-            
-        public void DummyCall()
+           
+        //[ProducesProtoBuf]
+        public DateTime DummyCall(string s)
         {
-            //Thread.Sleep(5000);
-            //Interlocked.Increment(ref _program.ReqCount);
+            Interlocked.Increment(ref Program.ReqCount);
+            return DateTime.Now;
         }
 
         public IActionResult Test0()

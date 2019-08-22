@@ -17,7 +17,7 @@ namespace vRPC
     public sealed class Client : IDisposable
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"Connected = {_context != null}" + "}";
+        private string DebugDisplay => "{" + $"Connected = {IsConnected}" + "}";
 
         /// <summary>
         /// Используется для синхронизации установки соединения.
@@ -30,6 +30,7 @@ namespace vRPC
         //private readonly object _idleObj = new object();
         private ApplicationBuilder _appBuilder;
         private readonly Dictionary<string, Type> _controllers;
+        private readonly ProxyCache _proxyCache = new ProxyCache();
 
         /// <summary>
         /// Токен авторизации передаваемый серверу при начальном подключении.
@@ -42,6 +43,7 @@ namespace vRPC
         private Action<ServiceCollection> _iocConfigure;
         private Action<ApplicationBuilder> _configureApp;
         private volatile Context _context;
+        public bool IsConnected => _context != null;
 
         // ctor.
         /// <summary>
@@ -109,7 +111,7 @@ namespace vRPC
 
         public T GetProxy<T>()
         {
-            return ProxyCache.GetProxy<T>(ContextCallback);
+            return _proxyCache.GetProxy<T>(ContextCallback);
         }
 
         private async ValueTask<Context> ContextCallback()

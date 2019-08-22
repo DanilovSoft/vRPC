@@ -46,6 +46,7 @@ namespace vRPC
         {
             _ioc = new ServiceCollection();
             _wsServ = new WebSocketServer();
+            _wsServ.HandshakeTimeout = TimeSpan.FromSeconds(30);
             _wsServ.Bind(new IPEndPoint(ipAddress, port));
             _wsServ.ClientConnected += Listener_OnConnected;
 

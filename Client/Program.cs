@@ -11,58 +11,70 @@ namespace Client
     class Program
     {
         private const int Port = 65125;
+        private const int Threads = 1000;
 
         static void Main()
         {
             Console.Title = "Клиент";
             long reqCount = 0;
+            int activeThreads = 0;
 
-            const int threads = 100;
-            var ce = new CountdownEvent(threads);
-            ThreadPool.SetMinThreads(threads, threads);
-            for (int i = 0; i < threads; i++)
+            ThreadPool.SetMinThreads(Threads, 1000);
+
+            ThreadPool.UnsafeQueueUserWorkItem(delegate 
             {
-                ThreadPool.UnsafeQueueUserWorkItem(async delegate 
+                for (int i = 0; i < Threads; i++)
                 {
-                    using (var client = new vRPC.Client("127.0.0.1", Port))
+                    ThreadPool.UnsafeQueueUserWorkItem(async delegate
                     {
-                        client.ConfigureService(ioc =>
+                        Interlocked.Increment(ref activeThreads);
+
+                        using (var client = new vRPC.Client("127.0.0.1", Port))
                         {
-                            ioc.AddLogging(loggingBuilder =>
+                            client.ConfigureService(ioc =>
                             {
-                                loggingBuilder
-                                    .AddConsole();
+                                ioc.AddLogging(loggingBuilder =>
+                                {
+                                    loggingBuilder
+                                        .AddConsole();
+                                });
                             });
-                        });
-                        var homeController = client.GetProxy<IServerHomeController>();
+                            var homeController = client.GetProxy<IServerHomeController>();
 
-                        //while ((await client.ConnectAsync()).SocketError != SocketError.Success)
-                        //    await Task.Delay(new Random().Next(200, 400));
+                            // Лучше подключиться предварительно.
+                            //while ((await client.ConnectAsync()).SocketError != SocketError.Success)
+                            //    await Task.Delay(new Random().Next(200, 400));
 
-                        ce.Signal();
-                        //ce.Wait();
-
-                        while (true)
-                        {
-                            await homeController.DummyCallAsync();
-                            Interlocked.Increment(ref reqCount);
+                            while (true)
+                            {
+                                try
+                                {
+                                    DateTime date = await homeController.DummyCallAsync("Test");
+                                }
+                                catch (Exception)
+                                {
+                                    break;
+                                }
+                                Interlocked.Increment(ref reqCount);
+                            }
                         }
-                    }
-                }, null);
-            }
-
-            ce.Wait();
+                        Interlocked.Decrement(ref activeThreads);
+                    }, null);
+                }
+            }, null);
 
             long prev = 0;
             Console.Clear();
             while (true)
             {
+                Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
                 Thread.Sleep(1000);
                 long rCount = Interlocked.Read(ref reqCount);
                 ulong reqPerSecond = unchecked((ulong)(rCount - prev));
                 prev = rCount;
                 Console.SetCursorPosition(0, 0);
                 Console.WriteLine($"Request per second: {reqPerSecond.ToString().PadRight(10, ' ')}");
+                Console.WriteLine($"Active Threads: {activeThreads.ToString().PadRight(10, ' ')}");
             }
         }
     }

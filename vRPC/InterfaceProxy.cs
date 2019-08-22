@@ -6,21 +6,35 @@ using System.Threading.Tasks;
 
 namespace vRPC
 {
+    /// <summary>
+    /// Этот клас динамически наследует пользовательский интерфейс.
+    /// </summary>
     public class InterfaceProxy : TypeProxy
     {
-        private readonly Func<ValueTask<Context>> _contextCallback;
+        private Func<ValueTask<Context>> ContextCallback { get; set; }
         private readonly string _controllerName;
 
-        public InterfaceProxy((Func<ValueTask<Context>> contextCallback, string controllerName) state)
+        public InterfaceProxy(string controllerName)
         {
-            _contextCallback = state.contextCallback;
-            _controllerName = state.controllerName;
+            _controllerName = controllerName;
         }
 
-        //[DebuggerStepThrough]
+        public void SetCallback(Func<ValueTask<Context>> contextCallback)
+        {
+            ContextCallback = contextCallback;
+        }
+
+        public InterfaceProxy Clone(Func<ValueTask<Context>> contextCallback)
+        {
+            var proxy = (InterfaceProxy)MemberwiseClone();
+            proxy.SetCallback(contextCallback);
+            proxy.ContextCallback = contextCallback;
+            return proxy;
+        }
+
         public override object Invoke(MethodInfo targetMethod, object[] args)
         {
-            ValueTask<Context> contextTask = _contextCallback();
+            ValueTask<Context> contextTask = ContextCallback();
             return Context.OnProxyCall(contextTask, targetMethod, args, _controllerName);
         }
     }

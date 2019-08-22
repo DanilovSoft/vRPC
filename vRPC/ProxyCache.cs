@@ -7,43 +7,81 @@ using System.Threading.Tasks;
 
 namespace vRPC
 {
-    internal static class ProxyCache
+    internal sealed class ProxyCache
     {
         /// <summary>
         /// Содержит прокси созданные из интерфейсов.
         /// </summary>
-        private static readonly Dictionary<(Type, Func<ValueTask<Context>>), object> _proxies = new Dictionary<(Type, Func<ValueTask<Context>>), object>();
+        private readonly Dictionary<Type, object> _proxies = new Dictionary<Type, object>();
 
-        /// <summary>
-        /// Создает прокси к методам удалённой стороны на основе интерфейса.
-        /// </summary>
-        public static T GetProxy<T>(Func<ValueTask<Context>> contextCallback)
+        private static class StaticProxyCache
         {
-            var attrib = typeof(T).GetCustomAttribute<ControllerContractAttribute>(inherit: false);
-            if (attrib == null)
-                throw new ArgumentNullException("controllerName", $"Укажите имя контроллера или пометьте интерфейс атрибутом \"{nameof(ControllerContractAttribute)}\"");
+            /// <summary>
+            /// Содержит прокси созданные из интерфейсов.
+            /// </summary>
+            private static readonly Dictionary<Type, InterfaceProxy> _staticProxies = new Dictionary<Type, InterfaceProxy>();
 
-            return GetProxy<T>(attrib.ControllerName, contextCallback);
+            /// <summary>
+            /// Создает прокси к методам удалённой стороны на основе интерфейса.
+            /// </summary>
+            public static InterfaceProxy GetProxy<T>(out bool createdNew)
+            {
+                var attrib = typeof(T).GetCustomAttribute<ControllerContractAttribute>(inherit: false);
+                if (attrib == null)
+                    throw new ArgumentNullException("controllerName", $"Укажите имя контроллера или пометьте интерфейс атрибутом \"{nameof(ControllerContractAttribute)}\"");
+
+                return GetProxy<T>(attrib.ControllerName, out createdNew);
+            }
+
+            /// <summary>
+            /// Создает прокси к методам удалённой стороны на основе интерфейса.
+            /// </summary>
+            /// <param name="controllerName">Имя контроллера на удалённой стороне к которому применяется текущий интерфейс <see cref="{T}"/>.</param>
+            private static InterfaceProxy GetProxy<T>(string controllerName, out bool createdNew)
+            {
+                Type interfaceType = typeof(T);
+                lock (_staticProxies)
+                {
+                    if (_staticProxies.TryGetValue(interfaceType, out InterfaceProxy proxy))
+                    {
+                        createdNew = false;
+                        return proxy;
+                    }
+                    else
+                    {
+                        var proxyT = (InterfaceProxy)(object)TypeProxy.Create<T, InterfaceProxy>(controllerName);
+                        _staticProxies.Add(interfaceType, proxyT);
+                        createdNew = true;
+                        return proxyT;
+                    }
+                }
+            }
         }
 
-        /// <summary>
-        /// Создает прокси к методам удалённой стороны на основе интерфейса.
-        /// </summary>
-        /// <param name="controllerName">Имя контроллера на удалённой стороне к которому применяется текущий интерфейс <see cref="{T}"/>.</param>
-        public static T GetProxy<T>(string controllerName, Func<ValueTask<Context>> contextCallback)
+        public T GetProxy<T>(Func<ValueTask<Context>> contextCallback)
         {
             Type interfaceType = typeof(T);
             lock (_proxies)
             {
-                if (_proxies.TryGetValue((interfaceType, contextCallback), out object proxy))
+                if (_proxies.TryGetValue(interfaceType, out object proxy))
                 {
                     return (T)proxy;
                 }
                 else
                 {
-                    T proxyT = TypeProxy.Create<T, InterfaceProxy>((contextCallback, controllerName));
-                    _proxies.Add((interfaceType, contextCallback), proxyT);
-                    return proxyT;
+                    InterfaceProxy proxyT = StaticProxyCache.GetProxy<T>(out bool createdNew);
+                    if (createdNew)
+                    {
+                        proxyT.SetCallback(contextCallback);
+                        _proxies.Add(interfaceType, proxyT);
+                        return (T)(object)proxyT;
+                    }
+                    else
+                    {
+                        var clone = proxyT.Clone(contextCallback);
+                        _proxies.Add(interfaceType, clone);
+                        return (T)(object)clone;
+                    }
                 }
             }
         }

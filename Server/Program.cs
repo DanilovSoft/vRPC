@@ -14,9 +14,9 @@ namespace Server
     {
         private const int Port = 65125;
         private static long _connections;
-        public int ReqCount;
+        public static long ReqCount;
 
-        static async Task Main()
+        static void Main()
         {
             Console.Title = "Сервер";
 
@@ -50,12 +50,19 @@ namespace Server
 
                 listener.Start();
                 //await listener.RunAsync();
-                while(true)
+
+                long prev = 0;
+                while (true)
                 {
+                    Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
+                    Thread.Sleep(1000);
                     long c = Interlocked.Read(ref _connections);
+                    long rCount = Interlocked.Read(ref ReqCount);
+                    ulong reqPerSecond = unchecked((ulong)(rCount - prev));
+                    prev = rCount;
                     Console.SetCursorPosition(0, 0);
-                    Console.Write($"Connections: {c.ToString().PadRight(10, ' ')}");
-                    await Task.Delay(500);
+                    Console.WriteLine($"Connections: {c.ToString().PadRight(10, ' ')}");
+                    Console.WriteLine($"Request per second: {reqPerSecond.ToString().PadRight(10, ' ')}");
                 }
             }
         }

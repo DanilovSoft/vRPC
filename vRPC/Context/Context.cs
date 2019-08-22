@@ -48,6 +48,7 @@ namespace vRPC
         private readonly ControllerActionsDictionary _controllerActions;
         private readonly TaskCompletionSource<int> _tcs = new TaskCompletionSource<int>();
         private readonly ServiceProvider _serviceProvider;
+        private readonly ProxyCache _proxyCache = new ProxyCache();
         public ServiceProvider ServiceProvider => _serviceProvider;
         private readonly SocketWrapper _socket;
         /// <summary>
@@ -189,18 +190,18 @@ namespace vRPC
         /// Создает прокси к методам удалённой стороны на основе интерфейса.
         /// </summary>
         public T GetProxy<T>()
-        {
-            return ProxyCache.GetProxy<T>(() => new ValueTask<Context>(this));
+        {   
+            return _proxyCache.GetProxy<T>(() => new ValueTask<Context>(this));
         }
 
-        /// <summary>
-        /// Создает прокси к методам удалённой стороны на основе интерфейса.
-        /// </summary>
-        /// <param name="controllerName">Имя контроллера на удалённой стороне к которому применяется текущий интерфейс <see cref="{T}"/>.</param>
-        public T GetProxy<T>(string controllerName)
-        {
-            return ProxyCache.GetProxy<T>(controllerName, () => new ValueTask<Context>(this));
-        }
+        ///// <summary>
+        ///// Создает прокси к методам удалённой стороны на основе интерфейса.
+        ///// </summary>
+        ///// <param name="controllerName">Имя контроллера на удалённой стороне к которому применяется текущий интерфейс <see cref="{T}"/>.</param>
+        //public T GetProxy<T>(string controllerName)
+        //{
+        //    return ProxyCache.GetProxy<T>(controllerName, () => new ValueTask<Context>(this));
+        //}
 
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
@@ -353,7 +354,7 @@ namespace vRPC
                     // Не бросает исключения.
                     await context.ReceivingLoopThreadAsync();
                 }
-            }, state: new WeakReference<Context>(this, false)); // Без замыкания.
+            }, state: new WeakReference<Context>(this)); // Без замыкания.
         }
 
         private async Task ReceivingLoopThreadAsync()
@@ -435,6 +436,9 @@ namespace vRPC
 
                 using (var framesMem = new MemoryPoolStream(header.ContentLength))
                 {
+                    framesMem.SetLength(header.ContentLength);
+
+                    int countLeft = header.ContentLength;
                     // Пока не EndOfMessage
                     do
                     {
@@ -442,10 +446,12 @@ namespace vRPC
 
                         #region Читаем фрейм веб-сокета.
 
+                        int offset = 0;
+                        byte[] memBuffer = framesMem.DangerousGetBuffer();
                         try
                         {
                             // Читаем фрейм веб-сокета.
-                            webSocketMessage = await _socket.WebSocket.ReceiveExAsync(pooledBuffer, CancellationToken.None);
+                            webSocketMessage = await _socket.WebSocket.ReceiveExAsync(memBuffer.AsMemory().Slice(offset, countLeft), CancellationToken.None);
                         }
                         catch (Exception ex)
                         // Обрыв соединения.
@@ -460,6 +466,10 @@ namespace vRPC
 
                         if (webSocketMessage.ErrorCode == SocketError.Success)
                         {
+                            framesMem.Position += webSocketMessage.Count;
+                            offset += webSocketMessage.Count;
+                            countLeft -= webSocketMessage.Count;
+
                             #region Проверка на Close и выход.
 
                             // Другая сторона закрыла соединение.
@@ -478,6 +488,8 @@ namespace vRPC
                                 return;
                             }
                             #endregion
+
+                            //framesMem.Write(memBuffer, 0, webSocketMessage.Count);
 
                             //if (header == null)
                             //{
@@ -544,8 +556,8 @@ namespace vRPC
                             //}
                             //else
                             //{
-                                // Копирование фрейма в MemoryStream.
-                                framesMem.Write(pooledBuffer, 0, webSocketMessage.Count);
+                            // Копирование фрейма в MemoryStream.
+                            //framesMem.Write(pooledBuffer, 0, webSocketMessage.Count);
                             //}
                         }
                         else
@@ -1014,7 +1026,15 @@ namespace vRPC
                     if (controllerResult != null)
                     {
                         // Извлекает результат из Task'а.
-                        controllerResult = await DynamicAwaiter.WaitAsync(controllerResult);
+                        ValueTask<object> valueTask = DynamicAwaiter.WaitAsync(controllerResult);
+                        if (valueTask.IsCompletedSuccessfully)
+                        {
+                            controllerResult = valueTask.GetAwaiter().GetResult();
+                        }
+                        else
+                        {
+                            controllerResult = await valueTask;
+                        }
                     }
 
                     // Результат успешно получен без исключения.
