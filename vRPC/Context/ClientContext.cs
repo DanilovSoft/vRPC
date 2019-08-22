@@ -9,6 +9,9 @@ using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
 
 namespace vRPC
 {
+    /// <summary>
+    /// Подключенный к серверу клиент.
+    /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
     public sealed class ClientContext : Context
     {

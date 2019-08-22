@@ -373,18 +373,21 @@ namespace System.IO
 
         protected override void Dispose(bool disposing)
         {
-            // Защита от повторного освобождения буфера.
-            if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
+            if (disposing)
             {
-                // Если буфер не является Array.Empty<byte>().
-                if (_arrayBuffer.Length > 0)
-                    _pool.Return(_arrayBuffer, _clearOnReturn);
+                // Защита от повторного освобождения буфера.
+                if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
+                {
+                    // Если буфер не является Array.Empty<byte>().
+                    if (_arrayBuffer.Length > 0)
+                        _pool.Return(_arrayBuffer, _clearOnReturn);
+                }
             }
         }
 
-        ~MemoryPoolStream()
-        {
-            Dispose(false);
-        }
+        //~MemoryPoolStream()
+        //{
+        //    Dispose(false);
+        //}
     }
 }

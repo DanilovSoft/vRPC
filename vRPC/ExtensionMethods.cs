@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
 using System.Reflection;
@@ -49,13 +50,18 @@ namespace vRPC
         /// <summary>
         /// Десериализует JSON.
         /// </summary>
-        public static T DeserializeJson<T>(Stream stream)
+        public static RequestMessage DeserializeRequestJson(Stream stream)
         {
             using (var reader = new StreamReader(stream, _UTF8NoBOM, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
             using (var json = new JsonTextReader(reader))
             {
                 var ser = new JsonSerializer();
-                return ser.Deserialize<T>(json);
+                var req = ser.Deserialize<RequestMessage>(json);
+                if (req != null)
+                    return req;
+
+                Debugger.Launch();
+                throw new InvalidOperationException("Результатом десериализации оказался Null.");
             }
         }
 

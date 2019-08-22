@@ -54,8 +54,7 @@ namespace Server
                 {
                     long c = Interlocked.Read(ref _connections);
                     Console.SetCursorPosition(0, 0);
-                    Console.Clear();
-                    Console.Write($"Connections: {c}");
+                    Console.Write($"Connections: {c.ToString().PadRight(10, ' ')}");
                     await Task.Delay(500);
                 }
             }

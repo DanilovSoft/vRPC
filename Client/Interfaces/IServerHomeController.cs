@@ -7,7 +7,7 @@ using vRPC;
 namespace Client
 {
     [ControllerContract("Home")]
-    public interface IHomeController
+    public interface IServerHomeController
     {
         void DummyCall();
         Task DummyCallAsync();

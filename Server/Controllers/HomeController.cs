@@ -30,7 +30,8 @@ namespace Server.Controllers
             
         public void DummyCall()
         {
-            Interlocked.Increment(ref _program.ReqCount);
+            //Thread.Sleep(5000);
+            //Interlocked.Increment(ref _program.ReqCount);
         }
 
         public IActionResult Test0()
@@ -44,10 +45,11 @@ namespace Server.Controllers
         }
 
         [ProducesProtoBuf]
-        public async Task<int> Test2()
+        public async Task<IActionResult> Test2()
         {
             await Task.Delay(1000);
-            return 123;
+            //return BadRequest("Error");
+            return Ok(123);
         }
 
         public async ValueTask Test3()

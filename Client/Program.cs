@@ -15,10 +15,9 @@ namespace Client
         static void Main()
         {
             Console.Title = "Клиент";
-            Thread.Sleep(1000);
             long reqCount = 0;
 
-            const int threads = 1;
+            const int threads = 100;
             var ce = new CountdownEvent(threads);
             ThreadPool.SetMinThreads(threads, threads);
             for (int i = 0; i < threads; i++)
@@ -35,17 +34,17 @@ namespace Client
                                     .AddConsole();
                             });
                         });
-                        var homeController = client.GetProxy<IHomeController>();
+                        var homeController = client.GetProxy<IServerHomeController>();
 
-                        while ((await client.ConnectAsync()).SocketError != SocketError.Success)
-                            await Task.Delay(new Random().Next(100, 200));
+                        //while ((await client.ConnectAsync()).SocketError != SocketError.Success)
+                        //    await Task.Delay(new Random().Next(200, 400));
 
                         ce.Signal();
-                        ce.Wait();
+                        //ce.Wait();
 
                         while (true)
                         {
-                            homeController.DummyCall();
+                            await homeController.DummyCallAsync();
                             Interlocked.Increment(ref reqCount);
                         }
                     }
@@ -55,15 +54,15 @@ namespace Client
             ce.Wait();
 
             long prev = 0;
-            while(true)
+            Console.Clear();
+            while (true)
             {
                 Thread.Sleep(1000);
                 long rCount = Interlocked.Read(ref reqCount);
                 ulong reqPerSecond = unchecked((ulong)(rCount - prev));
                 prev = rCount;
                 Console.SetCursorPosition(0, 0);
-                Console.Clear();
-                Console.WriteLine($"Request per second: {reqPerSecond}");
+                Console.WriteLine($"Request per second: {reqPerSecond.ToString().PadRight(10, ' ')}");
             }
         }
     }

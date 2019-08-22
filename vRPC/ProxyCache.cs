@@ -12,7 +12,7 @@ namespace vRPC
         /// <summary>
         /// Содержит прокси созданные из интерфейсов.
         /// </summary>
-        private static readonly Dictionary<Type, object> _proxies = new Dictionary<Type, object>();
+        private static readonly Dictionary<(Type, Func<ValueTask<Context>>), object> _proxies = new Dictionary<(Type, Func<ValueTask<Context>>), object>();
 
         /// <summary>
         /// Создает прокси к методам удалённой стороны на основе интерфейса.
@@ -35,14 +35,14 @@ namespace vRPC
             Type interfaceType = typeof(T);
             lock (_proxies)
             {
-                if (_proxies.TryGetValue(interfaceType, out object proxy))
+                if (_proxies.TryGetValue((interfaceType, contextCallback), out object proxy))
                 {
                     return (T)proxy;
                 }
                 else
                 {
                     T proxyT = TypeProxy.Create<T, InterfaceProxy>((contextCallback, controllerName));
-                    _proxies.Add(interfaceType, proxyT);
+                    _proxies.Add((interfaceType, contextCallback), proxyT);
                     return proxyT;
                 }
             }

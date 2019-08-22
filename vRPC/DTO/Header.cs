@@ -18,7 +18,7 @@ namespace vRPC
         private const PrefixStyle HeaderLengthPrefix = PrefixStyle.Fixed32;
 
         [ProtoMember(1)]
-        public short Uid { get; }
+        public ushort Uid { get; }
 
         [ProtoMember(2)]
         public StatusCode StatusCode { get; }
@@ -38,7 +38,7 @@ namespace vRPC
 
         }
 
-        public Header(short uid, StatusCode statusCode)
+        public Header(ushort uid, StatusCode statusCode)
         {
             Uid = uid;
             StatusCode = statusCode;
@@ -84,10 +84,24 @@ namespace vRPC
             return ProtoBufSerializer.DeserializeWithLengthPrefix<Header>(source, HeaderLengthPrefix);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
         public static Header DeserializeWithLengthPrefix(byte[] buffer, int offset, int count)
         {
-            using(var mem = new MemoryStream(buffer,offset, count))
-            return ProtoBufSerializer.DeserializeWithLengthPrefix<Header>(mem, HeaderLengthPrefix);
+            using (var mem = new MemoryStream(buffer, offset, count))
+            {
+                Header header = ProtoBufSerializer.DeserializeWithLengthPrefix<Header>(mem, HeaderLengthPrefix);
+                if (header != null)
+                    return header;
+
+                Debugger.Launch();
+                throw new InvalidOperationException("Результатом десериализации оказался Null.");
+            }
         }
 
         /// <summary>

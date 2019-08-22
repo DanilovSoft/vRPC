@@ -232,7 +232,7 @@ namespace vRPC
             Type resultType = GetActionReturnType(targetMethod);
 
             // Отправляет запрос и получает результат от удалённой стороны.
-            Task<object> taskObject = OnProxyCall(contextTask, requestToSend, resultType);
+            Task<object> taskObject = OnProxyCallAsync(contextTask, requestToSend, resultType);
 
             // Если возвращаемый тип функции — Task.
             if (targetMethod.IsAsyncMethod())
@@ -265,24 +265,22 @@ namespace vRPC
             }
         }
 
-        private static async Task<object> OnProxyCall(ValueTask<Context> contextTask, Message requestToSend, Type returnType)
+        private static async Task<object> OnProxyCallAsync(ValueTask<Context> contextTask, Message requestToSend, Type returnType)
         {
             Context context;
             if (contextTask.IsCompletedSuccessfully)
-            {
-                context = contextTask.Result;
-            }
+                context = contextTask.GetAwaiter().GetResult();
             else
-            {
-                context = await contextTask;
-            }
-            return context.OnProxyCall(requestToSend, returnType);
+                context = await contextTask.ConfigureAwait(false);
+            
+            object taskResult = await context.OnProxyCall(requestToSend, returnType).ConfigureAwait(false);
+            return taskResult;
         }
 
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
-        internal object OnProxyCall(Message requestToSend, Type resultType)
+        internal Task<object> OnProxyCall(Message requestToSend, Type resultType)
         {
             ThrowIfDisposed();
             ThrowIfStopRequired();
@@ -327,7 +325,7 @@ namespace vRPC
         private protected async Task<object> ExecuteRequestAsync(Message requestToSend, Type returnType)
         {
             // Добавить запрос в словарь для дальнейшей связки с ответом.
-            TaskCompletionSource tcs = _socket.RequestCollection.AddRequest(returnType, requestToSend.ActionName, out short uid);
+            TaskCompletionSource tcs = _socket.RequestCollection.AddRequest(returnType, requestToSend.ActionName, out ushort uid);
 
             // Назначить запросу уникальный идентификатор.
             requestToSend.Uid = uid;
@@ -360,17 +358,14 @@ namespace vRPC
 
         private async Task ReceivingLoopThreadAsync()
         {
+            byte[] pooledBuffer = new byte[Header.HeaderMaxSize];
+
             // Бесконечно обрабатываем сообщения сокета.
             while (!IsDisposed)
             {
-                //int headerLength = 0;
-
                 #region Читаем хедер.
 
-                Header header = null;
                 ValueWebSocketReceiveExResult webSocketMessage;
-
-                byte[] pooledBuffer = new byte[Header.HeaderMaxSize];
 
                 try
                 {
@@ -387,6 +382,7 @@ namespace vRPC
                     return;
                 }
 
+                Header header;
                 if (webSocketMessage.ErrorCode == SocketError.Success)
                 {
                     try
@@ -430,11 +426,12 @@ namespace vRPC
                 else
                 {
                     // Оповестить об обрыве.
-                    AtomicDisconnect(new SocketException((int)webSocketMessage.ErrorCode));
+                    AtomicDisconnect(webSocketMessage.ErrorCode.ToException());
 
                     // Завершить поток.
                     return;
                 }
+                #endregion
 
                 using (var framesMem = new MemoryPoolStream(header.ContentLength))
                 {
@@ -546,16 +543,16 @@ namespace vRPC
                             //    }
                             //}
                             //else
-                            {
+                            //{
                                 // Копирование фрейма в MemoryStream.
                                 framesMem.Write(pooledBuffer, 0, webSocketMessage.Count);
-                            }
+                            //}
                         }
                         else
                         // Обрыв соединения.
                         {
                             // Оповестить об обрыве.
-                            AtomicDisconnect(new SocketException((int)webSocketMessage.ErrorCode));
+                            AtomicDisconnect(webSocketMessage.ErrorCode.ToException());
 
                             // Завершить поток.
                             return;
@@ -563,9 +560,6 @@ namespace vRPC
 
                         #endregion
                     } while (!webSocketMessage.EndOfMessage);
-
-
-                    #endregion
 
                     if (header != null)
                     {
@@ -584,7 +578,8 @@ namespace vRPC
                             RequestMessage receivedRequest;
                             try
                             {
-                                receivedRequest = ExtensionMethods.DeserializeJson<RequestMessage>(framesMem);
+                                // Десериализуем запрос.
+                                receivedRequest = ExtensionMethods.DeserializeRequestJson(framesMem);
                             }
                             catch (Exception ex)
                             // Ошибка десериализации запроса.
@@ -601,7 +596,6 @@ namespace vRPC
                                 continue;
                                 #endregion
                             }
-
                             #endregion
 
                             #region Выполнение запроса

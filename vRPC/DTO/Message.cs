@@ -15,7 +15,7 @@ namespace vRPC
 
         #endregion
 
-        public short Uid { get; set; }
+        public ushort Uid { get; set; }
         public bool IsRequest { get; }
         public string ActionName { get; private set; }
         /// <summary>
@@ -41,7 +41,7 @@ namespace vRPC
         /// <summary>
         /// Конструктор ответа.
         /// </summary>
-        private Message(short uid, object result)
+        private Message(ushort uid, object result)
         {
             Uid = uid;
             Result = result;
@@ -52,7 +52,7 @@ namespace vRPC
             return new Message(actionName, args);
         }
 
-        public static Message FromResult(short uid, object rawResult)
+        public static Message FromResult(ushort uid, object rawResult)
         {
             return new Message(uid, rawResult);
         }

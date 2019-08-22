@@ -72,7 +72,7 @@ namespace vRPC
             // Результат уже установлен. Можно установить fast-path.
             _isCompleted = true;
 
-            // Атомарно записать заглушку или вызвать оригинальный continuation
+            // Атомарно записать заглушку или вызвать оригинальный continuation.
             Action continuation = Interlocked.CompareExchange(ref _continuationAtomic, GlobalVars.DummyAction, null);
             if (continuation != null)
             {

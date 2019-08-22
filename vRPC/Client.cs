@@ -109,10 +109,10 @@ namespace vRPC
 
         public T GetProxy<T>()
         {
-            return ProxyCache.GetProxy<T>(GetOrCreateConnection);
+            return ProxyCache.GetProxy<T>(ContextCallback);
         }
 
-        private async ValueTask<Context> GetOrCreateConnection()
+        private async ValueTask<Context> ContextCallback()
         {
             ConnectionResult connectionResult = await ConnectIfNeededAsync();
 
