@@ -11,15 +11,17 @@ namespace vRPC
     /// </summary>
     internal readonly struct SendJob
     {
-        public SocketWrapper SocketQueue { get; }
-        public MemoryPoolStream MemoryPoolStream { get; }
+        public MemoryPoolStream ContentStream { get; }
         public MessageType MessageType { get; }
+        public Header Header { get; }
+        public int HeaderSizeWithPrefix { get; }
 
         [DebuggerStepThrough]
-        public SendJob(SocketWrapper socketQueue, MemoryPoolStream memoryPoolStream, MessageType messageType)
+        public SendJob(Header header, int headerSizeWithPrefix, MemoryPoolStream contentStream, MessageType messageType)
         {
-            SocketQueue = socketQueue;
-            MemoryPoolStream = memoryPoolStream;
+            Header = header;
+            HeaderSizeWithPrefix = headerSizeWithPrefix;
+            ContentStream = contentStream;
             MessageType = messageType;
         }
     }

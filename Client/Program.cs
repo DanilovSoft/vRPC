@@ -12,29 +12,58 @@ namespace Client
     {
         private const int Port = 65125;
 
-        static async Task Main()
+        static void Main()
         {
             Console.Title = "Клиент";
             Thread.Sleep(1000);
+            long reqCount = 0;
 
-            using (var client = new ServerContext("127.0.0.1", Port))
+            const int threads = 1;
+            var ce = new CountdownEvent(threads);
+            ThreadPool.SetMinThreads(threads, threads);
+            for (int i = 0; i < threads; i++)
             {
-                client.ConfigureService(ioc => 
+                ThreadPool.UnsafeQueueUserWorkItem(async delegate 
                 {
-                    ioc.AddLogging(loggingBuilder =>
+                    using (var client = new vRPC.Client("127.0.0.1", Port))
                     {
-                        loggingBuilder
-                            .AddConsole();
-                    });
-                });
+                        client.ConfigureService(ioc =>
+                        {
+                            ioc.AddLogging(loggingBuilder =>
+                            {
+                                loggingBuilder
+                                    .AddConsole();
+                            });
+                        });
+                        var homeController = client.GetProxy<IHomeController>();
 
-                var homeController = client.GetProxy<IHomeController>();
+                        while ((await client.ConnectAsync()).SocketError != SocketError.Success)
+                            await Task.Delay(new Random().Next(100, 200));
 
-                while (true)
-                {
-                    string echo = await homeController.EchoAsync();
-                    Console.WriteLine($"Сервер вернул результат: {echo}");
-                }
+                        ce.Signal();
+                        ce.Wait();
+
+                        while (true)
+                        {
+                            homeController.DummyCall();
+                            Interlocked.Increment(ref reqCount);
+                        }
+                    }
+                }, null);
+            }
+
+            ce.Wait();
+
+            long prev = 0;
+            while(true)
+            {
+                Thread.Sleep(1000);
+                long rCount = Interlocked.Read(ref reqCount);
+                ulong reqPerSecond = unchecked((ulong)(rCount - prev));
+                prev = rCount;
+                Console.SetCursorPosition(0, 0);
+                Console.Clear();
+                Console.WriteLine($"Request per second: {reqPerSecond}");
             }
         }
     }

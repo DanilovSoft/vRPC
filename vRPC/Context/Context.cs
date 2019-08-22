@@ -21,10 +21,10 @@ namespace vRPC
     /// <summary>
     /// Контекст соединения Web-Сокета. Владеет соединением.
     /// </summary>
-    public abstract class Context : IDisposable
+    public class Context : IDisposable
     {
         /// <summary>
-        /// Максимальный размер фрейма который может передавать протокол.
+        /// Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
         /// </summary>
         private const int WebSocketMaxFrameSize = 4096;
         private const string ProtocolHeaderErrorMessage = "Произошла ошибка десериализации заголовка от удалённой стороны.";
@@ -32,14 +32,11 @@ namespace vRPC
         /// Содержит имена методов прокси интерфейса без постфикса Async.
         /// </summary>
         private static readonly Dictionary<MethodInfo, string> _proxyMethodName = new Dictionary<MethodInfo, string>();
-        /// <summary>
-        /// Объект синхронизации для создания прокси из интерфейсов.
-        /// </summary>
-        private readonly object _proxyObj = new object();
-        /// <summary>
-        /// Содержит прокси созданные из интерфейсов.
-        /// </summary>
-        private readonly Dictionary<Type, object> _proxies = new Dictionary<Type, object>();
+        
+        ///// <summary>
+        ///// Объект синхронизации для создания прокси из интерфейсов.
+        ///// </summary>
+        //private static readonly object _proxyObj = new object();
         /// <summary>
         /// Потокобезопасный словарь используемый только для чтения.
         /// Хранит все доступные контроллеры. Не учитывает регистр.
@@ -50,13 +47,13 @@ namespace vRPC
         /// </summary>
         private readonly ControllerActionsDictionary _controllerActions;
         private readonly TaskCompletionSource<int> _tcs = new TaskCompletionSource<int>();
-        private ServiceProvider _serviceProvider;
+        private readonly ServiceProvider _serviceProvider;
         public ServiceProvider ServiceProvider => _serviceProvider;
-        private protected volatile SocketWrapper _socket;
+        private readonly SocketWrapper _socket;
         /// <summary>
         /// => <see langword="volatile"/> _socket.
         /// </summary>
-        private protected SocketWrapper Socket { get => _socket; set => _socket = value; }
+        private protected SocketWrapper Socket { get => _socket; }
         public EndPoint LocalEndPoint => _socket.WebSocket.LocalEndPoint;
         public EndPoint RemoteEndPoint => _socket.WebSocket.RemoteEndPoint;
         /// <summary>
@@ -65,6 +62,9 @@ namespace vRPC
         private readonly Channel<SendJob> _sendChannel;
         private int _disposed;
         private bool IsDisposed => Volatile.Read(ref _disposed) == 1;
+        /// <summary>
+        /// <see langword="true"/> если происходит остановка сервиса.
+        /// </summary>
         private volatile bool _stopRequired;
         /// <summary>
         /// Возвращает <see cref="Task"/> который завершается когда сервис полностью 
@@ -73,9 +73,11 @@ namespace vRPC
         public Task Completion => _tcs.Task;
         /// <summary>
         /// Количество запросов для обработки + количество ответов для отправки.
-        /// Для отслеживания грациозной остановки.
+        /// Для отслеживания грациозной остановки сервиса.
         /// </summary>
         private int _reqAndRespCount;
+        internal event EventHandler<Exception> Disconnected;
+        internal event EventHandler<Controller> BeforeInvokeController;
 
         // static ctor.
         static Context()
@@ -84,34 +86,53 @@ namespace vRPC
             ProtoBuf.Serializer.PrepareSerializer<Header>();
         }
 
+        //// ctor.
+        ///// <summary>
+        ///// Конструктор клиента.
+        ///// </summary>
+        ///// <param name="controllersAssembly">Сборка в которой будет осеществляться поиск контроллеров.</param>
+        //internal Context(Assembly controllersAssembly) : this()
+        //{
+        //    // Сборка с контроллерами не должна быть текущей сборкой.
+        //    Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
+
+        //    // Словарь с найденными контроллерами в вызывающей сборке.
+        //    _controllers = GlobalVars.FindAllControllers(controllersAssembly);
+
+        //    _controllerActions = new ControllerActionsDictionary(_controllers);
+
+        //    // Запустить диспетчер отправки сообщений.
+        //    _sendChannel = StartChannelSender();
+        //}
+
+        //// ctor.
+        ///// <summary>
+        ///// Конструктор клиента.
+        ///// </summary>
+        ///// <param name="controllersAssembly">Сборка в которой будет осеществляться поиск контроллеров.</param>
+        //internal Context(Assembly controllersAssembly) : this()
+        //{
+        //    // Сборка с контроллерами не должна быть текущей сборкой.
+        //    Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
+
+        //    // Словарь с найденными контроллерами в вызывающей сборке.
+        //    _controllers = GlobalVars.FindAllControllers(controllersAssembly);
+
+        //    _controllerActions = new ControllerActionsDictionary(_controllers);
+
+        //    // Запустить диспетчер отправки сообщений.
+        //    _sendChannel = StartChannelSender();
+        //}
+
         // ctor.
         /// <summary>
-        /// Конструктор клиента.
-        /// </summary>
-        /// <param name="controllersAssembly">Сборка в которой будет осеществляться поиск контроллеров.</param>
-        internal Context(Assembly controllersAssembly) : this()
-        {
-            // Сборка с контроллерами не должна быть текущей сборкой.
-            Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
-
-            // Словарь с найденными контроллерами в вызывающей сборке.
-            _controllers = GlobalVars.FindAllControllers(controllersAssembly);
-
-            _controllerActions = new ControllerActionsDictionary(_controllers);
-
-            // Запустить диспетчер отправки сообщений.
-            _sendChannel = StartChannelSender();
-        }
-
-        // ctor.
-        /// <summary>
-        /// Конструктор сервера — Когда подключается клиент.
+        /// Конструктор сервера — когда подключается клиент.
         /// </summary>
         /// <param name="ioc">Контейнер Listener'а.</param>
         internal Context(MyWebSocket clientConnection, ServiceProvider serviceProvider, Dictionary<string, Type> controllers) : this()
         {
             // У сервера сокет всегда подключен и переподключаться не может.
-            Socket = new SocketWrapper(clientConnection);
+            _socket = new SocketWrapper(clientConnection);
 
             // IoC готов к работе.
             _serviceProvider = serviceProvider;
@@ -122,7 +143,22 @@ namespace vRPC
             _controllerActions = new ControllerActionsDictionary(controllers);
 
             // Запустить диспетчер отправки сообщений.
-            _sendChannel = StartChannelSender();
+            _sendChannel = Channel.CreateUnbounded<SendJob>(new UnboundedChannelOptions
+            {
+                AllowSynchronousContinuations = true, // Внимательнее с этим параметром!
+                SingleReader = true,
+                SingleWriter = false,
+            });
+
+            ThreadPool.UnsafeQueueUserWorkItem(async state =>
+            {
+                var wr = (WeakReference<Context>)state;
+                if (wr.TryGetTarget(out var contex))
+                {
+                    // Не бросает исключения.
+                    await contex.ChannelSenderThreadAsync();
+                }
+            }, state: new WeakReference<Context>(this));
         }
 
         // ctor.
@@ -150,34 +186,11 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Вызывается единожды клиентским контектом.
-        /// </summary>
-        private protected void ConfigureIoC(ServiceCollection ioc)
-        {
-            // Добавим в IoC все контроллеры сборки.
-            foreach (Type controllerType in _controllers.Values)
-                ioc.AddScoped(controllerType);
-
-            ServiceProvider serviceProvider = ioc.BuildServiceProvider();
-
-            // IoC готов к работе.
-            if(Interlocked.CompareExchange(ref _serviceProvider, serviceProvider, null) != null)
-            {
-                // Нельзя устанавливать IoC повторно.
-                serviceProvider.Dispose();
-            }
-        }
-
-        /// <summary>
         /// Создает прокси к методам удалённой стороны на основе интерфейса.
         /// </summary>
         public T GetProxy<T>()
         {
-            var attrib = typeof(T).GetCustomAttribute<ControllerContractAttribute>(inherit: false);
-            if (attrib == null)
-                throw new ArgumentNullException("controllerName", $"Укажите имя контроллера или пометьте интерфейс атрибутом \"{nameof(ControllerContractAttribute)}\"");
-
-            return GetProxy<T>(attrib.ControllerName);
+            return ProxyCache.GetProxy<T>(() => new ValueTask<Context>(this));
         }
 
         /// <summary>
@@ -186,30 +199,14 @@ namespace vRPC
         /// <param name="controllerName">Имя контроллера на удалённой стороне к которому применяется текущий интерфейс <see cref="{T}"/>.</param>
         public T GetProxy<T>(string controllerName)
         {
-            Type interfaceType = typeof(T);
-            lock (_proxyObj)
-            {
-                if (_proxies.TryGetValue(interfaceType, out object proxy))
-                {
-                    return (T)proxy;
-                }
-                else
-                {
-                    T proxyT = TypeProxy.Create<T, InterfaceProxy>((this, controllerName));
-                    _proxies.Add(interfaceType, proxyT);
-                    return proxyT;
-                }
-            }
+            return ProxyCache.GetProxy<T>(controllerName, () => new ValueTask<Context>(this));
         }
 
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
-        internal object OnProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
+        internal static object OnProxyCall(ValueTask<Context> contextTask, MethodInfo targetMethod, object[] args, string controllerName)
         {
-            ThrowIfDisposed();
-            ThrowIfStopRequired();
-
             #region CreateArgs()
             Arg[] CreateArgs()
             {
@@ -235,7 +232,7 @@ namespace vRPC
             Type resultType = GetActionReturnType(targetMethod);
 
             // Отправляет запрос и получает результат от удалённой стороны.
-            Task<object> taskObject = ExecuteRequestAsync(requestToSend, resultType, _socket);
+            Task<object> taskObject = OnProxyCall(contextTask, requestToSend, resultType);
 
             // Если возвращаемый тип функции — Task.
             if (targetMethod.IsAsyncMethod())
@@ -263,9 +260,36 @@ namespace vRPC
             // Была вызвана синхронная функция.
             {
                 // Результатом может быть исключение.
-                object rawResult = taskObject.GetAwaiter().GetResult();
-                return rawResult;
+                object finalResult = taskObject.GetAwaiter().GetResult();
+                return finalResult;
             }
+        }
+
+        private static async Task<object> OnProxyCall(ValueTask<Context> contextTask, Message requestToSend, Type returnType)
+        {
+            Context context;
+            if (contextTask.IsCompletedSuccessfully)
+            {
+                context = contextTask.Result;
+            }
+            else
+            {
+                context = await contextTask;
+            }
+            return context.OnProxyCall(requestToSend, returnType);
+        }
+
+        /// <summary>
+        /// Происходит при обращении к проксирующему интерфейсу.
+        /// </summary>
+        internal object OnProxyCall(Message requestToSend, Type resultType)
+        {
+            ThrowIfDisposed();
+            ThrowIfStopRequired();
+
+            // Отправляет запрос и получает результат от удалённой стороны.
+            Task<object> taskObject = ExecuteRequestAsync(requestToSend, resultType);
+            return taskObject;
         }
 
         /// <summary>
@@ -290,43 +314,26 @@ namespace vRPC
             }
         }
 
-        /// <summary>
-        /// Создает подключение или возвращает уже подготовленное соединение.
-        /// </summary>
-        /// <returns></returns>
-        private protected abstract Task<ConnectionResult> GetOrCreateConnectionAsync();
-
-        /// <summary>
-        /// Происходит атомарно для экземпляра подключения.
-        /// </summary>
-        /// <param name="socketQueue">Соединение в котором произошло отключение.</param>
-        private protected abstract void OnAtomicDisconnect(SocketWrapper socketQueue, Exception exception);
+        ///// <summary>
+        ///// Создает подключение или возвращает уже подготовленное соединение.
+        ///// </summary>
+        ///// <returns></returns>
+        //private protected abstract Task<ConnectionResult> GetOrCreateConnectionAsync();
 
         /// <summary>
         /// Отправляет запрос и ожидает его ответ.
         /// </summary>
         /// <param name="returnType">Тип в который будет десериализован результат запроса.</param>
-        private protected async Task<object> ExecuteRequestAsync(Message requestToSend, Type returnType, SocketWrapper socketQueue)
+        private protected async Task<object> ExecuteRequestAsync(Message requestToSend, Type returnType)
         {
-            // У клиента соединение может быть ещё не установлено.
-            if (socketQueue == null)
-            {
-                // Никогда не вызывается серверным контекстом.
-                var connectionResult = await GetOrCreateConnectionAsync().ConfigureAwait(false);
-                if (connectionResult.SocketError == SocketError.Success)
-                    socketQueue = connectionResult.SocketWrapper;
-                else
-                    throw new SocketException((int)connectionResult.SocketError);
-            }
-
             // Добавить запрос в словарь для дальнейшей связки с ответом.
-            TaskCompletionSource tcs = socketQueue.RequestCollection.AddRequest(returnType, requestToSend.ActionName, out short uid);
+            TaskCompletionSource tcs = _socket.RequestCollection.AddRequest(returnType, requestToSend.ActionName, out short uid);
 
             // Назначить запросу уникальный идентификатор.
             requestToSend.Uid = uid;
 
             // Планируем отправку запроса.
-            QueueSendMessage(socketQueue, requestToSend, MessageType.Request);
+            QueueSendMessage(requestToSend, MessageType.Request);
 
             // Ожидаем результат от потока поторый читает из сокета.
             object rawResult = await tcs;
@@ -338,168 +345,234 @@ namespace vRPC
         /// <summary>
         /// Запускает бесконечный цикл, в фоновом потоке, считывающий из сокета запросы и ответы.
         /// </summary>
-        private protected void StartReceivingLoop(SocketWrapper socketQueue_)
+        internal void StartReceivingLoop()
         {
             ThreadPool.UnsafeQueueUserWorkItem(async state =>
             {
-                var socketQueue = (SocketWrapper)state;
-
-                // Не бросает исключения.
-                await ReceivingLoopThreadAsync(socketQueue);
-                
-            }, state: socketQueue_); // Без замыкания.
+                var wr = (WeakReference<Context>)state;
+                if (wr.TryGetTarget(out var context))
+                {
+                    // Не бросает исключения.
+                    await context.ReceivingLoopThreadAsync();
+                }
+            }, state: new WeakReference<Context>(this, false)); // Без замыкания.
         }
 
-        private async Task ReceivingLoopThreadAsync(SocketWrapper socketQueue)
+        private async Task ReceivingLoopThreadAsync()
         {
             // Бесконечно обрабатываем сообщения сокета.
             while (!IsDisposed)
             {
-                int headerLength = 0;
+                //int headerLength = 0;
 
-                // Арендуем память на фрейм веб-сокета.
-                using (var mem = new MemoryPoolStream(128))
+                #region Читаем хедер.
+
+                Header header = null;
+                ValueWebSocketReceiveExResult webSocketMessage;
+
+                byte[] pooledBuffer = new byte[Header.HeaderMaxSize];
+
+                try
                 {
-                    #region Читаем запрос или ответ на запрос.
+                    // Читаем фрейм веб-сокета.
+                    webSocketMessage = await _socket.WebSocket.ReceiveExAsync(pooledBuffer, CancellationToken.None);
+                }
+                catch (Exception ex)
+                // Обрыв соединения.
+                {
+                    // Оповестить об обрыве.
+                    AtomicDisconnect(ex);
 
-                    Header header = null;
-                    ValueWebSocketReceiveExResult webSocketMessage;
+                    // Завершить поток.
+                    return;
+                }
 
-                    // Арендуем максимум памяти на один фрейм веб-сокета.
-                    using (var frameMem = new MemoryPoolStream(WebSocketMaxFrameSize))
+                if (webSocketMessage.ErrorCode == SocketError.Success)
+                {
+                    try
                     {
-                        byte[] pooledBuffer = frameMem.DangerousGetBuffer();
-                        var segment = new ArraySegment<byte>(pooledBuffer);
-
-                        // Пока не EndOfMessage
-                        do
-                        {
-                            #region Пока не EndOfMessage записывать в буфер памяти
-
-                            #region Читаем фрейм веб-сокета.
-
-                            try
-                            {
-                                // Читаем фрейм веб-сокета.
-                                webSocketMessage = await socketQueue.WebSocket.ReceiveExAsync(segment, CancellationToken.None);
-                            }
-                            catch (Exception ex)
-                            // Обрыв соединения.
-                            {
-                                // Оповестить об обрыве.
-                                AtomicDisconnect(socketQueue, ex);
-
-                                // Завершить поток.
-                                return;
-                            }
-                            #endregion
-
-                            if (webSocketMessage.ErrorCode == SocketError.Success)
-                            {
-                                #region Проверка на Close.
-
-                                // Другая сторона закрыла соединение.
-                                if (webSocketMessage.MessageType == WebSocketMessageType.Close)
-                                {
-                                    // Сформировать причину закрытия соединения.
-                                    string exceptionMessage = GetMessageFromCloseFrame(webSocketMessage, socketQueue.WebSocket);
-
-                                    // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
-                                    var socketClosedException = new SocketClosedException(exceptionMessage);
-
-                                    // Оповестить об обрыве.
-                                    AtomicDisconnect(socketQueue, socketClosedException);
-
-                                    // Завершить поток.
-                                    return;
-                                }
-                                #endregion
-
-                                // Копирование фрейма в MemoryStream.
-                                mem.Write(pooledBuffer, 0, webSocketMessage.Count);
-
-                                if (header == null && Header.TryReadLengthPrefix(mem, out int length) && mem.Length >= (length + 4))
-                                // Пора десериализовать заголовок.
-                                {
-                                    #region Десериализуем фрейм веб-сокета в заголовок протокола.
-
-                                    mem.Position = 0;
-                                    try
-                                    {
-                                        header = Header.DeserializeWithLengthPrefix(mem);
-                                    }
-                                    catch (Exception headerException)
-                                    // Не удалось десериализовать заголовок.
-                                    {
-                                        #region Отправка Close
-
-                                        var protocolErrorException = new ProtocolErrorException(ProtocolHeaderErrorMessage, headerException);
-
-                                        // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-                                        socketQueue.RequestCollection.OnDisconnect(protocolErrorException);
-
-                                        try
-                                        {
-                                            // Отключаемся от сокета с небольшим таймаутом.
-                                            using (var cts = new CancellationTokenSource(3000))
-                                                await socketQueue.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации заголовка.", cts.Token);
-                                        }
-                                        catch (Exception ex)
-                                        // Злой обрыв соединения.
-                                        {
-                                            // Оповестить об обрыве.
-                                            AtomicDisconnect(socketQueue, ex);
-
-                                            // Завершить поток.
-                                            return;
-                                        }
-
-                                        // Оповестить об обрыве.
-                                        AtomicDisconnect(socketQueue, protocolErrorException);
-
-                                        // Завершить поток.
-                                        return;
-                                        #endregion
-                                    }
-
-                                    // Размер заголовка определён.
-                                    headerLength = (int)mem.Position;
-
-                                    // Если есть еще фреймы веб-сокета.
-                                    if (!webSocketMessage.EndOfMessage)
-                                    {
-                                        // Возвращаем позицию стрима в конец для следующей записи.
-                                        mem.Position = mem.Length;
-
-                                        // Увеличим стрим до размера всего сообщения.
-                                        mem.Capacity = (header.ContentLength + headerLength);
-                                    }
-
-                                    #endregion
-                                }
-                            }
-                            else
-                            // Обрыв соединения.
-                            {
-                                // Оповестить об обрыве.
-                                AtomicDisconnect(socketQueue, new SocketException((int)webSocketMessage.ErrorCode));
-
-                                // Завершить поток.
-                                return;
-                            }
-
-                            #endregion
-                        } while (!webSocketMessage.EndOfMessage);
+                        header = Header.DeserializeWithLengthPrefix(pooledBuffer, 0, webSocketMessage.Count);
                     }
-                    
+                    catch (Exception headerException)
+                    // Не удалось десериализовать заголовок.
+                    {
+                        #region Отправка Close и выход
+
+                        var protocolErrorException = new ProtocolErrorException(ProtocolHeaderErrorMessage, headerException);
+
+                        // Сообщить потокам что обрыв произошел по вине удалённой стороны.
+                        _socket.RequestCollection.OnDisconnect(protocolErrorException);
+
+                        try
+                        {
+                            // Отключаемся от сокета с небольшим таймаутом.
+                            using (var cts = new CancellationTokenSource(3000))
+                                await _socket.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации заголовка.", cts.Token);
+                        }
+                        catch (Exception ex)
+                        // Злой обрыв соединения.
+                        {
+                            // Оповестить об обрыве.
+                            AtomicDisconnect(ex);
+
+                            // Завершить поток.
+                            return;
+                        }
+
+                        // Оповестить об обрыве.
+                        AtomicDisconnect(protocolErrorException);
+
+                        // Завершить поток.
+                        return;
+                        #endregion
+                    }
+                }
+                else
+                {
+                    // Оповестить об обрыве.
+                    AtomicDisconnect(new SocketException((int)webSocketMessage.ErrorCode));
+
+                    // Завершить поток.
+                    return;
+                }
+
+                using (var framesMem = new MemoryPoolStream(header.ContentLength))
+                {
+                    // Пока не EndOfMessage
+                    do
+                    {
+                        #region Пока не EndOfMessage записывать в буфер памяти
+
+                        #region Читаем фрейм веб-сокета.
+
+                        try
+                        {
+                            // Читаем фрейм веб-сокета.
+                            webSocketMessage = await _socket.WebSocket.ReceiveExAsync(pooledBuffer, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        // Обрыв соединения.
+                        {
+                            // Оповестить об обрыве.
+                            AtomicDisconnect(ex);
+
+                            // Завершить поток.
+                            return;
+                        }
+                        #endregion
+
+                        if (webSocketMessage.ErrorCode == SocketError.Success)
+                        {
+                            #region Проверка на Close и выход.
+
+                            // Другая сторона закрыла соединение.
+                            if (webSocketMessage.MessageType == WebSocketMessageType.Close)
+                            {
+                                // Сформировать причину закрытия соединения.
+                                string exceptionMessage = GetMessageFromCloseFrame();
+
+                                // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
+                                var socketClosedException = new SocketClosedException(exceptionMessage);
+
+                                // Оповестить об обрыве.
+                                AtomicDisconnect(socketClosedException);
+
+                                // Завершить поток.
+                                return;
+                            }
+                            #endregion
+
+                            //if (header == null)
+                            //{
+                            //    if (Header.TryGetHeaderLength(pooledBuffer, webSocketMessage.Count, out headerLength))
+                            //    // Пора десериализовать заголовок.
+                            //    {
+                            //        #region Десериализуем заголовок протокола.
+
+                            //        framesMem.Position = 0;
+                            //        try
+                            //        {
+                            //            header = Header.DeserializeWithLengthPrefix(pooledBuffer, 0, headerLength);
+                            //        }
+                            //        catch (Exception headerException)
+                            //        // Не удалось десериализовать заголовок.
+                            //        {
+                            //            #region Отправка Close и выход
+
+                            //            var protocolErrorException = new ProtocolErrorException(ProtocolHeaderErrorMessage, headerException);
+
+                            //            // Сообщить потокам что обрыв произошел по вине удалённой стороны.
+                            //            _socket.RequestCollection.OnDisconnect(protocolErrorException);
+
+                            //            try
+                            //            {
+                            //                // Отключаемся от сокета с небольшим таймаутом.
+                            //                using (var cts = new CancellationTokenSource(3000))
+                            //                    await _socket.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации заголовка.", cts.Token);
+                            //            }
+                            //            catch (Exception ex)
+                            //            // Злой обрыв соединения.
+                            //            {
+                            //                // Оповестить об обрыве.
+                            //                AtomicDisconnect(ex);
+
+                            //                // Завершить поток.
+                            //                return;
+                            //            }
+
+                            //            // Оповестить об обрыве.
+                            //            AtomicDisconnect(protocolErrorException);
+
+                            //            // Завершить поток.
+                            //            return;
+                            //            #endregion
+                            //        }
+
+                            //        // Если есть еще фреймы веб-сокета.
+                            //        if (!webSocketMessage.EndOfMessage)
+                            //        {
+                            //            // Возвращаем позицию стрима в конец для следующей записи.
+                            //            framesMem.Position = framesMem.Length;
+
+                            //            // Увеличим стрим до размера всего сообщения.
+                            //            framesMem.Capacity = (header.ContentLength + headerLength);
+                            //        }
+                            //        else
+                            //        {
+                            //            pooledBuffer = framesMem.DangerousGetBuffer();
+                            //        }
+
+                            //        #endregion
+                            //    }
+                            //}
+                            //else
+                            {
+                                // Копирование фрейма в MemoryStream.
+                                framesMem.Write(pooledBuffer, 0, webSocketMessage.Count);
+                            }
+                        }
+                        else
+                        // Обрыв соединения.
+                        {
+                            // Оповестить об обрыве.
+                            AtomicDisconnect(new SocketException((int)webSocketMessage.ErrorCode));
+
+                            // Завершить поток.
+                            return;
+                        }
+
+                        #endregion
+                    } while (!webSocketMessage.EndOfMessage);
+
+
                     #endregion
 
                     if (header != null)
                     {
                         #region Обработка Payload
 
-                        // Установить курсор после заголовка.
-                        mem.Position = headerLength;
+                        // Установить курсор в начало payload.
+                        framesMem.Position = 0;
 
                         if (header.StatusCode == StatusCode.Request)
                         // Получен запрос.
@@ -511,7 +584,7 @@ namespace vRPC
                             RequestMessage receivedRequest;
                             try
                             {
-                                receivedRequest = ExtensionMethods.DeserializeJson<RequestMessage>(mem);
+                                receivedRequest = ExtensionMethods.DeserializeJson<RequestMessage>(framesMem);
                             }
                             catch (Exception ex)
                             // Ошибка десериализации запроса.
@@ -522,7 +595,7 @@ namespace vRPC
                                 var errorResponse = Message.FromResult(header.Uid, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\"."));
 
                                 // Передать на отправку результат с ошибкой.
-                                QueueSendMessage(socketQueue, errorResponse, MessageType.Response);
+                                QueueSendMessage(errorResponse, MessageType.Response);
 
                                 // Вернуться к чтению из сокета.
                                 continue;
@@ -540,7 +613,7 @@ namespace vRPC
                             receivedRequest.RequestContext = new RequestContext();
 
                             // Начать выполнение запроса в отдельном потоке.
-                            StartProcessRequestAsync(socketQueue, receivedRequest);
+                            StartProcessRequest(receivedRequest);
                             #endregion
 
                             #endregion
@@ -551,7 +624,7 @@ namespace vRPC
                             #region Передача другому потоку ответа на запрос
 
                             // Удалить запрос из словаря.
-                            if (socketQueue.RequestCollection.TryTake(header.Uid, out TaskCompletionSource tcs))
+                            if (_socket.RequestCollection.TryTake(header.Uid, out TaskCompletionSource tcs))
                             // Передать ответ ожидающему потоку.
                             {
                                 #region Передать ответ ожидающему потоку
@@ -570,7 +643,7 @@ namespace vRPC
                                         object rawResult = null;
                                         try
                                         {
-                                            rawResult = deserializer(mem, tcs.ResultType);
+                                            rawResult = deserializer(framesMem, tcs.ResultType);
                                             deserialized = true;
                                         }
                                         catch (Exception deserializationException)
@@ -601,7 +674,7 @@ namespace vRPC
                                 // Сервер прислал код ошибки.
                                 {
                                     // Телом ответа в этом случае будет строка.
-                                    string errorMessage = mem.ReadAsString();
+                                    string errorMessage = framesMem.ReadAsString();
 
                                     // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
                                     tcs.TrySetException(new BadRequestException(errorMessage, header.StatusCode));
@@ -629,26 +702,26 @@ namespace vRPC
                         var protocolErrorException = new ProtocolErrorException("Удалённая сторона прислала недостаточно данных для заголовка.");
 
                         // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-                        socketQueue.RequestCollection.OnDisconnect(protocolErrorException);
+                        _socket.RequestCollection.OnDisconnect(protocolErrorException);
 
                         try
                         {
                             // Отключаемся от сокета с небольшим таймаутом.
                             using (var cts = new CancellationTokenSource(3000))
-                                await socketQueue.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Непредвиденное завершение потока данных.", cts.Token);
+                                await _socket.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Непредвиденное завершение потока данных.", cts.Token);
                         }
                         catch (Exception ex)
                         // Злой обрыв соединения.
                         {
                             // Оповестить об обрыве.
-                            AtomicDisconnect(socketQueue, ex);
+                            AtomicDisconnect(ex);
 
                             // Завершить поток.
                             return;
                         }
 
                         // Оповестить об обрыве.
-                        AtomicDisconnect(socketQueue, protocolErrorException);
+                        AtomicDisconnect(protocolErrorException);
 
                         // Завершить поток.
                         return;
@@ -663,11 +736,11 @@ namespace vRPC
         /// Сериализует сообщение и передает на отправку другому потоку.
         /// Не бросает исключения.
         /// </summary>
-        private void QueueSendMessage(SocketWrapper socketQueue, Message messageToSend, MessageType messageType)
+        private void QueueSendMessage(Message messageToSend, MessageType messageType)
         {
             // На текущем этапе сокет может быть уже уничтожен другим потоком
             // В результате чего в текущем потоке случилась ошибка но отправлять её не нужно.
-            if (socketQueue.IsDisposed)
+            if (_socket.IsDisposed)
                 return;
 
             MemoryPoolStream mem;
@@ -675,57 +748,57 @@ namespace vRPC
             // Сериализуем контент.
             #region Сериализуем сообщение
 
-            using (var contentStream = new MemoryPoolStream())
+            var contentStream = new MemoryPoolStream();
+
+            ActionContext actionContext = null;
+
+            // Записать в стрим запрос или результат запроса.
+            if (messageToSend.IsRequest)
             {
-                ActionContext actionContext = null;
-
-                // Записать в стрим запрос или результат запроса.
-                if (messageToSend.IsRequest)
+                var request = new RequestMessage
                 {
-                    var request = new RequestMessage
-                    {
-                        ActionName = messageToSend.ActionName,
-                        Args = messageToSend.Args,
-                    };
-                    ExtensionMethods.SerializeObjectJson(contentStream, request);
-                }
-                else
-                // Ответ на запрос.
-                {
-                    actionContext = new ActionContext(this, contentStream, messageToSend.ReceivedRequest?.RequestContext);
-
-                    // Записать контент.
-                    Execute(messageToSend.Result, actionContext);
-                }
-
-                // Размер контента.
-                int contentLength = (int)contentStream.Length;
-
-                // Готовим заголовок.
-                var header = new Header(messageToSend.Uid, actionContext?.StatusCode ?? StatusCode.Request)
-                {
-                    ContentLength = contentLength,
+                    ActionName = messageToSend.ActionName,
+                    Args = messageToSend.Args,
                 };
-
-                if (actionContext != null)
-                {
-                    // Записать в заголовок формат контента.
-                    header.ContentEncoding = actionContext.ProducesEncoding;
-                }
-
-                mem = new MemoryPoolStream(contentLength);
-
-                // Записать заголовок в самое начало с размер-префиксом.
-                header.SerializeWithLengthPrefix(mem);
-
-                byte[] buffer = contentStream.DangerousGetBuffer();
-                mem.Write(buffer, 0, contentLength);
+                ExtensionMethods.SerializeObjectJson(contentStream, request);
             }
+            else
+            // Ответ на запрос.
+            {
+                actionContext = new ActionContext(this, contentStream, messageToSend.ReceivedRequest?.RequestContext);
+
+                // Записать контент.
+                Execute(messageToSend.Result, actionContext);
+            }
+
+            // Размер контента.
+            int contentLength = (int)contentStream.Length;
+
+            // Готовим заголовок.
+            var header = new Header(messageToSend.Uid, actionContext?.StatusCode ?? StatusCode.Request)
+            {
+                ContentLength = contentLength,
+            };
+
+            if (actionContext != null)
+            {
+                // Записать в заголовок формат контента.
+                header.ContentEncoding = actionContext.ProducesEncoding;
+            }
+
+            mem = new MemoryPoolStream(contentLength);
+
+            // Записать заголовок в самое начало с размер-префиксом.
+            header.SerializeWithLengthPrefix(mem, out int headerSizeWithPrefix);
+
+            byte[] buffer = contentStream.DangerousGetBuffer();
+            mem.Write(buffer, 0, contentLength);
+            contentStream.Dispose();
 
             #endregion
 
             // Из-за AllowSynchronousContinuations частично начнёт отправку текущим потоком(!).
-            if (!_sendChannel.Writer.TryWrite(new SendJob(socketQueue, mem, messageType)))
+            if (!_sendChannel.Writer.TryWrite(new SendJob(header, headerSizeWithPrefix, mem, messageType)))
             {
                 mem.Dispose();
             }
@@ -746,37 +819,16 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Принимает заказы на отправку и отправляет в сокет. Запускается из конструктора.
+        /// Принимает заказы на отправку и отправляет в сокет. Запускается из конструктора. Не бросает исключения.
         /// </summary>
-        private Channel<SendJob> StartChannelSender()
-        {
-            var sendChannel = Channel.CreateUnbounded<SendJob>(new UnboundedChannelOptions
-            {
-                AllowSynchronousContinuations = true, // Внимательнее с этим параметром!
-                SingleReader = true,
-                SingleWriter = false,
-            });
-
-            ThreadPool.UnsafeQueueUserWorkItem(async state =>
-            {
-                var channel = (Channel<SendJob>)state;
-                
-                // Не бросает исключения.
-                await ChannelSenderThreadAsync(channel);
-                    
-            }, state: sendChannel);
-
-            return sendChannel;
-        }
-
-        // Не бросает исключения.
-        private async Task ChannelSenderThreadAsync(Channel<SendJob> channel)
+        /// <returns></returns>
+        private async Task ChannelSenderThreadAsync()
         {
             while (!IsDisposed)
             {
-                if (await channel.Reader.WaitToReadAsync())
+                if (await _sendChannel.Reader.WaitToReadAsync())
                 {
-                    channel.Reader.TryRead(out SendJob sendJob);
+                    _sendChannel.Reader.TryRead(out SendJob sendJob);
 
                     if (sendJob.MessageType == MessageType.Request)
                     {
@@ -788,16 +840,33 @@ namespace vRPC
                         }
                     }
 
-                    #region Отправка запроса или ответа на запрос.
-
                     // Этим стримом теперь владеет только этот поток.
-                    using (MemoryPoolStream mem = sendJob.MemoryPoolStream)
+                    using (MemoryPoolStream mem = sendJob.ContentStream)
                     {
+                        byte[] streamBuffer = mem.DangerousGetBuffer();
+
+                        try
+                        {
+                            // Отправить заголовок.
+                            await _socket.WebSocket.SendAsync(streamBuffer.AsMemory(0, sendJob.HeaderSizeWithPrefix), WebSocketMessageType.Binary, true, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        // Обрыв соединения.
+                        {
+                            // Оповестить об обрыве.
+                            AtomicDisconnect(ex);
+
+                            // Завершить поток.
+                            return;
+                        }
+
+                        #region Отправка запроса или ответа на запрос.
+
                         // Отправляем сообщение по частям.
-                        int offset = 0;
-                        int bytesLeft = (int)mem.Length;
+                        int offset = sendJob.HeaderSizeWithPrefix;
+                        int bytesLeft = (int)mem.Length - sendJob.HeaderSizeWithPrefix;
                         bool endOfMessage = false;
-                        do
+                        while(bytesLeft > 0)
                         {
                             #region Фрагментируем отправку
 
@@ -807,20 +876,15 @@ namespace vRPC
                                 countToSend = bytesLeft;
                                 endOfMessage = true;
                             }
-
-                            byte[] streamBuffer = mem.DangerousGetBuffer();
-
-                            var segment = new ArraySegment<byte>(streamBuffer, offset, countToSend);
-
                             try
                             {
-                                await sendJob.SocketQueue.WebSocket.SendAsync(segment, WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
+                                await _socket.WebSocket.SendAsync(streamBuffer.AsMemory(offset, countToSend), WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
                             }
                             catch (Exception ex)
                             // Обрыв соединения.
                             {
                                 // Оповестить об обрыве.
-                                AtomicDisconnect(sendJob.SocketQueue, ex);
+                                AtomicDisconnect(ex);
 
                                 // Завершить поток.
                                 return;
@@ -831,7 +895,7 @@ namespace vRPC
 
                             #endregion
 
-                        } while (!endOfMessage);
+                        }
                     }
 
                     #endregion
@@ -866,31 +930,33 @@ namespace vRPC
         /// </summary>
         /// <param name="socketQueue">Экземпляр в котором произошел обрыв.</param>
         /// <param name="exception">Возможная причина обрыва соединения.</param>
-        private protected void AtomicDisconnect(SocketWrapper socketQueue, Exception exception)
+        private protected void AtomicDisconnect(Exception exception)
         {
             // Захватить эксклюзивный доступ к сокету.
-            if(socketQueue.TryOwn())
+            if(_socket.TryOwn())
             // Только один поток может зайти сюда.
             {
                 // Передать исключение всем ожидающим потокам.
-                socketQueue.RequestCollection.OnDisconnect(exception);
+                _socket.RequestCollection.OnDisconnect(exception);
 
                 // Закрыть соединение.
-                socketQueue.Dispose();
+                _socket.Dispose();
 
                 //// Отменить все операции контроллеров связанных с текущим соединением.
                 //_cts.Cancel();
 
-                // Сообщить наследникам об обрыве.
-                OnAtomicDisconnect(socketQueue, exception);
+                // Сообщить об обрыве.
+                Disconnected?.Invoke(this, exception);
             }
         }
 
         /// <summary>
         /// Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
         /// </summary>
-        private string GetMessageFromCloseFrame(ValueWebSocketReceiveExResult webSocketMessage, DanilovSoft.WebSocket.WebSocket webSocket)
+        private string GetMessageFromCloseFrame()
         {
+            var webSocket = _socket.WebSocket;
+
             string exceptionMessage = null;
             if (webSocket.CloseStatus != null)
             {
@@ -940,7 +1006,7 @@ namespace vRPC
                 using (var controller = (Controller)scope.ServiceProvider.GetRequiredService(controllerType))
                 {
                     // Подготавливаем контроллер.
-                    BeforeInvokePrepareController(controller);
+                    BeforeInvokeController?.Invoke(this, controller);
 
                     // Мапим и десериализуем аргументы по их именам.
                     //object[] args = DeserializeParameters(action.TargetMethod.GetParameters(), receivedRequest);
@@ -995,8 +1061,8 @@ namespace vRPC
         /// Проверяет доступность запрашиваемого метода для удаленного пользователя.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        protected abstract void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType);
-        protected abstract void BeforeInvokePrepareController(Controller controller);
+        protected virtual void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType) { }
+        protected virtual void BeforeInvokePrepareController(Controller controller) { }
 
         /// <summary>
         /// Пытается найти запрашиваемый пользователем контроллер.
@@ -1065,29 +1131,37 @@ namespace vRPC
         /// <summary>
         /// В новом потоке выполняет запрос клиента и отправляет ему результат или ошибку.
         /// </summary>
-        private void StartProcessRequestAsync(SocketWrapper socketQueue_, RequestMessage receivedRequest_)
+        private void StartProcessRequest(RequestMessage receivedRequest_)
         {
-            ThreadPool.UnsafeQueueUserWorkItem(async state =>
+            ThreadPool.UnsafeQueueUserWorkItem(state =>
             {
-                var tuple = ((SocketWrapper socketQueue, RequestMessage receivedRequest))state;
-
-                // Увеличить счетчик запросов.
-                if (Interlocked.Increment(ref _reqAndRespCount) > 0)
+                var tuple = ((RequestMessage receivedRequest, WeakReference<Context> wr))state;
+                if (tuple.wr.TryGetTarget(out var context))
                 {
-                    // Не бросает исключения.
-                    // Выполнить запрос и создать сообщение с результатом.
-                    Message responseToSend = await GetResponseAsync(tuple.receivedRequest);
+                    context.StartProcessRequestThread(tuple.receivedRequest);
+                }
+            }, state: (receivedRequest_, new WeakReference<Context>(this, false))); // Без замыкания.
+        }
 
-                    // Не бросает исключения.
-                    // Сериализовать и отправить результат.
-                    QueueSendMessage(tuple.socketQueue, responseToSend, MessageType.Response);
-                }
-                else
-                // Значение было -1, значит происходит остановка. Выполнять запрос не нужно.
-                {
-                    return;
-                }
-            }, state: (socketQueue_, receivedRequest_)); // Без замыкания.
+        private async void StartProcessRequestThread(RequestMessage receivedRequest)
+        // Новый поток из пула потоков.
+        {
+            // Увеличить счетчик запросов.
+            if (Interlocked.Increment(ref _reqAndRespCount) > 0)
+            {
+                // Не бросает исключения.
+                // Выполнить запрос и создать сообщение с результатом.
+                Message responseToSend = await GetResponseAsync(receivedRequest);
+
+                // Не бросает исключения.
+                // Сериализовать и отправить результат.
+                QueueSendMessage(responseToSend, MessageType.Response);
+            }
+            else
+            // Значение было -1, значит происходит остановка. Выполнять запрос не нужно.
+            {
+                return;
+            }
         }
 
         /// <summary>
@@ -1166,14 +1240,10 @@ namespace vRPC
         {
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
             {
-                SocketWrapper socket = Socket;
-                if (socket != null)
-                {
-                    // Оповестить об обрыве.
-                    AtomicDisconnect(socket, propagateException);
-                }
+                // Оповестить об обрыве.
+                AtomicDisconnect(propagateException);
 
-                //_serviceProvider?.Dispose();
+                _serviceProvider.Dispose();
                 _sendChannel.Writer.TryComplete();
             }
         }

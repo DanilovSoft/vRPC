@@ -9,9 +9,10 @@ namespace Client
     [ControllerContract("Home")]
     public interface IHomeController
     {
-        Task<string> EchoAsync();
-        ValueTask Test3Async();
-        ValueTask<int> Test4Async();
+        void DummyCall();
+        Task DummyCallAsync();
+        Task Test3Async();
+        Task<int> Test4Async();
         Task<int> Test2Async();
         Task<int> Test0Async();
     }

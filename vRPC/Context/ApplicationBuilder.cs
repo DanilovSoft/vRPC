@@ -4,10 +4,15 @@ using System.Text;
 
 namespace vRPC
 {
-    public class ApplicationBuilder
+    public sealed class ApplicationBuilder
     {
         public TimeSpan KeepAliveInterval { get; set; } = TimeSpan.FromMinutes(2);
         public TimeSpan ReceiveTimeout { get; set; } = TimeSpan.FromMinutes(4);
-        public IServiceProvider ServiceProvider { get; internal set; }
+        public IServiceProvider ServiceProvider { get; }
+
+        internal ApplicationBuilder(IServiceProvider serviceProvider)
+        {
+            ServiceProvider = serviceProvider;
+        }
     }
 }

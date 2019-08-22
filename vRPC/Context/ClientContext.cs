@@ -42,8 +42,7 @@ namespace vRPC
         /// Смежные соединения текущего пользователя. Является <see langword="volatile"/>.
         /// </summary>
         public UserConnections UserConnections { get => _userConnections; private set => _userConnections = value; }
-        private readonly RijndaelEnhanced _jwt;
-        public event EventHandler Disconnected;
+        //private readonly RijndaelEnhanced _jwt;
 
         private volatile bool _isConnected = true;
         public bool IsConnected { get => _isConnected; }
@@ -54,102 +53,103 @@ namespace vRPC
         {
             Listener = listener;
 
-            _jwt = new RijndaelEnhanced(PassPhrase, InitVector);
+            //_jwt = new RijndaelEnhanced(PassPhrase, InitVector);
         }
 
+        // Вызывается после конструктора.
         internal void StartReceive()
         {
             // Начать обработку запросов текущего пользователя.
-            StartReceivingLoop(Socket);
+            StartReceivingLoop();
         }
 
-        /// <summary>
-        /// Производит авторизацию текущего подключения.
-        /// </summary>
-        /// <param name="userId"></param>
-        /// <exception cref="BadRequestException"/>
-        public BearerToken Authorize(int userId)
-        {
-            // Функцию могут вызвать из нескольких потоков.
-            lock (_syncObj)
-            {
-                InnerAuthorize(userId);
+        ///// <summary>
+        ///// Производит авторизацию текущего подключения.
+        ///// </summary>
+        ///// <param name="userId"></param>
+        ///// <exception cref="BadRequestException"/>
+        //public BearerToken Authorize(int userId)
+        //{
+        //    // Функцию могут вызвать из нескольких потоков.
+        //    lock (_syncObj)
+        //    {
+        //        InnerAuthorize(userId);
 
-                var tokenValidity = TimeSpan.FromDays(2);
-                var serverBearer = new ServerBearerToken
-                {
-                    UserId = userId,
-                    Validity = DateTime.Now + tokenValidity,
-                };
+        //        var tokenValidity = TimeSpan.FromDays(2);
+        //        var serverBearer = new ServerBearerToken
+        //        {
+        //            UserId = userId,
+        //            Validity = DateTime.Now + tokenValidity,
+        //        };
 
-                byte[] serialized;
-                using (var mem = new MemoryPoolStream(capacity: 18))
-                {
-                    ProtoBuf.Serializer.Serialize(mem, serverBearer);
-                    serialized = mem.ToArray();
-                }
+        //        byte[] serialized;
+        //        using (var mem = new MemoryPoolStream(capacity: 18))
+        //        {
+        //            ProtoBuf.Serializer.Serialize(mem, serverBearer);
+        //            serialized = mem.ToArray();
+        //        }
 
-                // Закриптовать в бинарник идентификатор пользователя.
-                byte[] encryptedToken = _jwt.EncryptToBytes(serialized);
+        //        // Закриптовать в бинарник идентификатор пользователя.
+        //        byte[] encryptedToken = _jwt.EncryptToBytes(serialized);
 
-                var token = new BearerToken
-                {
-                    Key = encryptedToken,
-                    ExpiresAt = tokenValidity
-                };
+        //        var token = new BearerToken
+        //        {
+        //            Key = encryptedToken,
+        //            ExpiresAt = tokenValidity
+        //        };
 
-                return token;
-            }
-        }
+        //        return token;
+        //    }
+        //}
 
-        /// <summary>
-        /// Производит авторизацию текущего подключения по токену.
-        /// </summary>
-        /// <param name="userId"></param>
-        /// <exception cref="BadRequestException"/>
-        public bool AuthorizeToken(byte[] encriptedToken)
-        {
-            // Расшифрованный токен полученный от пользователя.
-            byte[] decripted;
+        ///// <summary>
+        ///// Производит авторизацию текущего подключения по токену.
+        ///// </summary>
+        ///// <param name="userId"></param>
+        ///// <exception cref="BadRequestException"/>
+        //public bool AuthorizeToken(byte[] encriptedToken)
+        //{
+        //    // Расшифрованный токен полученный от пользователя.
+        //    byte[] decripted;
 
-            try
-            {
-                // Расшифровать токен.
-                decripted = _jwt.DecryptToBytes(encriptedToken);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex);
+        //    try
+        //    {
+        //        // Расшифровать токен.
+        //        decripted = _jwt.DecryptToBytes(encriptedToken);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Debug.WriteLine(ex);
 
-                // Токен не валиден.
-                return false;
-            }
+        //        // Токен не валиден.
+        //        return false;
+        //    }
 
-            ServerBearerToken bearerToken;
-            try
-            {
-                using (var mem = new MemoryStream(decripted))
-                    bearerToken = ProtoBuf.Serializer.Deserialize<ServerBearerToken>(mem);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex);
+        //    ServerBearerToken bearerToken;
+        //    try
+        //    {
+        //        using (var mem = new MemoryStream(decripted))
+        //            bearerToken = ProtoBuf.Serializer.Deserialize<ServerBearerToken>(mem);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Debug.WriteLine(ex);
 
-                // Токен не валиден.
-                return false;
-            }
+        //        // Токен не валиден.
+        //        return false;
+        //    }
 
-            if (DateTime.Now < bearerToken.Validity)
-            // Токен валиден.
-            {
-                // Безусловная авторизация.
-                InnerAuthorize(bearerToken.UserId);
-                return true;
-            }
+        //    if (DateTime.Now < bearerToken.Validity)
+        //    // Токен валиден.
+        //    {
+        //        // Безусловная авторизация.
+        //        InnerAuthorize(bearerToken.UserId);
+        //        return true;
+        //    }
 
-            // Токен не валиден.
-            return false;
-        }
+        //    // Токен не валиден.
+        //    return false;
+        //}
 
         /// <summary>
         /// Потокобезопасно производит авторизацию текущего соединения.
@@ -197,39 +197,6 @@ namespace vRPC
             } while (true);
         }
 
-        private protected override void OnAtomicDisconnect(SocketWrapper socketQueue, Exception exception)
-        {
-            _isConnected = false;
-
-            // Копируем volatile ссылку.
-            UserConnections userConnections = UserConnections;
-
-            if (userConnections != null)
-            {
-                // Захватить эксклюзивный доступ.
-                lock (userConnections.SyncRoot)
-                {
-                    // Текущее соединение нужно безусловно удалить.
-                    if (userConnections.Remove(this))
-                    // Если успешно удалили значит соединение было авторизованным.
-                    {
-                        // Если соединений больше не осталось то удалить себя из словаря.
-                        if (!userConnections.IsDestroyed && userConnections.Count == 0)
-                        {
-                            // Использовать текущую структуру больше нельзя.
-                            userConnections.IsDestroyed = true;
-
-                            Listener.Connections.TryRemove(UserId.Value, out _);
-                        }
-                    }
-                }
-            }
-
-            Listener.OnDisconnected(this, exception);
-            Disconnected?.Invoke(this, EventArgs.Empty);
-            Disconnected = null;
-        }
-
         protected override void BeforeInvokePrepareController(Controller controller)
         {
             var serverController = (ServerController)controller;
@@ -258,17 +225,17 @@ namespace vRPC
             throw new BadRequestException("This action requires user authentication.", StatusCode.Unauthorized);
         }
 
-        private protected override Task<ConnectionResult> GetOrCreateConnectionAsync()
-        // Текущий метод никогда не будет вызван.
-        {
-            Debug.Assert(false, "Серверный контекст не должен вызывать метод подключения т.к. соединение изначально было установлено.");
-            throw new NotSupportedException();
-        }
+        //private protected override Task<ConnectionResult> GetOrCreateConnectionAsync()
+        //// Текущий метод никогда не будет вызван.
+        //{
+        //    Debug.Assert(false, "Серверный контекст не должен вызывать метод подключения т.к. соединение изначально было установлено.");
+        //    throw new NotSupportedException();
+        //}
 
         public override void Dispose()
         {
             base.Dispose();
-            _jwt.Dispose();
+            //_jwt.Dispose();
         }
     }
 }

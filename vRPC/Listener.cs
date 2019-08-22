@@ -19,7 +19,10 @@ namespace vRPC
         /// </summary>
         internal readonly Dictionary<string, Type> Controllers;
         private readonly WebSocketServer _wsServ;
-        private readonly List<ClientContext> _connections = new List<ClientContext>();
+        /// <summary>
+        /// Доступ через блокировку SyncObj.
+        /// </summary>
+        private readonly ClientConnections _connections = new ClientConnections();
         private readonly ServiceCollection _ioc;
         private readonly object _startObj = new object();
         private readonly TaskCompletionSource<int> _runTcs = new TaskCompletionSource<int>();
@@ -33,6 +36,7 @@ namespace vRPC
         private bool _disposed;
         private ServiceProvider _serviceProvider;
         public event EventHandler<ClientConnectedEventArgs> ClientConnected;
+        public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
         private Action<ServiceCollection> _iocConfigure;
         private Action<ServiceProvider> _configureApp;
         private volatile bool _stopRequired;
@@ -97,7 +101,7 @@ namespace vRPC
             // Необходимо закрыть все соединения.
 
             ClientContext[] copy;
-            lock (_connections)
+            lock (_connections.SyncObj)
             {
                 // Теперь мы обязаны сделать Dispose этим подключениям.
                 copy = _connections.ToArray();
@@ -181,7 +185,7 @@ namespace vRPC
             var context = new ClientContext(e.Connection, _serviceProvider, listener: this);
 
             bool connected;
-            lock(_connections)
+            lock(_connections.SyncObj)
             {
                 if (!_stopRequired) // volatile.
                 {
@@ -197,17 +201,20 @@ namespace vRPC
 
             if (connected)
             {
+                context.Disconnected += Context_Disconnected;
+                context.StartReceive(); // Сначала запустить чтение, а потом вызвать событие.
                 ClientConnected?.Invoke(this, new ClientConnectedEventArgs(context));
-                context.StartReceive();
             }
         }
 
-        internal void OnDisconnected(ClientContext context, Exception exception)
+        private void Context_Disconnected(object sender, Exception ex)
         {
-            lock (_connections)
+            var context = (ClientContext)sender;
+            lock (_connections.SyncObj)
             {
                 _connections.Remove(context);
             }
+            ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(context, ex));
         }
 
         public void Dispose()
@@ -219,7 +226,7 @@ namespace vRPC
                 _serviceProvider?.Dispose();
 
                 ClientContext[] copy;
-                lock (_connections)
+                lock (_connections.SyncObj)
                 {
                     copy = _connections.ToArray();
                     _connections.Clear();

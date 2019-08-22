@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.IO;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -125,6 +126,11 @@ namespace vRPC
                 }
             }
             return method.Name;
+        }
+
+        public static SocketException ToException(this SocketError socketError)
+        {
+            return new SocketException((int)socketError);
         }
     }
 }

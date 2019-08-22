@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using vRPC;
 
@@ -11,10 +12,12 @@ namespace Server.Controllers
     public class HomeController : ServerController
     {
         private readonly ILogger _logger;
+        private readonly Program _program;
 
-        public HomeController(ILogger<HomeController> logger)
+        public HomeController(ILogger<HomeController> logger, Program program)
         {
             _logger = logger;
+            _program = program;
         }
 
         public async Task<string> Echo()
@@ -25,6 +28,10 @@ namespace Server.Controllers
             return resp;
         }
             
+        public void DummyCall()
+        {
+            Interlocked.Increment(ref _program.ReqCount);
+        }
 
         public IActionResult Test0()
         {
@@ -45,7 +52,7 @@ namespace Server.Controllers
 
         public async ValueTask Test3()
         {
-            await Task.Delay(1000);
+            await Task.Delay(10000);
         }
 
         public async ValueTask<int> Test4()

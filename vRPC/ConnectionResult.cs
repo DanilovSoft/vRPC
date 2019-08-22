@@ -9,13 +9,13 @@ namespace vRPC
     internal readonly struct ConnectionResult
     {
         public SocketError SocketError { get; }
-        public SocketWrapper SocketWrapper { get; }
+        public Context Context { get; }
 
         [DebuggerStepThrough]
-        public ConnectionResult(SocketError socketError, SocketWrapper socketWrapper)
+        public ConnectionResult(SocketError socketError, Context context)
         {
             SocketError = socketError;
-            SocketWrapper = socketWrapper;
+            Context = context;
         }
     }
 }

@@ -5,6 +5,6 @@
         /// <summary>
         /// Контекст подключения на стороне клиента.
         /// </summary>
-        public ServerContext Context { get; internal set; }
+        public Client Context { get; internal set; }
     }
 }

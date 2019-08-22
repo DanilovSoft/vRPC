@@ -1,5 +1,6 @@
 ﻿using ProtoBuf;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using ProtoBufSerializer = ProtoBuf.Serializer;
@@ -7,11 +8,13 @@ using ProtoBufSerializer = ProtoBuf.Serializer;
 namespace vRPC
 {
     /// <summary>
-    /// Заголовок передаваемого сообщения. Формат заголовка всегда предопределён.
+    /// Заголовок передаваемого сообщения. Размер заголовка — динамический.
     /// </summary>
     [ProtoContract]
     internal sealed class Header
     {
+        public const int HeaderMaxSize = 64;
+        private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
         private const PrefixStyle HeaderLengthPrefix = PrefixStyle.Fixed32;
 
         [ProtoMember(1)]
@@ -23,6 +26,9 @@ namespace vRPC
         [ProtoMember(3, IsRequired = false)]
         public int ContentLength { get; set; }
 
+        /// <summary>
+        /// Может быть <see langword="null"/>.
+        /// </summary>
         [ProtoMember(4, IsRequired = false)]
         public string ContentEncoding { get; set; }
 
@@ -38,28 +44,50 @@ namespace vRPC
             StatusCode = statusCode;
         }
 
-        public static bool TryReadLengthPrefix(Stream source, out int length)
+        /// <summary>
+        /// У заголовка в самом начале записан префикс фиксированного размера.
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="headerLength">Размер хэдера с учётом префикса.</param>
+        /// <returns></returns>
+        public static bool TryGetHeaderLength(byte[] buffer, int count, out int headerLength)
         {
-            long pos = source.Position;
+            //byte[] buffer = source.DangerousGetBuffer();
 
             // Заголовок сообщения находится в самом начале.
-            source.Position = 0;
+            bool gotHeaderPrefix = ProtoBufSerializer.TryReadLengthPrefix(buffer, 0, count, HeaderLengthPrefix, out headerLength);
 
-            bool success = ProtoBufSerializer.TryReadLengthPrefix(source, HeaderLengthPrefix, out length);
+            headerLength += 4; // С учётом размера префикса Fixed32.
 
-            source.Position = pos;
+            if (headerLength > HeaderMaxSize)
+                throw new InvalidOperationException(HeaderSizeExceededException);
 
-            return success;
+            return gotHeaderPrefix && count >= headerLength;
         }
 
-        public void SerializeWithLengthPrefix(Stream destination)
+        public void SerializeWithLengthPrefix(Stream destination, out int headerSizeWithPrefix)
         {
+            long initialPos = destination.Position;
+
+            // Сериализуем хедэр с префикс размером в начале.
             ProtoBufSerializer.SerializeWithLengthPrefix(destination, this, HeaderLengthPrefix);
+
+            headerSizeWithPrefix = (int)(destination.Position - initialPos);
+
+            Debug.Assert(headerSizeWithPrefix <= HeaderMaxSize);
+            if (headerSizeWithPrefix > HeaderMaxSize)
+                throw new InvalidOperationException(HeaderSizeExceededException);
         }
 
         public static Header DeserializeWithLengthPrefix(Stream source)
         {
             return ProtoBufSerializer.DeserializeWithLengthPrefix<Header>(source, HeaderLengthPrefix);
+        }
+
+        public static Header DeserializeWithLengthPrefix(byte[] buffer, int offset, int count)
+        {
+            using(var mem = new MemoryStream(buffer,offset, count))
+            return ProtoBufSerializer.DeserializeWithLengthPrefix<Header>(mem, HeaderLengthPrefix);
         }
 
         /// <summary>

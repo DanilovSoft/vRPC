@@ -10,13 +10,20 @@ using vRPC;
 
 namespace Server
 {
-    class Program
+    public class Program
     {
         private const int Port = 65125;
+        private static long _connections;
+        public int ReqCount;
 
         static async Task Main()
         {
             Console.Title = "Сервер";
+
+            //ThreadPool.GetAvailableThreads(out int workerThreads, out int completionPortThreads);
+            //ThreadPool.GetMaxThreads(out workerThreads, out completionPortThreads);
+            //ThreadPool.SetMinThreads(workerThreads, 5000);
+            //ThreadPool.GetAvailableThreads(out workerThreads, out completionPortThreads);
 
             using (var listener = new Listener(IPAddress.Any, Port))
             {
@@ -24,10 +31,12 @@ namespace Server
                 {
                     ioc.AddLogging(loggingBuilder =>
                     {
-                        loggingBuilder
-                            .AddConsole()
-                            .AddDebug();
+                        //loggingBuilder
+                        //    .AddConsole()
+                        //    .AddDebug();
                     });
+
+                    ioc.AddSingleton(new Program());
                 });
 
                 listener.Configure(serviceProvider =>
@@ -37,26 +46,43 @@ namespace Server
                 });
 
                 listener.ClientConnected += Listener_Connected;
+                listener.ClientDisconnected += Listener_ClientDisconnected;
 
-                await listener.RunAsync();
+                listener.Start();
+                //await listener.RunAsync();
+                while(true)
+                {
+                    long c = Interlocked.Read(ref _connections);
+                    Console.SetCursorPosition(0, 0);
+                    Console.Clear();
+                    Console.Write($"Connections: {c}");
+                    await Task.Delay(500);
+                }
             }
         }
 
-        private static async void Listener_Connected(object sender, ClientConnectedEventArgs e)
+        private static void Listener_ClientDisconnected(object sender, ClientDisconnectedEventArgs e)
         {
-            var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();
+            Interlocked.Decrement(ref _connections);
+        }
 
-            logger.LogInformation("Инициализируем подключенного клиента");
+        private static void Listener_Connected(object sender, ClientConnectedEventArgs e)
+        {
+            Interlocked.Increment(ref _connections);
+            
+            //var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-            try
-            {
-                // Назначить подключенному клиенту уникальный идентификатор.
-                await e.Connection.GetProxy<IClientHomeController>().SetClientIdAsync(1234);
-            }
-            catch (Exception) when (!e.Connection.IsConnected)
-            {
-                logger.LogError("Клиент отключился");
-            }
+            //logger.LogInformation("Инициализируем подключенного клиента");
+
+            //try
+            //{
+            //    // Назначить подключенному клиенту уникальный идентификатор.
+            //    await e.Connection.GetProxy<IClientHomeController>().SetClientIdAsync(1234);
+            //}
+            //catch (Exception) when (!e.Connection.IsConnected)
+            //{
+            //    logger.LogError("Клиент отключился");
+            //}
         }
     }
 }
