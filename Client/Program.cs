@@ -19,6 +19,7 @@ namespace Client
             long reqCount = 0;
             int activeThreads = 0;
 
+            ThreadPool.GetAvailableThreads(out int workerThreads, out _);
             ThreadPool.SetMinThreads(Threads, 1000);
 
             ThreadPool.UnsafeQueueUserWorkItem(delegate 
@@ -73,8 +74,8 @@ namespace Client
                 ulong reqPerSecond = unchecked((ulong)(rCount - prev));
                 prev = rCount;
                 Console.SetCursorPosition(0, 0);
-                Console.WriteLine($"Request per second: {reqPerSecond.ToString().PadRight(10, ' ')}");
                 Console.WriteLine($"Active Threads: {activeThreads.ToString().PadRight(10, ' ')}");
+                Console.WriteLine($"Request per second: {reqPerSecond.ToString().PadRight(10, ' ')}");
             }
         }
     }

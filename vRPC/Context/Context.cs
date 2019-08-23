@@ -73,7 +73,7 @@ namespace vRPC
         /// </summary>
         public Task Completion => _tcs.Task;
         /// <summary>
-        /// Количество запросов для обработки + количество ответов для отправки.
+        /// Количество запросов для обработки и количество ответов для отправки.
         /// Для отслеживания грациозной остановки сервиса.
         /// </summary>
         private int _reqAndRespCount;
@@ -312,12 +312,6 @@ namespace vRPC
                 }
             }
         }
-
-        ///// <summary>
-        ///// Создает подключение или возвращает уже подготовленное соединение.
-        ///// </summary>
-        ///// <returns></returns>
-        //private protected abstract Task<ConnectionResult> GetOrCreateConnectionAsync();
 
         /// <summary>
         /// Отправляет запрос и ожидает его ответ.
@@ -1026,15 +1020,7 @@ namespace vRPC
                     if (controllerResult != null)
                     {
                         // Извлекает результат из Task'а.
-                        ValueTask<object> valueTask = DynamicAwaiter.WaitAsync(controllerResult);
-                        if (valueTask.IsCompletedSuccessfully)
-                        {
-                            controllerResult = valueTask.GetAwaiter().GetResult();
-                        }
-                        else
-                        {
-                            controllerResult = await valueTask;
-                        }
+                        controllerResult = await DynamicAwaiter.WaitAsync(controllerResult);
                     }
 
                     // Результат успешно получен без исключения.
@@ -1076,7 +1062,7 @@ namespace vRPC
         /// </summary>
         /// <exception cref="BadRequestException"/>
         protected virtual void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType) { }
-        protected virtual void BeforeInvokePrepareController(Controller controller) { }
+        //protected virtual void BeforeInvokePrepareController(Controller controller) { }
 
         /// <summary>
         /// Пытается найти запрашиваемый пользователем контроллер.
@@ -1213,19 +1199,19 @@ namespace vRPC
             return Message.FromResult(receivedRequest, rawResult);
         }
 
-        [DebuggerStepThrough]
         /// <exception cref="ObjectDisposedException"/>
+        [DebuggerStepThrough]
         private void ThrowIfDisposed()
         {
             if (IsDisposed)
                 throw new ObjectDisposedException(GetType().FullName);
         }
 
-        [DebuggerStepThrough]
         /// <summary>
         /// Не позволять начинать новый запрос если происходит остановка.
         /// </summary>
         /// <exception cref="StopRequiredException"/>
+        [DebuggerStepThrough]
         private void ThrowIfStopRequired()
         {
             if (_stopRequired)

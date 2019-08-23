@@ -47,7 +47,7 @@ namespace vRPC
         public UserConnections UserConnections { get => _userConnections; private set => _userConnections = value; }
         //private readonly RijndaelEnhanced _jwt;
 
-        private volatile bool _isConnected = true;
+        private readonly bool _isConnected = true;
         public bool IsConnected { get => _isConnected; }
 
         // ctor.
@@ -200,12 +200,12 @@ namespace vRPC
             } while (true);
         }
 
-        protected override void BeforeInvokePrepareController(Controller controller)
-        {
-            var serverController = (ServerController)controller;
-            serverController.Context = this;
-            //serverController.Listener = Listener;
-        }
+        //protected override void BeforeInvokePrepareController(Controller controller)
+        //{
+        //    var serverController = (ServerController)controller;
+        //    serverController.Context = this;
+        //    //serverController.Listener = Listener;
+        //}
 
         /// <summary>
         /// Проверяет доступность запрашиваемого метода пользователем.
@@ -228,17 +228,9 @@ namespace vRPC
             throw new BadRequestException("This action requires user authentication.", StatusCode.Unauthorized);
         }
 
-        //private protected override Task<ConnectionResult> GetOrCreateConnectionAsync()
-        //// Текущий метод никогда не будет вызван.
-        //{
-        //    Debug.Assert(false, "Серверный контекст не должен вызывать метод подключения т.к. соединение изначально было установлено.");
-        //    throw new NotSupportedException();
-        //}
-
         public override void Dispose()
         {
             base.Dispose();
-            //_jwt.Dispose();
         }
     }
 }
