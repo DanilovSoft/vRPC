@@ -8,11 +8,9 @@ namespace vRPC
     /// <summary>
     /// Атомарный <see langword="await"/>'ер. Связывает запрос с его результатом.
     /// </summary>
-    [DebuggerDisplay("{DebugDisplay,nq}")]
+    [DebuggerDisplay(@"\{Request: {_requestAction}\}")]
     internal sealed class TaskCompletionSource : INotifyCompletion
     {
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"Request: {_requestAction}" + "}";
         private readonly string _requestAction;
         /// <summary>
         /// Тип ожидаемого результата.
@@ -34,6 +32,7 @@ namespace vRPC
             ResultType = resultType;
         }
 
+        [DebuggerStepThrough]
         public TaskCompletionSource GetAwaiter() => this;
 
         //[DebuggerStepThrough]
@@ -43,10 +42,10 @@ namespace vRPC
             // Копируем volatile ссылку.
             Exception ex = _exception;
 
-            if (ex != null)
-                throw ex;
+            if (ex == null)
+                return _response;
 
-            return _response;
+            throw ex;
         }
 
         /// <summary>
@@ -83,22 +82,23 @@ namespace vRPC
         }
 
         [DebuggerStepThrough]
-        private void CallContinuation(object state)
+        private static void CallContinuation(object state)
         {
-            var continuation = (Action)state;
-            continuation();
+            ((Action)state).Invoke();
         }
 
         public void OnCompleted(Action continuation)
         {
             // Атомарно передаем continuation другому потоку.
-            if (Interlocked.CompareExchange(ref _continuationAtomic, continuation, null) != null)
-            // P.S. шанс попасть в этот блок очень маленький.
+            if (Interlocked.CompareExchange(ref _continuationAtomic, continuation, null) == null)
             {
-                // В переменной _continuationAtomic была другая ссылка, 
-                // это значит что другой поток уже установил результат и его можно забрать.
-                continuation();
+                return;
             }
+
+            // P.S. шанс попасть в этот блок очень маленький.
+            // В переменной _continuationAtomic была другая ссылка, 
+            // это значит что другой поток уже установил результат и его можно забрать.
+            continuation();
         }
     }
 }

@@ -14,13 +14,13 @@ namespace vRPC
         public MemoryPoolStream ContentStream { get; }
         public MessageType MessageType { get; }
         public Header Header { get; }
-        public int HeaderSizeWithPrefix { get; }
+        public int HeaderSize { get; }
 
         [DebuggerStepThrough]
-        public SendJob(Header header, int headerSizeWithPrefix, MemoryPoolStream contentStream, MessageType messageType)
+        public SendJob(Header header, int headerSize, MemoryPoolStream contentStream, MessageType messageType)
         {
             Header = header;
-            HeaderSizeWithPrefix = headerSizeWithPrefix;
+            HeaderSize = headerSize;
             ContentStream = contentStream;
             MessageType = messageType;
         }

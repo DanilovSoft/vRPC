@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Threading;
@@ -52,17 +53,21 @@ namespace Server
                 //await listener.RunAsync();
 
                 long prev = 0;
+                var sw = Stopwatch.StartNew();
                 while (true)
                 {
-                    Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
                     Thread.Sleep(1000);
-                    long c = Interlocked.Read(ref _connections);
+                    long elapsedMs = sw.ElapsedMilliseconds;
                     long rCount = Interlocked.Read(ref ReqCount);
                     ulong reqPerSecond = unchecked((ulong)(rCount - prev));
                     prev = rCount;
+                    sw.Restart();
+
+                    var reqPerSec = (int)Math.Round(reqPerSecond * 1000d / elapsedMs);
+
                     Console.SetCursorPosition(0, 0);
-                    Console.WriteLine($"Connections: {c.ToString().PadRight(10, ' ')}");
-                    Console.WriteLine($"Request per second: {reqPerSecond.ToString().PadRight(10, ' ')}");
+                    Console.WriteLine($"Connections: {Interlocked.Read(ref _connections).ToString().PadRight(10, ' ')}");
+                    Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10, ' ')}");
                 }
             }
         }

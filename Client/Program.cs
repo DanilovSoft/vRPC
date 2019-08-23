@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Diagnostics;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,7 +31,7 @@ namespace Client
                     {
                         Interlocked.Increment(ref activeThreads);
 
-                        using (var client = new vRPC.Client("127.0.0.1", Port))
+                        using (var client = new vRPC.Client("localhost", Port))
                         {
                             client.ConfigureService(ioc =>
                             {
@@ -43,21 +44,25 @@ namespace Client
                             var homeController = client.GetProxy<IServerHomeController>();
 
                             // Лучше подключиться предварительно.
-                            //while ((await client.ConnectAsync()).SocketError != SocketError.Success)
-                            //    await Task.Delay(new Random().Next(200, 400));
-
-                            while (true)
+                            do
                             {
-                                try
+                                while ((await client.ConnectAsync()).SocketError != SocketError.Success)
+                                    await Task.Delay(new Random().Next(200, 400));
+
+                                while (true)
                                 {
-                                    DateTime date = await homeController.DummyCallAsync("Test");
+                                    try
+                                    {
+                                        DateTime date = await homeController.DummyCallAsync("Test");
+                                    }
+                                    catch (Exception)
+                                    {
+                                        await Task.Delay(new Random().Next(200, 400));
+                                        break;
+                                    }
+                                    Interlocked.Increment(ref reqCount);
                                 }
-                                catch (Exception)
-                                {
-                                    break;
-                                }
-                                Interlocked.Increment(ref reqCount);
-                            }
+                            } while (true);
                         }
                         Interlocked.Decrement(ref activeThreads);
                     }, null);
@@ -66,16 +71,21 @@ namespace Client
 
             long prev = 0;
             Console.Clear();
+            var sw = Stopwatch.StartNew();
             while (true)
             {
-                Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
                 Thread.Sleep(1000);
+                long elapsedMs = sw.ElapsedMilliseconds;
                 long rCount = Interlocked.Read(ref reqCount);
                 ulong reqPerSecond = unchecked((ulong)(rCount - prev));
                 prev = rCount;
+                sw.Restart();
+
+                var reqPerSec = (int)Math.Round(reqPerSecond * 1000d / elapsedMs);
+
                 Console.SetCursorPosition(0, 0);
                 Console.WriteLine($"Active Threads: {activeThreads.ToString().PadRight(10, ' ')}");
-                Console.WriteLine($"Request per second: {reqPerSecond.ToString().PadRight(10, ' ')}");
+                Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10, ' ')}");
             }
         }
     }

@@ -227,10 +227,5 @@ namespace vRPC
 
             throw new BadRequestException("This action requires user authentication.", StatusCode.Unauthorized);
         }
-
-        public override void Dispose()
-        {
-            base.Dispose();
-        }
     }
 }
