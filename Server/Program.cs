@@ -20,11 +20,7 @@ namespace Server
         static void Main()
         {
             Console.Title = "Сервер";
-
-            //ThreadPool.GetAvailableThreads(out int workerThreads, out int completionPortThreads);
-            //ThreadPool.GetMaxThreads(out workerThreads, out completionPortThreads);
-            //ThreadPool.SetMinThreads(workerThreads, 5000);
-            //ThreadPool.GetAvailableThreads(out workerThreads, out completionPortThreads);
+            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
 
             using (var listener = new Listener(IPAddress.Any, Port))
             {

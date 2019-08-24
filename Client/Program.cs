@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using System;
 using System.Diagnostics;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,62 +13,78 @@ namespace Client
     class Program
     {
         private const int Port = 65125;
-        private const int Threads = 6;
+        private const int DefaultCpus = 6;
+        private static int Threads;
 
         static void Main()
         {
             Console.Title = "Клиент";
+            string ipStr;
+            IPAddress ipAddress;
+            do
+            {
+                Console.Write("IP адрес сервера (127.0.0.1): ");
+                ipStr = Console.ReadLine();
+                if (ipStr == "")
+                    ipStr = "127.0.0.1";
+
+            } while (!IPAddress.TryParse(ipStr, out ipAddress));
+
+            string cpusStr;
+            do
+            {
+                Console.Write($"Сколько логических ядер ({DefaultCpus}): ");
+                cpusStr = Console.ReadLine();
+                if (cpusStr == "")
+                    cpusStr = $"{DefaultCpus}";
+
+            } while (!int.TryParse(cpusStr, out Threads));
+
             long reqCount = 0;
             int activeThreads = 0;
 
-            ThreadPool.GetAvailableThreads(out int workerThreads, out _);
-            ThreadPool.SetMinThreads(Threads, 1000);
-
-            ThreadPool.UnsafeQueueUserWorkItem(delegate 
+            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+            for (int i = 0; i < Threads; i++)
             {
-                for (int i = 0; i < Threads; i++)
+                new Thread(_ =>
                 {
-                    Task.Factory.StartNew(delegate 
+                    Interlocked.Increment(ref activeThreads);
+
+                    using (var client = new vRPC.Client(ipAddress.ToString(), Port))
                     {
-                        Interlocked.Increment(ref activeThreads);
-
-                        using (var client = new vRPC.Client("127.0.0.1", Port))
+                        client.ConfigureService(ioc =>
                         {
-                            client.ConfigureService(ioc =>
+                            ioc.AddLogging(loggingBuilder =>
                             {
-                                ioc.AddLogging(loggingBuilder =>
-                                {
-                                    loggingBuilder
-                                        .AddConsole();
-                                });
+                                loggingBuilder
+                                    .AddConsole();
                             });
-                            var homeController = client.GetProxy<IServerHomeController>();
+                        });
+                        var homeController = client.GetProxy<IServerHomeController>();
 
-                            // Лучше подключиться предварительно.
-                            do
+                        // Лучше подключиться предварительно.
+                        do
+                        {
+                            while ((client.ConnectAsync().GetAwaiter().GetResult()).SocketError != SocketError.Success)
+                                Thread.Sleep(new Random().Next(200, 400));
+
+                            while (true)
                             {
-                                while ((client.ConnectAsync().GetAwaiter().GetResult()).SocketError != SocketError.Success)
-                                    Thread.Sleep(new Random().Next(200, 400));
-
-                                while (true)
+                                try
                                 {
-                                    try
-                                    {
-                                        DateTime date = homeController.DummyCall("Test");
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Thread.Sleep(new Random().Next(200, 400));
-                                        break;
-                                    }
-                                    Interlocked.Increment(ref reqCount);
+                                    DateTime date = homeController.DummyCall("Test");
                                 }
-                            } while (true);
-                        }
-                        Interlocked.Decrement(ref activeThreads);
-                    }, TaskCreationOptions.LongRunning);
-                }
-            }, null);
+                                catch (Exception ex)
+                                {
+                                    Thread.Sleep(new Random().Next(200, 400));
+                                    break;
+                                }
+                                Interlocked.Increment(ref reqCount);
+                            }
+                        } while (true);
+                    }
+                }).Start();
+            }
 
             long prev = 0;
             Console.Clear();
