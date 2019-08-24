@@ -1,21 +1,29 @@
-﻿using System.Runtime.Serialization;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using ProtoBuf;
+using System.Runtime.Serialization;
 
 namespace vRPC
 {
     /// <summary>
     /// Сериализуемое сообщение для передачи через сокет.
     /// </summary>
+    [ProtoContract]
     internal class RequestMessage
     {
         /// <summary>
         /// Вызываемый метод.
         /// </summary>
+        [ProtoMember(1)]
+        [JsonProperty("n")]
         public string ActionName { get; set; }
 
         /// <summary>
-        /// Аргументв вызываемого метода.
+        /// Аргументы вызываемого метода.
         /// </summary>
-        public Arg[] Args { get; set; }
+        [ProtoMember(2)]
+        [JsonProperty("a")]
+        public JToken[] Args { get; set; }
 
         /// <summary>
         /// Связанный заголовок этого запроса.

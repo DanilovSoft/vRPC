@@ -1,9 +1,10 @@
-﻿using System.Diagnostics;
+﻿using Newtonsoft.Json.Linq;
+using System.Diagnostics;
 
 namespace vRPC
 {
     /// <summary>
-    /// Сериализуемое сообщение для передачи удаленной стороне.
+    /// Сообщение для передачи удаленной стороне. Не подлежит сериализации.
     /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
     internal sealed class Message
@@ -21,7 +22,7 @@ namespace vRPC
         /// <summary>
         /// Параметры для удаленного метода <see cref="ActionName"/>.
         /// </summary>
-        public Arg[] Args { get; private set; }
+        public JToken[] Args { get; private set; }
         public object Result { get; private set; }
         /// <summary>
         /// Связанный запрос. Может быть <see langword="null"/>.
@@ -31,11 +32,16 @@ namespace vRPC
         /// <summary>
         /// Конструктор запроса.
         /// </summary>
-        private Message(string actionName, Arg[] args)
+        private Message(string actionName, object[] args)
         {
             ActionName = actionName;
             IsRequest = true;
-            Args = args;
+            Args = new JToken[args.Length];
+            for (int i = 0; i < args.Length; i++)
+            {
+                object argV = args[i];
+                Args[i] = argV == null ? null : JToken.FromObject(argV);
+            }
         }
 
         /// <summary>
@@ -47,7 +53,7 @@ namespace vRPC
             Result = result;
         }
 
-        public static Message CreateRequest(string actionName, Arg[] args)
+        public static Message CreateRequest(string actionName, object[] args)
         {
             return new Message(actionName, args);
         }

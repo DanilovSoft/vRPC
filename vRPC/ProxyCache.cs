@@ -12,51 +12,11 @@ namespace vRPC
         /// <summary>
         /// Содержит прокси созданные из интерфейсов.
         /// </summary>
+        private static readonly Dictionary<Type, InterfaceProxy> _staticProxies = new Dictionary<Type, InterfaceProxy>();
+        /// <summary>
+        /// Содержит прокси созданные из интерфейсов.
+        /// </summary>
         private readonly Dictionary<Type, object> _proxies = new Dictionary<Type, object>();
-
-        private static class StaticProxyCache
-        {
-            /// <summary>
-            /// Содержит прокси созданные из интерфейсов.
-            /// </summary>
-            private static readonly Dictionary<Type, InterfaceProxy> _staticProxies = new Dictionary<Type, InterfaceProxy>();
-
-            /// <summary>
-            /// Создает прокси к методам удалённой стороны на основе интерфейса.
-            /// </summary>
-            public static InterfaceProxy GetProxy<T>(out bool createdNew)
-            {
-                var attrib = typeof(T).GetCustomAttribute<ControllerContractAttribute>(inherit: false);
-                if (attrib == null)
-                    throw new ArgumentNullException("controllerName", $"Укажите имя контроллера или пометьте интерфейс атрибутом \"{nameof(ControllerContractAttribute)}\"");
-
-                return GetProxy<T>(attrib.ControllerName, out createdNew);
-            }
-
-            /// <summary>
-            /// Создает прокси к методам удалённой стороны на основе интерфейса.
-            /// </summary>
-            /// <param name="controllerName">Имя контроллера на удалённой стороне к которому применяется текущий интерфейс <see cref="{T}"/>.</param>
-            private static InterfaceProxy GetProxy<T>(string controllerName, out bool createdNew)
-            {
-                Type interfaceType = typeof(T);
-                lock (_staticProxies)
-                {
-                    if (_staticProxies.TryGetValue(interfaceType, out InterfaceProxy proxy))
-                    {
-                        createdNew = false;
-                        return proxy;
-                    }
-                    else
-                    {
-                        var proxyT = (InterfaceProxy)(object)TypeProxy.Create<T, InterfaceProxy>(controllerName);
-                        _staticProxies.Add(interfaceType, proxyT);
-                        createdNew = true;
-                        return proxyT;
-                    }
-                }
-            }
-        }
 
         public T GetProxy<T>(Func<ValueTask<Context>> contextCallback)
         {
@@ -69,19 +29,33 @@ namespace vRPC
                 }
                 else
                 {
-                    InterfaceProxy proxyT = StaticProxyCache.GetProxy<T>(out bool createdNew);
-                    if (createdNew)
+                    var attrib = typeof(T).GetCustomAttribute<ControllerContractAttribute>(inherit: false);
+                    if (attrib == null)
+                        throw new ArgumentNullException("controllerName", $"Укажите имя контроллера или пометьте интерфейс атрибутом \"{nameof(ControllerContractAttribute)}\"");
+
+                    bool existStatic;
+                    InterfaceProxy p;
+                    lock (_staticProxies) // Нужна блокировка на статический словарь.
                     {
-                        proxyT.SetCallback(contextCallback);
-                        _proxies.Add(interfaceType, proxyT);
-                        return (T)(object)proxyT;
+                        if (_staticProxies.TryGetValue(interfaceType, out p))
+                        {
+                            existStatic = true;
+                        }
+                        else
+                        {
+                            existStatic = false;
+                            p = TypeProxy.Create<T, InterfaceProxy>();
+                            _staticProxies.Add(interfaceType, p);
+                        }
                     }
-                    else
-                    {
-                        var clone = proxyT.Clone(contextCallback);
-                        _proxies.Add(interfaceType, clone);
-                        return (T)(object)clone;
-                    }
+
+                    if(existStatic)
+                        p = p.Clone(); // Клонирование можно выполнять одновременно разными потоками.
+
+                    p.SetCallback(attrib.ControllerName, contextCallback);
+
+                    _proxies.Add(interfaceType, p);
+                    return (T)(object)p;
                 }
             }
         }

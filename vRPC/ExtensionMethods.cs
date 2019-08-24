@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -37,15 +38,33 @@ namespace vRPC
             return ProtoBuf.Serializer.TryReadLengthPrefix(source, ProtoBuf.PrefixStyle.Base128, out length);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static object DeserializeProtobuf(Stream source, Type type)
         {
             return ProtoBuf.Serializer.Deserialize(type, source);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void SerializeObjectProtobuf(Stream destination, object instance)
         {
             ProtoBuf.Serializer.Serialize(destination, instance);
         }
+
+        //internal static void SerializeObjectProtobuf<T>(Stream destination, T instance)
+        //{
+        //    try
+        //    {
+        //        ProtoBuf.Serializer.Serialize(destination, instance);
+        //        destination.Position = 0;
+        //        var obj = ProtoBuf.Serializer.Deserialize<T>(destination);
+        //    }
+        //    catch (Exception ex)
+        //    {
+
+        //        throw;
+        //    }
+            
+        //}
 
         /// <summary>
         /// Десериализует JSON.
@@ -60,7 +79,7 @@ namespace vRPC
                 if (req != null)
                     return req;
 
-                Debugger.Launch();
+                // Сюда не должны попадать.
                 throw new InvalidOperationException("Результатом десериализации оказался Null.");
             }
         }
@@ -134,6 +153,7 @@ namespace vRPC
             return method.Name;
         }
 
+        [DebuggerStepThrough]
         public static SocketException ToException(this SocketError socketError)
         {
             return new SocketException((int)socketError);

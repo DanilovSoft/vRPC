@@ -9,19 +9,20 @@ namespace vRPC
     /// <summary>
     /// Представляет сериализованный, не фрагментированный запрос или ответ на запрос.
     /// </summary>
+    [DebuggerDisplay(@"\{Size = {MessageStream.Length} bytes\}")]
     internal readonly struct SendJob
     {
-        public MemoryPoolStream ContentStream { get; }
+        public MemoryPoolStream MessageStream { get; }
         public MessageType MessageType { get; }
         public Header Header { get; }
         public int HeaderSize { get; }
 
         [DebuggerStepThrough]
-        public SendJob(Header header, int headerSize, MemoryPoolStream contentStream, MessageType messageType)
+        public SendJob(Header header, int headerSize, MemoryPoolStream messageStream, MessageType messageType)
         {
             Header = header;
             HeaderSize = headerSize;
-            ContentStream = contentStream;
+            MessageStream = messageStream;
             MessageType = messageType;
         }
     }

@@ -28,7 +28,7 @@ namespace Server.Controllers
             return resp;
         }
            
-        //[ProducesProtoBuf]
+        [ProducesProtoBuf]
         public DateTime DummyCall(string s)
         {
             Interlocked.Increment(ref Program.ReqCount);

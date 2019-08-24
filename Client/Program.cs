@@ -12,7 +12,7 @@ namespace Client
     class Program
     {
         private const int Port = 65125;
-        private const int Threads = 1000;
+        private const int Threads = 6;
 
         static void Main()
         {
@@ -27,11 +27,11 @@ namespace Client
             {
                 for (int i = 0; i < Threads; i++)
                 {
-                    ThreadPool.UnsafeQueueUserWorkItem(async delegate
+                    Task.Factory.StartNew(delegate 
                     {
                         Interlocked.Increment(ref activeThreads);
 
-                        using (var client = new vRPC.Client("localhost", Port))
+                        using (var client = new vRPC.Client("127.0.0.1", Port))
                         {
                             client.ConfigureService(ioc =>
                             {
@@ -46,18 +46,18 @@ namespace Client
                             // Лучше подключиться предварительно.
                             do
                             {
-                                while ((await client.ConnectAsync()).SocketError != SocketError.Success)
-                                    await Task.Delay(new Random().Next(200, 400));
+                                while ((client.ConnectAsync().GetAwaiter().GetResult()).SocketError != SocketError.Success)
+                                    Thread.Sleep(new Random().Next(200, 400));
 
                                 while (true)
                                 {
                                     try
                                     {
-                                        DateTime date = await homeController.DummyCallAsync("Test");
+                                        DateTime date = homeController.DummyCall("Test");
                                     }
-                                    catch (Exception)
+                                    catch (Exception ex)
                                     {
-                                        await Task.Delay(new Random().Next(200, 400));
+                                        Thread.Sleep(new Random().Next(200, 400));
                                         break;
                                     }
                                     Interlocked.Increment(ref reqCount);
@@ -65,7 +65,7 @@ namespace Client
                             } while (true);
                         }
                         Interlocked.Decrement(ref activeThreads);
-                    }, null);
+                    }, TaskCreationOptions.LongRunning);
                 }
             }, null);
 

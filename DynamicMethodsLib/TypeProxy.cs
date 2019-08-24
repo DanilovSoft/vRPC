@@ -4,12 +4,12 @@ namespace DynamicMethodsLib
 {
     public abstract class TypeProxy
     {
-        public static T Create<T, TProxy>()
+        public static TProxy Create<T, TProxy>()
         {
-            return ProxyBuilder<TProxy>.CreateProxy<T>(instance: default);
+            return ProxyBuilder<TProxy>.CreateProxy<T>(instance: null);
         }
 
-        public static T Create<T, TProxy>(object instance)
+        public static TProxy Create<T, TProxy>(object instance)
         {
             return ProxyBuilder<TProxy>.CreateProxy<T>(instance: instance);
         }

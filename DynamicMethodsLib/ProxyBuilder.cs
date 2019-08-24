@@ -29,7 +29,7 @@ namespace DynamicMethodsLib
             return assembly.DefineDynamicModule("Module");
         }
 
-        public static TIface CreateProxy<TIface>(T source = default, object instance = default)
+        public static T CreateProxy<TIface>(T source = default, object instance = null)
         {
             var ifaceType = typeof(TIface);
             if (!ifaceType.IsPublic)
@@ -44,7 +44,7 @@ namespace DynamicMethodsLib
 
             classType.AddInterfaceImplementation(typeof(TIface));
 
-            if (instance != default)
+            if (instance != null)
             // В конструктор должен передаваться инстанс.
             {
                 Type instanceType = instance.GetType();
@@ -192,17 +192,17 @@ namespace DynamicMethodsLib
                 }
             }
 
-            var ti = classType.CreateTypeInfo();
+            TypeInfo ti = classType.CreateTypeInfo();
             //Type dynamicType = classType.CreateType();
 
-            TIface proxy;
-            if (instance != default)
+            T proxy;
+            if (instance != null)
             {
-                proxy = (TIface)Activator.CreateInstance(ti, args: instance);
+                proxy = (T)Activator.CreateInstance(ti, args: instance);
             }
             else
             {
-                proxy = (TIface)Activator.CreateInstance(ti);
+                proxy = (T)Activator.CreateInstance(ti);
             }
 
             foreach (var item in fields)

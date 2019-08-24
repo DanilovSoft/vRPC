@@ -154,26 +154,26 @@ namespace vRPC
         /// </summary>
         internal static object OnProxyCall(ValueTask<Context> contextTask, MethodInfo targetMethod, object[] args, string controllerName)
         {
-            #region CreateArgs()
-            Arg[] CreateArgs()
-            {
-                ParameterInfo[] par = targetMethod.GetParameters();
-                Arg[] retArgs = new Arg[par.Length];
+            //#region CreateArgs()
+            //Arg[] CreateArgs()
+            //{
+            //    ParameterInfo[] par = targetMethod.GetParameters();
+            //    Arg[] retArgs = new Arg[par.Length];
 
-                for (int i = 0; i < par.Length; i++)
-                {
-                    ParameterInfo p = par[i];
-                    retArgs[i] = new Arg(p.Name, args[i]);
-                }
-                return retArgs;
-            }
-            #endregion
+            //    for (int i = 0; i < par.Length; i++)
+            //    {
+            //        ParameterInfo p = par[i];
+            //        retArgs[i] = new Arg(p.Name, args[i]);
+            //    }
+            //    return retArgs;
+            //}
+            //#endregion
 
             // Без постфикса Async.
             string remoteMethodName = GetProxyMethodName(targetMethod);
 
             // Подготавливаем запрос для отправки.
-            var requestToSend = Message.CreateRequest($"{controllerName}/{remoteMethodName}", CreateArgs());
+            var requestToSend = Message.CreateRequest($"{controllerName}/{remoteMethodName}", args);
 
             // Тип результата инкапсулированный в Task<T>.
             Type resultType = GetActionReturnType(targetMethod);
@@ -418,10 +418,7 @@ namespace vRPC
                                 string exceptionMessage = GetMessageFromCloseFrame();
 
                                 // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
-                                var socketClosedException = new SocketClosedException(exceptionMessage);
-
-                                // Оповестить об обрыве.
-                                AtomicDisconnect(socketClosedException);
+                                AtomicDisconnect(new SocketClosedException(exceptionMessage));
 
                                 // Завершить поток.
                                 return;
@@ -543,7 +540,7 @@ namespace vRPC
                                 // Передать на отправку результат с ошибкой.
                                 QueueSendMessage(errorResponse, MessageType.Response);
 
-                                // Вернуться к чтению из сокета.
+                                // Вернуться к получению заголовка.
                                 continue;
                                 #endregion
                             }
@@ -652,7 +649,7 @@ namespace vRPC
                         try
                         {
                             // Отключаемся от сокета с небольшим таймаутом.
-                            using (var cts = new CancellationTokenSource(3000))
+                            using (var cts = new CancellationTokenSource(2000))
                                 await Socket.WebSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Непредвиденное завершение потока данных.", cts.Token);
                         }
                         catch (Exception ex)
@@ -702,6 +699,7 @@ namespace vRPC
                         ActionName = messageToSend.ActionName,
                         Args = messageToSend.Args,
                     };
+                    //ExtensionMethods.SerializeObjectProtobuf(contentStream, request);
                     ExtensionMethods.SerializeObjectJson(contentStream, request);
                 }
                 else
@@ -785,14 +783,16 @@ namespace vRPC
                     }
 
                     // Этим стримом теперь владеет только этот поток.
-                    using (MemoryPoolStream mem = sendJob.ContentStream)
+                    using (MemoryPoolStream mem = sendJob.MessageStream)
                     {
                         byte[] streamBuffer = mem.DangerousGetBuffer();
 
+                        SocketError socketError;
                         try
                         {
                             // Отправить заголовок.
-                            await Socket.WebSocket.SendAsync(streamBuffer.AsMemory(0, sendJob.HeaderSize), WebSocketMessageType.Binary, true, CancellationToken.None);
+                            socketError = await Socket.WebSocket.SendExAsync(streamBuffer.AsMemory(0, sendJob.HeaderSize), 
+                                WebSocketMessageType.Binary, true, CancellationToken.None);
                         }
                         catch (Exception ex)
                         // Обрыв соединения.
@@ -804,44 +804,66 @@ namespace vRPC
                             return;
                         }
 
-                        #region Отправка запроса или ответа на запрос.
-
-                        // Отправляем сообщение по частям.
-                        int offset = sendJob.HeaderSize;
-                        int bytesLeft = (int)mem.Length - sendJob.HeaderSize;
-                        bool endOfMessage = false;
-                        while(bytesLeft > 0)
+                        if (socketError == SocketError.Success)
                         {
-                            #region Фрагментируем отправку
+                            #region Отправка запроса или ответа на запрос.
 
-                            int countToSend = WebSocketMaxFrameSize;
-                            if (countToSend >= bytesLeft)
+                            // Отправляем сообщение по частям.
+                            int offset = sendJob.HeaderSize;
+                            int bytesLeft = (int)mem.Length - sendJob.HeaderSize;
+                            bool endOfMessage = false;
+                            while (bytesLeft > 0)
                             {
-                                countToSend = bytesLeft;
-                                endOfMessage = true;
-                            }
-                            try
-                            {
-                                await Socket.WebSocket.SendAsync(streamBuffer.AsMemory(offset, countToSend), WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
-                            }
-                            catch (Exception ex)
-                            // Обрыв соединения.
-                            {
-                                // Оповестить об обрыве.
-                                AtomicDisconnect(ex);
+                                #region Фрагментируем отправку
 
-                                // Завершить поток.
-                                return;
+                                int countToSend = WebSocketMaxFrameSize;
+                                if (countToSend >= bytesLeft)
+                                {
+                                    countToSend = bytesLeft;
+                                    endOfMessage = true;
+                                }
+
+                                try
+                                {
+                                    socketError = await Socket.WebSocket.SendExAsync(streamBuffer.AsMemory(offset, countToSend), 
+                                        WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
+                                }
+                                catch (Exception ex)
+                                // Обрыв соединения.
+                                {
+                                    // Оповестить об обрыве.
+                                    AtomicDisconnect(ex);
+
+                                    // Завершить поток.
+                                    return;
+                                }
+
+                                if (socketError == SocketError.Success)
+                                {
+                                    bytesLeft -= countToSend;
+                                    offset += countToSend;
+                                }
+                                else
+                                {
+                                    // Оповестить об обрыве.
+                                    AtomicDisconnect(socketError.ToException());
+
+                                    // Завершить поток.
+                                    return;
+                                }
+                                #endregion
                             }
-
-                            bytesLeft -= countToSend;
-                            offset += countToSend;
-
                             #endregion
                         }
-                    }
+                        else
+                        {
+                            // Оповестить об обрыве.
+                            AtomicDisconnect(socketError.ToException());
 
-                    #endregion
+                            // Завершить поток.
+                            return;
+                        }
+                    }
 
                     if (sendJob.MessageType == MessageType.Response)
                     {
@@ -1039,25 +1061,25 @@ namespace vRPC
             return controllerType;
         }
 
-        /// <summary>
-        /// Производит маппинг аргументов запроса в соответствии с делегатом.
-        /// </summary>
-        /// <param name="method">Метод который будем вызывать.</param>
-        private object[] DeserializeParameters(ParameterInfo[] targetArguments, RequestMessage request)
-        {
-            object[] args = new object[targetArguments.Length];
+        ///// <summary>
+        ///// Производит маппинг аргументов запроса в соответствии с делегатом.
+        ///// </summary>
+        ///// <param name="method">Метод который будем вызывать.</param>
+        //private object[] DeserializeParameters(ParameterInfo[] targetArguments, RequestMessage request)
+        //{
+        //    object[] args = new object[targetArguments.Length];
 
-            for (int i = 0; i < targetArguments.Length; i++)
-            {
-                ParameterInfo p = targetArguments[i];
-                var arg = request.Args.FirstOrDefault(x => x.ParameterName.Equals(p.Name, StringComparison.InvariantCultureIgnoreCase));
-                if (arg == null)
-                    throw new BadRequestException($"Argument \"{p.Name}\" missing.");
+        //    for (int i = 0; i < targetArguments.Length; i++)
+        //    {
+        //        ParameterInfo p = targetArguments[i];
+        //        var arg = request.Args.FirstOrDefault(x => x.ParameterName.Equals(p.Name, StringComparison.InvariantCultureIgnoreCase));
+        //        if (arg == null)
+        //            throw new BadRequestException($"Argument \"{p.Name}\" missing.");
 
-                args[i] = arg.Value.ToObject(p.ParameterType);
-            }
-            return args;
-        }
+        //        args[i] = arg.Value.ToObject(p.ParameterType);
+        //    }
+        //    return args;
+        //}
 
         /// <summary>
         /// Производит маппинг аргументов по их порядку.
@@ -1072,7 +1094,7 @@ namespace vRPC
                 {
                     ParameterInfo p = targetArguments[i];
                     var arg = request.Args[i];
-                    args[i] = arg.Value.ToObject(p.ParameterType);
+                    args[i] = arg.ToObject(p.ParameterType);
                 }
                 return args;
             }

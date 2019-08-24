@@ -1,35 +1,39 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using ProtoBuf;
 using System.Diagnostics;
 using System.Runtime.Serialization;
 
 namespace vRPC
 {
+    /// <summary>
+    /// Сериализуемый аргумент вызываемого метода.
+    /// </summary>
     [DataContract]
-    [DebuggerDisplay("{DebugDisplay,nq}")]
+    [ProtoContract]
+    [DebuggerDisplay(@"\{{ParameterName}: {Value}\}")]
     internal sealed class Arg
     {
-        #region Debug
+        [JsonProperty("n")]
+        [ProtoMember(1)]
+        public string ParameterName { get; set; }
 
-        [JsonIgnore]
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => $"\"{ParameterName}\": {Value}";
+        [JsonProperty("v")]
+        public JToken Value { get; set; }
 
-        #endregion
+        //[JsonIgnore]
+        //[ProtoMember(2, DynamicType = true)]
+        //public object Value2 { get; set; }
 
-        [JsonProperty]
-        public string ParameterName;
-
-        [JsonProperty]
-        public JToken Value;
-
-        [JsonConstructor]
-        private Arg() { }
+        //[JsonConstructor]
+        //private Arg() { }
+        public Arg() { }
 
         public Arg(string parameterName, object value)
         {
             ParameterName = parameterName;
             Value = value == null ? null : JToken.FromObject(value);
+            //Value2 = value;
         }
     }
 }
