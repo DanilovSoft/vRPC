@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 namespace vRPC
 {
     /// <summary>
-    /// Этот клас динамически наследует пользовательский интерфейс.
+    /// От этого класса наследуются динамические типы и пользовательский интерфейс. Поэтому должен быть публичным и не запечатанным.
     /// </summary>
-    public class InterfaceProxy : TypeProxy, ICloneable
+    public class InterfaceProxy : ICloneable
     {
         private Func<ValueTask<Context>> _contextCallback;
         private string _controllerName;
@@ -32,7 +32,7 @@ namespace vRPC
             return proxy;
         }
 
-        public override object Invoke(MethodInfo targetMethod, object[] args)
+        protected object Invoke(MethodInfo targetMethod, object[] args)
         {
             ValueTask<Context> contextTask = _contextCallback();
             return Context.OnProxyCall(contextTask, targetMethod, args, _controllerName);

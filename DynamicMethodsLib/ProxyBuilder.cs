@@ -7,20 +7,27 @@ using System.Reflection.Emit;
 
 namespace DynamicMethodsLib
 {
-    internal static class ProxyBuilder<T>
+    internal static class ProxyBuilder<TParent>
     {
         private static readonly BindingFlags _visibilityFlags = BindingFlags.Public | BindingFlags.Instance;
         private static readonly MethodInfo _invokeMethod;
 
         static ProxyBuilder()
         {
-            _invokeMethod = typeof(TypeProxy).GetMethod("Invoke");
+            _invokeMethod = typeof(TParent).GetMethod("Invoke",
+                BindingFlags.NonPublic | BindingFlags.Instance, 
+                null, 
+                new[] { typeof(MethodInfo), typeof(object[]) }, 
+                modifiers: null);
+
             Debug.Assert(_invokeMethod != null);
+            if (_invokeMethod == null)
+                throw new InvalidOperationException($"У типа {typeof(TParent).FullName} должен быть метод Invoke(MethodInfo m, object[] args).");
         }
 
         private static AssemblyBuilder DefineDynamicAssembly(string name)
         {
-            AssemblyBuilder assembly = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(name), AssemblyBuilderAccess.Run);
+            var assembly = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(name), AssemblyBuilderAccess.Run);
             return assembly;
         }
 
@@ -29,17 +36,21 @@ namespace DynamicMethodsLib
             return assembly.DefineDynamicModule("Module");
         }
 
-        public static T CreateProxy<TIface>(T source = default, object instance = null)
+        public static TParent CreateProxy<TIface>(TParent source = default, object instance = null)
         {
             var ifaceType = typeof(TIface);
             if (!ifaceType.IsPublic)
                 throw new InvalidOperationException($"Интерфейс {ifaceType.FullName} должен быть публичным.");
 
+            var proxyParentClassType = typeof(TParent);
+            if(proxyParentClassType.IsSealed)
+                throw new InvalidOperationException($"Родительский класс {proxyParentClassType.FullName} не должен быть запечатанным.");
+
             string assemblyName = typeof(TIface).Name + "_" + Guid.NewGuid().ToString();
             AssemblyBuilder assemblyBuilder = DefineDynamicAssembly(assemblyName);
             ModuleBuilder moduleBuilder = DefineDynamicModule(assemblyBuilder, assemblyName + ".dll");
-            string className = typeof(T).Name + "_" + typeof(TIface).Name;
-            TypeBuilder classType = moduleBuilder.DefineType(className, TypeAttributes.Class | TypeAttributes.Public, parent: typeof(T));
+            string className = proxyParentClassType.Name + "_" + typeof(TIface).Name;
+            TypeBuilder classType = moduleBuilder.DefineType(className, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class, parent: proxyParentClassType);
             var fieldsList = new List<string>();
 
             classType.AddInterfaceImplementation(typeof(TIface));
@@ -50,11 +61,11 @@ namespace DynamicMethodsLib
                 Type instanceType = instance.GetType();
 
                 // Пустой конструктор базового типа.
-                ConstructorInfo baseDefaultCtor = typeof(T).GetConstructor(Type.EmptyTypes);
+                ConstructorInfo baseDefaultCtor = proxyParentClassType.GetConstructor(Type.EmptyTypes);
 
                 // Базовый конструктор с параметром.
                 ConstructorInfo baseCtor = null;
-                var baseCtors = typeof(T).GetConstructors();
+                var baseCtors = proxyParentClassType.GetConstructors();
                 foreach (ConstructorInfo ctor in baseCtors)
                 {
                     var parameters = ctor.GetParameters();
@@ -85,9 +96,9 @@ namespace DynamicMethodsLib
             else
             // Должен быть публичный и пустой конструктор.
             {
-                ConstructorInfo baseDefaultCtor = typeof(T).GetConstructor(Type.EmptyTypes);
+                ConstructorInfo baseDefaultCtor = proxyParentClassType.GetConstructor(Type.EmptyTypes);
                 if (baseDefaultCtor == null)
-                    throw new InvalidOperationException($"У типа {typeof(T).FullName} должен быть пустой и открытый конструктор.");
+                    throw new InvalidOperationException($"У типа {proxyParentClassType.FullName} должен быть пустой и открытый конструктор.");
             }
 
             int methodCount = 0;
@@ -125,12 +136,10 @@ namespace DynamicMethodsLib
 
             if (source != null)
             {
-                foreach (var v in source.GetType().GetProperties())
+                foreach (PropertyInfo v in source.GetType().GetProperties())
                 {
                     if (fieldsList.Contains(v.Name))
-                    {
                         continue;
-                    }
 
                     fieldsList.Add(v.Name);
 
@@ -195,14 +204,14 @@ namespace DynamicMethodsLib
             TypeInfo ti = classType.CreateTypeInfo();
             //Type dynamicType = classType.CreateType();
 
-            T proxy;
+            TParent proxy;
             if (instance != null)
             {
-                proxy = (T)Activator.CreateInstance(ti, args: instance);
+                proxy = (TParent)Activator.CreateInstance(ti, args: instance);
             }
             else
             {
-                proxy = (T)Activator.CreateInstance(ti);
+                proxy = (TParent)Activator.CreateInstance(ti);
             }
 
             foreach (var item in fields)
@@ -351,7 +360,7 @@ namespace DynamicMethodsLib
             else
             {
                 // Вызвать метод.
-                il.Emit(OpCodes.Callvirt, _invokeMethod);
+                il.CallMethod(_invokeMethod);
             }
 
             // Возврат результата.
@@ -377,7 +386,7 @@ namespace DynamicMethodsLib
             il.Emit(OpCodes.Ret);
         }
 
-        private static K CopyValues<K>(T source, K destination)
+        private static K CopyValues<K>(TParent source, K destination)
         {
             foreach (PropertyInfo property in source.GetType().GetProperties(_visibilityFlags))
             {

@@ -121,7 +121,14 @@ namespace System.IO
             throw new IOException("An attempt was made to move the position before the beginning of the stream.");
         }
 
-        public override void SetLength(long value)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="clear">При увеличении размера стрима позволяет указать 
+        /// требуется ли очистить буфер начиная с текущей позиции до конца стрима. 
+        /// Значение по умолчанию — <see langword="true"/>.</param>
+        public void SetLength(long value, bool clear)
         {
             ThrowIfDisposed();
 
@@ -141,8 +148,11 @@ namespace System.IO
                         ReDim(newLength);
                     }
 
-                    // Обнулить часть буфера.
-                    Array.Clear(_arrayBuffer, _length, deltaLen);
+                    if (clear)
+                    {
+                        // Обнулить добавленную часть буфера (справа).
+                        Array.Clear(_arrayBuffer, _length, deltaLen);
+                    }
                 }
                 else
                 // Нужно уменьшить стрим.
@@ -163,6 +173,11 @@ namespace System.IO
             }
             else
                 throw new ArgumentOutOfRangeException(nameof(value), "Stream length must be non-negative and less than 2^31 - 1 - origin.");
+        }
+
+        public override void SetLength(long value)
+        {
+            SetLength(value, clear: true);
         }
 
         public override int Read(byte[] buffer, int offset, int count)

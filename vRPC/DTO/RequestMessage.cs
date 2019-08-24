@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using ProtoBuf;
+using System.Diagnostics;
 using System.Runtime.Serialization;
 
 namespace vRPC
@@ -9,6 +10,7 @@ namespace vRPC
     /// Сериализуемое сообщение для передачи через сокет.
     /// </summary>
     [ProtoContract]
+    [DebuggerDisplay(@"\{Request = {ActionName,nq}\}")]
     internal class RequestMessage
     {
         /// <summary>

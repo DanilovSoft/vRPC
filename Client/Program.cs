@@ -13,7 +13,6 @@ namespace Client
     class Program
     {
         private const int Port = 65125;
-        private const int DefaultCpus = 6;
         private static int Threads;
 
         static void Main()
@@ -31,12 +30,13 @@ namespace Client
             } while (!IPAddress.TryParse(ipStr, out ipAddress));
 
             string cpusStr;
+            int processorCount = Environment.ProcessorCount;
             do
             {
-                Console.Write($"Сколько логических ядер ({DefaultCpus}): ");
+                Console.Write($"Сколько потоков (ядер – {processorCount}): ");
                 cpusStr = Console.ReadLine();
                 if (cpusStr == "")
-                    cpusStr = $"{DefaultCpus}";
+                    cpusStr = $"{processorCount}";
 
             } while (!int.TryParse(cpusStr, out Threads));
 
@@ -65,7 +65,7 @@ namespace Client
                         // Лучше подключиться предварительно.
                         do
                         {
-                            while ((client.ConnectAsync().GetAwaiter().GetResult()).SocketError != SocketError.Success)
+                            while ((client.ConnectAsync().GetAwaiter().GetResult()) != SocketError.Success)
                                 Thread.Sleep(new Random().Next(200, 400));
 
                             while (true)

@@ -13,37 +13,29 @@ namespace vRPC
     /// <summary>
     /// Контекст клиентского соединения.
     /// </summary>
-    [DebuggerDisplay("{DebugDisplay,nq}")]
+    [DebuggerDisplay(@"\{Connected = {IsConnected}\}")]
     public sealed class Client : IDisposable
     {
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"Connected = {IsConnected}" + "}";
-
         /// <summary>
         /// Используется для синхронизации установки соединения.
         /// </summary>
-        private readonly ChannelLock _channelLock;
+        private readonly ChannelLock _connectLock;
         /// <summary>
         /// Адрес для подключеия к серверу.
         /// </summary>
         private readonly Uri _uri;
-        //private readonly object _idleObj = new object();
-        private ApplicationBuilder _appBuilder;
         private readonly Dictionary<string, Type> _controllers;
         private readonly ProxyCache _proxyCache = new ProxyCache();
-
-        /// <summary>
-        /// Токен авторизации передаваемый серверу при начальном подключении.
-        /// </summary>
-        public byte[] BearerToken { get; set; }
-        ///// <summary>
-        ///// <see langword="true"/> если соединение авторизовано на сервере.
-        ///// </summary>
-        //public bool IsAuthorized { get; private set; }
+        public bool IsConnected => _context != null;
+        private ApplicationBuilder _appBuilder;
         private Action<ServiceCollection> _iocConfigure;
         private Action<ApplicationBuilder> _configureApp;
         private volatile Context _context;
-        public bool IsConnected => _context != null;
+        /// <summary>
+        /// Завершается если подключение отсутствует или разорвано.
+        /// Не бросает исключения.
+        /// </summary>
+        public Task Completion { get; private set; } = Task.CompletedTask;
 
         // ctor.
         /// <summary>
@@ -87,7 +79,7 @@ namespace vRPC
             // Словарь с найденными контроллерами в вызывающей сборке.
             _controllers = GlobalVars.FindAllControllers(controllersAssembly);
             _uri = uri;
-            _channelLock = new ChannelLock();
+            _connectLock = new ChannelLock();
         }
 
         /// <summary>
@@ -95,18 +87,10 @@ namespace vRPC
         /// Может произойти исключение если одновременно вызвать Dispose или Stop.
         /// Потокобезопасно.
         /// </summary>
-        public async Task<ConnectResult> ConnectAsync()
+        public async Task<SocketError> ConnectAsync()
         {
             ConnectionResult connectionResult = await ConnectIfNeededAsync().ConfigureAwait(false);
-
-            if (connectionResult.SocketError == SocketError.Success)
-            {
-                return new ConnectResult(SocketError.Success, connectionResult.Context.Completion);
-            }
-            else
-            {
-                return new ConnectResult(connectionResult.SocketError, null);
-            }
+            return connectionResult.SocketError;
         }
 
         public T GetProxy<T>()
@@ -136,7 +120,7 @@ namespace vRPC
         //}
 
         /// <summary>
-        /// Событие — обрыв сокета. Потокобезопасно срабатывает только один раз.
+        /// Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
         /// </summary>
         private void Disconnected(object sender, Exception exception)
         {
@@ -152,7 +136,7 @@ namespace vRPC
             var context = _context;
             if (context == null)
             {
-                using (await _channelLock.LockAsync().ConfigureAwait(false))
+                using (await _connectLock.LockAsync().ConfigureAwait(false))
                 {
                     // Копия volatile.
                     context = _context;
@@ -160,7 +144,7 @@ namespace vRPC
                     {
                         var serviceCollection = new ServiceCollection();
                         _iocConfigure?.Invoke(serviceCollection);
-                        var serviceProvider = ConfigureIoC(serviceCollection);
+                        ServiceProvider serviceProvider = ConfigureIoC(serviceCollection);
                         _appBuilder = new ApplicationBuilder(serviceProvider);
                         _configureApp?.Invoke(_appBuilder);
 
@@ -178,6 +162,7 @@ namespace vRPC
                         catch
                         // Не удалось подключиться (сервер не запущен?).
                         {
+                            serviceProvider.Dispose();
                             ws.Dispose();
                             throw;
                         }
@@ -188,6 +173,7 @@ namespace vRPC
                             context.BeforeInvokeController += BeforeInvokeController;
                             context.Disconnected += Disconnected;
                             Interlocked.Exchange(ref _context, context);
+                            Completion = context.Completion;
                             context.StartReceivingLoop();
                         }
                         else

@@ -9,14 +9,14 @@ namespace vRPC
 {
     public readonly struct ConnectResult
     {
-        public Task Completed { get; }
+        public Task Completion { get; }
         public SocketError SocketError { get; }
 
         [DebuggerStepThrough]
         internal ConnectResult(SocketError socketError, Task connectionCompleted)
         {
             SocketError = socketError;
-            Completed = connectionCompleted;
+            Completion = connectionCompleted;
         }
     }
 }

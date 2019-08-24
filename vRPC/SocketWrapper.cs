@@ -1,5 +1,6 @@
 ﻿using DanilovSoft.WebSocket;
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace vRPC
@@ -20,17 +21,18 @@ namespace vRPC
         /// <summary>
         /// Коллекция запросов ожидающие ответ от удалённой стороны.
         /// </summary>
-        public RequestQueue RequestCollection { get; }
+        public RequestQueue PendingRequests { get; }
 
         public SocketWrapper(WebSocket webSocket)
         {
             WebSocket = webSocket;
-            RequestCollection = new RequestQueue();
+            PendingRequests = new RequestQueue();
         }
 
         /// <summary>
-        /// Атомарно пытается захватить эксклюзивное право на текущий объект.
+        /// Атомарно захватывает эксклюзивное право на текущий объект.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryOwn()
         {
             bool owned = Interlocked.CompareExchange(ref _state, 1, 0) == 0;
@@ -38,7 +40,7 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Атомарно.
+        /// Атомарно освобождает ресурсы <see cref="WebSocket"/>.
         /// </summary>
         public void Dispose()
         {

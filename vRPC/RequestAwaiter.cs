@@ -8,44 +8,42 @@ namespace vRPC
     /// <summary>
     /// Атомарный <see langword="await"/>'ер. Связывает запрос с его результатом.
     /// </summary>
-    [DebuggerDisplay(@"\{Request: {_requestAction}\}")]
-    internal sealed class TaskCompletionSource : INotifyCompletion
+    [DebuggerDisplay(@"\{Request: {Request.ActionName}\}")]
+    internal sealed class RequestAwaiter : INotifyCompletion
     {
-        private readonly string _requestAction;
         /// <summary>
         /// Тип ожидаемого результата.
         /// </summary>
-        public readonly Type ResultType;
+        public Type ResultType { get; }
+        public Message Request { get; }
         /// <summary>
         /// Флаг используется как fast-path
         /// </summary>
         private volatile bool _isCompleted;
+        [DebuggerNonUserCode]
         public bool IsCompleted => _isCompleted;
         private volatile object _response;
         private volatile Exception _exception;
         private Action _continuationAtomic;
 
         // ctor.
-        public TaskCompletionSource(Type resultType, string requestAction = null)
+        public RequestAwaiter(Type resultType, Message requestToSend)
         {
-            _requestAction = requestAction;
             ResultType = resultType;
+            Request = requestToSend;
         }
 
         [DebuggerStepThrough]
-        public TaskCompletionSource GetAwaiter() => this;
+        public RequestAwaiter GetAwaiter() => this;
 
         //[DebuggerStepThrough]
         [DebuggerNonUserCode]
         public object GetResult()
         {
-            // Копируем volatile ссылку.
-            Exception ex = _exception;
-
-            if (ex == null)
+            if (_exception == null)
                 return _response;
-
-            throw ex;
+            else
+                throw _exception;
         }
 
         /// <summary>

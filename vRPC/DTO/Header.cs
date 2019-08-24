@@ -11,6 +11,7 @@ namespace vRPC
     /// Заголовок передаваемого сообщения. Размер заголовка — динамический.
     /// </summary>
     [ProtoContract]
+    [DebuggerDisplay(@"\{Status = {StatusCode}, Size = {ContentLength}\}")]
     internal sealed class Header
     {
         public const int HeaderMaxSize = 64;

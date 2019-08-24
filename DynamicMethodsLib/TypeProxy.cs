@@ -2,7 +2,7 @@
 
 namespace DynamicMethodsLib
 {
-    public abstract class TypeProxy
+    public static class TypeProxy
     {
         public static TProxy Create<T, TProxy>()
         {
@@ -14,6 +14,6 @@ namespace DynamicMethodsLib
             return ProxyBuilder<TProxy>.CreateProxy<T>(instance: instance);
         }
 
-        public abstract object Invoke(MethodInfo targetMethod, object[] args);
+        //protected abstract object Invoke(MethodInfo targetMethod, object[] args);
     }
 }
