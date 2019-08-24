@@ -108,21 +108,10 @@ namespace vRPC
             throw connectionResult.SocketError.ToException();
         }
 
-        ///// <summary>
-        ///// Блокирует продолжение пока установлено соединение с сервером.
-        ///// Завершается если соединение не установлено.
-        ///// Бросает исключение при обрыве.
-        ///// Потокобезопасно.
-        ///// </summary>
-        //public async Task IdleAsync()
-        //{
-        //    await _idleTask.Task.ConfigureAwait(false);
-        //}
-
         /// <summary>
         /// Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
         /// </summary>
-        private void Disconnected(object sender, Exception exception)
+        private void Disconnected(object sender, SocketDisconnectedEventArgs e)
         {
             Interlocked.CompareExchange(ref _context, null, (Context)sender);
         }
@@ -171,10 +160,10 @@ namespace vRPC
                         {
                             context = new Context(ws, serviceProvider, _controllers);
                             context.BeforeInvokeController += BeforeInvokeController;
-                            context.Disconnected += Disconnected;
                             Interlocked.Exchange(ref _context, context);
                             Completion = context.Completion;
                             context.StartReceivingLoop();
+                            context.Disconnected += Disconnected;
                         }
                         else
                         {

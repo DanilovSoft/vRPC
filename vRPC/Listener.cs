@@ -185,37 +185,44 @@ namespace vRPC
             // Создать контекст для текущего подключения.
             var context = new ClientContext(e.Connection, _serviceProvider, listener: this);
 
-            bool connected;
+            // Возможно сервер находится в режиме остановки.
+            bool connectionAllowed;
             lock(_connections.SyncObj)
             {
                 if (!_stopRequired) // volatile.
                 {
                     _connections.Add(context);
-                    connected = true;
+                    connectionAllowed = true;
                 }
                 else
                 {
                     context.Dispose();
-                    connected = false;
+                    connectionAllowed = false;
                 }
             }
 
-            if (connected)
+            if (connectionAllowed)
             {
-                context.Disconnected += Context_Disconnected;
-                context.StartReceive(); // Сначала запустить чтение, а потом вызвать событие.
+                // Сервер разрешил установку этого соединения, можно начать чтение.
+                context.StartReceive();
+
+                // Сначала нужно запустить чтение, а потом вызвать событие.
                 ClientConnected?.Invoke(this, new ClientConnectedEventArgs(context));
+
+                // Состояние гонки здесь отсутствует.
+                // Событие гарантирует что обрыв пропущен не будет.
+                context.Disconnected += Context_Disconnected;
             }
         }
 
-        private void Context_Disconnected(object sender, Exception ex)
+        private void Context_Disconnected(object sender, SocketDisconnectedEventArgs e)
         {
             var context = (ClientContext)sender;
             lock (_connections.SyncObj)
             {
                 _connections.Remove(context);
             }
-            ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(context, ex));
+            ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(context, e.ReasonException));
         }
 
         public void Dispose()

@@ -22,6 +22,7 @@ namespace vRPC
     /// <summary>
     /// Контекст соединения Web-Сокета. Владеет соединением.
     /// </summary>
+    [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public class Context : IDisposable
     {
         /// <summary>
@@ -71,8 +72,49 @@ namespace vRPC
         /// Для отслеживания грациозной остановки сервиса.
         /// </summary>
         private int _reqAndRespCount;
-        internal event EventHandler<Exception> Disconnected;
+
+        /// <summary>
+        /// Подписку на событие Disconnected нужно синхронизировать что-бы подписчики не пропустили момент обрыва.
+        /// </summary>
+        private readonly object _disconnectEventObj = new object();
+        private EventHandler<SocketDisconnectedEventArgs> _Disconnected;
+        /// <summary>
+        /// Событие обрыва соединения. Может сработать только один раз.
+        /// Если подписка на событие происходит к уже отключенному сокету то событие сработает сразу же.
+        /// Гарантирует что событие не будет пропущено в какой бы момент не происходила подписка.
+        /// </summary>
+        public event EventHandler<SocketDisconnectedEventArgs> Disconnected
+        {
+            add
+            {
+                lock (_disconnectEventObj)
+                {
+                    if (_disconnectReason == null)
+                    {
+                        _Disconnected += value;
+                    }
+                    else
+                    // Подписка к уже отключенному сокету.
+                    {
+                        value(this, new SocketDisconnectedEventArgs(_disconnectReason));
+                    }
+                }
+            }
+            remove
+            {
+                lock (_disconnectEventObj)
+                {
+                    _Disconnected -= value;
+                }
+            }
+        }
+        /// <summary>
+        /// Истиная причина обрыва соединения.
+        /// </summary>
+        private Exception _disconnectReason;
         internal event EventHandler<Controller> BeforeInvokeController;
+        private volatile bool _isConnected = true;
+        public bool IsConnected => _isConnected;
 
         // static ctor.
         static Context()
@@ -86,7 +128,7 @@ namespace vRPC
         /// 
         /// </summary>
         /// <param name="ioc">Контейнер Listener'а.</param>
-        internal Context(MyWebSocket clientConnection, ServiceProvider serviceProvider, Dictionary<string, Type> controllers) : this()
+        internal Context(MyWebSocket clientConnection, ServiceProvider serviceProvider, Dictionary<string, Type> controllers)
         {
             // У сервера сокет всегда подключен и переподключаться не может.
             Socket = new SocketWrapper(clientConnection);
@@ -107,17 +149,13 @@ namespace vRPC
                 SingleWriter = false,
             });
 
+            // Может спровоцировать Disconnect раньше чем выполнится конструктор наследника.
+            // Эта ситуация должна быть синхронизирована.
             ThreadPool.UnsafeQueueUserWorkItem(state =>
             {
                 // Не бросает исключения.
                 ((Context)state).SenderLoop();
             }, this); // Без замыкания.
-        }
-
-        // ctor.
-        private Context()
-        {
-            
         }
 
         /// <summary>
@@ -371,10 +409,12 @@ namespace vRPC
                 // Стрим который будет содержать сообщение целиком.
                 using (var messageStream = new MemoryPoolStream(header.ContentLength))
                 {
-                    // Обязательно установить размер стрима. Можно не очищать, буффер будет перезаписан.
+                    // Обязательно установить размер стрима. Можно не очищать – буффер будет перезаписан.
                     messageStream.SetLength(header.ContentLength, clear: false);
 
                     int receiveMessageBytesLeft = header.ContentLength;
+                    int offset = 0;
+                    byte[] messageStreamBuffer = messageStream.DangerousGetBuffer();
 
                     do // Читаем и склеиваем фреймы веб-сокета пока не EndOfMessage.
                     {
@@ -382,12 +422,11 @@ namespace vRPC
 
                         #region Читаем фрейм веб-сокета
 
-                        int offset = 0;
-                        byte[] memBuffer = messageStream.DangerousGetBuffer();
                         try
                         {
                             // Читаем фрейм веб-сокета.
-                            webSocketMessage = await Socket.WebSocket.ReceiveExAsync(memBuffer.AsMemory().Slice(offset, receiveMessageBytesLeft), CancellationToken.None);
+                            webSocketMessage = await Socket.WebSocket.ReceiveExAsync(
+                                messageStreamBuffer.AsMemory().Slice(offset, receiveMessageBytesLeft), CancellationToken.None);
                         }
                         catch (Exception ex)
                         // Обрыв соединения.
@@ -402,14 +441,13 @@ namespace vRPC
 
                         if (webSocketMessage.ErrorCode == SocketError.Success)
                         {
-                            messageStream.Position += webSocketMessage.Count;
-                            offset += webSocketMessage.Count;
-                            receiveMessageBytesLeft -= webSocketMessage.Count;
-
-                            #region Проверка на Close и выход
-
+                            if (webSocketMessage.MessageType != WebSocketMessageType.Close)
+                            {
+                                offset += webSocketMessage.Count;
+                                receiveMessageBytesLeft -= webSocketMessage.Count;
+                            }
+                            else
                             // Другая сторона закрыла соединение.
-                            if (webSocketMessage.MessageType == WebSocketMessageType.Close)
                             {
                                 // Сформировать причину закрытия соединения.
                                 string exceptionMessage = GetMessageFromCloseFrame();
@@ -420,7 +458,6 @@ namespace vRPC
                                 // Завершить поток.
                                 return;
                             }
-                            #endregion
                         }
                         else
                         // Обрыв соединения.
@@ -441,7 +478,7 @@ namespace vRPC
                         #region Обработка Payload
 
                         // Установить курсор в начало payload.
-                        messageStream.Position = 0;
+                        //messageStream.Position = 0;
 
                         if (header.StatusCode == StatusCode.Request)
                         // Получен запрос.
@@ -821,21 +858,37 @@ namespace vRPC
         /// <summary>
         /// Потокобезопасно освобождает ресурсы соединения. Вызывается при обрыве соединения.
         /// </summary>
-        /// <param name="exception">Возможная причина обрыва соединения.</param>
-        private protected void AtomicDisconnect(Exception exception)
+        /// <param name="possibleReason">Возможная причина обрыва соединения.</param>
+        private protected void AtomicDisconnect(Exception possibleReason)
         {
             // Захватить эксклюзивный доступ к сокету.
             if(Socket.TryOwn())
-            // Только один поток может зайти сюда.
+            // Только один поток может зайти сюда (за всю жизнь экземпляра).
             {
+                // Это настоящая причина обрыва соединения.
+                Exception disconnectReason = possibleReason;
+
                 // Передать исключение всем ожидающим потокам.
-                Socket.PendingRequests.PropagateExceptionAndLockup(exception);
+                Socket.PendingRequests.PropagateExceptionAndLockup(disconnectReason);
 
                 // Закрыть соединение.
                 Socket.Dispose();
 
-                // Сообщить об обрыве.
-                Disconnected?.Invoke(this, exception);
+                // Синхронизироваться с подписчиками на событие Disconnected.
+                lock (_disconnectEventObj)
+                {
+                    // Запомнить истинную причину обрыва.
+                    _disconnectReason = disconnectReason;
+
+                    // Теперь флаг.
+                    _isConnected = false;
+
+                    // Сообщить об обрыве.
+                    _Disconnected?.Invoke(this, new SocketDisconnectedEventArgs(disconnectReason));
+
+                    // Теперь можно безопасно убрать подписчиков.
+                    _Disconnected = null;
+                }
 
                 // Установить Task Completed.
                 // Вызывать нужно после события Disconnected.
@@ -1148,7 +1201,7 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Потокобезопасно освобождает все ресурсы.
+        /// Потокобезопасно закрывает соединение и освобождает все ресурсы.
         /// </summary>
         public void Dispose()
         {
@@ -1164,11 +1217,13 @@ namespace vRPC
         {
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
             {
+                // Лучше выполнить в первую очередь.
+                _sendChannel.Writer.TryComplete();
+
                 // Оповестить об обрыве.
                 AtomicDisconnect(propagateException);
 
                 ServiceProvider.Dispose();
-                _sendChannel.Writer.TryComplete();
             }
         }
     }

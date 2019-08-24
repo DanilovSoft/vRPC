@@ -9,6 +9,9 @@ namespace vRPC
     [DebuggerDisplay(@"\{Count = {_list.Count}\}")]
     internal sealed class ClientConnections : ICollection<ClientContext>
     {
+        /// <summary>
+        /// Модификация коллекции допускается с захватом этой блокировки.
+        /// </summary>
         public readonly object SyncObj = new object();
         private readonly List<ClientContext> _list = new List<ClientContext>();
         public int Count => _list.Count;

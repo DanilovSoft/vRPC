@@ -5,19 +5,17 @@ using System.Text;
 
 namespace vRPC
 {
-    public sealed class ClientDisconnectedEventArgs : EventArgs
+    public sealed class SocketDisconnectedEventArgs : EventArgs
     {
-        public ClientContext Connection { get; }
         /// <summary>
         /// Причина обрыва соединения.
         /// </summary>
         public Exception ReasonException { get; }
 
         [DebuggerStepThrough]
-        public ClientDisconnectedEventArgs(ClientContext clientContext, Exception exception)
+        public SocketDisconnectedEventArgs(Exception reasonException)
         {
-            Connection = clientContext;
-            ReasonException = exception;
+            ReasonException = reasonException;
         }
     }
 }

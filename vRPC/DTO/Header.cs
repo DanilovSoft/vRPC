@@ -8,15 +8,14 @@ using ProtoBufSerializer = ProtoBuf.Serializer;
 namespace vRPC
 {
     /// <summary>
-    /// Заголовок передаваемого сообщения. Размер заголовка — динамический.
+    /// Заголовок передаваемого сообщения. Размер заголовка — динамический. Сериализатор всегда ProtoBuf.
     /// </summary>
     [ProtoContract]
-    [DebuggerDisplay(@"\{Status = {StatusCode}, Size = {ContentLength}\}")]
+    [DebuggerDisplay(@"\{Status = {StatusCode}, Content = {ContentLength} байт\}")]
     internal sealed class Header
     {
         public const int HeaderMaxSize = 64;
         private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
-        //private const PrefixStyle HeaderLengthPrefix = PrefixStyle.Fixed32;
 
         [ProtoMember(1)]
         public ushort Uid { get; }

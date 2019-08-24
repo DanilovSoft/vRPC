@@ -12,43 +12,21 @@ namespace vRPC
     /// <summary>
     /// Подключенный к серверу клиент.
     /// </summary>
-    [DebuggerDisplay("{DebugDisplay,nq}")]
+    [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public sealed class ClientContext : Context
     {
-        #region Debug
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"{{{GetType().Name}}}, UserId = {UserId?.ToString() ?? "Null"}" + "}";
-        #endregion
-
         private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
         private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
 
         /// <summary>
-        /// Объект синхронизации текущего экземпляра.
-        /// </summary>
-        private readonly object _syncObj = new object();
-        /// <summary>
         /// Сервер который принял текущее соединение.
         /// </summary>
         public Listener Listener { get; }
-        /// <summary>
-        /// Идентификатор авторизованного пользователя.
-        /// </summary>
-        public int? UserId { get; private set; }
-        /// <summary>
-        /// <see langword="true"/> если клиент авторизован сервером.
-        /// </summary>
-        public bool IsAuthorized { get; private set; }
-
-        private volatile UserConnections _userConnections;
-        /// <summary>
-        /// Смежные соединения текущего пользователя. Является <see langword="volatile"/>.
-        /// </summary>
-        public UserConnections UserConnections { get => _userConnections; private set => _userConnections = value; }
-        //private readonly RijndaelEnhanced _jwt;
-
-        private readonly bool _isConnected = true;
-        public bool IsConnected { get => _isConnected; }
+        //private volatile UserConnections _userConnections;
+        ///// <summary>
+        ///// Смежные соединения текущего пользователя. Является <see langword="volatile"/>.
+        ///// </summary>
+        //public UserConnections UserConnections { get => _userConnections; private set => _userConnections = value; }
 
         // ctor.
         internal ClientContext(MyWebSocket clientConnection, ServiceProvider serviceProvider, Listener listener) 
@@ -154,28 +132,28 @@ namespace vRPC
         //    return false;
         //}
 
-        /// <summary>
-        /// Потокобезопасно производит авторизацию текущего соединения.
-        /// </summary>
-        /// <param name="userId">Идентификатор пользователя который будет пазначен текущему контексту.</param>
-        private void InnerAuthorize(int userId)
-        {
-            // Функцию могут вызвать из нескольких потоков.
-            lock (_syncObj)
-            {
-                if (!IsAuthorized)
-                {
-                    // Авторизуем контекст пользователя.
-                    UserId = userId;
-                    IsAuthorized = true;
+        ///// <summary>
+        ///// Потокобезопасно производит авторизацию текущего соединения.
+        ///// </summary>
+        ///// <param name="userId">Идентификатор пользователя который будет пазначен текущему контексту.</param>
+        //private void InnerAuthorize(int userId)
+        //{
+        //    // Функцию могут вызвать из нескольких потоков.
+        //    lock (_syncObj)
+        //    {
+        //        if (!IsAuthorized)
+        //        {
+        //            // Авторизуем контекст пользователя.
+        //            UserId = userId;
+        //            IsAuthorized = true;
 
-                    // Добавляем соединение в словарь.
-                    UserConnections = AddConnection(userId);
-                }
-                else
-                    throw new BadRequestException($"You are already authorized as 'UserId: {UserId}'", StatusCode.BadRequest);
-            }
-        }
+        //            // Добавляем соединение в словарь.
+        //            UserConnections = AddConnection(userId);
+        //        }
+        //        else
+        //            throw new BadRequestException($"You are already authorized as 'UserId: {UserId}'", StatusCode.BadRequest);
+        //    }
+        //}
 
         /// <summary>
         /// Потокобезопасно добавляет текущее соединение в словарь или создаёт новый словарь.
@@ -213,9 +191,9 @@ namespace vRPC
         /// <exception cref="BadRequestException"/>
         protected override void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType)
         {
-            // Проверить доступен ли метод пользователю.
-            if (IsAuthorized)
-                return;
+            //// Проверить доступен ли метод пользователю.
+            //if (IsAuthorized)
+            //    return;
 
             // Разрешить если метод помечен как разрешенный для не авторизованных пользователей.
             if (Attribute.IsDefined(method, typeof(AllowAnonymousAttribute)))

@@ -10,10 +10,10 @@ namespace vRPC
         public ClientContext Context { get; internal set; }
         public ServiceProvider ServiceProvider => ServiceProvider;
 
-        /// <summary>
-        /// Шорткат для Context.UserId.Value.
-        /// </summary>
-        public int UserId => Context.UserId.Value;
+        ///// <summary>
+        ///// Шорткат для Context.UserId.Value.
+        ///// </summary>
+        //public int UserId => Context.UserId.Value;
 
         // ctor.
         public ServerController()
