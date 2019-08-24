@@ -14,11 +14,11 @@ namespace vRPC
     {
         public MemoryPoolStream MessageStream { get; }
         public MessageType MessageType { get; }
-        public Header Header { get; }
+        public HeaderDto Header { get; }
         public int HeaderSize { get; }
 
         [DebuggerStepThrough]
-        public SendJob(Header header, int headerSize, MemoryPoolStream messageStream, MessageType messageType)
+        public SendJob(HeaderDto header, int headerSize, MemoryPoolStream messageStream, MessageType messageType)
         {
             Header = header;
             HeaderSize = headerSize;

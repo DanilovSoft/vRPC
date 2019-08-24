@@ -109,18 +109,27 @@ namespace vRPC
             }
         }
         /// <summary>
-        /// Истиная причина обрыва соединения.
+        /// Истиная причина обрыва соединения. 
+        /// <see langword="volatile"/> нужен только для публичного свойства <see cref="DisconnectReason"/> 
+        /// так как <see cref="IsConnected"/> у нас тоже <see langword="volatile"/>.
         /// </summary>
-        private Exception _disconnectReason;
+        private volatile Exception _disconnectReason;
+        /// <summary>
+        /// Причина обрыва соединения.
+        /// </summary>
+        public Exception DisconnectReason => _disconnectReason;
         internal event EventHandler<Controller> BeforeInvokeController;
         private volatile bool _isConnected = true;
+        /// <summary>
+        /// <see langword="volatile"/>.
+        /// </summary>
         public bool IsConnected => _isConnected;
 
         // static ctor.
         static Context()
         {
             // Прогрев сериализатора.
-            ProtoBuf.Serializer.PrepareSerializer<Header>();
+            ProtoBuf.Serializer.PrepareSerializer<HeaderDto>();
         }
 
         // ctor.
@@ -331,7 +340,7 @@ namespace vRPC
 
         private async void ReceiveLoop()
         {
-            byte[] headerBuffer = new byte[Header.HeaderMaxSize];
+            byte[] headerBuffer = new byte[HeaderDto.HeaderMaxSize];
 
             // Бесконечно обрабатываем сообщения сокета.
             while (!IsDisposed)
@@ -355,12 +364,12 @@ namespace vRPC
                     return;
                 }
 
-                Header header;
+                HeaderDto header;
                 if (webSocketMessage.ErrorCode == SocketError.Success)
                 {
                     try
                     {
-                        header = Header.DeserializeProtobuf(headerBuffer, 0, webSocketMessage.Count);
+                        header = HeaderDto.DeserializeProtobuf(headerBuffer, 0, webSocketMessage.Count);
                     }
                     catch (Exception headerException)
                     // Не удалось десериализовать заголовок.
@@ -487,7 +496,7 @@ namespace vRPC
 
                             #region Десериализация запроса
 
-                            RequestMessage receivedRequest;
+                            RequestMessageDto receivedRequest;
                             try
                             {
                                 // Десериализуем запрос.
@@ -658,7 +667,7 @@ namespace vRPC
                 // Записать в стрим запрос или результат запроса.
                 if (messageToSend.IsRequest)
                 {
-                    var request = new RequestMessage
+                    var request = new RequestMessageDto
                     {
                         ActionName = messageToSend.ActionName,
                         Args = messageToSend.Args,
@@ -679,7 +688,7 @@ namespace vRPC
                 int contentLength = (int)contentStream.Length;
 
                 // Готовим заголовок.
-                var header = new Header(messageToSend.Uid, actionContext?.StatusCode ?? StatusCode.Request)
+                var header = new HeaderDto(messageToSend.Uid, actionContext?.StatusCode ?? StatusCode.Request)
                 {
                     ContentLength = contentLength,
                 };
@@ -928,7 +937,7 @@ namespace vRPC
         /// Вызывает запрошенный метод контроллера и возвращает результат.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        private async ValueTask<object> InvokeControllerAsync(RequestMessage receivedRequest)
+        private async ValueTask<object> InvokeControllerAsync(RequestMessageDto receivedRequest)
         {
             // Находим контроллер.
             Type controllerType = FindRequestedController(receivedRequest, out string controllerName, out string actionName);
@@ -1021,7 +1030,7 @@ namespace vRPC
         /// <summary>
         /// Пытается найти запрашиваемый пользователем контроллер.
         /// </summary>
-        private Type FindRequestedController(RequestMessage request, out string controllerName, out string actionName)
+        private Type FindRequestedController(RequestMessageDto request, out string controllerName, out string actionName)
         {
             int index = request.ActionName.IndexOf('/');
             if (index == -1)
@@ -1067,7 +1076,7 @@ namespace vRPC
         /// Производит маппинг аргументов по их порядку.
         /// </summary>
         /// <param name="method">Метод который будем вызывать.</param>
-        private object[] DeserializeArguments(ParameterInfo[] targetArguments, RequestMessage request)
+        private object[] DeserializeArguments(ParameterInfo[] targetArguments, RequestMessageDto request)
         {
             if (request.Args.Length == targetArguments.Length)
             {
@@ -1086,17 +1095,17 @@ namespace vRPC
         /// <summary>
         /// В новом потоке выполняет запрос клиента и отправляет ему результат или ошибку.
         /// </summary>
-        private void StartProcessRequest(RequestMessage receivedRequest)
+        private void StartProcessRequest(RequestMessageDto receivedRequest)
         {
             ThreadPool.UnsafeQueueUserWorkItem(state =>
             {
-                var tuple = ((RequestMessage receivedRequest, Context context))state;
+                var tuple = ((RequestMessageDto receivedRequest, Context context))state;
                 tuple.context.StartProcessRequestThread(tuple.receivedRequest);
 
             }, state: (receivedRequest, this)); // Без замыкания.
         }
 
-        private async void StartProcessRequestThread(RequestMessage receivedRequest)
+        private async void StartProcessRequestThread(RequestMessageDto receivedRequest)
         // Новый поток из пула потоков.
         {
             // Увеличить счетчик запросов.
@@ -1130,7 +1139,7 @@ namespace vRPC
         /// Выполняет запрос клиента и инкапсулирует результат в <see cref="Response"/>.
         /// Не бросает исключения.
         /// </summary>
-        private async ValueTask<Message> GetResponseAsync(RequestMessage receivedRequest)
+        private async ValueTask<Message> GetResponseAsync(RequestMessageDto receivedRequest)
         {
             // Результат контроллера. Может быть Task.
             object rawResult;

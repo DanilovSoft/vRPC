@@ -26,7 +26,10 @@ namespace vRPC
         private readonly Uri _uri;
         private readonly Dictionary<string, Type> _controllers;
         private readonly ProxyCache _proxyCache = new ProxyCache();
-        public bool IsConnected => _context != null;
+        /// <summary>
+        /// <see langword="volatile"/>.
+        /// </summary>
+        public bool IsConnected => _context?.IsConnected ?? false;
         private ApplicationBuilder _appBuilder;
         private Action<ServiceCollection> _iocConfigure;
         private Action<ApplicationBuilder> _configureApp;
@@ -35,7 +38,7 @@ namespace vRPC
         /// Завершается если подключение отсутствует или разорвано.
         /// Не бросает исключения.
         /// </summary>
-        public Task Completion { get; private set; } = Task.CompletedTask;
+        public Task Completion => _context?.Completion ?? Task.CompletedTask;
 
         // ctor.
         /// <summary>
@@ -44,21 +47,6 @@ namespace vRPC
         public Client(Uri uri) : this(Assembly.GetCallingAssembly(), uri)
         {
 
-        }
-
-        /// <summary>
-        /// Позволяет настроить IoC контейнер.
-        /// Выполняется единожды при инициализации подключения.
-        /// </summary>
-        /// <param name="configure"></param>
-        public void ConfigureService(Action<ServiceCollection> configure)
-        {
-            _iocConfigure = configure;
-        }
-
-        public void Configure(Action<ApplicationBuilder> configureApp)
-        {
-            _configureApp = configureApp;
         }
 
         /// <summary>
@@ -74,12 +62,29 @@ namespace vRPC
         /// </summary>
         /// <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
         /// <param name="uri">Адрес сервера.</param>
-        internal Client(Assembly controllersAssembly, Uri uri)
+        private Client(Assembly controllersAssembly, Uri uri)
         {
+            Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
+
             // Словарь с найденными контроллерами в вызывающей сборке.
             _controllers = GlobalVars.FindAllControllers(controllersAssembly);
             _uri = uri;
             _connectLock = new ChannelLock();
+        }
+
+        /// <summary>
+        /// Позволяет настроить IoC контейнер.
+        /// Выполняется единожды при инициализации подключения.
+        /// </summary>
+        /// <param name="configure"></param>
+        public void ConfigureService(Action<ServiceCollection> configure)
+        {
+            _iocConfigure = configure;
+        }
+
+        public void Configure(Action<ApplicationBuilder> configureApp)
+        {
+            _configureApp = configureApp;
         }
 
         /// <summary>
@@ -113,7 +118,7 @@ namespace vRPC
         /// </summary>
         private void Disconnected(object sender, SocketDisconnectedEventArgs e)
         {
-            Interlocked.CompareExchange(ref _context, null, (Context)sender);
+            _context = null;
         }
 
         /// <summary>
@@ -160,8 +165,10 @@ namespace vRPC
                         {
                             context = new Context(ws, serviceProvider, _controllers);
                             context.BeforeInvokeController += BeforeInvokeController;
-                            Interlocked.Exchange(ref _context, context);
-                            Completion = context.Completion;
+
+                            // Косвенно устанавливает флаг IsConnected.
+                            _context = context;
+
                             context.StartReceivingLoop();
                             context.Disconnected += Disconnected;
                         }
@@ -197,13 +204,6 @@ namespace vRPC
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
             return serviceProvider;
-
-            // IoC готов к работе.
-            //if (Interlocked.CompareExchange(ref _serviceProvider, serviceProvider, null) != null)
-            //{
-            //    // Нельзя устанавливать IoC повторно.
-            //    serviceProvider.Dispose();
-            //}
         }
 
         ///// <summary>
@@ -218,12 +218,6 @@ namespace vRPC
         //    object result = await ExecuteRequestAsync(requestToSend, returnType: typeof(bool), socketQueue).ConfigureAwait(false);
 
         //    return (bool)result;
-        //}
-
-        //// Серверу всегда доступны методы клиента.
-        //protected override void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType)
-        //{
-
         //}
 
         public void Dispose()

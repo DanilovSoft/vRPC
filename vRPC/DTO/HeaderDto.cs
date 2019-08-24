@@ -12,7 +12,7 @@ namespace vRPC
     /// </summary>
     [ProtoContract]
     [DebuggerDisplay(@"\{Status = {StatusCode}, Content = {ContentLength} байт\}")]
-    internal sealed class Header
+    internal sealed class HeaderDto
     {
         public const int HeaderMaxSize = 64;
         private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
@@ -33,12 +33,12 @@ namespace vRPC
         public string ContentEncoding { get; set; }
 
         // Для сериализатора.
-        private Header()
+        private HeaderDto()
         {
 
         }
 
-        public Header(ushort uid, StatusCode statusCode)
+        public HeaderDto(ushort uid, StatusCode statusCode)
         {
             Uid = uid;
             StatusCode = statusCode;
@@ -106,11 +106,11 @@ namespace vRPC
         /// <param name="offset"></param>
         /// <param name="count"></param>
         /// <returns></returns>
-        public static Header DeserializeProtobuf(byte[] buffer, int offset, int count)
+        public static HeaderDto DeserializeProtobuf(byte[] buffer, int offset, int count)
         {
             using (var mem = new MemoryStream(buffer, offset, count))
             {
-                Header header = ProtoBufSerializer.Deserialize<Header>(mem);
+                HeaderDto header = ProtoBufSerializer.Deserialize<HeaderDto>(mem);
                 if (header != null)
                     return header;
             }

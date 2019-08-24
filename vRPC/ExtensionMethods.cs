@@ -69,13 +69,13 @@ namespace vRPC
         /// <summary>
         /// Десериализует JSON.
         /// </summary>
-        public static RequestMessage DeserializeRequestJson(Stream stream)
+        public static RequestMessageDto DeserializeRequestJson(Stream stream)
         {
             using (var reader = new StreamReader(stream, _UTF8NoBOM, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
             using (var json = new JsonTextReader(reader))
             {
                 var ser = new JsonSerializer();
-                var req = ser.Deserialize<RequestMessage>(json);
+                var req = ser.Deserialize<RequestMessageDto>(json);
                 if (req != null)
                     return req;
 

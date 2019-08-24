@@ -27,7 +27,7 @@ namespace vRPC
         /// <summary>
         /// Связанный запрос. Может быть <see langword="null"/>.
         /// </summary>
-        public RequestMessage ReceivedRequest { get; set; }
+        public RequestMessageDto ReceivedRequest { get; set; }
 
         /// <summary>
         /// Конструктор запроса.
@@ -63,7 +63,7 @@ namespace vRPC
             return new Message(uid, rawResult);
         }
 
-        public static Message FromResult(RequestMessage receivedRequest, object rawResult)
+        public static Message FromResult(RequestMessageDto receivedRequest, object rawResult)
         {
             var message = new Message(receivedRequest.Header.Uid, rawResult);
 

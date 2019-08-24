@@ -65,7 +65,7 @@ namespace Client
                         // Лучше подключиться предварительно.
                         do
                         {
-                            while ((client.ConnectAsync().GetAwaiter().GetResult()) != SocketError.Success)
+                            while (client.ConnectAsync().GetAwaiter().GetResult() != SocketError.Success)
                                 Thread.Sleep(new Random().Next(200, 400));
 
                             while (true)
@@ -76,11 +76,11 @@ namespace Client
                                 }
                                 catch (Exception ex)
                                 {
-                                    Thread.Sleep(new Random().Next(200, 400));
                                     break;
                                 }
                                 Interlocked.Increment(ref reqCount);
                             }
+                            Thread.Sleep(new Random().Next(200, 400));
                         } while (true);
                     }
                 }).Start();

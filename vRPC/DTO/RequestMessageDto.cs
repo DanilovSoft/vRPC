@@ -7,23 +7,20 @@ using System.Runtime.Serialization;
 namespace vRPC
 {
     /// <summary>
-    /// Сериализуемое сообщение для передачи через сокет.
+    /// Сериализуемое сообщение для передачи через сокет. На данный момент сериализуется только в Json.
     /// </summary>
-    [ProtoContract]
     [DebuggerDisplay(@"\{Request = {ActionName,nq}\}")]
-    internal class RequestMessage
+    internal sealed class RequestMessageDto
     {
         /// <summary>
         /// Вызываемый метод.
         /// </summary>
-        [ProtoMember(1)]
         [JsonProperty("n")]
         public string ActionName { get; set; }
 
         /// <summary>
         /// Аргументы вызываемого метода.
         /// </summary>
-        [ProtoMember(2)]
         [JsonProperty("a")]
         public JToken[] Args { get; set; }
 
@@ -31,7 +28,7 @@ namespace vRPC
         /// Связанный заголовок этого запроса.
         /// </summary>
         [IgnoreDataMember]
-        public Header Header { get; set; }
+        public HeaderDto Header { get; set; }
 
         /// <summary>
         /// Контекст связанный с текущим запросом.
