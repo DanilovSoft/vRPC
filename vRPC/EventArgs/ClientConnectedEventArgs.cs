@@ -7,10 +7,10 @@ namespace vRPC
 {
     public sealed class ClientConnectedEventArgs : EventArgs
     {
-        public ClientContext Connection { get; }
+        public ServerSideConnection Connection { get; }
 
         [DebuggerStepThrough]
-        public ClientConnectedEventArgs(ClientContext clientContext)
+        public ClientConnectedEventArgs(ServerSideConnection clientContext)
         {
             Connection = clientContext;
         }

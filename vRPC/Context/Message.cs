@@ -32,15 +32,14 @@ namespace vRPC
         /// <summary>
         /// Конструктор запроса.
         /// </summary>
-        private Message(string actionName, object[] args)
+        private Message(string actionName, Arg[] args)
         {
             ActionName = actionName;
             IsRequest = true;
             Args = new JToken[args.Length];
             for (int i = 0; i < args.Length; i++)
             {
-                object argV = args[i];
-                Args[i] = argV == null ? null : JToken.FromObject(argV);
+                Args[i] = args[i].Value;
             }
         }
 
@@ -53,7 +52,17 @@ namespace vRPC
             Result = result;
         }
 
-        public static Message CreateRequest(string actionName, object[] args)
+        public static Arg[] PrepareArgs(object[] args)
+        {
+            var jArgs = new Arg[args.Length];
+            for (int i = 0; i < args.Length; i++)
+            {
+                jArgs[i] = new Arg(args[i]);
+            }
+            return jArgs;
+        }
+
+        public static Message CreateRequest(string actionName, Arg[] args)
         {
             return new Message(actionName, args);
         }

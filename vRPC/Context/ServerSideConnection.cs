@@ -13,28 +13,35 @@ namespace vRPC
     /// Подключенный к серверу клиент.
     /// </summary>
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public sealed class ClientContext : Context
+    public sealed class ServerSideConnection : ManagedConnection
     {
         private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
         private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
+        internal static readonly MyConcurrentDictionary<MethodInfo, string> ProxyMethodName = new MyConcurrentDictionary<MethodInfo, string>();
+        //private readonly ValueTask<ManagedConnection> _thisConnection;
+        private readonly ProxyCache _proxyCache = new ProxyCache();
+        private protected override IConcurrentDictionary<MethodInfo, string> _proxyMethodName => ProxyMethodName;
 
         /// <summary>
         /// Сервер который принял текущее соединение.
         /// </summary>
         public Listener Listener { get; }
-        //private volatile UserConnections _userConnections;
-        ///// <summary>
-        ///// Смежные соединения текущего пользователя. Является <see langword="volatile"/>.
-        ///// </summary>
-        //public UserConnections UserConnections { get => _userConnections; private set => _userConnections = value; }
 
         // ctor.
-        internal ClientContext(MyWebSocket clientConnection, ServiceProvider serviceProvider, Listener listener) 
-            : base(clientConnection, serviceProvider, listener.Controllers)
+        internal ServerSideConnection(MyWebSocket clientConnection, ServiceProvider serviceProvider, Listener listener) 
+            : base(clientConnection, isServer: false, serviceProvider, listener.Controllers)
         {
             Listener = listener;
 
             //_jwt = new RijndaelEnhanced(PassPhrase, InitVector);
+        }
+
+        /// <summary>
+        /// Создает прокси к методам удалённой стороны на основе интерфейса.
+        /// </summary>
+        public T GetProxy<T>()
+        {
+            return _proxyCache.GetProxy<T>(this);
         }
 
         // Вызывается после конструктора.
@@ -189,7 +196,7 @@ namespace vRPC
         /// Проверяет доступность запрашиваемого метода пользователем.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        protected override void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType)
+        protected override bool InvokeMethodPermissionCheck(MethodInfo method, Type controllerType, out IActionResult permissionError)
         {
             //// Проверить доступен ли метод пользователю.
             //if (IsAuthorized)
@@ -197,13 +204,25 @@ namespace vRPC
 
             // Разрешить если метод помечен как разрешенный для не авторизованных пользователей.
             if (Attribute.IsDefined(method, typeof(AllowAnonymousAttribute)))
-                return;
+            {
+                permissionError = null;
+                return true;
+            }
 
             // Разрешить если контроллер помечен как разрешенный для не акторизованных пользователей.
             if (Attribute.IsDefined(controllerType, typeof(AllowAnonymousAttribute)))
-                return;
+            {
+                permissionError = null;
+                return true;
+            }
 
-            throw new BadRequestException("This action requires user authentication.", StatusCode.Unauthorized);
+            permissionError = new UnauthorizedResult("This action requires user authentication.", StatusCode.Unauthorized);
+            return false;
+        }
+
+        private protected override void BeforeInvokeController(Controller controller)
+        {
+            //var serverController = (ServerController)controller;
         }
     }
 }

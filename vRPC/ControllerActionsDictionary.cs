@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -24,6 +25,7 @@ namespace vRPC
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetValue(Type controllerType, string actionName, out ControllerAction value)
         {
             return _actions.TryGetValue((controllerType, actionName), out value);

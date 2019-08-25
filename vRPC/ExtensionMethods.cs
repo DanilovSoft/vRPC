@@ -138,7 +138,7 @@ namespace vRPC
         /// <summary>
         /// Нормализует имя функции если она является Task-Async.
         /// </summary>
-        public static string TrimAsyncPostfix(this MethodInfo method)
+        public static string GetNameTrimAsync(this MethodInfo method)
         {
             if (method.IsAsyncMethod())
             // Это асинхронный метод.
@@ -157,6 +157,35 @@ namespace vRPC
         public static SocketException ToException(this SocketError socketError)
         {
             return new SocketException((int)socketError);
+        }
+
+        // TODO закэшировать?
+        /// <summary>
+        /// Возвращает инкапсулированный в <see cref="Task"/> тип результата функции.
+        /// </summary>
+        public static Type GetMethodReturnType(this MethodInfo method)
+        {
+            // Если возвращаемый тип функции — Task.
+            if (method.IsAsyncMethod())
+            {
+                // Если у задачи есть результат.
+                if (method.ReturnType.IsGenericType)
+                {
+                    // Тип результата задачи.
+                    Type resultType = method.ReturnType.GenericTypeArguments[0];
+                    return resultType;
+                }
+                else
+                {
+                    // Возвращаемый тип Task(без результата).
+                    return typeof(void);
+                }
+            }
+            else
+            // Была вызвана синхронная функция.
+            {
+                return method.ReturnType;
+            }
         }
     }
 }

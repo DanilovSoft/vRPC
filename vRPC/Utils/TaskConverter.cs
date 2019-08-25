@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace vRPC
@@ -54,6 +55,9 @@ namespace vRPC
         [DebuggerStepThrough]
         private static async Task<T> ConvertTaskAsync<T>(Task<object> task)
         {
+            //return task.ContinueWith(t => (T)t.Result, CancellationToken.None, 
+            //    TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
             object result = await task.ConfigureAwait(false);
             return (T)result;
         }

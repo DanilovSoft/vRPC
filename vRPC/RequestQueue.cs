@@ -15,6 +15,9 @@ namespace vRPC
     {
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
         private readonly Dictionary<ushort, RequestAwaiter> _dict = new Dictionary<ushort, RequestAwaiter>();
+        /// <summary>
+        /// Не является потокобезопасным.
+        /// </summary>
         private readonly SpinWait _spinWait = new SpinWait();
         private Exception _disconnectException;
         private int _reqIdSeq;
@@ -53,10 +56,10 @@ namespace vRPC
                     }
                     else
                         throw _disconnectException;
-                }
 
-                // Словарь переполнен — подождать и повторить попытку.
-                _spinWait.SpinOnce();
+                    // Словарь переполнен — подождать и повторить попытку.
+                    _spinWait.SpinOnce();
+                }
 
             } while (true);
         }
@@ -82,7 +85,7 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет генерировать это исключение.
+        /// Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет провоцировать это исключение.
         /// </summary>
         internal void PropagateExceptionAndLockup(Exception exception)
         {

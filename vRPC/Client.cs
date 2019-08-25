@@ -33,7 +33,7 @@ namespace vRPC
         private ApplicationBuilder _appBuilder;
         private Action<ServiceCollection> _iocConfigure;
         private Action<ApplicationBuilder> _configureApp;
-        private volatile Context _context;
+        private volatile ClientSideConnection _context;
         /// <summary>
         /// Завершается если подключение отсутствует или разорвано.
         /// Не бросает исключения.
@@ -103,7 +103,7 @@ namespace vRPC
             return _proxyCache.GetProxy<T>(ContextCallback);
         }
 
-        private async ValueTask<Context> ContextCallback()
+        private async ValueTask<ManagedConnection> ContextCallback()
         {
             ConnectionResult connectionResult = await ConnectIfNeededAsync();
 
@@ -163,8 +163,7 @@ namespace vRPC
 
                         if (errorCode == SocketError.Success)
                         {
-                            context = new Context(ws, serviceProvider, _controllers);
-                            context.BeforeInvokeController += BeforeInvokeController;
+                            context = new ClientSideConnection(this, ws, serviceProvider, _controllers);
 
                             // Косвенно устанавливает флаг IsConnected.
                             _context = context;
@@ -185,12 +184,6 @@ namespace vRPC
             }
             else
                 return new ConnectionResult(SocketError.Success, context);
-        }
-
-        private void BeforeInvokeController(object sender, Controller e)
-        {
-            var clientController = (ClientController)e;
-            clientController.Context = this;
         }
 
         /// <summary>

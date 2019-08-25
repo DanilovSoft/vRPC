@@ -62,8 +62,9 @@ namespace Server
                     var reqPerSec = (int)Math.Round(reqPerSecond * 1000d / elapsedMs);
 
                     Console.SetCursorPosition(0, 0);
-                    Console.WriteLine($"Connections: {Interlocked.Read(ref _connections).ToString().PadRight(10, ' ')}");
-                    Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10, ' ')}");
+                    Console.WriteLine($"Connections: {Interlocked.Read(ref _connections).ToString().PadRight(10)}");
+                    Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10)}");
+                    Console.WriteLine($"Requests: {ReqCount.ToString("g").PadRight(15)}");
                 }
             }
         }

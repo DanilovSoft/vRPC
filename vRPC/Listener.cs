@@ -101,7 +101,7 @@ namespace vRPC
 
             // Необходимо закрыть все соединения.
 
-            ClientContext[] copy;
+            ServerSideConnection[] copy;
             lock (_connections.SyncObj)
             {
                 // Теперь мы обязаны сделать Dispose этим подключениям.
@@ -183,7 +183,7 @@ namespace vRPC
         private void Listener_OnConnected(object sender, DanilovSoft.WebSocket.ClientConnectedEventArgs e)
         {
             // Создать контекст для текущего подключения.
-            var context = new ClientContext(e.Connection, _serviceProvider, listener: this);
+            var context = new ServerSideConnection(e.Connection, _serviceProvider, listener: this);
 
             // Возможно сервер находится в режиме остановки.
             bool connectionAllowed;
@@ -217,7 +217,7 @@ namespace vRPC
 
         private void Context_Disconnected(object sender, SocketDisconnectedEventArgs e)
         {
-            var context = (ClientContext)sender;
+            var context = (ServerSideConnection)sender;
             lock (_connections.SyncObj)
             {
                 _connections.Remove(context);
@@ -233,7 +233,7 @@ namespace vRPC
                 _wsServ.Dispose();
                 _serviceProvider?.Dispose();
 
-                ClientContext[] copy;
+                ServerSideConnection[] copy;
                 lock (_connections.SyncObj)
                 {
                     copy = _connections.ToArray();

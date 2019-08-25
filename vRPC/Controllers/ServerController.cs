@@ -7,7 +7,7 @@ namespace vRPC
         /// <summary>
         /// Контекст подключения на стороне сервера.
         /// </summary>
-        public ClientContext Context { get; internal set; }
+        public ServerSideConnection Context { get; internal set; }
         public ServiceProvider ServiceProvider => ServiceProvider;
 
         ///// <summary>

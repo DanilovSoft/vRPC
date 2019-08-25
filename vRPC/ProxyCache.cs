@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using vRPC.Decorator;
 
 namespace vRPC
 {
@@ -12,18 +13,34 @@ namespace vRPC
         /// <summary>
         /// Содержит прокси созданные из интерфейсов.
         /// </summary>
-        private static readonly Dictionary<Type, InterfaceProxy> _staticProxies = new Dictionary<Type, InterfaceProxy>();
+        private static readonly Dictionary<Type, IInterfaceProxy> _staticDict = new Dictionary<Type, IInterfaceProxy>();
         /// <summary>
         /// Содержит прокси созданные из интерфейсов.
         /// </summary>
-        private readonly Dictionary<Type, object> _proxies = new Dictionary<Type, object>();
+        private readonly Dictionary<Type, object> _instanceDict = new Dictionary<Type, object>();
 
-        public T GetProxy<T>(Func<ValueTask<Context>> contextCallback)
+        public T GetProxy<T>(ManagedConnection connection)
+        {
+            return GetProxy<T, ServerInterfaceProxy>((controllerName, p) => 
+            {
+                p.Initialize(controllerName, connection);
+            });
+        }
+
+        public T GetProxy<T>(Func<ValueTask<ManagedConnection>> contextCallback)
+        {
+            return GetProxy<T, ClientInterfaceProxy>((controllerName, p) => 
+            {
+                p.Initialize(controllerName, contextCallback);
+            });
+        }
+
+        private T GetProxy<T, TProxy>(Action<string, TProxy> initializeCopy) where TProxy : class, IInterfaceProxy
         {
             Type interfaceType = typeof(T);
-            lock (_proxies)
+            lock (_instanceDict)
             {
-                if (_proxies.TryGetValue(interfaceType, out object proxy))
+                if (_instanceDict.TryGetValue(interfaceType, out object proxy))
                 {
                     return (T)proxy;
                 }
@@ -31,31 +48,37 @@ namespace vRPC
                 {
                     var attrib = typeof(T).GetCustomAttribute<ControllerContractAttribute>(inherit: false);
                     if (attrib == null)
-                        throw new ArgumentNullException("controllerName", $"Укажите имя контроллера или пометьте интерфейс атрибутом \"{nameof(ControllerContractAttribute)}\"");
+                        throw new ArgumentNullException("controllerName", $"Укажите имя контроллера или пометьте интерфейс атрибутом \"{nameof(ControllerContractAttribute)}\".");
 
-                    bool existStatic;
-                    InterfaceProxy p;
-                    lock (_staticProxies) // Нужна блокировка на статический словарь.
+                    IInterfaceProxy p;
+                    TProxy createdStatic;
+                    lock (_staticDict) // Нужна блокировка на статический словарь.
                     {
-                        if (_staticProxies.TryGetValue(interfaceType, out p))
+                        if (_staticDict.TryGetValue(interfaceType, out p))
                         {
-                            existStatic = true;
+                            createdStatic = null;
                         }
                         else
                         {
-                            existStatic = false;
-                            p = TypeProxy.Create<T, InterfaceProxy>();
-                            _staticProxies.Add(interfaceType, p);
+                            createdStatic = TypeProxy.Create<T, TProxy>();
+                            _staticDict.Add(interfaceType, createdStatic);
                         }
                     }
 
-                    if(existStatic)
-                        p = p.Clone(); // Клонирование можно выполнять одновременно разными потоками.
+                    if (createdStatic == null)
+                    {
+                        var clone = p.Clone<TProxy>(); // Клонирование можно выполнять одновременно разными потоками.
+                        initializeCopy(attrib.ControllerName, clone);
+                        p = clone;
+                    }
+                    else
+                    {
+                        initializeCopy(attrib.ControllerName, createdStatic);
+                        p = createdStatic;
+                    }
 
-                    p.SetCallback(attrib.ControllerName, contextCallback);
-
-                    _proxies.Add(interfaceType, p);
-                    return (T)(object)p;
+                    _instanceDict.Add(interfaceType, p);
+                    return (T)p;
                 }
             }
         }

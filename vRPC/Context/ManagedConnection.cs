@@ -23,7 +23,7 @@ namespace vRPC
     /// Контекст соединения Web-Сокета. Владеет соединением.
     /// </summary>
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public class Context : IDisposable
+    public abstract class ManagedConnection : IDisposable
     {
         /// <summary>
         /// Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
@@ -33,18 +33,21 @@ namespace vRPC
         /// <summary>
         /// Содержит имена методов прокси интерфейса без постфикса Async.
         /// </summary>
-        private static readonly Dictionary<MethodInfo, string> _proxyMethodName = new Dictionary<MethodInfo, string>();
+        private protected abstract IConcurrentDictionary<MethodInfo, string> _proxyMethodName { get; }
         /// <summary>
         /// Потокобезопасный словарь используемый только для чтения.
-        /// Хранит все доступные контроллеры. Не учитывает регистр.
+        /// Хранит все доступные контроллеры.
         /// </summary>
         private readonly Dictionary<string, Type> _controllers;
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
         private readonly ControllerActionsDictionary _controllerActions;
-        private readonly TaskCompletionSource<int> _connectedTcs = new TaskCompletionSource<int>();
-        private readonly ProxyCache _proxyCache = new ProxyCache();
+        /// <summary>
+        /// Для <see cref="Task"/> <see cref="Completion"/>.
+        /// </summary>
+        private readonly TaskCompletionSource<int> _completionTcs = new TaskCompletionSource<int>();
+        private readonly bool _isServer;
         public ServiceProvider ServiceProvider { get; private set; }
         /// <summary>
         /// Подключенный TCP сокет.
@@ -63,10 +66,12 @@ namespace vRPC
         /// </summary>
         private volatile bool _stopRequired;
         /// <summary>
-        /// Возвращает <see cref="Task"/> который завершается когда сервис полностью 
-        /// остановлен и больше не будет обрабатывать запросы. Не бросает исключения.
+        /// Возвращает <see cref="Task"/> который завершается когда 
+        /// соединение переходит в закрытое состояние.
+        /// Не бросает исключения.
+        /// Причину разъединения можно узнать у свойства <see cref="DisconnectReason"/>.
         /// </summary>
-        public Task Completion => _connectedTcs.Task;
+        public Task Completion => _completionTcs.Task;
         /// <summary>
         /// Количество запросов для обработки и количество ответов для отправки.
         /// Для отслеживания грациозной остановки сервиса.
@@ -87,6 +92,7 @@ namespace vRPC
         {
             add
             {
+                Exception disconnectReason = null;
                 lock (_disconnectEventObj)
                 {
                     if (_disconnectReason == null)
@@ -96,37 +102,40 @@ namespace vRPC
                     else
                     // Подписка к уже отключенному сокету.
                     {
-                        value(this, new SocketDisconnectedEventArgs(_disconnectReason));
+                        disconnectReason = _disconnectReason;
                     }
+                }
+
+                if(disconnectReason != null)
+                {
+                    value(this, new SocketDisconnectedEventArgs(disconnectReason));
                 }
             }
             remove
             {
-                lock (_disconnectEventObj)
-                {
-                    _Disconnected -= value;
-                }
+                // Отписываться можно без блокировки — делегаты потокобезопасны.
+                _Disconnected -= value;
             }
         }
         /// <summary>
         /// Истиная причина обрыва соединения. 
-        /// <see langword="volatile"/> нужен только для публичного свойства <see cref="DisconnectReason"/> 
-        /// так как <see cref="IsConnected"/> у нас тоже <see langword="volatile"/>.
+        /// <see langword="volatile"/> нужен для тандема с <see langword="volatile"/> <see cref="IsConnected"/>.
         /// </summary>
         private volatile Exception _disconnectReason;
         /// <summary>
-        /// Причина обрыва соединения.
+        /// Причина обрыва соединения; <see langword="volatile"/>.
         /// </summary>
         public Exception DisconnectReason => _disconnectReason;
-        internal event EventHandler<Controller> BeforeInvokeController;
+        //internal event EventHandler<Controller> BeforeInvokeController;
+        private protected abstract void BeforeInvokeController(Controller controller);
         private volatile bool _isConnected = true;
         /// <summary>
-        /// <see langword="volatile"/>.
+        /// <see langword="volatile"/>; Если значение <see langword="false"/>, то можно узнать причину через свойство <see cref="DisconnectReason"/>.
         /// </summary>
         public bool IsConnected => _isConnected;
 
         // static ctor.
-        static Context()
+        static ManagedConnection()
         {
             // Прогрев сериализатора.
             ProtoBuf.Serializer.PrepareSerializer<HeaderDto>();
@@ -136,10 +145,10 @@ namespace vRPC
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="ioc">Контейнер Listener'а.</param>
-        internal Context(MyWebSocket clientConnection, ServiceProvider serviceProvider, Dictionary<string, Type> controllers)
+        internal ManagedConnection(MyWebSocket clientConnection, bool isServer, ServiceProvider serviceProvider, Dictionary<string, Type> controllers)
         {
-            // У сервера сокет всегда подключен и переподключаться не может.
+            _isServer = isServer;
+
             Socket = new SocketWrapper(clientConnection);
 
             // IoC готов к работе.
@@ -163,7 +172,7 @@ namespace vRPC
             ThreadPool.UnsafeQueueUserWorkItem(state =>
             {
                 // Не бросает исключения.
-                ((Context)state).SenderLoop();
+                ((ManagedConnection)state).SenderLoop();
             }, this); // Без замыкания.
         }
 
@@ -172,6 +181,7 @@ namespace vRPC
         /// </summary>
         internal void StopRequired()
         {
+            // volatile.
             _stopRequired = true;
             
             if(Interlocked.Decrement(ref _reqAndRespCount) == -1)
@@ -179,53 +189,62 @@ namespace vRPC
             {
                 // Можно безопасно остановить сокет.
                 Dispose(new StopRequiredException());
-                SetCompleted();
+                AtomicSetCompletion();
             }
             // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
             // Это будет соглашением о необходимости остановки.
         }
 
         /// <summary>
-        /// Создает прокси к методам удалённой стороны на основе интерфейса.
+        /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
-        public T GetProxy<T>()
-        {   
-            return _proxyCache.GetProxy<T>(() => new ValueTask<Context>(this));
+        internal object OnServerProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
+        {
+            // Тип результата инкапсулированный в Task<T>.
+            Type resultType = targetMethod.GetMethodReturnType();
+
+            // Без постфикса Async.
+            string remoteMethodName = GetProxyMethodName(targetMethod);
+
+            //throw new NotImplementedException();
+            Task<object> taskObject = OnProxyCall(targetMethod, resultType, controllerName, remoteMethodName, Message.PrepareArgs(args));
+
+            return OnProxyCallConvert(targetMethod, resultType, taskObject);
         }
 
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
-        internal static object OnProxyCall(ValueTask<Context> contextTask, MethodInfo targetMethod, object[] args, string controllerName)
+        internal static object OnClientProxyCall(ValueTask<ManagedConnection> contextTask, MethodInfo targetMethod, object[] args, string controllerName)
         {
-            //#region CreateArgs()
-            //Arg[] CreateArgs()
-            //{
-            //    ParameterInfo[] par = targetMethod.GetParameters();
-            //    Arg[] retArgs = new Arg[par.Length];
+            // Тип результата инкапсулированный в Task<T>.
+            Type resultType = targetMethod.GetMethodReturnType();
 
-            //    for (int i = 0; i < par.Length; i++)
-            //    {
-            //        ParameterInfo p = par[i];
-            //        retArgs[i] = new Arg(p.Name, args[i]);
-            //    }
-            //    return retArgs;
-            //}
-            //#endregion
-
-            // Без постфикса Async.
-            string remoteMethodName = GetProxyMethodName(targetMethod);
+            string remoteMethodName = ClientSideConnection.ProxyMethodName.GetOrAdd(targetMethod, m => m.GetNameTrimAsync());
 
             // Подготавливаем запрос для отправки.
-            var requestToSend = Message.CreateRequest($"{controllerName}/{remoteMethodName}", args);
+            //var requestToSend = Message.CreateRequest($"{controllerName}/{remoteMethodName}", Message.PrepareArgs(args));
 
-            // Тип результата инкапсулированный в Task<T>.
-            Type resultType = GetActionReturnType(targetMethod);
+            Task<object> taskObject = OnProxyCallAsync(contextTask, targetMethod, resultType, controllerName, remoteMethodName, Message.PrepareArgs(args));
+
+            return OnProxyCallConvert(targetMethod, resultType, taskObject);
+        }
+
+        private static async Task<object> OnProxyCallAsync(ValueTask<ManagedConnection> contextTask, MethodInfo targetMethod, Type resultType, string controllerName, string remoteMethodName, Arg[] args)
+        {
+            ManagedConnection context;
+            if (contextTask.IsCompletedSuccessfully)
+                context = contextTask.Result;
+            else
+                context = await contextTask.ConfigureAwait(false);
 
             // Отправляет запрос и получает результат от удалённой стороны.
-            Task<object> taskObject = OnProxyCallAsync(contextTask, requestToSend, resultType);
+            return await context.OnProxyCall(targetMethod, resultType, controllerName, remoteMethodName, args).ConfigureAwait(false);
+        }
 
-            // Если возвращаемый тип функции — Task.
+        private static object OnProxyCallConvert(MethodInfo targetMethod, Type resultType, Task<object> taskObject)
+        {
+            // Если возвращаемый тип функции интерфейса — Task.
             if (targetMethod.IsAsyncMethod())
             {
                 // Если у задачи есть результат.
@@ -256,25 +275,31 @@ namespace vRPC
             }
         }
 
-        private static async Task<object> OnProxyCallAsync(ValueTask<Context> contextTask, Message requestToSend, Type returnType)
-        {
-            Context context;
-            if (contextTask.IsCompletedSuccessfully)
-                context = contextTask.GetAwaiter().GetResult();
-            else
-                context = await contextTask.ConfigureAwait(false);
-            
-            object taskResult = await context.OnProxyCall(requestToSend, returnType).ConfigureAwait(false);
-            return taskResult;
-        }
-
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
-        internal Task<object> OnProxyCall(Message requestToSend, Type resultType)
+        internal Task<object> OnProxyCall(MethodInfo targetMethod, Type resultType, string controllerName, string remoteMethodName, Arg[] args)
         {
             ThrowIfDisposed();
             ThrowIfStopRequired();
+
+            //#region CreateArgs()
+            //Arg[] CreateArgs()
+            //{
+            //    ParameterInfo[] par = targetMethod.GetParameters();
+            //    Arg[] retArgs = new Arg[par.Length];
+
+            //    for (int i = 0; i < par.Length; i++)
+            //    {
+            //        ParameterInfo p = par[i];
+            //        retArgs[i] = new Arg(p.Name, args[i]);
+            //    }
+            //    return retArgs;
+            //}
+            //#endregion
+
+            // Подготавливаем запрос для отправки.
+            var requestToSend = Message.CreateRequest($"{controllerName}/{remoteMethodName}", args);
 
             // Отправляет запрос и получает результат от удалённой стороны.
             Task<object> taskObject = ExecuteRequestAsync(requestToSend, resultType);
@@ -285,22 +310,10 @@ namespace vRPC
         /// Возвращает имя метода без постфикса Async.
         /// </summary>
         /// <param name="method"></param>
-        /// <returns></returns>
-        private static string GetProxyMethodName(MethodInfo method)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private string GetProxyMethodName(MethodInfo method)
         {
-            lock(_proxyMethodName)
-            {
-                if (_proxyMethodName.TryGetValue(method, out string name))
-                {
-                    return name;
-                }
-                else
-                {
-                    name = method.TrimAsyncPostfix();
-                    _proxyMethodName.Add(method, name);
-                    return name;
-                }
-            }
+            return _proxyMethodName.GetOrAdd(method, valueFactory: m => m.GetNameTrimAsync());
         }
 
         /// <summary>
@@ -333,7 +346,7 @@ namespace vRPC
             ThreadPool.UnsafeQueueUserWorkItem(state =>
             {
                 // Не бросает исключения.
-                ((Context)state).ReceiveLoop();
+                ((ManagedConnection)state).ReceiveLoop();
                 
             }, this); // Без замыкания.
         }
@@ -600,7 +613,7 @@ namespace vRPC
                                 if (Interlocked.Decrement(ref _reqAndRespCount) == -1)
                                 // Был запрос на остановку.
                                 {
-                                    SetCompleted();
+                                    AtomicSetCompletion();
                                     return;
                                 }
                             }
@@ -672,7 +685,6 @@ namespace vRPC
                         ActionName = messageToSend.ActionName,
                         Args = messageToSend.Args,
                     };
-                    //ExtensionMethods.SerializeObjectProtobuf(contentStream, request);
                     ExtensionMethods.SerializeObjectJson(contentStream, request);
                 }
                 else
@@ -744,6 +756,7 @@ namespace vRPC
                 // Ждём сообщение для отправки.
                 if (await _sendChannel.Reader.WaitToReadAsync())
                 {
+                    // Всегда true — у нас только один читатель.
                     _sendChannel.Reader.TryRead(out SendJob sendJob);
 
                     if (sendJob.MessageType == MessageType.Request)
@@ -845,7 +858,7 @@ namespace vRPC
                         if (Interlocked.Decrement(ref _reqAndRespCount) == -1)
                         // Был запрос на остановку.
                         {
-                            SetCompleted();
+                            AtomicSetCompletion();
                             return;
                         }
                     }
@@ -859,9 +872,12 @@ namespace vRPC
             }
         }
 
-        private void SetCompleted()
+        /// <summary>
+        /// Потокобезопасно взводит <see cref="Task"/> <see cref="Completion"/>.
+        /// </summary>
+        private void AtomicSetCompletion()
         {
-            _connectedTcs.TrySetResult(0);
+            _completionTcs.TrySetResult(0);
         }
 
         /// <summary>
@@ -884,24 +900,27 @@ namespace vRPC
                 Socket.Dispose();
 
                 // Синхронизироваться с подписчиками на событие Disconnected.
+                EventHandler<SocketDisconnectedEventArgs> disconnected;
                 lock (_disconnectEventObj)
                 {
                     // Запомнить истинную причину обрыва.
                     _disconnectReason = disconnectReason;
 
-                    // Теперь флаг.
+                    // Установить флаг после причины обрыва.
                     _isConnected = false;
 
-                    // Сообщить об обрыве.
-                    _Disconnected?.Invoke(this, new SocketDisconnectedEventArgs(disconnectReason));
+                    // Скопируем делегат что-бы вызывать не в блокировке — на всякий случай.
+                    disconnected = _Disconnected;
 
                     // Теперь можно безопасно убрать подписчиков.
                     _Disconnected = null;
                 }
 
                 // Установить Task Completed.
-                // Вызывать нужно после события Disconnected.
-                SetCompleted();
+                AtomicSetCompletion();
+
+                // Сообщить об обрыве.
+                disconnected?.Invoke(this, new SocketDisconnectedEventArgs(disconnectReason));
             }
         }
 
@@ -933,57 +952,62 @@ namespace vRPC
             return exceptionMessage;
         }
 
+        // TODO заменить исключения.
         /// <summary>
         /// Вызывает запрошенный метод контроллера и возвращает результат.
+        /// Результатом может быть IActionResult или Raw объект или исключение.
         /// </summary>
         /// <exception cref="BadRequestException"/>
         private async ValueTask<object> InvokeControllerAsync(RequestMessageDto receivedRequest)
         {
-            // Находим контроллер.
-            Type controllerType = FindRequestedController(receivedRequest, out string controllerName, out string actionName);
-            if (controllerType != null)
+            // Находим контроллер по словарю без блокировки.
+            if (TryGetRequestedController(receivedRequest, out string controllerName, out string actionName, out Type controllerType))
             {
-                // Ищем делегат запрашиваемой функции.
+                // Ищем делегат запрашиваемой функции по словарю без блокировки.
                 if (_controllerActions.TryGetValue(controllerType, actionName, out ControllerAction action))
                 {
                     // Контекст запроса запоминает запрашиваемый метод.
                     receivedRequest.RequestContext.ActionToInvoke = action;
 
                     // Проверить доступ к функции.
-                    InvokeMethodPermissionCheck(action.TargetMethod, controllerType);
-
-                    // Блок IoC выполнит Dispose всем созданным экземплярам.
-                    using (IServiceScope scope = ServiceProvider.CreateScope())
+                    if (InvokeMethodPermissionCheck(action.TargetMethod, controllerType, out IActionResult permissionError))
                     {
-                        // Активируем контроллер через IoC.
-                        using (var controller = (Controller)scope.ServiceProvider.GetRequiredService(controllerType))
+                        // Блок IoC выполнит Dispose всем созданным экземплярам.
+                        using (IServiceScope scope = ServiceProvider.CreateScope())
                         {
-                            // Подготавливаем контроллер.
-                            BeforeInvokeController?.Invoke(this, controller);
-
-                            // Мапим и десериализуем аргументы по их именам.
-                            //object[] args = DeserializeParameters(action.TargetMethod.GetParameters(), receivedRequest);
-
-                            // Мапим и десериализуем аргументы по их порядку.
-                            object[] args = DeserializeArguments(action.TargetMethod.GetParameters(), receivedRequest);
-
-                            // Вызов метода контроллера.
-                            object controllerResult = action.TargetMethod.InvokeFast(controller, args);
-
-                            if (controllerResult != null)
+                            // Активируем контроллер через IoC.
+                            using (var controller = (Controller)scope.ServiceProvider.GetRequiredService(controllerType))
                             {
-                                // Извлекает результат из Task'а.
-                                var controllerResultTask = DynamicAwaiter.WaitAsync(controllerResult);
-                                if (controllerResultTask.IsCompletedSuccessfully)
-                                    controllerResult = controllerResultTask.GetAwaiter().GetResult();
-                                else
-                                    controllerResult = await controllerResultTask;
-                            }
+                                // Подготавливаем контроллер.
+                                BeforeInvokeController(controller);
 
-                            // Результат успешно получен без исключения.
-                            return controllerResult;
+                                // Мапим и десериализуем аргументы по их именам.
+                                //object[] args = DeserializeParameters(action.TargetMethod.GetParameters(), receivedRequest);
+
+                                // Мапим и десериализуем аргументы по их порядку.
+                                object[] args = DeserializeArguments(action.TargetMethod.GetParameters(), receivedRequest);
+
+                                // Вызов метода контроллера.
+                                object controllerResult = action.TargetMethod.InvokeFast(controller, args);
+
+                                if (controllerResult != null)
+                                {
+                                    // Извлекает результат из Task'а.
+                                    ValueTask<object> controllerResultTask = DynamicAwaiter.WaitAsync(controllerResult);
+
+                                    if (controllerResultTask.IsCompletedSuccessfully)
+                                        controllerResult = controllerResultTask.Result;
+                                    else
+                                        controllerResult = await controllerResultTask;
+                                }
+
+                                // Результат успешно получен без исключения.
+                                return controllerResult;
+                            }
                         }
                     }
+                    else
+                        return permissionError;
                 }
                 else
                     throw new BadRequestException($"Unable to find requested action \"{receivedRequest.ActionName}\".", StatusCode.ActionNotFound);
@@ -993,44 +1017,20 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Возвращает инкапсулированный в <see cref="Task"/> тип результата функции.
-        /// </summary>
-        private static Type GetActionReturnType(MethodInfo method)
-        {
-            // Если возвращаемый тип функции — Task.
-            if (method.IsAsyncMethod())
-            {
-                // Если у задачи есть результат.
-                if (method.ReturnType.IsGenericType)
-                {
-                    // Тип результата задачи.
-                    Type resultType = method.ReturnType.GenericTypeArguments[0];
-                    return resultType;
-                }
-                else
-                {
-                    // Возвращаемый тип Task(без результата).
-                    return typeof(void);
-                }
-            }
-            else
-            // Была вызвана синхронная функция.
-            {
-                return method.ReturnType;
-            }
-        }
-
-        /// <summary>
         /// Проверяет доступность запрашиваемого метода для удаленного пользователя.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        protected virtual void InvokeMethodPermissionCheck(MethodInfo method, Type controllerType) { }
+        protected virtual bool InvokeMethodPermissionCheck(MethodInfo method, Type controllerType, out IActionResult permissionError)
+        {
+            permissionError = null;
+            return true;
+        }
         //protected virtual void BeforeInvokePrepareController(Controller controller) { }
 
         /// <summary>
         /// Пытается найти запрашиваемый пользователем контроллер.
         /// </summary>
-        private Type FindRequestedController(RequestMessageDto request, out string controllerName, out string actionName)
+        private bool TryGetRequestedController(RequestMessageDto request, out string controllerName, out string actionName, out Type controllerType)
         {
             int index = request.ActionName.IndexOf('/');
             if (index == -1)
@@ -1047,9 +1047,10 @@ namespace vRPC
             //controllerName += "Controller";
 
             // Ищем контроллер в кэше.
-            _controllers.TryGetValue(controllerName, out Type controllerType);
+            if (_controllers.TryGetValue(controllerName, out controllerType))
+                return true;
 
-            return controllerType;
+            return false;
         }
 
         ///// <summary>
@@ -1099,7 +1100,7 @@ namespace vRPC
         {
             ThreadPool.UnsafeQueueUserWorkItem(state =>
             {
-                var tuple = ((RequestMessageDto receivedRequest, Context context))state;
+                var tuple = ((RequestMessageDto receivedRequest, ManagedConnection context))state;
                 tuple.context.StartProcessRequestThread(tuple.receivedRequest);
 
             }, state: (receivedRequest, this)); // Без замыкания.
@@ -1175,6 +1176,9 @@ namespace vRPC
             return Message.FromResult(receivedRequest, rawResult);
         }
 
+        /// <summary>
+        /// AggressiveInlining.
+        /// </summary>
         /// <exception cref="ObjectDisposedException"/>
         [DebuggerStepThrough]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1188,6 +1192,7 @@ namespace vRPC
 
         /// <summary>
         /// Не позволять начинать новый запрос если происходит остановка.
+        /// AggressiveInlining.
         /// </summary>
         /// <exception cref="StopRequiredException"/>
         [DebuggerStepThrough]

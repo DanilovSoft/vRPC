@@ -10,7 +10,7 @@ namespace vRPC
     /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
     [DebuggerTypeProxy(typeof(TypeProxy))]
-    public class UserConnections : IList<ClientContext>
+    public class UserConnections : IList<ServerSideConnection>
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"Count = {_list.Count}" + "}";
@@ -19,7 +19,7 @@ namespace vRPC
         /// <summary>
         /// Доступ осуществляется только через блокировку <see cref="SyncRoot"/>.
         /// </summary>
-        private readonly List<ClientContext> _list = new List<ClientContext>();
+        private readonly List<ServerSideConnection> _list = new List<ServerSideConnection>();
         public readonly int UserId;
 
         /// <summary>
@@ -34,7 +34,7 @@ namespace vRPC
             UserId = userId;
         }
 
-        public ClientContext this[int index]
+        public ServerSideConnection this[int index]
         {
             get
             {
@@ -65,7 +65,7 @@ namespace vRPC
 
         public bool IsReadOnly => false;
 
-        public void Add(ClientContext context)
+        public void Add(ServerSideConnection context)
         {
             lock(SyncRoot)
             {
@@ -81,7 +81,7 @@ namespace vRPC
             }
         }
 
-        public bool Contains(ClientContext context)
+        public bool Contains(ServerSideConnection context)
         {
             lock(SyncRoot)
             {
@@ -89,7 +89,7 @@ namespace vRPC
             }
         }
 
-        public void CopyTo(ClientContext[] array, int arrayIndex)
+        public void CopyTo(ServerSideConnection[] array, int arrayIndex)
         {
             lock(SyncRoot)
             {
@@ -97,7 +97,7 @@ namespace vRPC
             }
         }
 
-        public int IndexOf(ClientContext context)
+        public int IndexOf(ServerSideConnection context)
         {
             lock(SyncRoot)
             {
@@ -105,7 +105,7 @@ namespace vRPC
             }
         }
 
-        public void Insert(int index, ClientContext context)
+        public void Insert(int index, ServerSideConnection context)
         {
             lock(SyncRoot)
             {
@@ -113,7 +113,7 @@ namespace vRPC
             }
         }
 
-        public bool Remove(ClientContext context)
+        public bool Remove(ServerSideConnection context)
         {
             lock(SyncRoot)
             {
@@ -132,7 +132,7 @@ namespace vRPC
         /// <summary>
         /// Возвращает копию своей коллекции.
         /// </summary>
-        public IEnumerator<ClientContext> GetEnumerator()
+        public IEnumerator<ServerSideConnection> GetEnumerator()
         {
             lock(SyncRoot)
             {
@@ -156,7 +156,7 @@ namespace vRPC
             }
 
             [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-            public ClientContext[] Items => _self._list.ToArray();
+            public ServerSideConnection[] Items => _self._list.ToArray();
         }
         #endregion
     }

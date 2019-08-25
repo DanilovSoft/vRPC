@@ -4,38 +4,38 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
 
-namespace vRPC
+namespace vRPC.Decorator
 {
     /// <summary>
     /// От этого класса наследуются динамические типы и пользовательский интерфейс. Поэтому должен быть публичным и не запечатанным.
     /// </summary>
-    public class InterfaceProxy : ICloneable
+    public class ClientInterfaceProxy : ICloneable, IInterfaceProxy
     {
-        private Func<ValueTask<Context>> _contextCallback;
+        private Func<ValueTask<ManagedConnection>> _contextCallback;
         private string _controllerName;
 
-        public InterfaceProxy()
+        public ClientInterfaceProxy()
         {
             
         }
 
-        public void SetCallback(string controllerName, Func<ValueTask<Context>> contextCallback)
+        public void Initialize(string controllerName, Func<ValueTask<ManagedConnection>> contextCallback)
         {
             _controllerName = controllerName;
             _contextCallback = contextCallback;
         }
 
-        object ICloneable.Clone() => Clone();
-        public InterfaceProxy Clone()
+        object ICloneable.Clone() => ((IInterfaceProxy)this).Clone<ClientInterfaceProxy>();
+
+        T IInterfaceProxy.Clone<T>()
         {
-            var proxy = (InterfaceProxy)MemberwiseClone(); // Не вызывает конструктор.
-            return proxy;
+            return (T)MemberwiseClone();
         }
 
         protected object Invoke(MethodInfo targetMethod, object[] args)
         {
-            ValueTask<Context> contextTask = _contextCallback();
-            return Context.OnProxyCall(contextTask, targetMethod, args, _controllerName);
+            ValueTask<ManagedConnection> contextTask = _contextCallback();
+            return ManagedConnection.OnClientProxyCall(contextTask, targetMethod, args, _controllerName);
         }
     }
 }
