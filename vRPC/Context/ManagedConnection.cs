@@ -58,7 +58,7 @@ namespace vRPC
         /// <summary>
         /// Отправка сообщения <see cref="Message"/> должна выполняться только через этот канал.
         /// </summary>
-        private readonly Channel<SerializedMessage> _sendChannel;
+        private readonly Channel<SerializedMessageToSend> _sendChannel;
         private int _disposed;
         private bool IsDisposed => Volatile.Read(ref _disposed) == 1;
         /// <summary>
@@ -160,7 +160,7 @@ namespace vRPC
             _controllerActions = new ControllerActionsDictionary(controllers);
 
             // Запустить диспетчер отправки сообщений.
-            _sendChannel = Channel.CreateUnbounded<SerializedMessage>(new UnboundedChannelOptions
+            _sendChannel = Channel.CreateUnbounded<SerializedMessageToSend>(new UnboundedChannelOptions
             {
                 AllowSynchronousContinuations = true, // Внимательнее с этим параметром!
                 SingleReader = true,
@@ -207,13 +207,13 @@ namespace vRPC
             string remoteMethodName = GetProxyMethodName(targetMethod);
 
             // Создаём запрос для отправки.
-            var requestToSend = new RequestMessage($"{controllerName}/{remoteMethodName}", Message.PrepareArgs(args));
+            var requestToSend = new RequestMessage(resultType, $"{controllerName}/{remoteMethodName}", Message.PrepareArgs(args));
 
             // Сериализуем запрос в память.
-            SerializedMessage serMsg = SerializeMessage(requestToSend);
+            SerializedMessageToSend serMsg = SerializeMessage(requestToSend);
 
             // Отправляем запрос.
-            Task<object> taskObject = OnProxyCall(resultType, serMsg);
+            Task<object> taskObject = OnProxyCall(serMsg, requestToSend);
 
             return OnProxyCallConvert(targetMethod, resultType, taskObject);
         }
@@ -230,18 +230,18 @@ namespace vRPC
             string remoteMethodName = ClientSideConnection.ProxyMethodName.GetOrAdd(targetMethod, m => m.GetNameTrimAsync());
 
             // Создаём запрос для отправки.
-            var requestToSend = new RequestMessage($"{controllerName}/{remoteMethodName}", Message.PrepareArgs(args));
+            var requestToSend = new RequestMessage(resultType, $"{controllerName}/{remoteMethodName}", Message.PrepareArgs(args));
 
             // Сериализуем запрос в память. Лучше выполнить до подключения.
-            SerializedMessage serMsg = SerializeMessage(requestToSend);
+            SerializedMessageToSend serMsg = SerializeMessage(requestToSend);
 
             // Отправляем запрос.
-            Task<object> taskObject = OnProxyCallAsync(contextTask, resultType, serMsg);
+            Task<object> taskObject = OnProxyCallAsync(contextTask, serMsg, requestToSend);
 
             return OnProxyCallConvert(targetMethod, resultType, taskObject);
         }
 
-        private static async Task<object> OnProxyCallAsync(ValueTask<ManagedConnection> contextTask, Type resultType, SerializedMessage serializedMessage)
+        private static async Task<object> OnProxyCallAsync(ValueTask<ManagedConnection> contextTask, SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
         {
             ManagedConnection context;
             if (contextTask.IsCompletedSuccessfully)
@@ -250,7 +250,7 @@ namespace vRPC
                 context = await contextTask.ConfigureAwait(false);
 
             // Отправляет запрос и получает результат от удалённой стороны.
-            return await context.OnProxyCall(resultType, serializedMessage).ConfigureAwait(false);
+            return await context.OnProxyCall(serializedMessage, requestMessage).ConfigureAwait(false);
         }
 
         private static object OnProxyCallConvert(MethodInfo targetMethod, Type resultType, Task<object> taskObject)
@@ -290,13 +290,13 @@ namespace vRPC
         /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
         /// </summary>
         /// /// <param name="resultType">Тип в который будет десериализован результат запроса.</param>
-        internal async Task<object> OnProxyCall(Type resultType, SerializedMessage serializedMessage)
+        internal async Task<object> OnProxyCall(SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
         {
             ThrowIfDisposed();
             ThrowIfStopRequired();
 
             // Добавить запрос в словарь для дальнейшей связки с ответом.
-            RequestAwaiter tcs = Socket.PendingRequests.AddRequest(resultType, serializedMessage.MessageToSend, out ushort uid);
+            RequestAwaiter tcs = Socket.PendingRequests.AddRequest(requestMessage, out ushort uid);
 
             // Назначить запросу уникальный идентификатор.
             serializedMessage.Uid = uid;
@@ -482,9 +482,6 @@ namespace vRPC
                     {
                         #region Обработка Payload
 
-                        // Установить курсор в начало payload.
-                        //messageStream.Position = 0;
-
                         if (header.StatusCode == StatusCode.Request)
                         // Получен запрос.
                         {
@@ -521,7 +518,7 @@ namespace vRPC
                             receivedRequest.Header = header;
 
                             // Установить контекст запроса.
-                            receivedRequest.RequestContext = new RequestContext();
+                            receivedRequest.RequestContext = new RequestContext(receivedRequest);
 
                             // Начать выполнение запроса в отдельном потоке.
                             StartProcessRequest(receivedRequest);
@@ -545,7 +542,7 @@ namespace vRPC
                                 {
                                     #region Передать успешный результат
 
-                                    if (reqAwaiter.ResultType != typeof(void))
+                                    if (reqAwaiter.Request.ReturnType != typeof(void))
                                     {
                                         // Десериализатор в соответствии с ContentEncoding.
                                         var deserializer = header.GetDeserializer();
@@ -554,7 +551,7 @@ namespace vRPC
                                         object rawResult = null;
                                         try
                                         {
-                                            rawResult = deserializer(messageStream, reqAwaiter.ResultType);
+                                            rawResult = deserializer(messageStream, reqAwaiter.Request.ReturnType);
                                             deserialized = true;
                                         }
                                         catch (Exception deserializationException)
@@ -647,40 +644,40 @@ namespace vRPC
         /// Сериализует сообщение в новом потоке и добавляет в очередь на отправку.
         /// Не должно бросать исключения(!).
         /// </summary>
-        /// <param name="message"></param>
-        private void QueueSendMessage(Message message)
+        /// <param name="messageToSend"></param>
+        private void QueueSendMessage(Message messageToSend)
         {
             ThreadPool.UnsafeQueueUserWorkItem(state => 
             {
                 var tuple = ((ManagedConnection thisRef, Message m))state;
 
                 // Сериализуем.
-                SerializedMessage serializedMessage = SerializeMessage(tuple.m);
+                SerializedMessageToSend serializedMessage = SerializeMessage(tuple.m);
 
                 // Ставим в очередь.
                 tuple.thisRef.QueueSendMessage(serializedMessage);
 
-            }, (this, message));
+            }, (this, messageToSend));
         }
 
         /// <summary>
         /// Добавляет хэдер и передает на отправку другому потоку.
         /// Не бросает исключения.
         /// </summary>
-        private void QueueSendMessage(SerializedMessage serializedMessage)
+        private void QueueSendMessage(SerializedMessageToSend messageToSend)
         {
             // На текущем этапе сокет может быть уже уничтожен другим потоком.
             // В этом случае можем беспоследственно проигнорировать отправку; вызывающий получит исключение через RequestAwaiter.
             if (!Socket.IsDisposed)
             {
                 // Сериализуем хедер. Не бросает исключения.
-                AppendHeader(serializedMessage);
-
+                AppendHeader(messageToSend);
+                
                 // Из-за AllowSynchronousContinuations частично начнёт отправку текущим потоком(!).
-                if (_sendChannel.Writer.TryWrite(serializedMessage))
+                if (_sendChannel.Writer.TryWrite(messageToSend))
                     return;
                 else
-                    serializedMessage.Dispose(); // Канал уже закрыт (был вызван Dispose).
+                    messageToSend.Dispose(); // Канал уже закрыт (был вызван Dispose).
             }
         }
 
@@ -689,31 +686,38 @@ namespace vRPC
         /// </summary>
         /// <param name="messageToSend"></param>
         /// <returns></returns>
-        private static SerializedMessage SerializeMessage(Message messageToSend)
+        private static SerializedMessageToSend SerializeMessage(Message messageToSend)
         {
-            var serMsg = new SerializedMessage(messageToSend);
+            var serMsg = new SerializedMessageToSend(messageToSend);
             try
             {
                 // Записать в стрим запрос или результат запроса.
-                if (messageToSend is RequestMessage)
+                if (messageToSend is ResponseMessage responseToSend)
                 {
-                    var request = new RequestMessageDto
+                    if(responseToSend.Result is IActionResult actionResult)
                     {
-                        ActionName = messageToSend.ActionName,
-                        Args = messageToSend.Args,
-                    };
-                    ExtensionMethods.SerializeObjectJson(serMsg.MemoryStream, request);
+                        // Сериализуем ответ.
+                        actionResult.ExecuteResult(new ActionContext(responseToSend.ReceivedRequest.RequestContext, serMsg.MemoryStream));
+                    }
+                    else
+                    {
+                        // Сериализуем ответ.
+                        responseToSend.ReceivedRequest.RequestContext.ActionToInvoke.SerializeObject(serMsg.MemoryStream, responseToSend.Result);
+
+                        serMsg.StatusCode = StatusCode.Ok;
+                        serMsg.ContentEncoding = responseToSend.ReceivedRequest.RequestContext.ActionToInvoke.ProducesEncoding;
+                    }
                 }
                 else
                 // Ответ на запрос.
                 {
-                    var actionContext = new ActionContext(serMsg.MemoryStream, messageToSend.ReceivedRequest?.RequestContext);
-
-                    // Записать контент.
-                    SerializeActionResult(messageToSend.Result, actionContext);
-
-                    serMsg.StatusCode = actionContext.StatusCode;
-                    serMsg.ContentEncoding = actionContext.ProducesEncoding;
+                    var requestToSend = (RequestMessage)messageToSend;
+                    var request = new RequestMessageDto
+                    {
+                        ActionName = requestToSend.ActionName,
+                        Args = messageToSend.Args,
+                    };
+                    ExtensionMethods.SerializeObjectJson(serMsg.MemoryStream, request);
                 }
             }
             catch
@@ -727,44 +731,30 @@ namespace vRPC
         /// <summary>
         /// Сериализует хэдер в стрим сообщения. Не бросает исключения.
         /// </summary>
-        private static void AppendHeader(SerializedMessage serializedMessage)
+        private static void AppendHeader(SerializedMessageToSend messageToSend)
         {
-            HeaderDto header = CreateHeader(serializedMessage);
+            HeaderDto header = CreateHeader(messageToSend);
 
             // Записать заголовок в конец стрима. Не бросает исключения.
-            header.SerializeProtoBuf(serializedMessage.MemoryStream, out int headerSize);
+            header.SerializeProtoBuf(messageToSend.MemoryStream, out int headerSize);
 
             // Запомним размер хэдера.
-            serializedMessage.HeaderSize = headerSize;
+            messageToSend.HeaderSize = headerSize;
         }
 
-        private static HeaderDto CreateHeader(SerializedMessage serializedMessage)
+        private static HeaderDto CreateHeader(SerializedMessageToSend messageToSend)
         {
-            if (serializedMessage.MessageToSend is RequestMessage)
+            if (messageToSend.MessageToSend is ResponseMessage responseToSend)
             {
-                return new HeaderDto(serializedMessage.MessageToSend.Uid, StatusCode.Request, (int)serializedMessage.MemoryStream.Length);
+                return new HeaderDto(responseToSend.Uid, messageToSend.StatusCode.Value, (int)messageToSend.MemoryStream.Length)
+                {
+                    ContentEncoding = messageToSend.ContentEncoding
+                };
             }
             else
             // Ответ на запрос.
             {
-                return new HeaderDto(serializedMessage.MessageToSend.Uid, serializedMessage.StatusCode.Value, (int)serializedMessage.MemoryStream.Length)
-                {
-                    ContentEncoding = serializedMessage.ContentEncoding
-                };
-            }
-        }
-
-        private static void SerializeActionResult(object rawResult, ActionContext actionContext)
-        {
-            if (rawResult is IActionResult actionResult)
-            {
-                actionResult.ExecuteResult(actionContext);
-            }
-            else
-            {
-                actionContext.StatusCode = StatusCode.Ok;
-                actionContext.Request.ActionToInvoke.SerializeObject(actionContext.ResponseStream, rawResult);
-                actionContext.ProducesEncoding = actionContext.Request.ActionToInvoke.ProducesEncoding;
+                return new HeaderDto(messageToSend.Uid, StatusCode.Request, (int)messageToSend.MemoryStream.Length);
             }
         }
 
@@ -780,7 +770,7 @@ namespace vRPC
                 if (await _sendChannel.Reader.WaitToReadAsync())
                 {
                     // Всегда true — у нас только один читатель.
-                    _sendChannel.Reader.TryRead(out SerializedMessage serializedMessage);
+                    _sendChannel.Reader.TryRead(out SerializedMessageToSend serializedMessage);
 
                     // Теперь мы владеем этим объектом.
                     using (serializedMessage)
@@ -826,7 +816,7 @@ namespace vRPC
                             // Отправляем сообщение по частям.
                             int offset = 0;
                             int bytesLeft = messageSize;
-                            while (bytesLeft > 0)
+                            do
                             {
                                 // TODO возможно нет смысла.
                                 #region Фрагментируем отправку
@@ -858,6 +848,9 @@ namespace vRPC
 
                                 if (socketError == SocketError.Success)
                                 {
+                                    if (endOfMessage)
+                                        break;
+
                                     bytesLeft -= countToSend;
                                     offset += countToSend;
                                 }
@@ -870,7 +863,7 @@ namespace vRPC
                                     return;
                                 }
                                 #endregion
-                            }
+                            } while (bytesLeft > 0);
                             #endregion
                         }
                         else
@@ -1011,44 +1004,44 @@ namespace vRPC
                         using (IServiceScope scope = ServiceProvider.CreateScope())
                         {
                             // Активируем контроллер через IoC.
-                            using (var controller = (Controller)scope.ServiceProvider.GetRequiredService(controllerType))
+                            var controller = (Controller)scope.ServiceProvider.GetRequiredService(controllerType);
+                            //{
+                            // Подготавливаем контроллер.
+                            BeforeInvokeController(controller);
+
+                            // Мапим и десериализуем аргументы по их именам.
+                            //object[] args = DeserializeParameters(action.TargetMethod.GetParameters(), receivedRequest);
+
+                            // Мапим и десериализуем аргументы по их порядку.
+                            object[] args = DeserializeArguments(action.TargetMethod.GetParameters(), receivedRequest);
+
+                            // Вызов метода контроллера.
+                            object controllerResult = action.TargetMethod.InvokeFast(controller, args);
+
+                            if (controllerResult != null)
                             {
-                                // Подготавливаем контроллер.
-                                BeforeInvokeController(controller);
+                                // Извлекает результат из Task'а.
+                                ValueTask<object> controllerResultTask = DynamicAwaiter.WaitAsync(controllerResult);
 
-                                // Мапим и десериализуем аргументы по их именам.
-                                //object[] args = DeserializeParameters(action.TargetMethod.GetParameters(), receivedRequest);
-
-                                // Мапим и десериализуем аргументы по их порядку.
-                                object[] args = DeserializeArguments(action.TargetMethod.GetParameters(), receivedRequest);
-
-                                // Вызов метода контроллера.
-                                object controllerResult = action.TargetMethod.InvokeFast(controller, args);
-
-                                if (controllerResult != null)
-                                {
-                                    // Извлекает результат из Task'а.
-                                    ValueTask<object> controllerResultTask = DynamicAwaiter.WaitAsync(controllerResult);
-
-                                    if (controllerResultTask.IsCompletedSuccessfully)
-                                        controllerResult = controllerResultTask.Result;
-                                    else
-                                        controllerResult = await controllerResultTask;
-                                }
-
-                                // Результат успешно получен без исключения.
-                                return controllerResult;
+                                if (controllerResultTask.IsCompletedSuccessfully)
+                                    controllerResult = controllerResultTask.Result;
+                                else
+                                    controllerResult = await controllerResultTask;
                             }
+
+                            // Результат успешно получен без исключения.
+                            return controllerResult;
+                            //}
                         }
                     }
                     else
                         return permissionError;
                 }
                 else
-                    throw new BadRequestException($"Unable to find requested action \"{receivedRequest.ActionName}\".", StatusCode.ActionNotFound);
+                    return new NotFoundResult($"Unable to find requested action \"{receivedRequest.ActionName}\".");
             }
             else
-                throw new BadRequestException($"Unable to find requested controller \"{controllerName}\"", StatusCode.ActionNotFound);
+                return new NotFoundResult($"Unable to find requested controller \"{controllerName}\".");
         }
 
         /// <summary>
@@ -1145,9 +1138,9 @@ namespace vRPC
             {
                 // Не бросает исключения.
                 // Выполняет запрос и возвращает ответ.
-                ValueTask<SerializedMessage> responseToSendTask = GetResponseAsync(receivedRequest);
+                ValueTask<SerializedMessageToSend> responseToSendTask = GetResponseAsync(receivedRequest);
 
-                SerializedMessage responseToSend;
+                SerializedMessageToSend responseToSend;
                 if (responseToSendTask.IsCompletedSuccessfully)
                     responseToSend = responseToSendTask.Result;
                 else
@@ -1167,7 +1160,7 @@ namespace vRPC
         /// Выполняет запрос клиента и инкапсулирует результат в <see cref="Response"/>.
         /// Не бросает исключения.
         /// </summary>
-        private async ValueTask<SerializedMessage> GetResponseAsync(RequestMessageDto receivedRequest)
+        private async ValueTask<SerializedMessageToSend> GetResponseAsync(RequestMessageDto receivedRequest)
         {
             // Результат контроллера. Может быть Task.
             ResponseMessage response;

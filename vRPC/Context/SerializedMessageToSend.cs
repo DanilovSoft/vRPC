@@ -6,10 +6,11 @@ using System.Text;
 namespace vRPC
 {
     /// <summary>
-    /// Содержит <see cref="MemoryPoolStream"/> в который сериализуется сообщение и заголовок.
+    /// Содержит <see cref="MemoryPoolStream"/> в который сериализуется 
+    /// сообщение и заголовок для отправки удалённой стороне.
     /// Необходимо обязательно выполнить Dispose.
     /// </summary>
-    internal sealed class SerializedMessage : IDisposable
+    internal sealed class SerializedMessageToSend : IDisposable
     {
         /// <summary>
         /// Содержит сериализованное сообщение типа <see cref="RequestMessageDto"/> или любой 
@@ -19,6 +20,9 @@ namespace vRPC
         /// </summary>
         public MemoryPoolStream MemoryStream { get; } = new MemoryPoolStream();
         public Message MessageToSend { get; }
+        /// <summary>
+        /// Уникальный идентификатор который будет отправлен удалённой стороне.
+        /// </summary>
         public ushort Uid { get; set; }
         public StatusCode? StatusCode { get; set; }
         public string ContentEncoding { get; set; }
@@ -31,7 +35,7 @@ namespace vRPC
         /// Содержит <see cref="MemoryPoolStream"/> в который сериализуется сообщение и заголовок.
         /// Необходимо обязательно выполнить Dispose.
         /// </summary>
-        public SerializedMessage(Message messageToSend)
+        public SerializedMessageToSend(Message messageToSend)
         {
             MessageToSend = messageToSend;
         }

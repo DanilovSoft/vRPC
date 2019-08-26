@@ -86,19 +86,19 @@ namespace vRPC
         /// <param name="headerSize"></param>
         public void SerializeProtoBuf(Stream stream, out int headerSize)
         {
-            long initialPos = stream.Position;
+            int initialPos = (int)stream.Position;
 
             // Сериализуем хедэр.
             ProtoBufSerializer.Serialize(stream, this);
 
-            headerSize = (int)(stream.Position - initialPos);
+            headerSize = (int)stream.Position - initialPos;
 
             Debug.Assert(headerSize <= HeaderMaxSize);
 
             if (headerSize <= HeaderMaxSize)
                 return;
 
-            throw new InvalidOperationException(HeaderSizeExceededException);
+            throw new ApplicationException(HeaderSizeExceededException);
         }
 
         /// <summary>
@@ -116,7 +116,7 @@ namespace vRPC
                 if (header != null)
                     return header;
             }
-            throw new InvalidOperationException("Результатом десериализации оказался Null.");
+            throw new ApplicationException("Результатом десериализации оказался Null.");
         }
 
         /// <summary>

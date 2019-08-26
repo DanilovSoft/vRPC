@@ -2,17 +2,17 @@
 
 namespace vRPC
 {
-    public abstract class Controller : IDisposable
+    public abstract class Controller /*: IDisposable*/
     {
         public Controller()
         {
 
         }
 
-        public virtual void Dispose()
-        {
+        //public virtual void Dispose()
+        //{
             
-        }
+        //}
 
         protected BadRequestResult BadRequest(string message)
         {

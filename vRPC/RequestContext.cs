@@ -5,13 +5,19 @@ using System.Text;
 namespace vRPC
 {
     /// <summary>
-    /// Контекст запроса.
+    /// Содержит запрос полученный от удалённой стороны.
     /// </summary>
     internal sealed class RequestContext
     {
         /// <summary>
-        /// Запрашиваемый экшен контроллера.
+        /// Запрашиваемый метод контроллера.
         /// </summary>
         public ControllerAction ActionToInvoke { get; internal set; }
+        public RequestMessageDto ReceivedRequest { get; }
+
+        public RequestContext(RequestMessageDto receivedRequest)
+        {
+            ReceivedRequest = receivedRequest;
+        }
     }
 }

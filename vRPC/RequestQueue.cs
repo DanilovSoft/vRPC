@@ -34,9 +34,9 @@ namespace vRPC
         /// Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
         /// </summary>
         /// <exception cref="Exception">Происходит если уже происходил обрыв соединения.</exception>
-        public RequestAwaiter AddRequest(Type resultType, Message requestToSend, out ushort uid)
+        public RequestAwaiter AddRequest(RequestMessage requestToSend, out ushort uid)
         {
-            var tcs = new RequestAwaiter(resultType, requestToSend);
+            var tcs = new RequestAwaiter(requestToSend);
 
             do
             {

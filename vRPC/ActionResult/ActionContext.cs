@@ -1,4 +1,6 @@
-﻿using System.IO;
+﻿using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
 
 namespace vRPC
 {
@@ -6,15 +8,15 @@ namespace vRPC
     {
         internal Stream ResponseStream { get; }
         /// <summary>
-        /// Может быть <see langword="null"/>.
+        /// Не может быть <see langword="null"/>.
         /// </summary>
-        internal RequestContext Request { get; }
+        internal RequestContext RequestContext { get; }
         public StatusCode StatusCode { get; internal set; }
         internal string ProducesEncoding { get; set; }
 
-        internal ActionContext(Stream responseStream, RequestContext request)
+        internal ActionContext(RequestContext requestContext, Stream responseStream)
         {
-            Request = request;
+            RequestContext = requestContext;
             ResponseStream = responseStream;
         }
     }

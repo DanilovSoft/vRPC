@@ -8,14 +8,11 @@ namespace vRPC
     /// <summary>
     /// Атомарный <see langword="await"/>'ер. Связывает запрос с его результатом.
     /// </summary>
-    [DebuggerDisplay(@"\{Request: {Request.ActionName}\}")]
+    [DebuggerDisplay(@"\{Request: {Request.ActionName,nq}\}")]
     internal sealed class RequestAwaiter : INotifyCompletion
     {
-        /// <summary>
-        /// Тип ожидаемого результата.
-        /// </summary>
-        public Type ResultType { get; }
-        public Message Request { get; }
+        //[DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+        public RequestMessage Request { get; }
         /// <summary>
         /// Флаг используется как fast-path
         /// </summary>
@@ -27,9 +24,8 @@ namespace vRPC
         private Action _continuationAtomic;
 
         // ctor.
-        public RequestAwaiter(Type resultType, Message requestToSend)
+        public RequestAwaiter(RequestMessage requestToSend)
         {
-            ResultType = resultType;
             Request = requestToSend;
         }
 

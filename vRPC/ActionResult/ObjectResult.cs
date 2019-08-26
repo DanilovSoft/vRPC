@@ -18,10 +18,10 @@ namespace vRPC
             context.StatusCode = StatusCode;
 
             // Сериализуем в стрим.
-            context.Request.ActionToInvoke.SerializeObject(context.ResponseStream, _value);
+            context.RequestContext.ActionToInvoke.SerializeObject(context.ResponseStream, _value);
 
             // Устанавливаем формат.
-            context.ProducesEncoding = context.Request.ActionToInvoke.ProducesEncoding;
+            context.ProducesEncoding = context.RequestContext.ActionToInvoke.ProducesEncoding;
         }
     }
 }
