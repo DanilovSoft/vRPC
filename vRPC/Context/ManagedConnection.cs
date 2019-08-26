@@ -139,6 +139,9 @@ namespace vRPC
         {
             // Прогрев сериализатора.
             ProtoBuf.Serializer.PrepareSerializer<HeaderDto>();
+            ExtensionMethods.WarmupRequestMessageSerialization();
+            //Newtonsoft.Json.JsonConvert.DeserializeObject("", typeof(RequestMessageDto));
+            //Newtonsoft.Json.Bson.DeserializeObject("", typeof(RequestMessageDto));
         }
 
         // ctor.
@@ -493,7 +496,8 @@ namespace vRPC
                             try
                             {
                                 // Десериализуем запрос.
-                                receivedRequest = ExtensionMethods.DeserializeRequestJson(messageStream);
+                                //receivedRequest = ExtensionMethods.DeserializeRequestJson(messageStream);
+                                receivedRequest = ExtensionMethods.DeserializeRequestBson(messageStream);
                             }
                             catch (Exception ex)
                             // Ошибка десериализации запроса.
@@ -515,13 +519,13 @@ namespace vRPC
                             #region Выполнение запроса
 
                             // Запрос успешно десериализован.
-                            receivedRequest.Header = header;
+                            //receivedRequest.Header = header;
 
                             // Установить контекст запроса.
-                            receivedRequest.RequestContext = new RequestContext(receivedRequest);
+                            var request = new RequestContext(header, receivedRequest);
 
                             // Начать выполнение запроса в отдельном потоке.
-                            StartProcessRequest(receivedRequest);
+                            StartProcessRequest(request);
                             #endregion
 
                             #endregion
@@ -693,23 +697,23 @@ namespace vRPC
             {
                 // Записать в стрим запрос или результат запроса.
                 if (messageToSend is ResponseMessage responseToSend)
+                // Ответ на запрос.
                 {
-                    if(responseToSend.Result is IActionResult actionResult)
+                    if (responseToSend.Result is IActionResult actionResult)
                     {
                         // Сериализуем ответ.
-                        actionResult.ExecuteResult(new ActionContext(responseToSend.ReceivedRequest.RequestContext, serMsg.MemoryStream));
+                        actionResult.ExecuteResult(new ActionContext(responseToSend.ReceivedRequest, serMsg.MemoryStream));
                     }
                     else
                     {
                         // Сериализуем ответ.
-                        responseToSend.ReceivedRequest.RequestContext.ActionToInvoke.SerializeObject(serMsg.MemoryStream, responseToSend.Result);
+                        responseToSend.ReceivedRequest.ActionToInvoke.SerializeObject(serMsg.MemoryStream, responseToSend.Result);
 
                         serMsg.StatusCode = StatusCode.Ok;
-                        serMsg.ContentEncoding = responseToSend.ReceivedRequest.RequestContext.ActionToInvoke.ProducesEncoding;
+                        serMsg.ContentEncoding = responseToSend.ReceivedRequest.ActionToInvoke.ProducesEncoding;
                     }
                 }
                 else
-                // Ответ на запрос.
                 {
                     var requestToSend = (RequestMessage)messageToSend;
                     var request = new RequestMessageDto
@@ -717,7 +721,8 @@ namespace vRPC
                         ActionName = requestToSend.ActionName,
                         Args = messageToSend.Args,
                     };
-                    ExtensionMethods.SerializeObjectJson(serMsg.MemoryStream, request);
+                    //ExtensionMethods.SerializeObjectJson(serMsg.MemoryStream, request);
+                    ExtensionMethods.SerializeObjectBson(serMsg.MemoryStream, request);
                 }
             }
             catch
@@ -986,7 +991,7 @@ namespace vRPC
         /// Результатом может быть IActionResult или Raw объект или исключение.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        private async ValueTask<object> InvokeControllerAsync(RequestMessageDto receivedRequest)
+        private async ValueTask<object> InvokeControllerAsync(RequestContext receivedRequest)
         {
             // Находим контроллер по словарю без блокировки.
             if (TryGetRequestedController(receivedRequest, out string controllerName, out string actionName, out Type controllerType))
@@ -995,7 +1000,7 @@ namespace vRPC
                 if (_controllerActions.TryGetValue(controllerType, actionName, out ControllerAction action))
                 {
                     // Контекст запроса запоминает запрашиваемый метод.
-                    receivedRequest.RequestContext.ActionToInvoke = action;
+                    receivedRequest.ActionToInvoke = action;
 
                     // Проверить доступ к функции.
                     if (InvokeMethodPermissionCheck(action.TargetMethod, controllerType, out IActionResult permissionError))
@@ -1013,7 +1018,7 @@ namespace vRPC
                             //object[] args = DeserializeParameters(action.TargetMethod.GetParameters(), receivedRequest);
 
                             // Мапим и десериализуем аргументы по их порядку.
-                            object[] args = DeserializeArguments(action.TargetMethod.GetParameters(), receivedRequest);
+                            object[] args = DeserializeArguments(action.TargetMethod.GetParameters(), receivedRequest.RequestDto);
 
                             // Вызов метода контроллера.
                             object controllerResult = action.TargetMethod.InvokeFast(controller, args);
@@ -1038,7 +1043,7 @@ namespace vRPC
                         return permissionError;
                 }
                 else
-                    return new NotFoundResult($"Unable to find requested action \"{receivedRequest.ActionName}\".");
+                    return new NotFoundResult($"Unable to find requested action \"{receivedRequest.RequestDto.ActionName}\".");
             }
             else
                 return new NotFoundResult($"Unable to find requested controller \"{controllerName}\".");
@@ -1053,18 +1058,18 @@ namespace vRPC
         /// <summary>
         /// Пытается найти запрашиваемый пользователем контроллер.
         /// </summary>
-        private bool TryGetRequestedController(RequestMessageDto request, out string controllerName, out string actionName, out Type controllerType)
+        private bool TryGetRequestedController(RequestContext request, out string controllerName, out string actionName, out Type controllerType)
         {
-            int index = request.ActionName.IndexOf('/');
+            int index = request.RequestDto.ActionName.IndexOf('/');
             if (index == -1)
             {
                 controllerName = "Home";
-                actionName = request.ActionName;
+                actionName = request.RequestDto.ActionName;
             }
             else
             {
-                controllerName = request.ActionName.Substring(0, index);
-                actionName = request.ActionName.Substring(index + 1);
+                controllerName = request.RequestDto.ActionName.Substring(0, index);
+                actionName = request.RequestDto.ActionName.Substring(index + 1);
             }
 
             // Ищем контроллер в кэше.
@@ -1118,19 +1123,19 @@ namespace vRPC
         /// <summary>
         /// В новом потоке выполняет запрос клиента и отправляет ему результат или ошибку.
         /// </summary>
-        private void StartProcessRequest(RequestMessageDto receivedRequest)
+        private void StartProcessRequest(RequestContext request)
         {
             ThreadPool.UnsafeQueueUserWorkItem(state =>
             {
-                var tuple = ((ManagedConnection context, RequestMessageDto receivedRequest))state;
+                var tuple = ((ManagedConnection context, RequestContext request))state;
 
                 // Не бросает исключения.
-                tuple.context.StartProcessRequestThread(tuple.receivedRequest);
+                tuple.context.StartProcessRequestThread(tuple.request);
 
-            }, state: (this, receivedRequest)); // Без замыкания.
+            }, state: (this, request)); // Без замыкания.
         }
 
-        private async void StartProcessRequestThread(RequestMessageDto receivedRequest)
+        private async void StartProcessRequestThread(RequestContext receivedRequest)
         // Новый поток из пула потоков.
         {
             // Увеличить счетчик запросов.
@@ -1160,7 +1165,7 @@ namespace vRPC
         /// Выполняет запрос клиента и инкапсулирует результат в <see cref="Response"/>.
         /// Не бросает исключения.
         /// </summary>
-        private async ValueTask<SerializedMessageToSend> GetResponseAsync(RequestMessageDto receivedRequest)
+        private async ValueTask<SerializedMessageToSend> GetResponseAsync(RequestContext receivedRequest)
         {
             // Результат контроллера. Может быть Task.
             ResponseMessage response;

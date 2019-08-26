@@ -23,17 +23,5 @@ namespace vRPC
         /// </summary>
         [JsonProperty("a")]
         public JToken[] Args { get; set; }
-
-        /// <summary>
-        /// Связанный заголовок этого запроса.
-        /// </summary>
-        [IgnoreDataMember]
-        public HeaderDto Header { get; set; }
-
-        /// <summary>
-        /// Контекст связанный с текущим запросом.
-        /// </summary>
-        [IgnoreDataMember]
-        public RequestContext RequestContext { get; set; }
     }
 }

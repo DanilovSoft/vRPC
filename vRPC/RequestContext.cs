@@ -13,11 +13,19 @@ namespace vRPC
         /// Запрашиваемый метод контроллера.
         /// </summary>
         public ControllerAction ActionToInvoke { get; internal set; }
-        public RequestMessageDto ReceivedRequest { get; }
+        /// <summary>
+        /// Десериализованный заголовок запроса. Не может быть <see langword="null"/>.
+        /// </summary>
+        public HeaderDto HeaderDto { get; }
+        /// <summary>
+        /// Десериализованный запрос. Не может быть <see langword="null"/>.
+        /// </summary>
+        public RequestMessageDto RequestDto { get; }
 
-        public RequestContext(RequestMessageDto receivedRequest)
+        public RequestContext(HeaderDto header, RequestMessageDto receivedRequest)
         {
-            ReceivedRequest = receivedRequest;
+            HeaderDto = header;
+            RequestDto = receivedRequest;
         }
     }
 }

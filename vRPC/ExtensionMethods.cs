@@ -1,4 +1,6 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Bson;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -12,6 +14,9 @@ namespace vRPC
 {
     internal static class ExtensionMethods
     {
+        /// <summary>
+        /// Используется Bson сериализатором по умолчанию.
+        /// </summary>
         private static readonly Encoding _UTF8NoBOM;
 
         // ctor.
@@ -27,6 +32,19 @@ namespace vRPC
         {
             using (var writer = new StreamWriter(destination, _UTF8NoBOM, bufferSize: 1024, leaveOpen: true))
             using (var json = new JsonTextWriter(writer))
+            {
+                var ser = new JsonSerializer();
+                ser.Serialize(json, instance);
+            }
+        }
+
+        /// <summary>
+        /// Сериализует объект в BSON.
+        /// </summary>
+        public static void SerializeObjectBson(Stream stream, object instance)
+        {
+            using (var bw = new BinaryWriter(stream, _UTF8NoBOM, leaveOpen: true))
+            using (var json = new BsonDataWriter(bw)) // Использует new UTF8Encoding(false, true)
             {
                 var ser = new JsonSerializer();
                 ser.Serialize(json, instance);
@@ -67,7 +85,7 @@ namespace vRPC
         //}
 
         /// <summary>
-        /// Десериализует JSON.
+        /// Десериализует Json.
         /// </summary>
         public static RequestMessageDto DeserializeRequestJson(Stream stream)
         {
@@ -81,6 +99,44 @@ namespace vRPC
 
                 // Сюда не должны попадать.
                 throw new InvalidOperationException("Результатом десериализации оказался Null.");
+            }
+        }
+
+        /// <summary>
+        /// Десериализует Bson.
+        /// </summary>
+        public static RequestMessageDto DeserializeRequestBson(Stream stream)
+        {
+            using(var br = new BinaryReader(stream, _UTF8NoBOM, leaveOpen: true))
+            using (var json = new BsonDataReader(br))
+            {
+                var ser = new JsonSerializer();
+                var req = ser.Deserialize<RequestMessageDto>(json);
+                if (req != null)
+                    return req;
+
+                // Сюда не должны попадать.
+                throw new InvalidOperationException("Результатом десериализации оказался Null.");
+            }
+        }
+
+        public static void WarmupRequestMessageSerialization()
+        {
+            var dto = new RequestMessageDto
+            {
+                ActionName = "1",
+                Args = Array.Empty<JToken>(),
+            };
+
+            using (var mem = new MemoryStream())
+            {
+                SerializeObjectBson(mem, dto);
+                mem.Position = 0;
+                using (var json = new BsonDataReader(mem))
+                {
+                    var ser = new JsonSerializer();
+                    ser.Deserialize<RequestMessageDto>(json);
+                }
             }
         }
 

@@ -40,6 +40,11 @@ namespace vRPC
         /// </summary>
         public Task Completion => _context?.Completion ?? Task.CompletedTask;
 
+        static Client()
+        {
+            Warmup.DoWarmup();
+        }
+
         // ctor.
         /// <summary>
         /// Создаёт контекст клиентского соединения.

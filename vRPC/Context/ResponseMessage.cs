@@ -20,7 +20,7 @@ namespace vRPC
         /// <summary>
         /// Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
         /// </summary>
-        public RequestMessageDto ReceivedRequest { get; private set; }
+        public RequestContext ReceivedRequest { get; private set; }
 
         /// <summary>
         /// Конструктор ответа.
@@ -36,8 +36,8 @@ namespace vRPC
         /// </summary>
         /// <param name="receivedRequest"></param>
         /// <param name="rawResult"></param>
-        public ResponseMessage(RequestMessageDto receivedRequest, object rawResult) 
-            : this(receivedRequest.Header.Uid, rawResult)
+        public ResponseMessage(RequestContext receivedRequest, object rawResult) 
+            : this(receivedRequest.HeaderDto.Uid, rawResult)
         {
             ReceivedRequest = receivedRequest;
         }

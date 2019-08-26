@@ -41,6 +41,11 @@ namespace vRPC
         private Action<ServiceProvider> _configureApp;
         private volatile bool _stopRequired;
 
+        static Listener()
+        {
+            Warmup.DoWarmup();
+        }
+
         // ctor.
         public Listener(IPAddress ipAddress, int port)
         {
