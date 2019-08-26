@@ -24,10 +24,11 @@ namespace vRPC
         public StatusCode StatusCode { get; }
 
         [ProtoMember(3, IsRequired = false)]
-        public int ContentLength { get; set; }
+        public int ContentLength { get; }
 
         /// <summary>
-        /// Может быть <see langword="null"/>.
+        /// Формат контента. Может быть <see langword="null"/>, тогда 
+        /// следует использовать формат по умолчанию.
         /// </summary>
         [ProtoMember(4, IsRequired = false)]
         public string ContentEncoding { get; set; }
@@ -38,10 +39,11 @@ namespace vRPC
 
         }
 
-        public HeaderDto(ushort uid, StatusCode statusCode)
+        public HeaderDto(ushort uid, StatusCode statusCode, int contentLength)
         {
             Uid = uid;
             StatusCode = statusCode;
+            ContentLength = contentLength;
         }
 
         ///// <summary>
@@ -77,14 +79,19 @@ namespace vRPC
         //        throw new InvalidOperationException(HeaderSizeExceededException);
         //}
 
-        public void SerializeProtoBuf(Stream destination, out int headerSize)
+        /// <summary>
+        /// Сериализует заголовок. Не должно бросать исключения(!).
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="headerSize"></param>
+        public void SerializeProtoBuf(Stream stream, out int headerSize)
         {
-            long initialPos = destination.Position;
+            long initialPos = stream.Position;
 
-            // Сериализуем хедэр с префикс размером в начале.
-            ProtoBufSerializer.Serialize(destination, this);
+            // Сериализуем хедэр.
+            ProtoBufSerializer.Serialize(stream, this);
 
-            headerSize = (int)(destination.Position - initialPos);
+            headerSize = (int)(stream.Position - initialPos);
 
             Debug.Assert(headerSize <= HeaderMaxSize);
 
@@ -93,11 +100,6 @@ namespace vRPC
 
             throw new InvalidOperationException(HeaderSizeExceededException);
         }
-
-        //public static Header DeserializeWithLengthPrefix(Stream source)
-        //{
-        //    return ProtoBufSerializer.DeserializeWithLengthPrefix<Header>(source, HeaderLengthPrefix);
-        //}
 
         /// <summary>
         /// 

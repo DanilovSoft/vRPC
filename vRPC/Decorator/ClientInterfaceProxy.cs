@@ -35,7 +35,7 @@ namespace vRPC.Decorator
         protected object Invoke(MethodInfo targetMethod, object[] args)
         {
             ValueTask<ManagedConnection> contextTask = _contextCallback();
-            return ManagedConnection.OnClientProxyCall(contextTask, targetMethod, args, _controllerName);
+            return ManagedConnection.OnClientProxyCallStatic(contextTask, targetMethod, args, _controllerName);
         }
     }
 }

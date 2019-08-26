@@ -26,5 +26,12 @@ namespace vRPC
             var clientController = (ClientController)controller;
             clientController.Context = _client;
         }
+
+        protected override bool InvokeMethodPermissionCheck(MethodInfo method, Type controllerType, out IActionResult permissionError)
+        // Клиент всегда разрешает серверу вызывать методы.
+        {
+            permissionError = null;
+            return true;
+        }
     }
 }
