@@ -15,7 +15,7 @@ namespace vRPC
         /// <summary>
         /// Объект можно использовать только для просмотра состояния.
         /// </summary>
-        public WebSocket WebSocket { get; }
+        public ManagedWebSocket WebSocket { get; }
         public bool IsDisposed => Volatile.Read(ref _disposed) == 1;
 
         /// <summary>
@@ -23,7 +23,7 @@ namespace vRPC
         /// </summary>
         public RequestQueue PendingRequests { get; }
 
-        public SocketWrapper(WebSocket webSocket)
+        public SocketWrapper(ManagedWebSocket webSocket)
         {
             WebSocket = webSocket;
             PendingRequests = new RequestQueue();
