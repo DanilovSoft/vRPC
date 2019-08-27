@@ -29,7 +29,6 @@ namespace vRPC
         /// <summary>
         /// <see langword="volatile"/>.
         /// </summary>
-        public bool IsConnected => _context?.IsConnected ?? false;
         private ApplicationBuilder _appBuilder;
         private Action<ServiceCollection> _iocConfigure;
         private Action<ApplicationBuilder> _configureApp;
@@ -39,6 +38,8 @@ namespace vRPC
         /// Не бросает исключения.
         /// </summary>
         public Task Completion => _context?.Completion ?? Task.CompletedTask;
+        public bool IsConnected => _context?.IsConnected ?? false;
+        public Exception DisconnectReason => _context?.DisconnectReason;
 
         static Client()
         {
@@ -94,7 +95,7 @@ namespace vRPC
 
         /// <summary>
         /// Производит предварительное подключение сокета к серверу. Может использоваться для повторного переподключения.
-        /// Может произойти исключение если одновременно вызвать Dispose или Stop.
+        /// Может произойти исключение если одновременно вызвать Dispose.
         /// Потокобезопасно.
         /// </summary>
         public async Task<SocketError> ConnectAsync()

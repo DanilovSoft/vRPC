@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using DynamicMethodsLib;
+using MyWebSocket = DanilovSoft.WebSocket.ManagedWebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Channels;
 using DanilovSoft.WebSocket;
@@ -209,7 +210,7 @@ namespace vRPC
             var requestToSend = new RequestMessage(resultType, $"{controllerName}/{remoteMethodName}", Message.PrepareArgs(args));
 
             // Сериализуем запрос в память.
-            SerializedMessageToSend serMsg = SerializeMessage(requestToSend);
+            SerializedMessageToSend serMsg = SerializeRequest(requestToSend);
 
             // Отправляем запрос.
             Task<object> taskObject = OnProxyCall(serMsg, requestToSend);
@@ -232,7 +233,7 @@ namespace vRPC
             var requestToSend = new RequestMessage(resultType, $"{controllerName}/{remoteMethodName}", Message.PrepareArgs(args));
 
             // Сериализуем запрос в память. Лучше выполнить до подключения.
-            SerializedMessageToSend serMsg = SerializeMessage(requestToSend);
+            SerializedMessageToSend serMsg = SerializeRequest(requestToSend);
 
             // Отправляем запрос.
             Task<object> taskObject = OnProxyCallAsync(contextTask, serMsg, requestToSend);
@@ -504,7 +505,7 @@ namespace vRPC
                                 var errorResponse = new ResponseMessage(header.Uid, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\"."));
 
                                 // Передать на отправку результат с ошибкой, в другом потоке.
-                                QueueSendMessage(errorResponse);
+                                QueueSendResponse(errorResponse);
 
                                 // Вернуться к получению заголовка.
                                 continue;
@@ -644,20 +645,20 @@ namespace vRPC
         /// Сериализует сообщение в новом потоке и добавляет в очередь на отправку.
         /// Не должно бросать исключения(!).
         /// </summary>
-        /// <param name="messageToSend"></param>
-        private void QueueSendMessage(Message messageToSend)
+        /// <param name="responseToSend"></param>
+        private void QueueSendResponse(ResponseMessage responseToSend)
         {
             ThreadPool.UnsafeQueueUserWorkItem(state => 
             {
-                var tuple = ((ManagedConnection thisRef, Message m))state;
+                var tuple = ((ManagedConnection thisRef, ResponseMessage responseToSend))state;
 
                 // Сериализуем.
-                SerializedMessageToSend serializedMessage = SerializeMessage(tuple.m);
+                SerializedMessageToSend serializedMessage = SerializeResponse(tuple.responseToSend);
 
                 // Ставим в очередь.
                 tuple.thisRef.QueueSendMessage(serializedMessage);
 
-            }, (this, messageToSend));
+            }, (this, responseToSend));
         }
 
         /// <summary>
@@ -684,41 +685,46 @@ namespace vRPC
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
-        /// <param name="messageToSend"></param>
-        /// <returns></returns>
-        private static SerializedMessageToSend SerializeMessage(Message messageToSend)
+        private static SerializedMessageToSend SerializeRequest(RequestMessage requestToSend)
         {
-            var serMsg = new SerializedMessageToSend(messageToSend);
+            var serMsg = new SerializedMessageToSend(requestToSend);
             try
             {
-                // Записать в стрим запрос или результат запроса.
-                if (messageToSend is ResponseMessage responseToSend)
-                // Ответ на запрос.
+                var request = new RequestMessageDto
                 {
-                    if (responseToSend.Result is IActionResult actionResult)
-                    {
-                        // Сериализуем ответ.
-                        actionResult.ExecuteResult(new ActionContext(responseToSend.ReceivedRequest, serMsg.MemoryStream));
-                    }
-                    else
-                    {
-                        // Сериализуем ответ.
-                        responseToSend.ReceivedRequest.ActionToInvoke.SerializeObject(serMsg.MemoryStream, responseToSend.Result);
+                    ActionName = requestToSend.ActionName,
+                    Args = requestToSend.Args,
+                };
+                //ExtensionMethods.SerializeObjectJson(serMsg.MemoryStream, request);
+                ExtensionMethods.SerializeObjectBson(serMsg.MemoryStream, request);
+            }
+            catch
+            {
+                serMsg.Dispose();
+                throw;
+            }
+            return serMsg;
+        }
 
-                        serMsg.StatusCode = StatusCode.Ok;
-                        serMsg.ContentEncoding = responseToSend.ReceivedRequest.ActionToInvoke.ProducesEncoding;
-                    }
+        /// <summary>
+        /// Сериализует сообщение в память. Может бросить исключение сериализации.
+        /// </summary>
+        private static SerializedMessageToSend SerializeResponse(ResponseMessage responseToSend)
+        {
+            var serMsg = new SerializedMessageToSend(responseToSend);
+            try
+            {
+                if (responseToSend.Result is IActionResult actionResult)
+                {
+                    // Сериализуем ответ.
+                    actionResult.ExecuteResult(new ActionContext(responseToSend.ReceivedRequest, serMsg.MemoryStream));
                 }
                 else
                 {
-                    var requestToSend = (RequestMessage)messageToSend;
-                    var request = new RequestMessageDto
-                    {
-                        ActionName = requestToSend.ActionName,
-                        Args = messageToSend.Args,
-                    };
-                    //ExtensionMethods.SerializeObjectJson(serMsg.MemoryStream, request);
-                    ExtensionMethods.SerializeObjectBson(serMsg.MemoryStream, request);
+                    // Сериализуем ответ.
+                    responseToSend.ReceivedRequest.ActionToInvoke.SerializeObject(serMsg.MemoryStream, responseToSend.Result);
+                    serMsg.ContentEncoding = responseToSend.ReceivedRequest.ActionToInvoke.ProducesEncoding;
+                    serMsg.StatusCode = StatusCode.Ok;
                 }
             }
             catch
@@ -788,6 +794,7 @@ namespace vRPC
 
                         byte[] streamBuffer = serializedMessage.MemoryStream.DangerousGetBuffer();
 
+                        // Размер сообщения без заголовка.
                         int messageSize = (int)serializedMessage.MemoryStream.Length - serializedMessage.HeaderSize;
 
                         #region Отправка заголовка
@@ -1199,7 +1206,7 @@ namespace vRPC
             {
                 try
                 {
-                    return SerializeMessage(response);
+                    return SerializeResponse(response);
                 }
                 catch (Exception ex)
                 // Злая ошибка сериализации ответа. Аналогично ошибке 500.
@@ -1214,11 +1221,12 @@ namespace vRPC
                 }
 
                 // Запрашиваемая функция выполнена успешно.
-                return SerializeMessage(response);
+                return SerializeResponse(response);
             }
             else
             {
-                return SerializeMessage(response);
+                // Содержит ошибку; Сериализуется без исключения.
+                return SerializeResponse(response);
             }
         }
 

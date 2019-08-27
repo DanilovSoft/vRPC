@@ -40,6 +40,8 @@ namespace vRPC
         private Action<ServiceCollection> _iocConfigure;
         private Action<ServiceProvider> _configureApp;
         private volatile bool _stopRequired;
+        public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
+        public TimeSpan ClientReceiveTimeout { get => _wsServ.ClientReceiveTimeout; set => _wsServ.ClientReceiveTimeout = value; }
 
         static Listener()
         {
@@ -144,8 +146,12 @@ namespace vRPC
             return gracefully;
         }
 
+        /// <summary>
+        /// Тоже самое что вызов Start + await Completion.
+        /// </summary>
         public Task RunAsync()
         {
+            // Бросит исключение при повторном вызове.
             InitializeStart();
             _wsServ.StartAccept();
             return Completion;
@@ -157,6 +163,7 @@ namespace vRPC
         /// <exception cref="InvalidOperationException"/>
         public void Start()
         {
+            // Бросит исключение при повторном вызове.
             InitializeStart();
             _wsServ.StartAccept();
         }

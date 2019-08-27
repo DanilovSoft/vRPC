@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace vRPC
@@ -10,21 +12,21 @@ namespace vRPC
     /// <summary>
     /// Содержит исчерпывающую информацию о методе контроллера.
     /// </summary>
-    [DebuggerDisplay(@"\{{_fullPath}\}")]
-    internal sealed class ControllerAction
+    [DebuggerDisplay(@"\{{_methodFullName,nq}\}")]
+    internal readonly struct ControllerAction
     {
-        public Action<Stream, object> Serializer { get; }
-        private readonly string _fullPath;
+        private readonly Action<Stream, object> _serializer;
+        private readonly string _methodFullName;
         public MethodInfo TargetMethod { get; }
         /// <summary>
         /// Формат возвращаемых данных.
         /// </summary>
         public string ProducesEncoding { get; }
 
-        public ControllerAction(MethodInfo methodInfo, string fullPath)
+        public ControllerAction(MethodInfo methodInfo, string methodFullName)
         {
             TargetMethod = methodInfo;
-            _fullPath = fullPath;
+            _methodFullName = methodFullName;
             var protobufAttrib = methodInfo.GetCustomAttribute<ProducesProtoBufAttribute>();
             if (protobufAttrib != null)
             {
@@ -39,9 +41,10 @@ namespace vRPC
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SerializeObject(Stream destination, object instance)
         {
-            Serializer.Invoke(destination, instance);
+            _serializer.Invoke(destination, instance);
         }
     }
 }
