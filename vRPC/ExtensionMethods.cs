@@ -141,7 +141,7 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Десериализует JSON.
+        /// Десериализует Json.
         /// </summary>
         public static object DeserializeJson(Stream stream, Type objectType)
         {

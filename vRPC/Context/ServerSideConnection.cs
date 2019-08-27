@@ -5,7 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
-using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
+using MyWebSocket = DanilovSoft.WebSocket.ManagedWebSocket;
 
 namespace vRPC
 {

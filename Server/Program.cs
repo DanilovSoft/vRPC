@@ -48,6 +48,7 @@ namespace Server
                 listener.Start();
                 //await listener.RunAsync();
 
+                Console.Clear();
                 long prev = 0;
                 var sw = Stopwatch.StartNew();
                 while (true)

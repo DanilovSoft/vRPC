@@ -17,7 +17,7 @@ namespace vRPC
         /// Словарь используемый только для чтения, поэтому потокобезопасен.
         /// Хранит все доступные контроллеры. Не учитывает регистр.
         /// </summary>
-        internal readonly Dictionary<string, Type> Controllers;
+        internal readonly ControllerActionsDictionary Controllers;
         private readonly WebSocketServer _wsServ;
         /// <summary>
         /// Доступ через блокировку SyncObj.
@@ -62,10 +62,10 @@ namespace vRPC
             Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
 
             // Найти контроллеры в сборке.
-            Controllers = GlobalVars.FindAllControllers(controllersAssembly);
+            Controllers = new ControllerActionsDictionary(GlobalVars.FindAllControllers(controllersAssembly));
 
             // Добавить контроллеры в IoC.
-            foreach (Type controllerType in Controllers.Values)
+            foreach (Type controllerType in Controllers.Controllers.Values)
             {
                 _ioc.AddScoped(controllerType);
             }

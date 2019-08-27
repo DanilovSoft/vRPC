@@ -10,12 +10,10 @@ namespace vRPC
     /// <summary>
     /// Содержит исчерпывающую информацию о методе контроллера.
     /// </summary>
-    [DebuggerDisplay("{DebugDisplay,nq}")]
+    [DebuggerDisplay(@"\{{_fullPath}\}")]
     internal sealed class ControllerAction
     {
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string DebugDisplay => "{" + $"\"{_fullPath}\"" + "}";
-        private readonly Action<Stream, object> _serializer;
+        public Action<Stream, object> Serializer { get; }
         private readonly string _fullPath;
         public MethodInfo TargetMethod { get; }
         /// <summary>
@@ -30,20 +28,20 @@ namespace vRPC
             var protobufAttrib = methodInfo.GetCustomAttribute<ProducesProtoBufAttribute>();
             if (protobufAttrib != null)
             {
-                _serializer = ExtensionMethods.SerializeObjectProtobuf;
+                Serializer = ExtensionMethods.SerializeObjectProtobuf;
                 ProducesEncoding = ProducesProtoBufAttribute.Encoding;
             }
             else
             {
                 // Сериализатор по умолчанию — Json.
-                _serializer = ExtensionMethods.SerializeObjectJson;
+                Serializer = ExtensionMethods.SerializeObjectJson;
                 ProducesEncoding = "json";
             }
         }
 
         public void SerializeObject(Stream destination, object instance)
         {
-            _serializer(destination, instance);
+            Serializer.Invoke(destination, instance);
         }
     }
 }

@@ -65,8 +65,8 @@ namespace Client
                         // Лучше подключиться предварительно.
                         do
                         {
-                            while (client.ConnectAsync().GetAwaiter().GetResult() != SocketError.Success)
-                                Thread.Sleep(new Random().Next(200, 400));
+                            //while (client.ConnectAsync().GetAwaiter().GetResult() != SocketError.Success)
+                            //    Thread.Sleep(new Random().Next(200, 400));
 
                             while (true)
                             {

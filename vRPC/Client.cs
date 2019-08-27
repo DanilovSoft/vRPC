@@ -24,7 +24,7 @@ namespace vRPC
         /// Адрес для подключеия к серверу.
         /// </summary>
         private readonly Uri _uri;
-        private readonly Dictionary<string, Type> _controllers;
+        private readonly ControllerActionsDictionary _controllers;
         private readonly ProxyCache _proxyCache = new ProxyCache();
         /// <summary>
         /// <see langword="volatile"/>.
@@ -72,7 +72,7 @@ namespace vRPC
             Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
 
             // Словарь с найденными контроллерами в вызывающей сборке.
-            _controllers = GlobalVars.FindAllControllers(controllersAssembly);
+            _controllers = new ControllerActionsDictionary(GlobalVars.FindAllControllers(controllersAssembly));
             _uri = uri;
             _connectLock = new ChannelLock();
         }
@@ -197,7 +197,7 @@ namespace vRPC
         private ServiceProvider ConfigureIoC(ServiceCollection serviceCollection)
         {
             // Добавим в IoC все контроллеры сборки.
-            foreach (Type controllerType in _controllers.Values)
+            foreach (Type controllerType in _controllers.Controllers.Values)
                 serviceCollection.AddScoped(controllerType);
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();

@@ -9,7 +9,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using DynamicMethodsLib;
-using MyWebSocket = DanilovSoft.WebSocket.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Channels;
 using DanilovSoft.WebSocket;
@@ -34,15 +33,15 @@ namespace vRPC
         /// Содержит имена методов прокси интерфейса без постфикса Async.
         /// </summary>
         private protected abstract IConcurrentDictionary<MethodInfo, string> _proxyMethodName { get; }
-        /// <summary>
-        /// Словарь используемый только для чтения.
-        /// Хранит все доступные контроллеры.
-        /// </summary>
-        private readonly Dictionary<string, Type> _controllers;
+        ///// <summary>
+        ///// Словарь используемый только для чтения.
+        ///// Хранит все доступные контроллеры.
+        ///// </summary>
+        //private readonly Dictionary<string, Type> _controllers;
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
-        private readonly ControllerActionsDictionary _controllerActions;
+        private readonly ControllerActionsDictionary _controllers;
         /// <summary>
         /// Для <see cref="Task"/> <see cref="Completion"/>.
         /// </summary>
@@ -77,7 +76,6 @@ namespace vRPC
         /// Для отслеживания грациозной остановки сервиса.
         /// </summary>
         private int _reqAndRespCount;
-
         /// <summary>
         /// Подписку на событие Disconnected нужно синхронизировать что-бы подписчики не пропустили момент обрыва.
         /// </summary>
@@ -137,18 +135,18 @@ namespace vRPC
         // static ctor.
         static ManagedConnection()
         {
+            ManagedWebSocket.DefaultNoDelay = true;
+
             // Прогрев сериализатора.
             ProtoBuf.Serializer.PrepareSerializer<HeaderDto>();
             ExtensionMethods.WarmupRequestMessageSerialization();
-            //Newtonsoft.Json.JsonConvert.DeserializeObject("", typeof(RequestMessageDto));
-            //Newtonsoft.Json.Bson.DeserializeObject("", typeof(RequestMessageDto));
         }
 
         // ctor.
         /// <summary>
         /// 
         /// </summary>
-        internal ManagedConnection(MyWebSocket clientConnection, bool isServer, ServiceProvider serviceProvider, Dictionary<string, Type> controllers)
+        internal ManagedConnection(ManagedWebSocket clientConnection, bool isServer, ServiceProvider serviceProvider, ControllerActionsDictionary controllers)
         {
             _isServer = isServer;
 
@@ -159,8 +157,6 @@ namespace vRPC
 
             // Копируем список контроллеров сервера.
             _controllers = controllers;
-
-            _controllerActions = new ControllerActionsDictionary(controllers);
 
             // Запустить диспетчер отправки сообщений.
             _sendChannel = Channel.CreateUnbounded<SerializedMessageToSend>(new UnboundedChannelOptions
@@ -985,7 +981,6 @@ namespace vRPC
             return exceptionMessage;
         }
 
-        // TODO заменить исключения.
         /// <summary>
         /// Вызывает запрошенный метод контроллера и возвращает результат.
         /// Результатом может быть IActionResult или Raw объект или исключение.
@@ -997,7 +992,7 @@ namespace vRPC
             if (TryGetRequestedController(receivedRequest, out string controllerName, out string actionName, out Type controllerType))
             {
                 // Ищем делегат запрашиваемой функции по словарю без блокировки.
-                if (_controllerActions.TryGetValue(controllerType, actionName, out ControllerAction action))
+                if (_controllers.TryGetValue(controllerType, actionName, out ControllerAction action))
                 {
                     // Контекст запроса запоминает запрашиваемый метод.
                     receivedRequest.ActionToInvoke = action;
@@ -1073,7 +1068,7 @@ namespace vRPC
             }
 
             // Ищем контроллер в кэше.
-            if (_controllers.TryGetValue(controllerName, out controllerType))
+            if (_controllers.Controllers.TryGetValue(controllerName, out controllerType))
                 return true;
 
             return false;

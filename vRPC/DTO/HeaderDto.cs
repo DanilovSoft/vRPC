@@ -129,7 +129,7 @@ namespace vRPC
                 case ProducesProtoBufAttribute.Encoding:
                         return ExtensionMethods.DeserializeProtobuf;
                 default:
-                    return ExtensionMethods.DeserializeJson;
+                    return ExtensionMethods.DeserializeJson; // Сериализатор по умолчанию.
             }
         }
     }

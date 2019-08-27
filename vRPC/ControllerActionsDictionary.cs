@@ -9,10 +9,20 @@ namespace vRPC
 {
     internal sealed class ControllerActionsDictionary
     {
+        /// <summary>
+        /// Словарь используемый только для чтения.
+        /// </summary>
         private readonly Dictionary<(Type, string), ControllerAction> _actions;
+        /// <summary>
+        /// Словарь используемый только для чтения.
+        /// Хранит все доступные контроллеры.
+        /// </summary>
+        public Dictionary<string, Type> Controllers { get; }
 
         public ControllerActionsDictionary(Dictionary<string, Type> controllers)
         {
+            Controllers = controllers;
+
             _actions = new Dictionary<(Type, string), ControllerAction>();
 
             foreach (KeyValuePair<string, Type> controller in controllers)
