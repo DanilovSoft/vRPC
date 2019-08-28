@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using DanilovSoft;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Bson;
 using Newtonsoft.Json.Linq;
 using System;
@@ -209,7 +210,25 @@ namespace vRPC
             return method.Name;
         }
 
-        [DebuggerStepThrough]
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <exception cref="IOException"/>
+        /// <exception cref="SocketException"/>
+        //[DebuggerStepThrough]
+        public static Exception ToException(this ReceiveResult receiveResult)
+        {
+            if (receiveResult.SocketError != SocketError.Success)
+            {
+                return new SocketException((int)receiveResult.SocketError);
+            }
+            else
+            {
+                return new IOException("Unexpected connection closed during read.");
+            }
+        }
+
+        //[DebuggerStepThrough]
         public static SocketException ToException(this SocketError socketError)
         {
             return new SocketException((int)socketError);

@@ -111,7 +111,7 @@ namespace vRPC
 
         private async ValueTask<ManagedConnection> ContextCallback()
         {
-            ConnectionResult connectionResult = await ConnectIfNeededAsync();
+            ConnectionResult connectionResult = await ConnectIfNeededAsync().ConfigureAwait(false);
 
             if (connectionResult.SocketError == SocketError.Success)
                 return connectionResult.Context;

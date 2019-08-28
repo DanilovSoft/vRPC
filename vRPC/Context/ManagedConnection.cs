@@ -361,7 +361,7 @@ namespace vRPC
                 }
 
                 HeaderDto header;
-                if (webSocketMessage.ErrorCode == SocketError.Success)
+                if (webSocketMessage.ReceiveResult.Success)
                 {
                     try
                     {
@@ -404,7 +404,7 @@ namespace vRPC
                 else
                 {
                     // Оповестить об обрыве.
-                    AtomicDisconnect(webSocketMessage.ErrorCode.ToException());
+                    AtomicDisconnect(webSocketMessage.ReceiveResult.ToException());
 
                     // Завершить поток.
                     return;
@@ -444,7 +444,7 @@ namespace vRPC
                         }
                         #endregion
 
-                        if (webSocketMessage.ErrorCode == SocketError.Success)
+                        if (webSocketMessage.ReceiveResult.Success)
                         {
                             if (webSocketMessage.MessageType != WebSocketMessageType.Close)
                             {
@@ -468,7 +468,7 @@ namespace vRPC
                         // Обрыв соединения.
                         {
                             // Оповестить об обрыве.
-                            AtomicDisconnect(webSocketMessage.ErrorCode.ToException());
+                            AtomicDisconnect(webSocketMessage.ReceiveResult.ToException());
 
                             // Завершить поток.
                             return;
@@ -514,9 +514,6 @@ namespace vRPC
                             #endregion
 
                             #region Выполнение запроса
-
-                            // Запрос успешно десериализован.
-                            //receivedRequest.Header = header;
 
                             // Установить контекст запроса.
                             var request = new RequestContext(header, receivedRequest);
