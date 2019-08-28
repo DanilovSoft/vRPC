@@ -34,11 +34,6 @@ namespace vRPC
         /// Содержит имена методов прокси интерфейса без постфикса Async.
         /// </summary>
         private protected abstract IConcurrentDictionary<MethodInfo, string> _proxyMethodName { get; }
-        ///// <summary>
-        ///// Словарь используемый только для чтения.
-        ///// Хранит все доступные контроллеры.
-        ///// </summary>
-        //private readonly Dictionary<string, Type> _controllers;
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
@@ -46,7 +41,7 @@ namespace vRPC
         /// <summary>
         /// Для <see cref="Task"/> <see cref="Completion"/>.
         /// </summary>
-        private readonly TaskCompletionSource<int> _completionTcs = new TaskCompletionSource<int>();
+        private readonly TaskCompletionSource<Exception> _completionTcs = new TaskCompletionSource<Exception>();
         private readonly bool _isServer;
         public ServiceProvider ServiceProvider { get; private set; }
         /// <summary>
@@ -71,7 +66,7 @@ namespace vRPC
         /// Не бросает исключения.
         /// Причину разъединения можно узнать у свойства <see cref="DisconnectReason"/>.
         /// </summary>
-        public Task Completion => _completionTcs.Task;
+        public Task<Exception> Completion => _completionTcs.Task;
         /// <summary>
         /// Количество запросов для обработки и количество ответов для отправки.
         /// Для отслеживания грациозной остановки сервиса.
@@ -136,7 +131,7 @@ namespace vRPC
         // static ctor.
         static ManagedConnection()
         {
-            ManagedWebSocket.DefaultNoDelay = true;
+            //ManagedWebSocket.DefaultNoDelay = true;
 
             // Прогрев сериализатора.
             ProtoBuf.Serializer.PrepareSerializer<HeaderDto>();
@@ -147,7 +142,7 @@ namespace vRPC
         /// <summary>
         /// 
         /// </summary>
-        internal ManagedConnection(ManagedWebSocket clientConnection, bool isServer, ServiceProvider serviceProvider, ControllerActionsDictionary controllers)
+        internal ManagedConnection(MyWebSocket clientConnection, bool isServer, ServiceProvider serviceProvider, ControllerActionsDictionary controllers)
         {
             _isServer = isServer;
 
@@ -178,8 +173,10 @@ namespace vRPC
 
         /// <summary>
         /// Запрещает отправку новых запросов и приводит к остановке когда обработаются ожидающие запросы.
+        /// Взводит <see cref="Completion"/>.
+        /// Не бросает исключения.
         /// </summary>
-        internal void StopRequired()
+        internal void RequireStop()
         {
             // volatile.
             _stopRequired = true;
@@ -189,7 +186,6 @@ namespace vRPC
             {
                 // Можно безопасно остановить сокет.
                 Dispose(new StopRequiredException());
-                AtomicSetCompletion();
             }
             // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
             // Это будет соглашением о необходимости остановки.
@@ -588,10 +584,14 @@ namespace vRPC
                                 #endregion
 
                                 // Получен ожидаемый ответ на запрос.
-                                if (Interlocked.Decrement(ref _reqAndRespCount) == -1)
+                                if (Interlocked.Decrement(ref _reqAndRespCount) != -1)
                                 // Был запрос на остановку.
                                 {
-                                    AtomicSetCompletion();
+                                    continue;
+                                }
+                                else
+                                {
+                                    AtomicSetCompletion(new StopRequiredException());
                                     return;
                                 }
                             }
@@ -719,7 +719,7 @@ namespace vRPC
                 else
                 {
                     // Сериализуем ответ.
-                    responseToSend.ReceivedRequest.ActionToInvoke.SerializeObject(serMsg.MemoryStream, responseToSend.Result);
+                    responseToSend.ReceivedRequest.ActionToInvoke.Serializer(serMsg.MemoryStream, responseToSend.Result);
                     serMsg.ContentEncoding = responseToSend.ReceivedRequest.ActionToInvoke.ProducesEncoding;
                     serMsg.StatusCode = StatusCode.Ok;
                 }
@@ -890,7 +890,7 @@ namespace vRPC
                             else
                             // Был заказ на остановку.
                             {
-                                AtomicSetCompletion();
+                                AtomicSetCompletion(new StopRequiredException());
                                 return;
                             }
                         }
@@ -908,9 +908,9 @@ namespace vRPC
         /// <summary>
         /// Потокобезопасно взводит <see cref="Task"/> <see cref="Completion"/>.
         /// </summary>
-        private void AtomicSetCompletion()
+        private void AtomicSetCompletion(Exception disconnectReason)
         {
-            _completionTcs.TrySetResult(0);
+            _completionTcs.TrySetResult(disconnectReason);
         }
 
         /// <summary>
@@ -950,7 +950,7 @@ namespace vRPC
                 }
 
                 // Установить Task Completed.
-                AtomicSetCompletion();
+                AtomicSetCompletion(disconnectReason);
 
                 // Сообщить об обрыве.
                 disconnected?.Invoke(this, new SocketDisconnectedEventArgs(disconnectReason));
@@ -1257,10 +1257,10 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Вызывает Dispose распространяя исключение <see cref="StopRequiredException"/>.
+        /// Вызывает Dispose распространяя исключение <see cref="StopRequiredException"/> другим потокам.
         /// Потокобезопасно.
         /// </summary>
-        internal void StopAndDispose()
+        internal void CloseAndDispose()
         {
             Dispose(new StopRequiredException());
         }

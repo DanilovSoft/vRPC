@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -43,15 +44,19 @@ namespace Client
             long reqCount = 0;
             int activeThreads = 0;
 
-            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+            //Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+            List<Thread> threads = new List<Thread>(Threads);
             for (int i = 0; i < Threads; i++)
             {
-                new Thread(_ =>
+                var t = new Thread(_ =>
                 {
                     Interlocked.Increment(ref activeThreads);
 
                     using (var client = new vRPC.Client(ipAddress.ToString(), Port))
                     {
+                        bool cancel = false;
+                        Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client, ref cancel);
+
                         client.ConfigureService(ioc =>
                         {
                             ioc.AddLogging(loggingBuilder =>
@@ -60,15 +65,12 @@ namespace Client
                                     .AddConsole();
                             });
                         });
+
                         var homeController = client.GetProxy<IServerHomeController>();
 
-                        // Лучше подключиться предварительно.
-                        do
+                        while (!cancel)
                         {
-                            //while (client.ConnectAsync().GetAwaiter().GetResult() != SocketError.Success)
-                            //    Thread.Sleep(new Random().Next(200, 400));
-
-                            while (true)
+                            while (!cancel)
                             {
                                 try
                                 {
@@ -81,15 +83,19 @@ namespace Client
                                 Interlocked.Increment(ref reqCount);
                             }
                             Thread.Sleep(new Random().Next(200, 400));
-                        } while (true);
+                        }
+                        Exception reason = client.Completion.GetAwaiter().GetResult();
                     }
-                }).Start();
+                    Interlocked.Decrement(ref activeThreads);
+                });
+                t.Start();
+                threads.Add(t);
             }
 
             long prev = 0;
             Console.Clear();
             var sw = Stopwatch.StartNew();
-            while (true)
+            while (threads.TrueForAll(x => x.IsAlive))
             {
                 Thread.Sleep(1000);
                 long elapsedMs = sw.ElapsedMilliseconds;
@@ -104,6 +110,18 @@ namespace Client
                 Console.WriteLine($"Active Threads: {activeThreads.ToString().PadRight(10, ' ')}");
                 Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10, ' ')}");
             }
+        }
+
+        private static void Console_CancelKeyPress(ConsoleCancelEventArgs e, vRPC.Client client, ref bool cancel)
+        {
+            cancel = true;
+
+            if (!e.Cancel)
+            {
+                e.Cancel = true;
+                Console.WriteLine("Stopping...");
+            }
+            client.Stop(TimeSpan.FromSeconds(1));
         }
     }
 }

@@ -20,7 +20,7 @@ namespace Server
         static void Main()
         {
             Console.Title = "Сервер";
-            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+            //Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
 
             using (var listener = new Listener(IPAddress.Any, Port))
             {

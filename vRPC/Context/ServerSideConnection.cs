@@ -162,28 +162,28 @@ namespace vRPC
         //    }
         //}
 
-        /// <summary>
-        /// Потокобезопасно добавляет текущее соединение в словарь или создаёт новый словарь.
-        /// </summary>
-        private UserConnections AddConnection(int userId)
-        {
-            do
-            {
-                // Берем существующую структуру или создаем новую.
-                UserConnections userConnections = Listener.Connections.GetOrAdd(userId, uid => new UserConnections(uid));
+        ///// <summary>
+        ///// Потокобезопасно добавляет текущее соединение в словарь или создаёт новый словарь.
+        ///// </summary>
+        //private UserConnections AddConnection(int userId)
+        //{
+        //    do
+        //    {
+        //        // Берем существующую структуру или создаем новую.
+        //        UserConnections userConnections = Listener.Connections.GetOrAdd(userId, uid => new UserConnections(uid));
 
-                // Может случиться так что мы взяли существующую коллекцию но её удаляют из словаря в текущий момент.
-                lock (userConnections.SyncRoot) // Захватить эксклюзивный доступ.
-                {
-                    // Если коллекцию еще не удалили из словаря то можем безопасно добавить в неё соединение.
-                    if (!userConnections.IsDestroyed)
-                    {
-                        userConnections.Add(this);
-                        return userConnections;
-                    }
-                }
-            } while (true);
-        }
+        //        // Может случиться так что мы взяли существующую коллекцию но её удаляют из словаря в текущий момент.
+        //        lock (userConnections.SyncRoot) // Захватить эксклюзивный доступ.
+        //        {
+        //            // Если коллекцию еще не удалили из словаря то можем безопасно добавить в неё соединение.
+        //            if (!userConnections.IsDestroyed)
+        //            {
+        //                userConnections.Add(this);
+        //                return userConnections;
+        //            }
+        //        }
+        //    } while (true);
+        //}
 
         //protected override void BeforeInvokePrepareController(Controller controller)
         //{

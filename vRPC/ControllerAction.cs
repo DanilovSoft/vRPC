@@ -41,10 +41,10 @@ namespace vRPC
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SerializeObject(Stream destination, object instance)
-        {
-            Serializer.Invoke(destination, instance);
-        }
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public void SerializeObject(Stream destination, object instance)
+        //{
+        //    _serializer.Invoke(destination, instance);
+        //}
     }
 }
