@@ -15,7 +15,7 @@ namespace vRPC
     [DebuggerDisplay(@"\{{_methodFullName,nq}\}")]
     internal readonly struct ControllerAction
     {
-        private readonly Action<Stream, object> _serializer;
+        public Action<Stream, object> Serializer { get; }
         private readonly string _methodFullName;
         public MethodInfo TargetMethod { get; }
         /// <summary>
@@ -41,10 +41,10 @@ namespace vRPC
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SerializeObject(Stream destination, object instance)
-        {
-            _serializer.Invoke(destination, instance);
-        }
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public void SerializeObject(Stream destination, object instance)
+        //{
+        //    _serializer.Invoke(destination, instance);
+        //}
     }
 }

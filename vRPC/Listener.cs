@@ -25,8 +25,14 @@ namespace vRPC
         private readonly ClientConnections _connections = new ClientConnections();
         private readonly ServiceCollection _ioc;
         private readonly object _startObj = new object();
-        private readonly TaskCompletionSource<int> _runTcs = new TaskCompletionSource<int>();
-        public Task Completion => _runTcs.Task;
+        private readonly TaskCompletionSource<bool> _completionTcs = new TaskCompletionSource<bool>();
+        /// <summary>
+        /// <see cref="Task"/> который завершается когда все 
+        /// соединения перешли в закрытое состояние и сервис полностью остановлен.
+        /// Не бросает исключения.
+        /// Возвращает <see langword="true"/> если остановка прошла грациозно.
+        /// </summary>
+        public Task<bool> Completion => _completionTcs.Task;
         private bool _started;
         /// <summary>
         /// Коллекция авторизованных пользователей.
@@ -39,6 +45,9 @@ namespace vRPC
         public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
         private Action<ServiceCollection> _iocConfigure;
         private Action<ServiceProvider> _configureApp;
+        /// <summary>
+        /// Не позволяет подключаться новым клиентам.
+        /// </summary>
         private volatile bool _stopRequired;
         public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
         public TimeSpan ClientReceiveTimeout { get => _wsServ.ClientReceiveTimeout; set => _wsServ.ClientReceiveTimeout = value; }
@@ -89,11 +98,29 @@ namespace vRPC
         }
 
         /// <summary>
+        /// Начинает остановку сервиса.
         /// Не бросает исключения.
+        /// Результат можно получить через <see cref="Completion"/>.
         /// </summary>
-        /// <param name="timeout"></param>
-        /// <returns></returns>
-        public async Task<bool> StopAsync(TimeSpan timeout)
+        /// <param name="timeout">Максимальное время ожидания грациозного закрытия соединений.</param>
+        public void Stop(TimeSpan timeout)
+        {
+            BeginStop(timeout);
+        }
+
+        /// <summary>
+        /// Останавливает сервис и ожидает до полной остановки.
+        /// Не бросает исключения.
+        /// Эквивалентно <see cref="Stop(TimeSpan)"/> + <see langword="await"/> <see cref="Completion"/>.
+        /// </summary>
+        /// <param name="timeout">Максимальное время ожидания грациозного закрытия соединений.</param>
+        public Task<bool> StopAsync(TimeSpan timeout)
+        {
+            BeginStop(timeout);
+            return Completion;
+        }
+
+        private async void BeginStop(TimeSpan timeout)
         {
             lock (_startObj)
             {
@@ -108,22 +135,22 @@ namespace vRPC
 
             // Необходимо закрыть все соединения.
 
-            ServerSideConnection[] copy;
+            ServerSideConnection[] activeConnections;
             lock (_connections.SyncObj)
             {
                 // Теперь мы обязаны сделать Dispose этим подключениям.
-                copy = _connections.ToArray();
+                activeConnections = _connections.ToArray();
                 _connections.Clear();
             }
 
             // Грациозно останавливаем соединения.
-            foreach (var con in copy)
+            foreach (var con in activeConnections)
             {
                 // Прекращаем принимать запросы.
-                con.StopRequired();
+                con.RequireStop();
             }
 
-            var allConnTask = Task.WhenAll(copy.Select(x => x.Completion));
+            var allConnTask = Task.WhenAll(activeConnections.Select(x => x.Completion));
             var timeoutTask = Task.Delay(timeout);
 
             bool gracefully;
@@ -137,19 +164,20 @@ namespace vRPC
                 gracefully = false;
             }
 
-            foreach (var con in copy)
+            foreach (var con in activeConnections)
             {
-                con.StopAndDispose();
+                con.CloseAndDispose();
             }
 
-            _runTcs.TrySetResult(0);
-            return gracefully;
+            // Установить Completion.
+            _completionTcs.TrySetResult(gracefully);
         }
 
         /// <summary>
-        /// Тоже самое что вызов Start + await Completion.
+        /// Начинает приём подключений и обработку запросов до полной остановки методом Stop.
+        /// Эквивалентно вызову Start + <see langword="await"/> Completion.
         /// </summary>
-        public Task RunAsync()
+        public Task<bool> RunAsync()
         {
             // Бросит исключение при повторном вызове.
             InitializeStart();

@@ -37,7 +37,7 @@ namespace vRPC
         /// Завершается если подключение отсутствует или разорвано.
         /// Не бросает исключения.
         /// </summary>
-        public Task Completion => _context?.Completion ?? Task.CompletedTask;
+        public Task<Exception> Completion { get; private set; }// _context?.Completion ?? Task.FromResult<Exception>(null);
         public bool IsConnected => _context?.IsConnected ?? false;
         public Exception DisconnectReason => _context?.DisconnectReason;
 
@@ -109,6 +109,24 @@ namespace vRPC
             return _proxyCache.GetProxy<T>(ContextCallback);
         }
 
+        public void Stop(TimeSpan timeout)
+        {
+            BeginStop(timeout);
+        }
+
+        private async void BeginStop(TimeSpan timeout)
+        {
+            var context = _context;
+            if (context != null)
+            {
+                context.RequireStop();
+
+                await Task.WhenAny(context.Completion, Task.Delay(timeout)).ConfigureAwait(false);
+
+                context.CloseAndDispose();
+            }
+        }
+
         private async ValueTask<ManagedConnection> ContextCallback()
         {
             ConnectionResult connectionResult = await ConnectIfNeededAsync();
@@ -170,6 +188,8 @@ namespace vRPC
                         if (errorCode == SocketError.Success)
                         {
                             context = new ClientSideConnection(this, ws, serviceProvider, _controllers);
+
+                            Completion = context.Completion;
 
                             // Косвенно устанавливает флаг IsConnected.
                             _context = context;
