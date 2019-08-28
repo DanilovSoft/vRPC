@@ -45,16 +45,19 @@ namespace Client
             int activeThreads = 0;
 
             //Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
-            List<Thread> threads = new List<Thread>(Threads);
+            var threads = new List<Thread>(Threads);
+            bool cancel = false;
             for (int i = 0; i < Threads; i++)
             {
                 var t = new Thread(_ =>
                 {
+                    if (cancel)
+                        return;
+
                     Interlocked.Increment(ref activeThreads);
 
                     using (var client = new vRPC.Client(ipAddress.ToString(), Port))
                     {
-                        bool cancel = false;
                         Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client, ref cancel);
 
                         client.ConfigureService(ioc =>
@@ -110,6 +113,9 @@ namespace Client
                 Console.WriteLine($"Active Threads: {activeThreads.ToString().PadRight(10, ' ')}");
                 Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10, ' ')}");
             }
+            Console.SetCursorPosition(0, 0);
+            Console.WriteLine($"Active Threads: {"0".PadRight(10, ' ')}");
+            Console.WriteLine($"Request per second: {"0".PadRight(10, ' ')}");
         }
 
         private static void Console_CancelKeyPress(ConsoleCancelEventArgs e, vRPC.Client client, ref bool cancel)
