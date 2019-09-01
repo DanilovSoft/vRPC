@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using DanilovSoft;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -98,10 +99,10 @@ namespace vRPC
         /// Может произойти исключение если одновременно вызвать Dispose.
         /// Потокобезопасно.
         /// </summary>
-        public async Task<SocketError> ConnectAsync()
+        public async Task<ReceiveResult> ConnectAsync()
         {
             ConnectionResult connectionResult = await ConnectIfNeededAsync().ConfigureAwait(false);
-            return connectionResult.SocketError;
+            return connectionResult.ReceiveResult;
         }
 
         public T GetProxy<T>()
@@ -131,10 +132,10 @@ namespace vRPC
         {
             ConnectionResult connectionResult = await ConnectIfNeededAsync().ConfigureAwait(false);
 
-            if (connectionResult.SocketError == SocketError.Success)
+            if (connectionResult.ReceiveResult.IsReceivedSuccessfully)
                 return connectionResult.Context;
 
-            throw connectionResult.SocketError.ToException();
+            throw connectionResult.ReceiveResult.ToException();
         }
 
         /// <summary>
@@ -171,11 +172,11 @@ namespace vRPC
                         ws.Options.KeepAliveInterval = _appBuilder.KeepAliveInterval;
                         ws.Options.ReceiveTimeout = _appBuilder.ReceiveTimeout;
 
-                        SocketError errorCode;
+                        ReceiveResult receiveResult;
                         try
                         {
                             // Простое подключение веб-сокета.
-                            errorCode = await ws.ConnectExAsync(_uri, CancellationToken.None).ConfigureAwait(false);
+                            receiveResult = await ws.ConnectExAsync(_uri, CancellationToken.None).ConfigureAwait(false);
                         }
                         catch
                         // Не удалось подключиться (сервер не запущен?).
@@ -185,7 +186,7 @@ namespace vRPC
                             throw;
                         }
 
-                        if (errorCode == SocketError.Success)
+                        if (receiveResult.IsReceivedSuccessfully)
                         {
                             context = new ClientSideConnection(this, ws, serviceProvider, _controllers);
 
@@ -200,16 +201,16 @@ namespace vRPC
                         else
                         {
                             ws.Dispose();
-                            return new ConnectionResult(errorCode, null);
+                            return new ConnectionResult(receiveResult, null);
                         }
-                        return new ConnectionResult(SocketError.Success, context);
+                        return new ConnectionResult(ReceiveResult.AllSuccess, context);
                     }
                     else
-                        return new ConnectionResult(SocketError.Success, context);
+                        return new ConnectionResult(ReceiveResult.AllSuccess, context);
                 }
             }
             else
-                return new ConnectionResult(SocketError.Success, context);
+                return new ConnectionResult(ReceiveResult.AllSuccess, context);
         }
 
         /// <summary>

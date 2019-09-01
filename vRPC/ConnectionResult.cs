@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DanilovSoft;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Sockets;
@@ -8,13 +9,13 @@ namespace vRPC
 {
     internal readonly struct ConnectionResult
     {
-        public SocketError SocketError { get; }
+        public ReceiveResult ReceiveResult { get; }
         public ManagedConnection Context { get; }
 
         [DebuggerStepThrough]
-        public ConnectionResult(SocketError socketError, ManagedConnection context)
+        public ConnectionResult(in ReceiveResult receiveResult, ManagedConnection context)
         {
-            SocketError = socketError;
+            ReceiveResult = receiveResult;
             Context = context;
         }
     }

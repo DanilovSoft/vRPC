@@ -102,21 +102,29 @@ namespace vRPC
         }
 
         /// <summary>
-        /// 
+        /// Может вернуть <see langword="null"/> если не удалось десериализовать.
         /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <returns></returns>
         public static HeaderDto DeserializeProtobuf(byte[] buffer, int offset, int count)
         {
             using (var mem = new MemoryStream(buffer, offset, count))
             {
                 HeaderDto header = ProtoBufSerializer.Deserialize<HeaderDto>(mem);
-                if (header != null)
-                    return header;
+                return header; // может быть null если не удалось десериализовать.
             }
-            throw new ApplicationException("Результатом десериализации оказался Null.");
+            //throw new ApplicationException("Результатом десериализации оказался Null.");
+        }
+
+        /// <summary>
+        /// Может вернуть <see langword="null"/> если не удалось десериализовать.
+        /// </summary>
+        public static HeaderDto DeserializeProtobuf(Stream stream)
+        {
+            //using (var mem = new MemoryStream(buffer, offset, count))
+            {
+                HeaderDto header = ProtoBufSerializer.Deserialize<HeaderDto>(stream);
+                return header; // может быть null если не удалось десериализовать.
+            }
+            //throw new ApplicationException("Результатом десериализации оказался Null.");
         }
 
         /// <summary>

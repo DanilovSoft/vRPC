@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace vRPC
 {
@@ -71,7 +72,10 @@ namespace vRPC
             {
                 // Нельзя делать продолжение текущим потоком т.к. это затормозит/остановит диспетчер 
                 // или произойдет побег специального потока диспетчера.
-                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
+                //ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
+
+                // TODO сравнить.
+                QueueUserWorkItem(continuation);
             }
         }
 
@@ -94,5 +98,8 @@ namespace vRPC
             // это значит что другой поток уже установил результат и его можно забрать.
             continuation();
         }
+
+        private static void QueueUserWorkItem(Action action) =>
+            Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
     }
 }

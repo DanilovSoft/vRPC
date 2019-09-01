@@ -16,7 +16,7 @@ namespace vRPC
         private protected override IConcurrentDictionary<MethodInfo, string> _proxyMethodName => ProxyMethodName;
 
         internal ClientSideConnection(Client client, ClientWebSocket ws, ServiceProvider serviceProvider, ControllerActionsDictionary controllers)
-            : base(ws, isServer: false, serviceProvider, controllers)
+            : base(ws.ManagedWebSocket, isServer: false, serviceProvider, controllers)
         {
             _client = client;
         }
