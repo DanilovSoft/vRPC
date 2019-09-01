@@ -172,7 +172,8 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Запрещает отправку новых запросов и приводит к остановке когда обработаются ожидающие запросы.
+        /// Запрещает отправку новых запросов; Ожидает когда завершатся текущие запросы 
+        /// и отправляет удалённой стороне сообщение о закрытии соединения с ожиданием подтверджения.
         /// Взводит <see cref="Completion"/>.
         /// Не бросает исключения.
         /// </summary>
@@ -185,6 +186,7 @@ namespace vRPC
             // Нет ни одного ожадающего запроса.
             {
                 // Можно безопасно остановить сокет.
+                // Не бросает исключения.
                 SendClose();
             }
             // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
@@ -206,10 +208,15 @@ namespace vRPC
                 string exceptionMessage = GetMessageFromCloseFrame();
 
                 // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
+                // Установит Completion с исключением.
                 AtomicDisconnect(new SocketClosedException(exceptionMessage));
             }
         }
 
+        /// <summary>
+        /// Отправляет сообщение Close.
+        /// Не бросает исключения.
+        /// </summary>
         private async void SendClose()
         {
             try
@@ -224,10 +231,6 @@ namespace vRPC
                 // Завершить поток.
                 return;
             }
-
-            //AtomicSetCompletion(null);
-
-            //AtomicDisconnect(new StopRequiredException());
         }
 
         /// <summary>
@@ -1308,6 +1311,7 @@ namespace vRPC
         /// <summary>
         /// Вызывает Dispose распространяя исключение <see cref="StopRequiredException"/> другим потокам.
         /// Потокобезопасно.
+        /// Не бросает исключения.
         /// </summary>
         internal void CloseAndDispose()
         {

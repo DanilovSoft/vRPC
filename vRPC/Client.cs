@@ -110,22 +110,42 @@ namespace vRPC
             return _proxyCache.GetProxy<T>(ContextCallback);
         }
 
+        /// <summary>
+        /// Начинает грациозную остановку. Не блокирует поток.
+        /// </summary>
+        /// <param name="timeout"></param>
         public void Stop(TimeSpan timeout)
         {
-            BeginStop(timeout);
+            BeginStop(timeout).GetAwaiter();
         }
 
-        private async void BeginStop(TimeSpan timeout)
+        /// <summary>
+        /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+        /// Возвращает <see langword="true"/> если разъединение завершено грациозно.
+        /// </summary>
+        /// <param name="timeout"></param>
+        public Task<bool> StopAsync(TimeSpan timeout)
+        {
+            return BeginStop(timeout);
+        }
+
+        private async Task<bool> BeginStop(TimeSpan timeout)
         {
             var context = _context;
             if (context != null)
             {
                 context.RequireStop();
 
-                await Task.WhenAny(context.Completion, Task.Delay(timeout)).ConfigureAwait(false);
+                var timeoutTask = Task.Delay(timeout);
+                var t = await Task.WhenAny(context.Completion, Task.Delay(timeout)).ConfigureAwait(false);
 
+                // Не бросает исключения.
                 context.CloseAndDispose();
+
+                bool gracefully = t != timeoutTask;
+                return gracefully;
             }
+            return true;
         }
 
         private async ValueTask<ManagedConnection> ContextCallback()

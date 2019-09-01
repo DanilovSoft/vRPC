@@ -127,7 +127,7 @@ namespace Client
                 e.Cancel = true;
                 Console.WriteLine("Stopping...");
             }
-            client.Stop(TimeSpan.FromSeconds(1));
+            client.Stop(TimeSpan.FromSeconds(100));
         }
     }
 }
