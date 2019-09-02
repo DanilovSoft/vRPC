@@ -7,16 +7,16 @@ using System.Threading.Tasks;
 
 namespace vRPC
 {
-    public readonly struct ConnectResult
-    {
-        public Task Completion { get; }
-        public SocketError SocketError { get; }
+    //public readonly struct ConnectResult
+    //{
+    //    public Task Completion { get; }
+    //    public SocketError SocketError { get; }
 
-        [DebuggerStepThrough]
-        internal ConnectResult(SocketError socketError, Task connectionCompleted)
-        {
-            SocketError = socketError;
-            Completion = connectionCompleted;
-        }
-    }
+    //    [DebuggerStepThrough]
+    //    internal ConnectResult(SocketError socketError, Task connectionCompleted)
+    //    {
+    //        SocketError = socketError;
+    //        Completion = connectionCompleted;
+    //    }
+    //}
 }

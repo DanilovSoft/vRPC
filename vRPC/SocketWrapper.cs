@@ -10,7 +10,7 @@ namespace vRPC
     /// </summary>
     internal sealed class SocketWrapper : IDisposable
     {
-        private int _state;
+        //private int _state;
         private int _disposed;
         /// <summary>
         /// Объект можно использовать только для просмотра состояния.
@@ -29,15 +29,15 @@ namespace vRPC
             PendingRequests = new RequestQueue();
         }
 
-        /// <summary>
-        /// Атомарно захватывает эксклюзивное право на текущий объект.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryOwn()
-        {
-            bool owned = Interlocked.CompareExchange(ref _state, 1, 0) == 0;
-            return owned;
-        }
+        ///// <summary>
+        ///// Атомарно захватывает эксклюзивное право на текущий объект.
+        ///// </summary>
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public bool TryOwn()
+        //{
+        //    bool owned = Interlocked.CompareExchange(ref _state, 1, 0) == 0;
+        //    return owned;
+        //}
 
         /// <summary>
         /// Атомарно освобождает ресурсы <see cref="WebSocket"/>.

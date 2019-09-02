@@ -29,7 +29,7 @@ namespace vRPC
 
         // ctor.
         internal ServerSideConnection(MyWebSocket clientConnection, ServiceProvider serviceProvider, Listener listener) 
-            : base(clientConnection, isServer: false, serviceProvider, listener.Controllers)
+            : base(clientConnection, isServer: true, serviceProvider, listener.Controllers)
         {
             Listener = listener;
 

@@ -9,15 +9,15 @@ namespace vRPC
     {
         public ServerSideConnection Connection { get; }
         /// <summary>
-        /// Причина обрыва соединения.
+        /// Причина закрытия соединения.
         /// </summary>
-        public Exception ReasonException { get; }
+        public CloseReason CloseReason { get; }
 
         [DebuggerStepThrough]
-        public ClientDisconnectedEventArgs(ServerSideConnection clientContext, Exception exception)
+        public ClientDisconnectedEventArgs(ServerSideConnection clientContext, in CloseReason closeReason)
         {
             Connection = clientContext;
-            ReasonException = exception;
+            CloseReason = closeReason;
         }
     }
 }

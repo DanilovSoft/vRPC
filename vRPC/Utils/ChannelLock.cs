@@ -3,28 +3,32 @@
 
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using vRPC.Source;
 
 namespace System.Threading
 {
     [DebuggerDisplay(@"\{{_channel.Writer}\}")]
     internal sealed class ChannelLock
     {
-        private readonly Channel<int> _channel;
+        private readonly Channel<VoidStruct> _channel;
         private readonly Releaser _releaser;
+        private readonly ValueTask<Releaser> _releaserTask;
 
         public ChannelLock()
         {
-            _channel = Channel.CreateUnbounded<int>(new UnboundedChannelOptions
+            _channel = Channel.CreateUnbounded<VoidStruct>(new UnboundedChannelOptions
             {
                 AllowSynchronousContinuations = false,
                 SingleReader = false,
                 SingleWriter = true,
             });
 
-            _channel.Writer.TryWrite(0);
+            _channel.Writer.TryWrite(VoidStruct.Instance);
             _releaser = new Releaser(this);
+            _releaserTask = new ValueTask<Releaser>(_releaser);
         }
 
         public bool TryLock(out Releaser releaser)
@@ -41,11 +45,23 @@ namespace System.Threading
         /// <summary>
         /// Не бросает исключения.
         /// </summary>
-        public async ValueTask<Releaser> LockAsync()
+        public ValueTask<Releaser> LockAsync()
         {
-            await _channel.Reader.ReadAsync().ConfigureAwait(false);
+            ValueTask<VoidStruct> t = _channel.Reader.ReadAsync();
+            if (t.IsCompletedSuccessfully)
             // Успешно захватили блокировку.
+            {
+                return _releaserTask;
+            }
+            else
+            {
+                return WaitForLockAsync(t);
+            }
+        }
 
+        private async ValueTask<Releaser> WaitForLockAsync(ValueTask<VoidStruct> t)
+        {
+            await t.ConfigureAwait(false);
             return _releaser;
         }
 
@@ -60,7 +76,7 @@ namespace System.Threading
 
             public void Dispose()
             {
-                _self._channel.Writer.TryWrite(0);
+                _self._channel.Writer.TryWrite(VoidStruct.Instance);
             }
         }
     }

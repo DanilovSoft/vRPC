@@ -44,7 +44,9 @@ namespace Client
             long reqCount = 0;
             int activeThreads = 0;
 
-            //Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+            //Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
+            Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
+
             var threads = new List<Thread>(Threads);
             bool cancel = false;
             for (int i = 0; i < Threads; i++)
@@ -73,6 +75,9 @@ namespace Client
 
                         while (!cancel)
                         {
+                            while (!client.ConnectAsync().GetAwaiter().GetResult().Success)
+                                Thread.Sleep(400);
+
                             while (!cancel)
                             {
                                 try
@@ -81,16 +86,18 @@ namespace Client
                                 }
                                 catch (Exception ex)
                                 {
+                                    Debug.WriteLine(ex);
                                     break;
                                 }
                                 Interlocked.Increment(ref reqCount);
                             }
                             Thread.Sleep(new Random().Next(200, 400));
                         }
-                        Exception reason = client.Completion.GetAwaiter().GetResult();
+                        CloseReason closeResult = client.Completion.GetAwaiter().GetResult();
                     }
                     Interlocked.Decrement(ref activeThreads);
                 });
+                t.Name = $"Client №{i+1}";
                 t.Start();
                 threads.Add(t);
             }
@@ -127,7 +134,7 @@ namespace Client
                 e.Cancel = true;
                 Console.WriteLine("Stopping...");
             }
-            client.Stop(TimeSpan.FromSeconds(100));
+            client.Stop(TimeSpan.FromSeconds(100), "Был нажат Ctrl+C");
         }
     }
 }

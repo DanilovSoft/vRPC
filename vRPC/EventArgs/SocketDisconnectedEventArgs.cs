@@ -10,12 +10,12 @@ namespace vRPC
         /// <summary>
         /// Причина обрыва соединения.
         /// </summary>
-        public Exception ReasonException { get; }
+        public CloseReason DisconnectReason { get; }
 
         [DebuggerStepThrough]
-        public SocketDisconnectedEventArgs(Exception reasonException)
+        public SocketDisconnectedEventArgs(in CloseReason closeResult)
         {
-            ReasonException = reasonException;
+            DisconnectReason = closeResult;
         }
     }
 }

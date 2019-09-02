@@ -1,4 +1,5 @@
 ﻿using DanilovSoft;
+using DanilovSoft.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
@@ -31,16 +32,18 @@ namespace vRPC
         /// <see langword="volatile"/>.
         /// </summary>
         private ApplicationBuilder _appBuilder;
-        private Action<ServiceCollection> _iocConfigure;
+        //private Action<ServiceCollection> _iocConfigure;
+        private ServiceProvider _serviceProvider;
+        public ServiceProvider ServiceProvider => _serviceProvider;
         private Action<ApplicationBuilder> _configureApp;
         private volatile ClientSideConnection _context;
         /// <summary>
-        /// Завершается если подключение отсутствует или разорвано.
+        /// Завершается если подключение разорвано или не установлено.
         /// Не бросает исключения.
         /// </summary>
-        public Task<Exception> Completion { get; private set; }// _context?.Completion ?? Task.FromResult<Exception>(null);
+        public Task<CloseReason> Completion => _context?.Completion ?? Task.FromResult<CloseReason>(CloseReason.NotConnectedError);
         public bool IsConnected => _context?.IsConnected ?? false;
-        public Exception DisconnectReason => _context?.DisconnectReason;
+        private volatile bool _stopRequired;
 
         static Client()
         {
@@ -86,7 +89,12 @@ namespace vRPC
         /// <param name="configure"></param>
         public void ConfigureService(Action<ServiceCollection> configure)
         {
-            _iocConfigure = configure;
+            if (_serviceProvider != null)
+                throw new InvalidOperationException("Service already configured.");
+
+            var serviceCollection = new ServiceCollection();
+            configure(serviceCollection);
+            _serviceProvider = ConfigureIoC(serviceCollection);
         }
 
         public void Configure(Action<ApplicationBuilder> configureApp)
@@ -99,10 +107,10 @@ namespace vRPC
         /// Может произойти исключение если одновременно вызвать Dispose.
         /// Потокобезопасно.
         /// </summary>
-        public async Task<ReceiveResult> ConnectAsync()
+        public async Task<ConnectResult> ConnectAsync()
         {
             ConnectionResult connectionResult = await ConnectIfNeededAsync().ConfigureAwait(false);
-            return connectionResult.ReceiveResult;
+            return new ConnectResult(connectionResult.ReceiveResult.IsReceivedSuccessfully, connectionResult.ReceiveResult.SocketError);
         }
 
         public T GetProxy<T>()
@@ -112,35 +120,65 @@ namespace vRPC
 
         /// <summary>
         /// Начинает грациозную остановку. Не блокирует поток.
+        /// Результат остановки можно получить через <see cref="Completion"/>.
         /// </summary>
-        /// <param name="timeout"></param>
+        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         public void Stop(TimeSpan timeout)
         {
-            BeginStop(timeout).GetAwaiter();
+            Stop(timeout, null);
+        }
+
+        /// <summary>
+        /// Начинает грациозную остановку. Не блокирует поток.
+        /// Результат остановки можно получить через <see cref="Completion"/>.
+        /// </summary>
+        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
+        /// Может быть <see langword="null"/>.</param>
+        public void Stop(TimeSpan timeout, string closeDescription)
+        {
+            BeginStop(timeout, closeDescription).GetAwaiter();
         }
 
         /// <summary>
         /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
         /// Возвращает <see langword="true"/> если разъединение завершено грациозно.
+        /// Результат остановки можно получить через <see cref="Completion"/>.
         /// </summary>
-        /// <param name="timeout"></param>
+        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         public Task<bool> StopAsync(TimeSpan timeout)
         {
-            return BeginStop(timeout);
+            return StopAsync(timeout, null);
         }
 
-        private async Task<bool> BeginStop(TimeSpan timeout)
+        /// <summary>
+        /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+        /// Возвращает <see langword="true"/> если разъединение завершено грациозно.
+        /// Результат остановки можно получить через <see cref="Completion"/>.
+        /// </summary>
+        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
+        /// Может быть <see langword="null"/>.</param>
+        public Task<bool> StopAsync(TimeSpan timeout, string closeDescription)
         {
+            return BeginStop(timeout, closeDescription);
+        }
+
+        private async Task<bool> BeginStop(TimeSpan timeout, string closeDescription)
+        {
+            // Больше клиент не должен переподключаться.
+            _stopRequired = true;
+
             var context = _context;
             if (context != null)
             {
-                context.RequireStop();
+                context.RequireStop(closeDescription);
 
                 var timeoutTask = Task.Delay(timeout);
                 var t = await Task.WhenAny(context.Completion, Task.Delay(timeout)).ConfigureAwait(false);
 
                 // Не бросает исключения.
-                context.CloseAndDispose();
+                context.CloseAndDispose(timeout);
 
                 bool gracefully = t != timeoutTask;
                 return gracefully;
@@ -148,9 +186,34 @@ namespace vRPC
             return true;
         }
 
-        private async ValueTask<ManagedConnection> ContextCallback()
+        private ValueTask<ManagedConnection> ContextCallback()
         {
-            ConnectionResult connectionResult = await ConnectIfNeededAsync().ConfigureAwait(false);
+            if (!_stopRequired)
+            {
+                var t = ConnectIfNeededAsync();
+                if (t.IsCompleted)
+                {
+                    ConnectionResult connectionResult = t.GetAwaiter().GetResult();
+                    if (connectionResult.ReceiveResult.IsReceivedSuccessfully)
+                        return new ValueTask<ManagedConnection>(connectionResult.Context);
+
+                    return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(connectionResult.ReceiveResult.ToException()));
+                }
+                else
+                {
+                    return WaitForConnectIfNeededAsync(t);
+                }
+            }
+            else
+            {
+                return new ValueTask<ManagedConnection>(
+                   Task.FromException<ManagedConnection>(new InvalidOperationException("Был вызван Stop — использовать этот экземпляр больше нельзя.")));
+            }
+        }
+
+        private static async ValueTask<ManagedConnection> WaitForConnectIfNeededAsync(ValueTask<ConnectionResult> t)
+        {
+            ConnectionResult connectionResult = await t.ConfigureAwait(false);
 
             if (connectionResult.ReceiveResult.IsReceivedSuccessfully)
                 return connectionResult.Context;
@@ -169,72 +232,95 @@ namespace vRPC
         /// <summary>
         /// Выполнить подключение сокета если еще не подключен.
         /// </summary>
-        private async ValueTask<ConnectionResult> ConnectIfNeededAsync()
+        private ValueTask<ConnectionResult> ConnectIfNeededAsync()
         {
             // Копия volatile.
             var context = _context;
-            if (context == null)
+            if (context != null)
             {
-                using (await _connectLock.LockAsync().ConfigureAwait(false))
-                {
-                    // Копия volatile.
-                    context = _context;
-                    if (context == null)
-                    {
-                        var serviceCollection = new ServiceCollection();
-                        _iocConfigure?.Invoke(serviceCollection);
-                        ServiceProvider serviceProvider = ConfigureIoC(serviceCollection);
-                        _appBuilder = new ApplicationBuilder(serviceProvider);
-                        _configureApp?.Invoke(_appBuilder);
-
-                        // Новый сокет.
-                        var ws = new MyClientWebSocket();
-                        ws.Options.KeepAliveInterval = _appBuilder.KeepAliveInterval;
-                        ws.Options.ReceiveTimeout = _appBuilder.ReceiveTimeout;
-
-                        ReceiveResult receiveResult;
-                        try
-                        {
-                            // Простое подключение веб-сокета.
-                            receiveResult = await ws.ConnectExAsync(_uri, CancellationToken.None).ConfigureAwait(false);
-                        }
-                        catch
-                        // Не удалось подключиться (сервер не запущен?).
-                        {
-                            serviceProvider.Dispose();
-                            ws.Dispose();
-                            throw;
-                        }
-
-                        if (receiveResult.IsReceivedSuccessfully)
-                        {
-                            context = new ClientSideConnection(this, ws, serviceProvider, _controllers);
-
-                            Completion = context.Completion;
-
-                            // Косвенно устанавливает флаг IsConnected.
-                            _context = context;
-
-                            context.StartReceivingLoop();
-                            context.Disconnected += Disconnected;
-                        }
-                        else
-                        {
-                            ws.Dispose();
-                            return new ConnectionResult(receiveResult, null);
-                        }
-                        return new ConnectionResult(ReceiveResult.AllSuccess, context);
-                    }
-                    else
-                        return new ConnectionResult(ReceiveResult.AllSuccess, context);
-                }
+                return new ValueTask<ConnectionResult>(new ConnectionResult(ReceiveResult.AllSuccess, context));
             }
             else
-                return new ConnectionResult(ReceiveResult.AllSuccess, context);
+            {
+                // Захватить блокировку.
+                var t = _connectLock.LockAsync();
+                if (t.IsCompleted)
+                {
+                    ChannelLock.Releaser releaser = t.GetAwaiter().GetResult();
+                    return LockAquiredConnectAsync(releaser);
+                }
+                else
+                {
+                    return WaitForLockAndConnectAsync(t);
+                }
+            }
+        }
+
+        private async ValueTask<ConnectionResult> WaitForLockAndConnectAsync(ValueTask<ChannelLock.Releaser> t)
+        {
+            ChannelLock.Releaser releaser = await t.ConfigureAwait(false);
+            return await LockAquiredConnectAsync(releaser).ConfigureAwait(false);
+        }
+
+        private async ValueTask<ConnectionResult> LockAquiredConnectAsync(ChannelLock.Releaser releaser)
+        {
+            using (releaser)
+            {
+                // Копия volatile.
+                var context = _context;
+                if (context == null)
+                {
+                    if (_serviceProvider == null)
+                    {
+                        var serviceCollection = new ServiceCollection();
+                        _serviceProvider = ConfigureIoC(serviceCollection);
+                    }
+
+                    _appBuilder = new ApplicationBuilder(_serviceProvider);
+                    _configureApp?.Invoke(_appBuilder);
+
+                    // Новый сокет.
+                    var ws = new MyClientWebSocket();
+                    ws.Options.KeepAliveInterval = _appBuilder.KeepAliveInterval;
+                    ws.Options.ReceiveTimeout = _appBuilder.ReceiveTimeout;
+
+                    ReceiveResult receiveResult;
+                    try
+                    {
+                        // Простое подключение веб-сокета.
+                        receiveResult = await ws.ConnectExAsync(_uri, CancellationToken.None).ConfigureAwait(false);
+                    }
+                    catch
+                    // Не удалось подключиться (сервер не запущен?).
+                    {
+                        ws.Dispose();
+                        throw;
+                    }
+
+                    if (receiveResult.IsReceivedSuccessfully)
+                    {
+                        context = new ClientSideConnection(this, ws, _serviceProvider, _controllers);
+
+                        // Косвенно устанавливает флаг IsConnected.
+                        _context = context;
+
+                        context.StartReceivingLoop();
+                        context.Disconnected += Disconnected;
+                    }
+                    else
+                    {
+                        ws.Dispose();
+                        return new ConnectionResult(receiveResult, null);
+                    }
+                    return new ConnectionResult(ReceiveResult.AllSuccess, context);
+                }
+                else
+                    return new ConnectionResult(ReceiveResult.AllSuccess, context);
+            }
         }
 
         /// <summary>
-        /// Вызывается единожды клиентским контектом.
+        /// Добавляет в IoC контейнер контроллеры из сборки и компилирует контейнер.
         /// </summary>
         private ServiceProvider ConfigureIoC(ServiceCollection serviceCollection)
         {

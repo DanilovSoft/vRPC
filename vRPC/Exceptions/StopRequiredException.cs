@@ -7,12 +7,12 @@ namespace vRPC
     [Serializable]
     public class StopRequiredException : Exception
     {
-        public StopRequiredException() : base("Stop request has occurred.")
+        public StopRequiredException() : base("Сервис находится в режиме остановки.")
         {
 
         }
 
-        public StopRequiredException(string message) : base(message)
+        public StopRequiredException(TimeSpan afterTimeout) : base($"Сервис был остановлен по таймауту ({afterTimeout}).")
         {
 
         }

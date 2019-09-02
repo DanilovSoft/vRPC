@@ -41,7 +41,7 @@ namespace vRPC
         /// <summary>
         /// Для <see cref="Task"/> <see cref="Completion"/>.
         /// </summary>
-        private readonly TaskCompletionSource<Exception> _completionTcs = new TaskCompletionSource<Exception>();
+        private readonly TaskCompletionSource<CloseReason> _completionTcs = new TaskCompletionSource<CloseReason>();
         private readonly bool _isServer;
         public ServiceProvider ServiceProvider { get; private set; }
         /// <summary>
@@ -58,15 +58,20 @@ namespace vRPC
         private bool IsDisposed => Volatile.Read(ref _disposed) == 1;
         /// <summary>
         /// <see langword="true"/> если происходит остановка сервиса.
+        /// Используется для проверки возможности начать новый запрос.
         /// </summary>
         private volatile bool _stopRequired;
+        /// <summary>
+        /// Предотвращает повторный вызов <see cref="RequireStop(string)"/>.
+        /// </summary>
+        private object StopRequiredLock => _completionTcs;
         /// <summary>
         /// Возвращает <see cref="Task"/> который завершается когда 
         /// соединение переходит в закрытое состояние.
         /// Не бросает исключения.
         /// Причину разъединения можно узнать у свойства <see cref="DisconnectReason"/>.
         /// </summary>
-        public Task<Exception> Completion => _completionTcs.Task;
+        public Task<CloseReason> Completion => _completionTcs.Task;
         /// <summary>
         /// Количество запросов для обработки и количество ответов для отправки.
         /// Для отслеживания грациозной остановки сервиса.
@@ -75,7 +80,7 @@ namespace vRPC
         /// <summary>
         /// Подписку на событие Disconnected нужно синхронизировать что-бы подписчики не пропустили момент обрыва.
         /// </summary>
-        private readonly object _disconnectEventObj = new object();
+        private object DisconnectEventObj => _sendChannel;
         private EventHandler<SocketDisconnectedEventArgs> _Disconnected;
         /// <summary>
         /// Событие обрыва соединения. Может сработать только один раз.
@@ -86,8 +91,8 @@ namespace vRPC
         {
             add
             {
-                Exception disconnectReason = null;
-                lock (_disconnectEventObj)
+                CloseReason? closeReason = null;
+                lock (DisconnectEventObj)
                 {
                     if (_disconnectReason == null)
                     {
@@ -96,13 +101,13 @@ namespace vRPC
                     else
                     // Подписка к уже отключенному сокету.
                     {
-                        disconnectReason = _disconnectReason;
+                        closeReason = _disconnectReason;
                     }
                 }
 
-                if(disconnectReason != null)
+                if(closeReason != null)
                 {
-                    value(this, new SocketDisconnectedEventArgs(disconnectReason));
+                    value(this, new SocketDisconnectedEventArgs(closeReason.Value));
                 }
             }
             remove
@@ -112,14 +117,13 @@ namespace vRPC
             }
         }
         /// <summary>
-        /// Истиная причина обрыва соединения. 
-        /// <see langword="volatile"/> нужен для тандема с <see langword="volatile"/> <see cref="IsConnected"/>.
+        /// Истиная причина разъединения.
         /// </summary>
-        private volatile Exception _disconnectReason;
-        /// <summary>
-        /// Причина обрыва соединения; <see langword="volatile"/>.
-        /// </summary>
-        public Exception DisconnectReason => _disconnectReason;
+        private CloseReason? _disconnectReason; // <see langword="volatile"/> нужен для тандема с <see langword="volatile"/> <see cref="IsConnected"/>.
+        ///// <summary>
+        ///// Причина обрыва соединения; <see langword="volatile"/>.
+        ///// </summary>
+        //public Exception DisconnectReason => _disconnectReason;
         //internal event EventHandler<Controller> BeforeInvokeController;
         private protected abstract void BeforeInvokeController(Controller controller);
         private volatile bool _isConnected = true;
@@ -127,6 +131,10 @@ namespace vRPC
         /// <see langword="volatile"/>; Если значение <see langword="false"/>, то можно узнать причину через свойство <see cref="DisconnectReason"/>.
         /// </summary>
         public bool IsConnected => _isConnected;
+        /// <summary>
+        /// Причина грациозного закрытия соединения которую устанавливает пользователь перед разъединением.
+        /// </summary>
+        private volatile string _closeDescription;
 
         // static ctor.
         static ManagedConnection()
@@ -177,39 +185,56 @@ namespace vRPC
         /// Взводит <see cref="Completion"/>.
         /// Не бросает исключения.
         /// </summary>
-        internal void RequireStop()
+        /// <param name="closeDescription">Может быть <see langword="null"/>.</param>
+        internal void RequireStop(string closeDescription)
         {
-            // volatile.
-            _stopRequired = true;
-            
-            if(Interlocked.Decrement(ref _reqAndRespCount) == -1)
-            // Нет ни одного ожадающего запроса.
+            lock (StopRequiredLock)
             {
-                // Можно безопасно остановить сокет.
-                // Не бросает исключения.
-                SendClose();
+                if (!_stopRequired)
+                {
+                    // Запретить выполнять новые запросы.
+                    _stopRequired = true; // volatile.
+
+                    // Запомнить причину отключения что-бы позднее передать её удалённой стороне.
+                    _closeDescription = closeDescription; // volatile.
+
+                    if (Interlocked.Decrement(ref _reqAndRespCount) == -1)
+                    // Нет ни одного ожадающего запроса.
+                    {
+                        // Можно безопасно остановить сокет.
+                        // Не бросает исключения.
+                        SendClose(closeDescription);
+                    }
+                    // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
+                    // Это будет соглашением о необходимости остановки.
+                }
             }
-            // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
-            // Это будет соглашением о необходимости остановки.
         }
 
         private void CloseReceived()
         {
-            if (_socket.WebSocket.CloseStatus == WebSocketCloseStatus.NormalClosure)
-            // Удалённая сторона запрашивает нормальное закрытие соединения.
-            {
-                AtomicSetCompletion(null);
+            AtomicDispose(CloseReason.FromCloseFrame(_socket.WebSocket.CloseStatus, _socket.WebSocket.CloseStatusDescription));
+        }
 
-                AtomicDisconnect(new StopRequiredException());
+        /// <summary>
+        /// Отправляет сообщение Close.
+        /// Не бросает исключения.
+        /// </summary>
+        private async void SendClose(string closeDescription)
+        {
+            // Эту функцию вызывает тот поток который поймал флаг о необходимости завершения сервиса.
+
+            try
+            {
+                await _socket.WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, closeDescription, CancellationToken.None).ConfigureAwait(false);
             }
-            else
+            catch (Exception ex)
             {
-                // Сформировать причину закрытия соединения.
-                string exceptionMessage = GetMessageFromCloseFrame();
+                // Оповестить об обрыве.
+                AtomicDispose(CloseReason.FromException(ex));
 
-                // Сообщить потокам что удалённая сторона выполнила закрытие соединения.
-                // Установит Completion с исключением.
-                AtomicDisconnect(new SocketClosedException(exceptionMessage));
+                // Завершить поток.
+                return;
             }
         }
 
@@ -217,20 +242,9 @@ namespace vRPC
         /// Отправляет сообщение Close.
         /// Не бросает исключения.
         /// </summary>
-        private async void SendClose()
+        private void SendClose()
         {
-            try
-            {
-                await _socket.WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                // Оповестить об обрыве.
-                AtomicDisconnect(ex);
-
-                // Завершить поток.
-                return;
-            }
+            SendClose(_closeDescription);
         }
 
         /// <summary>
@@ -279,13 +293,22 @@ namespace vRPC
             return OnProxyCallConvert(targetMethod, resultType, taskObject);
         }
 
-        private static async Task<object> OnProxyCallAsync(ValueTask<ManagedConnection> contextTask, SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
+        private static Task<object> OnProxyCallAsync(ValueTask<ManagedConnection> contextTask, SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
         {
-            ManagedConnection context;
-            if (contextTask.IsCompletedSuccessfully)
-                context = contextTask.Result;
+            if(contextTask.IsCompleted)
+            {
+                // Отправляет запрос и получает результат от удалённой стороны.
+                return contextTask.GetAwaiter().GetResult().OnProxyCall(serializedMessage, requestMessage);
+            }
             else
-                context = await contextTask.ConfigureAwait(false);
+            {
+                return WaitForConnectAndCallProxy(contextTask, serializedMessage, requestMessage);
+            }
+        }
+
+        private static async Task<object> WaitForConnectAndCallProxy(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
+        {
+            ManagedConnection context = await t.ConfigureAwait(false);
 
             // Отправляет запрос и получает результат от удалённой стороны.
             return await context.OnProxyCall(serializedMessage, requestMessage).ConfigureAwait(false);
@@ -392,7 +415,7 @@ namespace vRPC
                 // Обрыв соединения.
                 {
                     // Оповестить об обрыве.
-                    AtomicDisconnect(ex);
+                    AtomicDispose(CloseReason.FromException(ex));
 
                     // Завершить поток.
                     return;
@@ -427,14 +450,14 @@ namespace vRPC
                             // Злой обрыв соединения.
                             {
                                 // Оповестить об обрыве.
-                                AtomicDisconnect(ex);
+                                AtomicDispose(CloseReason.FromException(ex));
 
                                 // Завершить поток.
                                 return;
                             }
 
                             // Оповестить об обрыве.
-                            AtomicDisconnect(protocolErrorException);
+                            AtomicDispose(CloseReason.FromException(protocolErrorException));
 
                             // Завершить поток.
                             return;
@@ -451,9 +474,10 @@ namespace vRPC
                     }
                 }
                 else
+                // Ошибка сокета при получении хедера.
                 {
                     // Оповестить об обрыве.
-                    AtomicDisconnect(webSocketMessage.ReceiveResult.ToException());
+                    AtomicDispose(CloseReason.FromException(webSocketMessage.ReceiveResult.ToException()));
 
                     // Завершить поток.
                     return;
@@ -488,7 +512,7 @@ namespace vRPC
                             // Обрыв соединения.
                             {
                                 // Оповестить об обрыве.
-                                AtomicDisconnect(ex);
+                                AtomicDispose(CloseReason.FromException(ex));
 
                                 // Завершить поток.
                                 return;
@@ -515,7 +539,7 @@ namespace vRPC
                             // Обрыв соединения.
                             {
                                 // Оповестить об обрыве.
-                                AtomicDisconnect(webSocketMessage.ReceiveResult.ToException());
+                                AtomicDispose(CloseReason.FromException(webSocketMessage.ReceiveResult.ToException()));
 
                                 // Завершить поток.
                                 return;
@@ -673,14 +697,14 @@ namespace vRPC
                     // Злой обрыв соединения.
                     {
                         // Оповестить об обрыве.
-                        AtomicDisconnect(ex);
+                        AtomicDispose(CloseReason.FromException(ex));
 
                         // Завершить поток.
                         return;
                     }
 
                     // Оповестить об обрыве.
-                    AtomicDisconnect(protocolErrorException);
+                    AtomicDispose(CloseReason.FromException(protocolErrorException));
 
                     // Завершить поток.
                     return;
@@ -859,7 +883,7 @@ namespace vRPC
                         // Обрыв соединения.
                         {
                             // Оповестить об обрыве.
-                            AtomicDisconnect(ex);
+                            AtomicDispose(CloseReason.FromException(ex));
 
                             // Завершить поток.
                             return;
@@ -897,7 +921,7 @@ namespace vRPC
                                 // Обрыв соединения.
                                 {
                                     // Оповестить об обрыве.
-                                    AtomicDisconnect(ex);
+                                    AtomicDispose(CloseReason.FromException(ex));
 
                                     // Завершить поток.
                                     return;
@@ -914,7 +938,7 @@ namespace vRPC
                                 else
                                 {
                                     // Оповестить об обрыве.
-                                    AtomicDisconnect(socketError.ToException());
+                                    AtomicDispose(CloseReason.FromException(socketError.ToException()));
 
                                     // Завершить поток.
                                     return;
@@ -926,7 +950,7 @@ namespace vRPC
                         else
                         {
                             // Оповестить об обрыве.
-                            AtomicDisconnect(socketError.ToException());
+                            AtomicDispose(CloseReason.FromException(socketError.ToException()));
 
                             // Завершить поток.
                             return;
@@ -960,81 +984,9 @@ namespace vRPC
         /// <summary>
         /// Потокобезопасно взводит <see cref="Task"/> <see cref="Completion"/>.
         /// </summary>
-        private void AtomicSetCompletion(Exception disconnectReason)
+        private void AtomicSetCompletion(in CloseReason disconnectReason)
         {
             _completionTcs.TrySetResult(disconnectReason);
-        }
-
-        /// <summary>
-        /// Потокобезопасно освобождает ресурсы соединения. Вызывается при обрыве соединения.
-        /// </summary>
-        /// <param name="possibleReason">Возможная причина обрыва соединения.</param>
-        private protected void AtomicDisconnect(Exception possibleReason)
-        {
-            // Захватить эксклюзивный доступ к сокету.
-            if(_socket.TryOwn())
-            // Только один поток может зайти сюда (за всю жизнь экземпляра).
-            {
-                // Это настоящая причина обрыва соединения.
-                Exception disconnectReason = possibleReason;
-
-                // Передать исключение всем ожидающим потокам.
-                _socket.PendingRequests.PropagateExceptionAndLockup(disconnectReason);
-
-                // Закрыть соединение.
-                _socket.Dispose();
-
-                // Синхронизироваться с подписчиками на событие Disconnected.
-                EventHandler<SocketDisconnectedEventArgs> disconnected;
-                lock (_disconnectEventObj)
-                {
-                    // Запомнить истинную причину обрыва.
-                    _disconnectReason = disconnectReason;
-
-                    // Установить флаг после причины обрыва.
-                    _isConnected = false;
-
-                    // Скопируем делегат что-бы вызывать не в блокировке — на всякий случай.
-                    disconnected = _Disconnected;
-
-                    // Теперь можно безопасно убрать подписчиков.
-                    _Disconnected = null;
-                }
-
-                // Установить Task Completed.
-                AtomicSetCompletion(disconnectReason);
-
-                // Сообщить об обрыве.
-                disconnected?.Invoke(this, new SocketDisconnectedEventArgs(disconnectReason));
-            }
-        }
-
-        /// <summary>
-        /// Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
-        /// </summary>
-        private string GetMessageFromCloseFrame()
-        {
-            var webSocket = _socket.WebSocket;
-
-            string exceptionMessage = null;
-            if (webSocket.CloseStatus != null)
-            {
-                exceptionMessage = $"CloseStatus: {webSocket.CloseStatus.ToString()}";
-
-                if (!string.IsNullOrEmpty(webSocket.CloseStatusDescription))
-                {
-                    exceptionMessage += $", Description: \"{webSocket.CloseStatusDescription}\"";
-                }
-            }
-            else if (!string.IsNullOrEmpty(webSocket.CloseStatusDescription))
-            {
-                exceptionMessage = $"Description: \"{webSocket.CloseStatusDescription}\"";
-            }
-
-            if (exceptionMessage == null)
-                exceptionMessage = "Удалённая сторона закрыла соединение без объяснения причины.";
-
-            return exceptionMessage;
         }
 
         /// <summary>
@@ -1080,7 +1032,7 @@ namespace vRPC
                                 ValueTask<object> controllerResultTask = DynamicAwaiter.WaitAsync(controllerResult);
 
                                 if (controllerResultTask.IsCompleted)
-                                    controllerResult = controllerResultTask.Result;
+                                    controllerResult = controllerResultTask.GetAwaiter().GetResult();
                                 else
                                     controllerResult = await controllerResultTask;
                             }
@@ -1198,7 +1150,7 @@ namespace vRPC
 
                 SerializedMessageToSend responseToSend;
                 if (responseToSendTask.IsCompleted)
-                    responseToSend = responseToSendTask.Result;
+                    responseToSend = responseToSendTask.GetAwaiter().GetResult();
                 else
                     responseToSend = await responseToSendTask;
 
@@ -1227,7 +1179,7 @@ namespace vRPC
 
                 object rawResult;
                 if (rawResultTask.IsCompleted)
-                    rawResult = rawResultTask.Result;
+                    rawResult = rawResultTask.GetAwaiter().GetResult();
                 else
                     rawResult = await rawResultTask;
 
@@ -1313,9 +1265,9 @@ namespace vRPC
         /// Потокобезопасно.
         /// Не бросает исключения.
         /// </summary>
-        internal void CloseAndDispose()
+        internal void CloseAndDispose(TimeSpan afterTimeout)
         {
-            Dispose(new StopRequiredException());
+            AtomicDispose(CloseReason.FromException(new StopRequiredException(afterTimeout)));
         }
 
         /// <summary>
@@ -1328,20 +1280,54 @@ namespace vRPC
 
         protected virtual void DisposeManaged()
         {
-            Dispose(new ObjectDisposedException(GetType().FullName));
+            AtomicDispose(CloseReason.FromException(new ObjectDisposedException(GetType().FullName)));
         }
 
-        private void Dispose(Exception propagateException)
+        /// <summary>
+        /// Потокобезопасно освобождает ресурсы соединения. Вызывается при обрыве соединения.
+        /// </summary>
+        /// <param name="possibleReason">Возможная причина обрыва соединения.</param>
+        private void AtomicDispose(in CloseReason possibleReason)
         {
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
+            // Только один поток может зайти сюда (за всю жизнь экземпляра).
+            // Это настоящая причина обрыва соединения.
             {
                 // Лучше выполнить в первую очередь.
                 _sendChannel.Writer.TryComplete();
 
-                // Оповестить об обрыве.
-                AtomicDisconnect(propagateException);
+                // Передать исключение всем ожидающим потокам.
+                _socket.PendingRequests.PropagateExceptionAndLockup(possibleReason.ToException());
 
-                ServiceProvider.Dispose();
+                // Закрыть соединение.
+                _socket.Dispose();
+
+                // Синхронизироваться с подписчиками на событие Disconnected.
+                EventHandler<SocketDisconnectedEventArgs> disconnected;
+                lock (DisconnectEventObj)
+                {
+                    // Запомнить истинную причину обрыва.
+                    _disconnectReason = possibleReason;
+
+                    // Установить флаг после причины обрыва.
+                    _isConnected = false;
+
+                    // Скопируем делегат что-бы вызывать не в блокировке — на всякий случай.
+                    disconnected = _Disconnected;
+
+                    // Теперь можно безопасно убрать подписчиков.
+                    _Disconnected = null;
+                }
+
+                // Установить Task Completed.
+                AtomicSetCompletion(possibleReason);
+
+                // Сообщить об обрыве.
+                disconnected?.Invoke(this, new SocketDisconnectedEventArgs(in possibleReason));
+
+                // Серверный контейнер не нужно освобождать — он один для всех клиентов.
+                if (!_isServer)
+                    ServiceProvider.Dispose();
             }
         }
     }

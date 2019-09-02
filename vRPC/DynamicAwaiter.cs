@@ -17,10 +17,23 @@ namespace vRPC
             return InnerConvert((dynamic)controllerResult);
         }
 
-        private static async ValueTask<object> InnerConvert(ValueTask task)
+        private static ValueTask<object> InnerConvert(ValueTask task)
         {
-            await task.ConfigureAwait(false);
-            return null;
+            if(task.IsCompleted)
+            {
+                task.GetAwaiter().GetResult();
+                return new ValueTask<object>(null);
+            }
+            else
+            {
+                return WaitAsync(task);
+            }
+
+            static async ValueTask<object> WaitAsync(ValueTask task)
+            {
+                await task.ConfigureAwait(false);
+                return null;
+            }
         }
 
         private static ValueTask<object> InnerConvert(object rawResult)
@@ -28,20 +41,59 @@ namespace vRPC
             return new ValueTask<object>(rawResult);
         }
 
-        private static async ValueTask<object> InnerConvert(Task task)
+        private static ValueTask<object> InnerConvert(Task task)
         {
-            await task.ConfigureAwait(false);
-            return null;
+            if (task.IsCompleted)
+            {
+                task.GetAwaiter().GetResult();
+                return new ValueTask<object>(null);
+            }
+            else
+            {
+                return WaitAsync(task);
+            }
+
+            static async ValueTask<object> WaitAsync(Task task)
+            {
+                await task.ConfigureAwait(false);
+                return null;
+            }
         }
 
-        private static async ValueTask<object> InnerConvert<T>(Task<T> task)
+        private static ValueTask<object> InnerConvert<T>(Task<T> task)
         {
-            return await task.ConfigureAwait(false);
+            if(task.IsCompleted)
+            {
+                T result = task.GetAwaiter().GetResult();
+                return new ValueTask<object>(result);
+            }
+            else
+            {
+                return WaitAsync(task);
+            }
+
+            static async ValueTask<object> WaitAsync(Task<T> task)
+            {
+                return await task.ConfigureAwait(false);
+            }
         }
 
-        private static async ValueTask<object> InnerConvert<T>(ValueTask<T> task)
+        private static ValueTask<object> InnerConvert<T>(ValueTask<T> task)
         {
-            return await task.ConfigureAwait(false);
+            if(task.IsCompleted)
+            {
+                T result = task.GetAwaiter().GetResult();
+                return new ValueTask<object>(result);
+            }
+            else
+            {
+                return WaitAsync(task);
+            }
+
+            static async ValueTask<object> WaitAsync(ValueTask<T> task)
+            {
+                return await task.ConfigureAwait(false);
+            }
         }
     }
 }

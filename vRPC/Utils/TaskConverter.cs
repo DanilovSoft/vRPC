@@ -45,29 +45,45 @@ namespace vRPC
             return ConvertValueTaskAsync<T>(task);
         }
 
-        [DebuggerStepThrough]
-        private static async ValueTask<T> ConvertValueTaskAsync<T>(Task<object> task)
+        //[DebuggerStepThrough]
+        private static ValueTask<T> ConvertValueTaskAsync<T>(Task<object> task)
         {
-            object result = await task.ConfigureAwait(false);
-            return (T)result;
+            if (!task.IsCompleted)
+            {
+                return WaitForValueTaskAsync<T>(task);
+            }
+            else
+            {
+                object taskResult = task.GetAwaiter().GetResult();
+                return new ValueTask<T>((T)taskResult);
+            }
         }
 
-        [DebuggerStepThrough]
-        private static async Task<T> ConvertTaskAsync<T>(Task<object> task)
+        private static async ValueTask<T> WaitForValueTaskAsync<T>(Task<object> t)
         {
-            //return task.ContinueWith(t => (T)t.Result, CancellationToken.None, 
-            //    TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
-
-            object result = await task.ConfigureAwait(false);
+            object result = await t.ConfigureAwait(false);
             return (T)result;
         }
 
         //[DebuggerStepThrough]
-        //private static T Convert<T>(Task<object> task)
-        //{
-        //    var result = (T)task.GetAwaiter().GetResult();
-        //    return result;
-        //}
+        private static Task<T> ConvertTaskAsync<T>(Task<object> task)
+        {
+            if (!task.IsCompleted)
+            {
+                return WaitForTaskAsync<T>(task);
+            }
+            else
+            {
+                object taskResult = task.GetAwaiter().GetResult();
+                return Task.FromResult((T)taskResult);
+            }
+        }
+
+        private static async Task<T> WaitForTaskAsync<T>(Task<object> t)
+        {
+            object taskResult = await t.ConfigureAwait(false);
+            return (T)taskResult;
+        }
 
         private static Func<Task<object>, object> Factory(Type key, Type returnType)
         {
@@ -75,11 +91,13 @@ namespace vRPC
             if (returnType.GetGenericTypeDefinition() != typeof(ValueTask<>))
             {
                 // Создать шаблонный метод InnerConvertTask<T>.
+                // Возвращает Task<T>
                 converterGenericMethod = _InnerConvertTaskMethod.MakeGenericMethod(key);
             }
             else
             {
                 // Создать шаблонный метод InnerConvertValueTask<T>.
+                // Возвращает ValueTask<T>
                 converterGenericMethod = _InnerConvertValueTaskMethod.MakeGenericMethod(key);
             }
 

@@ -14,13 +14,15 @@ namespace Server
     public class Program
     {
         private const int Port = 65125;
+        private static readonly object _conLock = new object();
         private static long _connections;
         public static long ReqCount;
 
         static void Main()
         {
             Console.Title = "Сервер";
-            //Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.High;
+            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
+            Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
 
             using (var listener = new Listener(IPAddress.Any, Port))
             {
@@ -28,30 +30,42 @@ namespace Server
                 {
                     ioc.AddLogging(loggingBuilder =>
                     {
-                        //loggingBuilder
-                        //    .AddConsole()
-                        //    .AddDebug();
+                        loggingBuilder
+                            .AddConsole()
+                            .AddDebug();
                     });
 
                     ioc.AddSingleton(new Program());
                 });
 
-                listener.Configure(serviceProvider =>
+                Console.CancelKeyPress += (_, e) =>
                 {
-                    ILogger logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-                    logger.LogInformation("Ожидание подключений...");
-                });
+                    //var log = listener.ServiceProvider.GetRequiredService<ILogger<Program>>();
+                    //log.LogWarning("Stopping...");
 
-                listener.ClientConnected += Listener_Connected;
+                    e.Cancel = true;
+                    lock (_conLock)
+                    {
+                        Console.WriteLine("Stopping...");
+                    }
+                    listener.Stop(TimeSpan.FromSeconds(3), "Пользователь нажал Ctrl+C");
+                };
+
+                //listener.Configure(serviceProvider =>
+                //{
+                //    ILogger logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+                //    logger.LogInformation("Ожидание подключений...");
+                //});
+
+                listener.ClientConnected += Listener_ClientConnected;
                 listener.ClientDisconnected += Listener_ClientDisconnected;
 
                 listener.Start();
-                //await listener.RunAsync();
 
                 Console.Clear();
                 long prev = 0;
                 var sw = Stopwatch.StartNew();
-                while (true)
+                while (!listener.Completion.IsCompleted)
                 {
                     Thread.Sleep(1000);
                     long elapsedMs = sw.ElapsedMilliseconds;
@@ -62,10 +76,13 @@ namespace Server
 
                     var reqPerSec = (int)Math.Round(reqPerSecond * 1000d / elapsedMs);
 
-                    Console.SetCursorPosition(0, 0);
-                    Console.WriteLine($"Connections: {Interlocked.Read(ref _connections).ToString().PadRight(10)}");
-                    Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10)}");
-                    Console.WriteLine($"Requests: {ReqCount.ToString("g").PadRight(15)}");
+                    lock (_conLock)
+                    {
+                        Console.SetCursorPosition(0, 0);
+                        Console.WriteLine($"Connections: {Interlocked.Read(ref _connections).ToString().PadRight(10)}");
+                        Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10)}");
+                        Console.WriteLine($"Requests: {ReqCount.ToString("g").PadRight(15)}");
+                    }
                 }
             }
         }
@@ -75,8 +92,10 @@ namespace Server
             Interlocked.Decrement(ref _connections);
         }
 
-        private static void Listener_Connected(object sender, ClientConnectedEventArgs e)
+        private static void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
         {
+            //var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
             Interlocked.Increment(ref _connections);
             
             //var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();

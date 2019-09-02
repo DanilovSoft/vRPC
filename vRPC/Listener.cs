@@ -18,13 +18,16 @@ namespace vRPC
         /// Хранит все доступные контроллеры. Не учитывает регистр.
         /// </summary>
         internal readonly ControllerActionsDictionary Controllers;
-        private readonly WebSocketServer _wsServ;
+        private readonly WebSocketServer _wsServ = new WebSocketServer();
         /// <summary>
         /// Доступ через блокировку SyncObj.
         /// </summary>
         private readonly ClientConnections _connections = new ClientConnections();
-        private readonly ServiceCollection _ioc;
-        private readonly object _startObj = new object();
+        private readonly ServiceCollection _serviceCollection = new ServiceCollection();
+        /// <summary>
+        /// Для доступа к <see cref="_stopRequired"/> и <see cref="_started"/>.
+        /// </summary>
+        private object StartLock => _completionTcs;
         private readonly TaskCompletionSource<bool> _completionTcs = new TaskCompletionSource<bool>();
         /// <summary>
         /// <see cref="Task"/> который завершается когда все 
@@ -33,6 +36,9 @@ namespace vRPC
         /// Возвращает <see langword="true"/> если остановка прошла грациозно.
         /// </summary>
         public Task<bool> Completion => _completionTcs.Task;
+        /// <summary>
+        /// Единожны меняет состояние на <see langword="true"/>.
+        /// </summary>
         private bool _started;
         /// <summary>
         /// Коллекция авторизованных пользователей.
@@ -41,12 +47,15 @@ namespace vRPC
         public ConcurrentDictionary<int, UserConnections> Connections { get; } = new ConcurrentDictionary<int, UserConnections>();
         private bool _disposed;
         private ServiceProvider _serviceProvider;
+        /// <summary>
+        /// Может быть <see langword="null"/> если не выполнен ConfigureService и сервис ещё не запущен.
+        /// </summary>
+        public ServiceProvider ServiceProvider => _serviceProvider;
         public event EventHandler<ClientConnectedEventArgs> ClientConnected;
         public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
-        private Action<ServiceCollection> _iocConfigure;
         private Action<ServiceProvider> _configureApp;
         /// <summary>
-        /// Не позволяет подключаться новым клиентам.
+        /// Не позволяет подключаться новым клиентам. Единожны меняет состояние на <see langword="true"/>.
         /// </summary>
         private volatile bool _stopRequired;
         public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
@@ -60,8 +69,6 @@ namespace vRPC
         // ctor.
         public Listener(IPAddress ipAddress, int port)
         {
-            _ioc = new ServiceCollection();
-            _wsServ = new WebSocketServer();
             _wsServ.HandshakeTimeout = TimeSpan.FromSeconds(30);
             _wsServ.Bind(new IPEndPoint(ipAddress, port));
             _wsServ.ClientConnected += Listener_OnConnected;
@@ -78,7 +85,7 @@ namespace vRPC
             // Добавить контроллеры в IoC.
             foreach (Type controllerType in Controllers.Controllers.Values)
             {
-                _ioc.AddScoped(controllerType);
+                _serviceCollection.AddScoped(controllerType);
             }
         }
 
@@ -89,7 +96,8 @@ namespace vRPC
         /// <param name="configure"></param>
         public void ConfigureService(Action<ServiceCollection> configure)
         {
-            _iocConfigure = configure;
+            configure(_serviceCollection);
+            _serviceProvider = _serviceCollection.BuildServiceProvider();
         }
 
         public void Configure(Action<ServiceProvider> configureApp)
@@ -98,14 +106,16 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Начинает остановку сервиса.
+        /// Начинает остановку сервиса. Не блокирует поток.
         /// Не бросает исключения.
-        /// Результат можно получить через <see cref="Completion"/>.
+        /// Результат остановки можно получить через <see cref="Completion"/>.
         /// </summary>
-        /// <param name="timeout">Максимальное время ожидания грациозного закрытия соединений.</param>
-        public void Stop(TimeSpan timeout)
+        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
+        /// Может быть <see langword="null"/>.</param>
+        public void Stop(TimeSpan timeout, string closeDescription = null)
         {
-            BeginStop(timeout);
+            BeginStop(timeout, closeDescription);
         }
 
         /// <summary>
@@ -113,16 +123,18 @@ namespace vRPC
         /// Не бросает исключения.
         /// Эквивалентно <see cref="Stop(TimeSpan)"/> + <see langword="await"/> <see cref="Completion"/>.
         /// </summary>
-        /// <param name="timeout">Максимальное время ожидания грациозного закрытия соединений.</param>
-        public Task<bool> StopAsync(TimeSpan timeout)
+        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
+        /// Может быть <see langword="null"/>.</param>
+        public Task<bool> StopAsync(TimeSpan timeout, string closeDescription = null)
         {
-            BeginStop(timeout);
+            BeginStop(timeout, closeDescription);
             return Completion;
         }
 
-        private async void BeginStop(TimeSpan timeout)
+        private async void BeginStop(TimeSpan timeout, string closeDescription)
         {
-            lock (_startObj)
+            lock (StartLock)
             {
                 if (!_stopRequired)
                 {
@@ -147,7 +159,7 @@ namespace vRPC
             foreach (var con in activeConnections)
             {
                 // Прекращаем принимать запросы.
-                con.RequireStop();
+                con.RequireStop(closeDescription);
             }
 
             var allConnTask = Task.WhenAll(activeConnections.Select(x => x.Completion));
@@ -166,7 +178,7 @@ namespace vRPC
 
             foreach (var con in activeConnections)
             {
-                con.CloseAndDispose();
+                con.CloseAndDispose(timeout);
             }
 
             // Установить Completion.
@@ -176,41 +188,51 @@ namespace vRPC
         /// <summary>
         /// Начинает приём подключений и обработку запросов до полной остановки методом Stop.
         /// Эквивалентно вызову Start + <see langword="await"/> Completion.
+        /// Повторный вызов спровоцирует исключение.
+        /// Потокобезопасно.
         /// </summary>
+        /// <exception cref="InvalidOperationException"/>
         public Task<bool> RunAsync()
         {
             // Бросит исключение при повторном вызове.
             InitializeStart();
+
             _wsServ.StartAccept();
             return Completion;
         }
 
         /// <summary>
-        /// Потокобезопасно начинает приём новых подключений.
+        /// Начинает приём новых подключений.
+        /// Повторный вызов спровоцирует исключение.
+        /// Потокобезопасно.
         /// </summary>
         /// <exception cref="InvalidOperationException"/>
         public void Start()
         {
             // Бросит исключение при повторном вызове.
             InitializeStart();
+
             _wsServ.StartAccept();
         }
 
         /// <summary>
         /// Предотвращает повторный запуск сервера.
         /// </summary>
+        /// <exception cref="InvalidOperationException">При повторном вызове</exception>
         private void InitializeStart()
         {
-            lock (_startObj)
+            lock (StartLock)
             {
                 if (!_stopRequired)
                 {
                     if (!_started)
                     {
                         _started = true;
-                        _iocConfigure?.Invoke(_ioc);
-                        _serviceProvider = _ioc.BuildServiceProvider();
-                        _configureApp?.Invoke(_serviceProvider);
+                        if (_serviceProvider == null)
+                        {
+                            _serviceProvider = _serviceCollection.BuildServiceProvider();
+                            _configureApp?.Invoke(_serviceProvider);
+                        }
                     }
                     else
                         throw new InvalidOperationException("Already started.");
@@ -262,7 +284,7 @@ namespace vRPC
             {
                 _connections.Remove(context);
             }
-            ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(context, e.ReasonException));
+            ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(context, e.DisconnectReason));
         }
 
         public void Dispose()
@@ -273,14 +295,14 @@ namespace vRPC
                 _wsServ.Dispose();
                 _serviceProvider?.Dispose();
 
-                ServerSideConnection[] copy;
+                ServerSideConnection[] connections;
                 lock (_connections.SyncObj)
                 {
-                    copy = _connections.ToArray();
+                    connections = _connections.ToArray();
                     _connections.Clear();
                 }
 
-                foreach (var con in copy)
+                foreach (var con in connections)
                 {
                     con.Dispose();
                 }

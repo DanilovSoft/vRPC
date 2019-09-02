@@ -1,4 +1,5 @@
 ﻿using DanilovSoft;
+using DanilovSoft.WebSocket;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Bson;
 using Newtonsoft.Json.Linq;
@@ -6,6 +7,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -261,6 +263,54 @@ namespace vRPC
             {
                 return method.ReturnType;
             }
+        }
+
+        public static Exception ToException(this in CloseReason closeReason)
+        {
+            if(closeReason.Error == null)
+            // Закрытие было грациозное но нам всёравно нужно исключение.
+            {
+                if(closeReason.CloseStatus == WebSocketCloseStatus.NormalClosure)
+                {
+                    return new ConnectionClosedException(closeReason.CloseDescription);
+                }
+                else
+                {
+                    return new ConnectionClosedException(GetMessageFromCloseFrame(closeReason.CloseStatus, closeReason.CloseDescription));
+                }
+            }
+            else
+            {
+                return closeReason.Error;
+            }
+        }
+
+        /// <summary>
+        /// Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
+        /// </summary>
+        private static string GetMessageFromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription)
+        {
+            //var webSocket = _socket.WebSocket;
+
+            string exceptionMessage = null;
+            if (closeStatus != null)
+            {
+                exceptionMessage = $"CloseStatus: {closeStatus}";
+
+                if (!string.IsNullOrEmpty(closeDescription))
+                {
+                    exceptionMessage += $", Description: \"{closeDescription}\"";
+                }
+            }
+            else if (!string.IsNullOrEmpty(closeDescription))
+            {
+                exceptionMessage = $"Description: \"{closeDescription}\"";
+            }
+
+            if (exceptionMessage == null)
+                exceptionMessage = "Удалённая сторона закрыла соединение без объяснения причины.";
+
+            return exceptionMessage;
         }
     }
 }
