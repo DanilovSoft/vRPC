@@ -14,6 +14,7 @@ namespace Client
     class Program
     {
         private const int Port = 65125;
+        private static readonly object _conLock = new object();
         private static int Threads;
 
         static void Main()
@@ -37,10 +38,10 @@ namespace Client
             int processorCount = Environment.ProcessorCount;
             do
             {
-                Console.Write($"Сколько потоков (ядер – {processorCount}): ");
+                Console.Write($"Сколько потоков (1): ");
                 cpusStr = Console.ReadLine();
                 if (cpusStr == "")
-                    cpusStr = $"{processorCount}";
+                    cpusStr = $"{1}";
 
             } while (!int.TryParse(cpusStr, out Threads));
 
@@ -116,13 +117,19 @@ namespace Client
 
                 var reqPerSec = (int)Math.Round(reqPerSecond * 1000d / elapsedMs);
 
+                PrintConsole(activeThreads, reqPerSec);
+            }
+            PrintConsole(0, 0);
+        }
+
+        private static void PrintConsole(int activeThreads, int reqPerSec)
+        {
+            lock (_conLock)
+            {
                 Console.SetCursorPosition(0, 0);
                 Console.WriteLine($"Active Threads: {activeThreads.ToString().PadRight(10, ' ')}");
                 Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10, ' ')}");
             }
-            Console.SetCursorPosition(0, 0);
-            Console.WriteLine($"Active Threads: {"0".PadRight(10, ' ')}");
-            Console.WriteLine($"Request per second: {"0".PadRight(10, ' ')}");
         }
 
         private static void Console_CancelKeyPress(ConsoleCancelEventArgs e, vRPC.Client client, ref bool cancel)
@@ -132,7 +139,10 @@ namespace Client
             if (!e.Cancel)
             {
                 e.Cancel = true;
-                Console.WriteLine("Stopping...");
+                lock (_conLock)
+                {
+                    Console.WriteLine("Stopping...");
+                }
             }
             client.Stop(TimeSpan.FromSeconds(100), "Был нажат Ctrl+C");
         }

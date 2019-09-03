@@ -746,6 +746,8 @@ namespace vRPC
         /// </summary>
         private void QueueSendMessage(SerializedMessageToSend messageToSend)
         {
+            Debug.Assert(messageToSend != null);
+
             // На текущем этапе сокет может быть уже уничтожен другим потоком.
             // В этом случае можем беспоследственно проигнорировать отправку; вызывающий получит исключение через RequestAwaiter.
             if (!_socket.IsDisposed)
@@ -830,6 +832,8 @@ namespace vRPC
 
         private static HeaderDto CreateHeader(SerializedMessageToSend messageToSend)
         {
+            Debug.Assert(messageToSend != null);
+
             if (messageToSend.MessageToSend is ResponseMessage responseToSend)
             {
                 return new HeaderDto(responseToSend.Uid, messageToSend.StatusCode.Value, (int)messageToSend.MemoryStream.Length)
@@ -1144,7 +1148,7 @@ namespace vRPC
             }, state: (this, request)); // Без замыкания.
         }
 
-        private async void StartProcessRequestThread(RequestContext receivedRequest)
+        private void StartProcessRequestThread(RequestContext receivedRequest)
         // Новый поток из пула потоков.
         {
             // Увеличить счетчик запросов.
@@ -1152,22 +1156,34 @@ namespace vRPC
             {
                 // Не бросает исключения.
                 // Выполняет запрос и возвращает ответ.
-                ValueTask<SerializedMessageToSend> responseToSendTask = GetResponseAsync(receivedRequest);
+                ValueTask<SerializedMessageToSend> t = GetResponseAsync(receivedRequest);
+                if (t.IsCompleted)
+                {
+                    var responseToSend = t.Result;
 
-                SerializedMessageToSend responseToSend;
-                if (responseToSendTask.IsCompleted)
-                    responseToSend = responseToSendTask.Result;
+                    // Не бросает исключения.
+                    QueueSendMessage(responseToSend);
+                }
                 else
-                    responseToSend = await responseToSendTask;
-
-                // Не бросает исключения.
-                QueueSendMessage(responseToSend);
+                {
+                    WaitResponseAndSendAsync(t);
+                }
             }
             else
             // Значение было -1, значит происходит остановка. Выполнять запрос не нужно.
             {
                 return;
             }
+        }
+
+        private async void WaitResponseAndSendAsync(ValueTask<SerializedMessageToSend> t)
+        {
+            // Не бросает исключения.
+            // Выполняет запрос и возвращает ответ.
+            var responseToSend = await t.ConfigureAwait(false);
+
+            // Не бросает исключения.
+            QueueSendMessage(responseToSend);
         }
 
         /// <summary>
