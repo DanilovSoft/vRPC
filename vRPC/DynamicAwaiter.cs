@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace vRPC
@@ -11,6 +12,7 @@ namespace vRPC
         /// <param name="controllerResult"><see cref="Task"/> или любой объект.</param>
         /// <returns></returns>
         //[DebuggerStepThrough]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ValueTask<object> WaitAsync(object controllerResult)
         {
             // Все методы InnerConvert должны возвращать одинаковый тип.
@@ -22,7 +24,7 @@ namespace vRPC
             if(task.IsCompleted)
             {
                 task.GetAwaiter().GetResult();
-                return new ValueTask<object>(null);
+                return new ValueTask<object>(result: null);
             }
             else
             {
@@ -46,7 +48,7 @@ namespace vRPC
             if (task.IsCompleted)
             {
                 task.GetAwaiter().GetResult();
-                return new ValueTask<object>(null);
+                return new ValueTask<object>(result: null);
             }
             else
             {
@@ -82,7 +84,7 @@ namespace vRPC
         {
             if(task.IsCompleted)
             {
-                T result = task.GetAwaiter().GetResult();
+                T result = task.Result;
                 return new ValueTask<object>(result);
             }
             else

@@ -40,9 +40,6 @@ namespace Server
 
                 Console.CancelKeyPress += (_, e) =>
                 {
-                    //var log = listener.ServiceProvider.GetRequiredService<ILogger<Program>>();
-                    //log.LogWarning("Stopping...");
-
                     e.Cancel = true;
                     lock (_conLock)
                     {
@@ -50,12 +47,6 @@ namespace Server
                     }
                     listener.Stop(TimeSpan.FromSeconds(3), "Пользователь нажал Ctrl+C");
                 };
-
-                //listener.Configure(serviceProvider =>
-                //{
-                //    ILogger logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-                //    logger.LogInformation("Ожидание подключений...");
-                //});
 
                 listener.ClientConnected += Listener_ClientConnected;
                 listener.ClientDisconnected += Listener_ClientDisconnected;
@@ -75,15 +66,20 @@ namespace Server
                     sw.Restart();
 
                     var reqPerSec = (int)Math.Round(reqPerSecond * 1000d / elapsedMs);
-
-                    lock (_conLock)
-                    {
-                        Console.SetCursorPosition(0, 0);
-                        Console.WriteLine($"Connections: {Interlocked.Read(ref _connections).ToString().PadRight(10)}");
-                        Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10)}");
-                        Console.WriteLine($"Requests: {ReqCount.ToString("g").PadRight(15)}");
-                    }
+                    ToConsole(Interlocked.Read(ref _connections), reqPerSec, ReqCount);
                 }
+                ToConsole(0, 0, 0);
+            }
+        }
+
+        private static void ToConsole(long connections, int reqPerSec, long reqCount)
+        {
+            lock (_conLock)
+            {
+                Console.SetCursorPosition(0, 0);
+                Console.WriteLine($"Connections: {connections.ToString().PadRight(10)}");
+                Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10)}");
+                Console.WriteLine($"Requests: {reqCount.ToString("g").PadRight(15)}");
             }
         }
 
