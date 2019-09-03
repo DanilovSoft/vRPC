@@ -193,7 +193,7 @@ namespace vRPC
                 var t = ConnectIfNeededAsync();
                 if (t.IsCompleted)
                 {
-                    ConnectionResult connectionResult = t.GetAwaiter().GetResult();
+                    ConnectionResult connectionResult = t.Result;
                     if (connectionResult.ReceiveResult.IsReceivedSuccessfully)
                         return new ValueTask<ManagedConnection>(connectionResult.Context);
 
@@ -246,7 +246,7 @@ namespace vRPC
                 var t = _connectLock.LockAsync();
                 if (t.IsCompleted)
                 {
-                    ChannelLock.Releaser releaser = t.GetAwaiter().GetResult();
+                    ChannelLock.Releaser releaser = t.Result;
                     return LockAquiredConnectAsync(releaser);
                 }
                 else

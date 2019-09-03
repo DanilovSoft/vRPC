@@ -19,6 +19,9 @@ namespace Client
         static void Main()
         {
             Console.Title = "Клиент";
+            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
+            Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
+
             string ipStr;
             IPAddress ipAddress;
             do
@@ -43,9 +46,6 @@ namespace Client
 
             long reqCount = 0;
             int activeThreads = 0;
-
-            //Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
-            Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
 
             var threads = new List<Thread>(Threads);
             bool cancel = false;

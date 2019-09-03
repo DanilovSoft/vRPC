@@ -298,7 +298,7 @@ namespace vRPC
             if(contextTask.IsCompleted)
             {
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return contextTask.GetAwaiter().GetResult().OnProxyCall(serializedMessage, requestMessage);
+                return contextTask.Result.OnProxyCall(serializedMessage, requestMessage);
             }
             else
             {
@@ -329,7 +329,7 @@ namespace vRPC
                 {
                     if (targetMethod.ReturnType != typeof(ValueTask))
                     {
-                        // Если возвращаемый тип Task(без результата) то можно вернуть Task<object>.
+                        // Если возвращаемый тип интерфейса – Task то можно вернуть Task<object>.
                         return taskObject;
                     }
                     else
@@ -1031,8 +1031,8 @@ namespace vRPC
                                 // Извлекает результат из Task'а.
                                 ValueTask<object> controllerResultTask = DynamicAwaiter.WaitAsync(controllerResult);
 
-                                if (controllerResultTask.IsCompleted)
-                                    controllerResult = controllerResultTask.GetAwaiter().GetResult();
+                                if (controllerResultTask.IsCompletedSuccessfully)
+                                    controllerResult = controllerResultTask.Result;
                                 else
                                     controllerResult = await controllerResultTask;
                             }
@@ -1150,7 +1150,7 @@ namespace vRPC
 
                 SerializedMessageToSend responseToSend;
                 if (responseToSendTask.IsCompleted)
-                    responseToSend = responseToSendTask.GetAwaiter().GetResult();
+                    responseToSend = responseToSendTask.Result;
                 else
                     responseToSend = await responseToSendTask;
 
@@ -1179,7 +1179,7 @@ namespace vRPC
 
                 object rawResult;
                 if (rawResultTask.IsCompleted)
-                    rawResult = rawResultTask.GetAwaiter().GetResult();
+                    rawResult = rawResultTask.Result;
                 else
                     rawResult = await rawResultTask;
 
