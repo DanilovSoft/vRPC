@@ -72,10 +72,10 @@ namespace vRPC
             {
                 // Нельзя делать продолжение текущим потоком т.к. это затормозит/остановит диспетчер 
                 // или произойдет побег специального потока диспетчера.
-                //ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
+                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
 
                 // TODO сравнить.
-                QueueUserWorkItem(continuation);
+                //QueueUserWorkItem(continuation);
             }
         }
 
@@ -93,10 +93,12 @@ namespace vRPC
                 return;
             }
 
-            // P.S. шанс попасть в этот блок очень маленький.
+            // Шанс попасть в этот блок очень маленький.
             // В переменной _continuationAtomic была другая ссылка, 
             // это значит что другой поток уже установил результат и его можно забрать.
-            continuation();
+            // Но нужно предотвратить углубление стека (stack dive) поэтому продолжение вызывается
+            // другим потоком.
+            ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
         }
 
         private static void QueueUserWorkItem(Action action) =>

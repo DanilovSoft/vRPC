@@ -351,7 +351,7 @@ namespace vRPC
         /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
         /// </summary>
         /// /// <param name="resultType">Тип в который будет десериализован результат запроса.</param>
-        internal async Task<object> OnProxyCall(SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
+        internal Task<object> OnProxyCall(SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
         {
             ThrowIfDisposed();
             ThrowIfStopRequired();
@@ -365,6 +365,12 @@ namespace vRPC
             // Планируем отправку запроса.
             QueueSendMessage(serializedMessage);
 
+            // Ожидаем результат от потока поторый читает из сокета.
+            return WaitForAwaiterAsync(tcs);
+        }
+
+        private async Task<object> WaitForAwaiterAsync(RequestAwaiter tcs)
+        {
             // Ожидаем результат от потока поторый читает из сокета.
             object rawResult = await tcs;
 

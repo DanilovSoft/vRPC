@@ -6,7 +6,7 @@ namespace vRPC
 {
     internal static class GlobalVars
     {
-        public static readonly Action DummyAction = delegate { };
+        public static readonly Action DummyAction = delegate { throw new Exception(nameof(RequestAwaiter)); };
 
         public static Dictionary<string, Type> FindAllControllers(Assembly assembly)
         {
