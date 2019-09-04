@@ -16,7 +16,7 @@ namespace vRPC
         /// Объект можно использовать только для просмотра состояния.
         /// </summary>
         public ManagedWebSocket WebSocket { get; }
-        public bool IsDisposed => Volatile.Read(ref _disposed) == 1;
+        //public bool IsDisposed => Volatile.Read(ref _disposed) == 1;
 
         /// <summary>
         /// Коллекция запросов ожидающие ответ от удалённой стороны.

@@ -44,6 +44,8 @@ namespace vRPC
         public Task<CloseReason> Completion => _context?.Completion ?? Task.FromResult<CloseReason>(CloseReason.NotConnectedError);
         public bool IsConnected => _context?.IsConnected ?? false;
         private volatile bool _stopRequired;
+        private bool _disposed;
+        private object DisposeLock => _proxyCache;
 
         static Client()
         {
@@ -270,13 +272,26 @@ namespace vRPC
                 var context = _context;
                 if (context == null)
                 {
-                    if (_serviceProvider == null)
+                    ServiceProvider serviceProvider = _serviceProvider;
+                    if (serviceProvider == null)
                     {
                         var serviceCollection = new ServiceCollection();
-                        _serviceProvider = ConfigureIoC(serviceCollection);
+                        serviceProvider = ConfigureIoC(serviceCollection);
+                        lock(DisposeLock)
+                        {
+                            if (!_disposed)
+                            {
+                                _serviceProvider = serviceProvider;
+                            }
+                            else
+                            {
+                                serviceProvider.Dispose();
+                                throw new ObjectDisposedException(GetType().FullName);
+                            }
+                        }
                     }
 
-                    _appBuilder = new ApplicationBuilder(_serviceProvider);
+                    _appBuilder = new ApplicationBuilder(serviceProvider);
                     _configureApp?.Invoke(_appBuilder);
 
                     // Новый сокет.
@@ -299,10 +314,21 @@ namespace vRPC
 
                     if (receiveResult.IsReceivedSuccessfully)
                     {
-                        context = new ClientSideConnection(this, ws, _serviceProvider, _controllers);
+                        context = new ClientSideConnection(this, ws, serviceProvider, _controllers);
 
-                        // Косвенно устанавливает флаг IsConnected.
-                        _context = context;
+                        lock (DisposeLock)
+                        {
+                            if (!_disposed)
+                            {
+                                // Косвенно устанавливает флаг IsConnected.
+                                _context = context;
+                            }
+                            else
+                            {
+                                context.Dispose();
+                                throw new ObjectDisposedException(GetType().FullName);
+                            }
+                        }
 
                         context.StartReceivingLoop();
                         context.Disconnected += Disconnected;
@@ -346,9 +372,27 @@ namespace vRPC
         //    return (bool)result;
         //}
 
+        private void ThrowIfDispose()
+        {
+            Debug.Assert(Monitor.IsEntered(DisposeLock));
+
+            if (!_disposed)
+                return;
+
+            throw new ObjectDisposedException(GetType().FullName);
+        }
+
         public void Dispose()
         {
-            _context?.Dispose();
+            lock (DisposeLock)
+            {
+                if (!_disposed)
+                {
+                    _disposed = true;
+                    _context?.Dispose();
+                    _serviceProvider?.Dispose();
+                }
+            }
         }
     }
 }

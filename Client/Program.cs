@@ -83,7 +83,7 @@ namespace Client
                             {
                                 try
                                 {
-                                    DateTime date = homeController.DummyCall("Test", 123, 123L, DateTime.Now, new byte[0]);
+                                    DateTime date = homeController.DummyCall("Test", 123, 123L, DateTime.Now, new byte[20000]);
                                 }
                                 catch (Exception ex)
                                 {

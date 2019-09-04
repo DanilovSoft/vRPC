@@ -750,7 +750,7 @@ namespace vRPC
 
             // На текущем этапе сокет может быть уже уничтожен другим потоком.
             // В этом случае можем беспоследственно проигнорировать отправку; вызывающий получит исключение через RequestAwaiter.
-            if (!_socket.IsDisposed)
+            if (!IsDisposed)
             {
                 // Сериализуем хедер. Не бросает исключения.
                 AppendHeader(messageToSend);
@@ -997,14 +997,6 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Потокобезопасно взводит <see cref="Task"/> <see cref="Completion"/>.
-        /// </summary>
-        private void AtomicSetCompletion(in CloseReason disconnectReason)
-        {
-            _completionTcs.TrySetResult(disconnectReason);
-        }
-
-        /// <summary>
         /// Вызывает запрошенный метод контроллера и возвращает результат.
         /// Результатом может быть IActionResult или Raw объект или исключение.
         /// </summary>
@@ -1023,8 +1015,15 @@ namespace vRPC
                     // Проверить доступ к функции.
                     if (InvokeMethodPermissionCheck(action.TargetMethod, controllerType, out IActionResult permissionError))
                     {
+                        Debug.Assert(!IsDisposed);
+
                         // Блок IoC выполнит Dispose всем созданным экземплярам.
                         using IServiceScope scope = ServiceProvider.CreateScope();
+
+                        //ServiceProvider.Dispose();
+
+                        //scope.Dispose();
+
                         // Активируем контроллер через IoC.
                         var controller = (Controller)scope.ServiceProvider.GetRequiredService(controllerType);
                         //{
@@ -1131,7 +1130,7 @@ namespace vRPC
         }
 
         /// <summary>
-        /// В новом потоке выполняет запрос клиента и отправляет ему результат или ошибку.
+        /// В новом потоке выполняет запрос и отправляет ему результат или ошибку.
         /// </summary>
         private void StartProcessRequest(RequestContext request)
         {
@@ -1145,33 +1144,42 @@ namespace vRPC
             }, state: Tuple.Create(this, request)); // Без замыкания.
         }
 
+        /// <summary>
+        /// Выполняет запрос и отправляет результат или ошибку.
+        /// </summary>
+        /// <param name="requestContext"></param>
         private void StartProcessRequestThread(RequestContext requestContext)
         // Новый поток из пула потоков.
         {
-            // Увеличить счетчик запросов.
-            if (Interlocked.Increment(ref _reqAndRespCount) > 0)
+            // В редких случаях сокет может уже быть закрыт, например по таймауту,
+            // в этом случае ничего делать не нужно.
+            if (!IsDisposed)
             {
-                // Выполняет запрос и возвращает ответ.
-                var t = GetResponseAsync(requestContext);
-                if (t.IsCompleted)
+                // Увеличить счетчик запросов.
+                if (Interlocked.Increment(ref _reqAndRespCount) > 0)
                 {
-                    ResponseMessage responseMessage = t.Result; // Не бросает исключения.
+                    // Выполняет запрос и возвращает ответ.
+                    var t = GetResponseAsync(requestContext);
+                    if (t.IsCompleted)
+                    {
+                        ResponseMessage responseMessage = t.Result; // Не бросает исключения.
 
-                    // Не бросает исключения.
-                    SerializedMessageToSend responseToSend = SerializeResponse(responseMessage, requestContext);
+                        // Не бросает исключения.
+                        SerializedMessageToSend responseToSend = SerializeResponse(responseMessage, requestContext);
 
-                    // Не бросает исключения.
-                    QueueSendMessage(responseToSend);
+                        // Не бросает исключения.
+                        QueueSendMessage(responseToSend);
+                    }
+                    else
+                    {
+                        WaitResponseAndSendAsync(t, requestContext);
+                    }
                 }
                 else
+                // Значение было -1, значит происходит остановка. Выполнять запрос не нужно.
                 {
-                    WaitResponseAndSendAsync(t, requestContext);
+                    return;
                 }
-            }
-            else
-            // Значение было -1, значит происходит остановка. Выполнять запрос не нужно.
-            {
-                return;
             }
         }
 
@@ -1355,14 +1363,10 @@ namespace vRPC
                 }
 
                 // Установить Task Completed.
-                AtomicSetCompletion(possibleReason);
+                _completionTcs.TrySetResult(possibleReason);
 
                 // Сообщить об обрыве.
                 disconnected?.Invoke(this, new SocketDisconnectedEventArgs(in possibleReason));
-
-                // Серверный контейнер не нужно освобождать — он один для всех клиентов.
-                if (!_isServer)
-                    ServiceProvider.Dispose();
             }
         }
     }

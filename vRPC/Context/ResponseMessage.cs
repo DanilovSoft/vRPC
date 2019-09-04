@@ -36,8 +36,7 @@ namespace vRPC
         /// </summary>
         /// <param name="receivedRequest"></param>
         /// <param name="rawResult"></param>
-        public ResponseMessage(RequestContext receivedRequest, object rawResult) 
-            : this(receivedRequest.HeaderDto.Uid, rawResult)
+        public ResponseMessage(RequestContext receivedRequest, object rawResult) : this(receivedRequest.HeaderDto.Uid, rawResult)
         {
             ReceivedRequest = receivedRequest;
         }

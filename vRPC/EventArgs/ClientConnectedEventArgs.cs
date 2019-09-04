@@ -7,10 +7,13 @@ namespace vRPC
 {
     public sealed class ClientConnectedEventArgs : EventArgs
     {
+        /// <summary>
+        /// Подключенный к серверу клиент.
+        /// </summary>
         public ServerSideConnection Connection { get; }
 
         [DebuggerStepThrough]
-        public ClientConnectedEventArgs(ServerSideConnection clientContext)
+        internal ClientConnectedEventArgs(ServerSideConnection clientContext)
         {
             Connection = clientContext;
         }
