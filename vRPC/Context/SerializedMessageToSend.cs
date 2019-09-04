@@ -40,6 +40,9 @@ namespace vRPC
             MessageToSend = messageToSend;
         }
 
+        /// <summary>
+        /// Возвращает арендрванную память обратно в пул.
+        /// </summary>
         public void Dispose()
         {
             MemoryStream.Dispose();

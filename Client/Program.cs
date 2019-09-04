@@ -38,7 +38,7 @@ namespace Client
             int processorCount = Environment.ProcessorCount;
             do
             {
-                Console.Write($"Сколько потоков (1): ");
+                Console.Write($"Ядер – {processorCount}. Сколько потоков (1): ");
                 cpusStr = Console.ReadLine();
                 if (cpusStr == "")
                     cpusStr = $"{1}";
@@ -83,7 +83,7 @@ namespace Client
                             {
                                 try
                                 {
-                                    DateTime date = homeController.DummyCall("TestTestTestTestTestTestTestTestTestTestTestTestTestTest", 123, 123L, DateTime.Now);
+                                    DateTime date = homeController.DummyCall("Test", 123, 123L, DateTime.Now, new byte[0]);
                                 }
                                 catch (Exception ex)
                                 {
