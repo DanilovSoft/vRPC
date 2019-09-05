@@ -81,7 +81,7 @@ namespace vRPC
         /// Подписку на событие Disconnected нужно синхронизировать что-бы подписчики не пропустили момент обрыва.
         /// </summary>
         private object DisconnectEventObj => _sendChannel;
-        private EventHandler<SocketDisconnectedEventArgs> _Disconnected;
+        private EventHandler<SocketDisconnectedEventArgs> _disconnected;
         /// <summary>
         /// Событие обрыва соединения. Может сработать только один раз.
         /// Если подписка на событие происходит к уже отключенному сокету то событие сработает сразу же.
@@ -96,7 +96,7 @@ namespace vRPC
                 {
                     if (_disconnectReason == null)
                     {
-                        _Disconnected += value;
+                        _disconnected += value;
                     }
                     else
                     // Подписка к уже отключенному сокету.
@@ -113,7 +113,7 @@ namespace vRPC
             remove
             {
                 // Отписываться можно без блокировки — делегаты потокобезопасны.
-                _Disconnected -= value;
+                _disconnected -= value;
             }
         }
         /// <summary>
@@ -177,6 +177,24 @@ namespace vRPC
                 // Не бросает исключения.
                 ((ManagedConnection)state).SenderLoop();
             }, this); // Без замыкания.
+
+            // Лучше подписаться в конце.
+            // Может сработать сразу.
+            _socket.WebSocket.Disconnected += WebSocket_Disconnected;
+        }
+
+        private void WebSocket_Disconnected(object sender, DanilovSoft.WebSocket.SocketDisconnectedEventArgs e)
+        {
+            CloseReason closeReason;
+            if (e.DisconnectReason.Gracifully)
+            {
+                closeReason = CloseReason.FromCloseFrame(e.DisconnectReason.CloseStatus, e.DisconnectReason.CloseDescription);
+            }
+            else
+            {
+                closeReason = CloseReason.FromException(e.DisconnectReason.Error);
+            }
+            AtomicDispose(in closeReason);
         }
 
         /// <summary>
@@ -226,8 +244,10 @@ namespace vRPC
 
             try
             {
+                // Отправить Close без ожидания ответного Close.
+                // Нет необходимости ожидать подтверждение здесь — его получит поток читающий из сокета.
                 // Может бросить исключение если сокет уже в статусе Close.
-                await _socket.WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, closeDescription, CancellationToken.None).ConfigureAwait(false);
+                await _socket.WebSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, closeDescription, CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -1323,7 +1343,7 @@ namespace vRPC
 
         protected virtual void DisposeManaged()
         {
-            AtomicDispose(CloseReason.FromException(new ObjectDisposedException(GetType().FullName)));
+            AtomicDispose(CloseReason.FromException(new ObjectDisposedException(GetType().FullName), "Пользователь вызвал Dispose."));
         }
 
         /// <summary>
@@ -1356,10 +1376,10 @@ namespace vRPC
                     _isConnected = false;
 
                     // Скопируем делегат что-бы вызывать не в блокировке — на всякий случай.
-                    disconnected = _Disconnected;
+                    disconnected = _disconnected;
 
                     // Теперь можно безопасно убрать подписчиков.
-                    _Disconnected = null;
+                    _disconnected = null;
                 }
 
                 // Установить Task Completed.

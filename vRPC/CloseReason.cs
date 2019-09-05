@@ -24,23 +24,25 @@ namespace vRPC
         /// Может быть <see langword="null"/>.
         /// </summary>
         public readonly string CloseDescription { get; }
+        public readonly string AdditionalDescription { get; }
         internal readonly WebSocketCloseStatus? CloseStatus { get; }
 
-        internal static CloseReason FromException(Exception ex)
+        internal static CloseReason FromException(Exception ex, string additionalDescription = null)
         {
-            return new CloseReason(ex, null, null);
+            return new CloseReason(ex, null, null, additionalDescription);
         }
 
         internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription)
         {
-            return new CloseReason(null, closeStatus, closeDescription);
+            return new CloseReason(null, closeStatus, closeDescription, null);
         }
 
-        private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription)
+        private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription)
         {
             Error = error;
             CloseDescription = closeDescription;
             CloseStatus = closeStatus;
+            AdditionalDescription = additionalDescription;
         }
     }
 }
