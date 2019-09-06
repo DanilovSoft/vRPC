@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace vRPC
@@ -147,12 +148,15 @@ namespace vRPC
 
             // Необходимо закрыть все соединения.
 
-            ServerSideConnection[] activeConnections;
+            var activeConnections = Array.Empty<ServerSideConnection>();
             lock (_connections.SyncObj)
             {
-                // Теперь мы обязаны сделать Dispose этим подключениям.
-                activeConnections = _connections.ToArray();
-                _connections.Clear();
+                if (_connections.Count > 0)
+                {
+                    // Теперь мы обязаны сделать Dispose этим подключениям.
+                    activeConnections = _connections.ToArray();
+                    _connections.Clear();
+                }
             }
 
             // Грациозно останавливаем соединения.
@@ -162,23 +166,31 @@ namespace vRPC
                 con.RequireStop(closeDescription);
             }
 
-            var allConnTask = Task.WhenAll(activeConnections.Select(x => x.Completion));
-            var timeoutTask = Task.Delay(timeout);
-
             bool gracefully;
-            if (await Task.WhenAny(allConnTask, timeoutTask).ConfigureAwait(false) != timeoutTask)
+            if (activeConnections.Length > 0)
             {
-                gracefully = true;
+                var allConnTask = Task.WhenAll(activeConnections.Select(x => x.Completion));
+                var timeoutTask = Task.Delay(timeout);
+
+                if (await Task.WhenAny(allConnTask, timeoutTask).ConfigureAwait(false) != timeoutTask)
+                {
+                    gracefully = true;
+                }
+                else
+                // Истекло время ожидания грациозного завершения.
+                {
+                    gracefully = false;
+                }
+
+                foreach (var con in activeConnections)
+                {
+                    con.CloseAndDispose(timeout);
+                }
             }
             else
-            // Истекло время ожидания грациозного завершения.
+            // К серверу не было установлено ни одного соединения.
             {
-                gracefully = false;
-            }
-
-            foreach (var con in activeConnections)
-            {
-                con.CloseAndDispose(timeout);
+                gracefully = true;
             }
 
             // Установить Completion.
@@ -188,17 +200,17 @@ namespace vRPC
         /// <summary>
         /// Начинает приём подключений и обработку запросов до полной остановки методом Stop.
         /// Эквивалентно вызову Start + <see langword="await"/> Completion.
-        /// Повторный вызов спровоцирует исключение.
         /// Потокобезопасно.
         /// </summary>
-        /// <exception cref="InvalidOperationException"/>
+        /// <exception cref="RpcListenerException"/>
         public Task<bool> RunAsync()
         {
-            // Бросит исключение при повторном вызове.
-            InitializeStart();
+            lock (StartLock)
+            {
+                InnerStart();
 
-            _wsServ.StartAccept();
-            return Completion;
+                return Completion;
+            }
         }
 
         /// <summary>
@@ -206,64 +218,60 @@ namespace vRPC
         /// Повторный вызов спровоцирует исключение.
         /// Потокобезопасно.
         /// </summary>
-        /// <exception cref="InvalidOperationException"/>
+        /// <exception cref="RpcListenerException"/>
         public void Start()
         {
-            // Бросит исключение при повторном вызове.
-            InitializeStart();
-
-            _wsServ.StartAccept();
+            lock (StartLock)
+            {
+                InnerStart();
+            }
         }
 
         /// <summary>
         /// Предотвращает повторный запуск сервера.
         /// </summary>
-        /// <exception cref="InvalidOperationException">При повторном вызове</exception>
-        private void InitializeStart()
+        private void InnerStart()
         {
-            lock (StartLock)
+            Debug.Assert(Monitor.IsEntered(StartLock));
+
+            if (!_stopRequired)
             {
-                if (!_stopRequired)
+                if (!_started)
                 {
-                    if (!_started)
+                    _started = true;
+                    if (_serviceProvider == null)
                     {
-                        _started = true;
-                        if (_serviceProvider == null)
-                        {
-                            _serviceProvider = _serviceCollection.BuildServiceProvider();
-                            _configureApp?.Invoke(_serviceProvider);
-                        }
+                        _serviceProvider = _serviceCollection.BuildServiceProvider();
+                        _configureApp?.Invoke(_serviceProvider);
                     }
-                    else
-                        throw new InvalidOperationException("Already started.");
+
+                    // Начать принимать подключения.
+                    _wsServ.StartAccept();
                 }
-                else
-                    throw new InvalidOperationException("Already stopped.");
             }
         }
 
         private void Listener_OnConnected(object sender, DanilovSoft.WebSocket.ClientConnectedEventArgs e)
         {
-            // Создать контекст для текущего подключения.
-            var context = new ServerSideConnection(e.Connection, _serviceProvider, listener: this);
-
             // Возможно сервер находится в режиме остановки.
-            bool connectionAllowed;
-            lock(_connections.SyncObj)
+            ServerSideConnection context;
+            lock (_connections.SyncObj)
             {
                 if (!_stopRequired) // volatile.
                 {
+                    // Создать контекст для текущего подключения.
+                    context = new ServerSideConnection(e.Connection, _serviceProvider, listener: this);
+
                     _connections.Add(context);
-                    connectionAllowed = true;
                 }
                 else
                 {
-                    context.Dispose();
-                    connectionAllowed = false;
+                    e.Connection.Abort();
+                    context = null;
                 }
             }
 
-            if (connectionAllowed)
+            if (context != null)
             {
                 // Сервер разрешил установку этого соединения, можно начать чтение.
                 context.StartReceive();
