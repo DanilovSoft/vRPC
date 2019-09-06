@@ -29,7 +29,7 @@ namespace Server.Controllers
         }
            
         [ProducesProtoBuf]
-        public DateTime DummyCall(string s, int n, long l, DateTime d, byte[] data)
+        public DateTime DummyCall(string s)
         {
             Interlocked.Increment(ref Program.ReqCount);
             return DateTime.Now;

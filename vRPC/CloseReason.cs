@@ -32,9 +32,9 @@ namespace vRPC
             return new CloseReason(ex, null, null, additionalDescription);
         }
 
-        internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription)
+        internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription)
         {
-            return new CloseReason(null, closeStatus, closeDescription, null);
+            return new CloseReason(null, closeStatus, closeDescription, additionalDescription);
         }
 
         private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription)

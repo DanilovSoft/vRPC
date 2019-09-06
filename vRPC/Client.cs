@@ -109,10 +109,24 @@ namespace vRPC
         /// Может произойти исключение если одновременно вызвать Dispose.
         /// Потокобезопасно.
         /// </summary>
-        public async Task<ConnectResult> ConnectAsync()
+        public Task<ConnectResult> ConnectAsync()
         {
-            ConnectionResult connectionResult = await ConnectIfNeededAsync().ConfigureAwait(false);
-            return new ConnectResult(connectionResult.ReceiveResult.IsReceivedSuccessfully, connectionResult.ReceiveResult.SocketError);
+            var t = ConnectIfNeededAsync();
+            if(t.IsCompleted)
+            {
+                var conRes = t.Result;
+                return Task.FromResult(new ConnectResult(conRes.ReceiveResult.IsReceivedSuccessfully, conRes.ReceiveResult.SocketError));
+            }
+            else
+            {
+                return WaitForConnectAsync(t);
+            }
+
+            static async Task<ConnectResult> WaitForConnectAsync(ValueTask<ConnectionResult> t)
+            {
+                ConnectionResult conRes = await t.ConfigureAwait(false);
+                return new ConnectResult(conRes.ReceiveResult.IsReceivedSuccessfully, conRes.ReceiveResult.SocketError);
+            }
         }
 
         public T GetProxy<T>()
@@ -192,18 +206,27 @@ namespace vRPC
         {
             if (!_stopRequired)
             {
-                var t = ConnectIfNeededAsync();
-                if (t.IsCompleted)
+                // Копия volatile.
+                var context = _context;
+                if (context != null)
                 {
-                    ConnectionResult connectionResult = t.Result;
-                    if (connectionResult.ReceiveResult.IsReceivedSuccessfully)
-                        return new ValueTask<ManagedConnection>(connectionResult.Context);
-
-                    return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(connectionResult.ReceiveResult.ToException()));
+                    return new ValueTask<ManagedConnection>(context);
                 }
                 else
                 {
-                    return WaitForConnectIfNeededAsync(t);
+                    var t = ConnectIfNeededAsync();
+                    if (t.IsCompleted)
+                    {
+                        ConnectionResult connectionResult = t.Result;
+                        if (connectionResult.ReceiveResult.IsReceivedSuccessfully)
+                            return new ValueTask<ManagedConnection>(connectionResult.Context);
+
+                        return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(connectionResult.ReceiveResult.ToException()));
+                    }
+                    else
+                    {
+                        return WaitForConnectIfNeededAsync(t);
+                    }
                 }
             }
             else
@@ -243,6 +266,7 @@ namespace vRPC
                 return new ValueTask<ConnectionResult>(new ConnectionResult(ReceiveResult.AllSuccess, context));
             }
             else
+            // Подключение отсутствует.
             {
                 // Захватить блокировку.
                 var t = _connectLock.LockAsync();

@@ -188,11 +188,11 @@ namespace vRPC
             CloseReason closeReason;
             if (e.DisconnectReason.Gracifully)
             {
-                closeReason = CloseReason.FromCloseFrame(e.DisconnectReason.CloseStatus, e.DisconnectReason.CloseDescription);
+                closeReason = CloseReason.FromCloseFrame(e.DisconnectReason.CloseStatus, e.DisconnectReason.CloseDescription, e.DisconnectReason.AdditionalDescription);
             }
             else
             {
-                closeReason = CloseReason.FromException(e.DisconnectReason.Error);
+                closeReason = CloseReason.FromException(e.DisconnectReason.Error, e.DisconnectReason.AdditionalDescription);
             }
             AtomicDispose(in closeReason);
         }
@@ -231,7 +231,7 @@ namespace vRPC
 
         private void CloseReceived()
         {
-            AtomicDispose(CloseReason.FromCloseFrame(_socket.WebSocket.CloseStatus, _socket.WebSocket.CloseStatusDescription));
+            AtomicDispose(CloseReason.FromCloseFrame(_socket.WebSocket.CloseStatus, _socket.WebSocket.CloseStatusDescription, null));
         }
 
         /// <summary>
