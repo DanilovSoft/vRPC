@@ -19,7 +19,7 @@ namespace vRPC
         /// до сериализации тела сообщения.
         /// </summary>
         public MemoryPoolStream MemPoolStream { get; } = new MemoryPoolStream();
-        public Message MessageToSend { get; }
+        public IMessage MessageToSend { get; }
         /// <summary>
         /// Уникальный идентификатор который будет отправлен удалённой стороне.
         /// </summary>
@@ -35,7 +35,7 @@ namespace vRPC
         /// Содержит <see cref="MemoryPoolStream"/> в который сериализуется сообщение и заголовок.
         /// Необходимо обязательно выполнить Dispose.
         /// </summary>
-        public SerializedMessageToSend(Message messageToSend)
+        public SerializedMessageToSend(IMessage messageToSend)
         {
             MessageToSend = messageToSend;
         }

@@ -13,14 +13,14 @@ namespace Tests
         [TestMethod]
         public async Task TestMethod1()
         {
-            using (var listener = new Listener(IPAddress.Any, 1234))
+            using (var listener = new RpcListener(IPAddress.Any, 1234))
             {
                 listener.ClientKeepAliveInterval = TimeSpan.FromSeconds(6);
                 listener.ClientReceiveTimeout = TimeSpan.FromSeconds(6);
                 listener.ClientConnected += Listener_ClientConnected;
                 listener.Start();
 
-                using (var client = new Client("127.0.0.1", 1234))
+                using (var client = new RpcClient("127.0.0.1", 1234))
                 {
                     client.Configure(app => 
                     {

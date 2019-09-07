@@ -7,7 +7,12 @@ namespace vRPC
     [Serializable]
     public class StopRequiredException : Exception
     {
-        public StopRequiredException() : base("Сервис находится в режиме остановки.")
+        public StopRequiredException() : base("Был вызван Stop — использовать этот экземпляр больше нельзя.")
+        {
+
+        }
+
+        public StopRequiredException(string message) : base(message)
         {
 
         }

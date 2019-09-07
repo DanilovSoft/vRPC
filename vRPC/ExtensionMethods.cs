@@ -109,11 +109,7 @@ namespace vRPC
 
         public static void WarmupRequestMessageSerialization()
         {
-            var dto = new RequestMessageDto
-            {
-                ActionName = "n",
-                Args = new JToken[] { JToken.FromObject(1) }
-            };
+            var dto = new RequestMessageDto("n", new JToken[] { JToken.FromObject(1) });
 
             using (var mem = new MemoryStream())
             {

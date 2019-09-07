@@ -9,6 +9,8 @@ namespace vRPC
     [Serializable]
     public sealed class ConnectionClosedException : Exception
     {
+        internal const string DefaultMessage = "Произошло грациозное разъединение без указания причины.";
+
         public string CloseDescription { get; }
 
         public ConnectionClosedException()
@@ -16,7 +18,7 @@ namespace vRPC
             
         }
 
-        internal ConnectionClosedException(string сloseDescription) : base(сloseDescription ?? "Произошло грациозное разъединение без указания причины.")
+        internal ConnectionClosedException(string сloseDescription) : base(сloseDescription ?? DefaultMessage)
         {
             CloseDescription = сloseDescription;
         }

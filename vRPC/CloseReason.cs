@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
 
 namespace vRPC
 {
+    [DebuggerDisplay(@"\{Gracifully = {Gracifully}\}")]
     public sealed class CloseReason
     {
-        internal static readonly CloseReason NotConnectedError = FromException(
-            new InvalidOperationException("Произошло обращение к Completion до того как соединение было установлено."));
+        internal static readonly CloseReason NoConnectionError = FromException(
+            new ConnectionClosedException("Соединение не установлено."));
 
         /// <summary>
         /// Если разъединение завершилось грациозно — <see langword="true"/>.
@@ -30,16 +32,19 @@ namespace vRPC
         public string AdditionalDescription { get; }
         internal WebSocketCloseStatus? CloseStatus { get; }
 
+        [DebuggerStepThrough]
         internal static CloseReason FromException(Exception ex, string additionalDescription = null)
         {
             return new CloseReason(ex, null, null, additionalDescription);
         }
 
+        [DebuggerStepThrough]
         internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription)
         {
             return new CloseReason(null, closeStatus, closeDescription, additionalDescription);
         }
 
+        [DebuggerStepThrough]
         private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription)
         {
             Error = error;

@@ -15,6 +15,7 @@ namespace Client
     {
         private const int Port = 65125;
         private static readonly object _conLock = new object();
+        private static bool _appExit;
         private static int Threads;
 
         static void Main()
@@ -49,19 +50,18 @@ namespace Client
             int activeThreads = 0;
 
             var threads = new List<Thread>(Threads);
-            bool cancel = false;
             for (int i = 0; i < Threads; i++)
             {
                 var t = new Thread(_ =>
                 {
-                    if (cancel)
+                    if (_appExit)
                         return;
 
                     Interlocked.Increment(ref activeThreads);
 
-                    using (var client = new vRPC.Client(ipAddress.ToString(), Port))
+                    using (var client = new RpcClient(ipAddress.ToString(), Port))
                     {
-                        Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client, ref cancel);
+                        Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client);
 
                         client.ConfigureService(ioc =>
                         {
@@ -74,27 +74,34 @@ namespace Client
 
                         var homeController = client.GetProxy<IServerHomeController>();
 
-                        while (!cancel)
+                        bool exit = false;
+                        while (!exit)
                         {
                             while (!client.ConnectAsync().GetAwaiter().GetResult().Success)
                                 Thread.Sleep(400);
 
-                            while (!cancel)
+                            while (true)
                             {
                                 try
                                 {
                                     DateTime date = homeController.DummyCall("Test");
                                 }
+                                catch (StopRequiredException ex)
+                                {
+                                    exit = true;
+                                    break;
+                                }
                                 catch (Exception ex)
                                 {
+                                    Thread.Sleep(new Random().Next(200, 400));
                                     Debug.WriteLine(ex);
                                     break;
                                 }
                                 Interlocked.Increment(ref reqCount);
                             }
-                            Thread.Sleep(new Random().Next(200, 400));
                         }
-                        CloseReason closeResult = client.Completion.GetAwaiter().GetResult();
+                        // Подождать грациозное закрытие.
+                        var closeReason = client.Completion.GetAwaiter().GetResult();
                     }
                     Interlocked.Decrement(ref activeThreads);
                 });
@@ -132,9 +139,9 @@ namespace Client
             }
         }
 
-        private static void Console_CancelKeyPress(ConsoleCancelEventArgs e, vRPC.Client client, ref bool cancel)
+        private static void Console_CancelKeyPress(ConsoleCancelEventArgs e, vRPC.RpcClient client)
         {
-            cancel = true;
+            _appExit = true;
 
             if (!e.Cancel)
             {

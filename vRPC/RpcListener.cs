@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace vRPC
 {
-    public sealed class Listener : IDisposable
+    public sealed class RpcListener : IDisposable
     {
         /// <summary>
         /// Словарь используемый только для чтения, поэтому потокобезопасен.
@@ -62,13 +62,13 @@ namespace vRPC
         public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
         public TimeSpan ClientReceiveTimeout { get => _wsServ.ClientReceiveTimeout; set => _wsServ.ClientReceiveTimeout = value; }
 
-        static Listener()
+        static RpcListener()
         {
             Warmup.DoWarmup();
         }
 
         // ctor.
-        public Listener(IPAddress ipAddress, int port)
+        public RpcListener(IPAddress ipAddress, int port)
         {
             _wsServ.HandshakeTimeout = TimeSpan.FromSeconds(30);
             _wsServ.Bind(new IPEndPoint(ipAddress, port));

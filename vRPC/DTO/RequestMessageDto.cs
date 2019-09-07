@@ -16,12 +16,18 @@ namespace vRPC
         /// Вызываемый метод.
         /// </summary>
         [JsonProperty("n", Order = 1)]
-        public string ActionName { get; set; }
+        public string ActionName { get; }
 
         /// <summary>
         /// Аргументы вызываемого метода.
         /// </summary>
         [JsonProperty("a", Order = 2)]
-        public JToken[] Args { get; set; }
+        public JToken[] Args { get; }
+
+        public RequestMessageDto(string actionName, JToken[] args)
+        {
+            ActionName = actionName;
+            Args = args;
+        }
     }
 }

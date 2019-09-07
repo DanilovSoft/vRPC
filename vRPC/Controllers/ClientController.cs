@@ -5,6 +5,6 @@
         /// <summary>
         /// Контекст подключения на стороне клиента.
         /// </summary>
-        public Client Context { get; internal set; }
+        public RpcClient Context { get; internal set; }
     }
 }

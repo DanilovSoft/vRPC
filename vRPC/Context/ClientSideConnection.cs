@@ -12,10 +12,10 @@ namespace vRPC
     public sealed class ClientSideConnection : ManagedConnection
     {
         internal static readonly LockedDictionary<MethodInfo, string> ProxyMethodName = new LockedDictionary<MethodInfo, string>();
-        private readonly Client _client;
+        private readonly RpcClient _client;
         private protected override IConcurrentDictionary<MethodInfo, string> _proxyMethodName => ProxyMethodName;
 
-        internal ClientSideConnection(Client client, ClientWebSocket ws, ServiceProvider serviceProvider, ControllerActionsDictionary controllers)
+        internal ClientSideConnection(RpcClient client, ClientWebSocket ws, ServiceProvider serviceProvider, ControllerActionsDictionary controllers)
             : base(ws.ManagedWebSocket, isServer: false, serviceProvider, controllers)
         {
             _client = client;

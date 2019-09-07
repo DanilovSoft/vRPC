@@ -25,10 +25,10 @@ namespace vRPC
         /// <summary>
         /// Сервер который принял текущее соединение.
         /// </summary>
-        public Listener Listener { get; }
+        public RpcListener Listener { get; }
 
         // ctor.
-        internal ServerSideConnection(MyWebSocket clientConnection, ServiceProvider serviceProvider, Listener listener) 
+        internal ServerSideConnection(MyWebSocket clientConnection, ServiceProvider serviceProvider, RpcListener listener) 
             : base(clientConnection, isServer: true, serviceProvider, listener.Controllers)
         {
             Listener = listener;

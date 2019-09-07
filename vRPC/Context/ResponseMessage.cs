@@ -7,10 +7,10 @@ using System.Text;
 namespace vRPC
 {
     /// <summary>
-    /// Сообщение для передачи удаленной стороне. Не подлежит сериализации.
+    /// Ответ на запрос для передачи удаленной стороне. Не подлежит сериализации.
     /// </summary>
     [DebuggerDisplay(@"\{Result: {Result}\}")]
-    internal sealed class ResponseMessage : Message
+    internal sealed class ResponseMessage : IMessage
     {
         /// <summary>
         /// Идентификатор скопированный из запроса.
@@ -21,6 +21,10 @@ namespace vRPC
         /// Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
         /// </summary>
         public RequestContext ReceivedRequest { get; private set; }
+        /// <summary>
+        /// Параметры для удаленного метода <see cref="ActionName"/>.
+        /// </summary>
+        public JToken[] Args { get; }
 
         /// <summary>
         /// Конструктор ответа.

@@ -141,6 +141,8 @@ namespace vRPC
         {
             //ManagedWebSocket.DefaultNoDelay = true;
             Debug.Assert(Marshal.SizeOf<HeaderDto>() <= 16, $"Структуру {nameof(HeaderDto)} лучше заменить на класс");
+            //Debug.Assert(Marshal.SizeOf<RequestMessageDto>() <= 16, $"Структуру {nameof(RequestMessageDto)} лучше заменить на класс");
+            //Debug.Assert(Marshal.SizeOf<RequestMessage>() <= 16, $"Структуру {nameof(RequestMessage)} лучше заменить на класс");
             //Debug.Assert(Marshal.SizeOf<ValueWebSocketReceiveExResult>() <= 16, $"Структуру {nameof(ValueWebSocketReceiveExResult)} лучше заменить на класс");
             //Debug.Assert(Marshal.SizeOf<CloseReason>() <= 16, $"Структуру {nameof(CloseReason)} лучше заменить на класс");
 
@@ -203,6 +205,7 @@ namespace vRPC
         /// и отправляет удалённой стороне сообщение о закрытии соединения с ожиданием подтверджения.
         /// Взводит <see cref="Completion"/>.
         /// Не бросает исключения.
+        /// Потокобезопасно.
         /// </summary>
         /// <param name="closeDescription">Может быть <see langword="null"/>.</param>
         internal void RequireStop(string closeDescription)
@@ -222,7 +225,7 @@ namespace vRPC
                     {
                         // Можно безопасно остановить сокет.
                         // Не бросает исключения.
-                        SendClose(closeDescription);
+                        SendCloseAsync(closeDescription).GetAwaiter();
                     }
                     // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
                     // Это будет соглашением о необходимости остановки.
@@ -230,25 +233,28 @@ namespace vRPC
             }
         }
 
+        /// <summary>
+        /// Не бросает исключения.
+        /// </summary>
         private void CloseReceived()
         {
+            // Был получен Close. Это значит что веб сокет уже закрыт и нам остаётся только закрыть сервис.
             AtomicDispose(CloseReason.FromCloseFrame(_socket.CloseStatus, _socket.CloseStatusDescription, null));
         }
 
         /// <summary>
-        /// Отправляет сообщение Close.
+        /// Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
         /// Не бросает исключения.
         /// </summary>
-        private async void SendClose(string closeDescription)
+        private async Task SendCloseAsync(string closeDescription)
         {
             // Эту функцию вызывает тот поток который поймал флаг о необходимости завершения сервиса.
 
             try
             {
-                // Отправить Close без ожидания ответного Close.
-                // Нет необходимости ожидать подтверждение здесь — его получит поток читающий из сокета.
+                // Отправить Close с ожиданием ответного Close.
                 // Может бросить исключение если сокет уже в статусе Close.
-                await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, closeDescription, CancellationToken.None).ConfigureAwait(false);
+                await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, closeDescription, CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -258,15 +264,17 @@ namespace vRPC
                 // Завершить поток.
                 return;
             }
+
+            // Благодаря событию WebSocket.Disconnect у нас гарантированно вызовется AtomicDispose.
         }
 
         /// <summary>
-        /// Отправляет сообщение Close.
+        /// Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
         /// Не бросает исключения.
         /// </summary>
-        private void SendClose()
+        private Task SendCloseAsync()
         {
-            SendClose(_closeDescription);
+            return SendCloseAsync(_closeDescription);
         }
 
         /// <summary>
@@ -281,7 +289,7 @@ namespace vRPC
             string remoteMethodName = GetProxyMethodName(targetMethod);
 
             // Создаём запрос для отправки.
-            var requestToSend = new RequestMessage(resultType, $"{controllerName}/{remoteMethodName}", Message.PrepareArgs(args));
+            var requestToSend = new RequestMessage(resultType, $"{controllerName}/{remoteMethodName}", args);
 
             // Сериализуем запрос в память.
             SerializedMessageToSend serMsg = SerializeRequest(requestToSend);
@@ -304,7 +312,7 @@ namespace vRPC
             string remoteMethodName = ClientSideConnection.ProxyMethodName.GetOrAdd(targetMethod, m => m.GetNameTrimAsync());
 
             // Создаём запрос для отправки.
-            var requestToSend = new RequestMessage(resultType, $"{controllerName}/{remoteMethodName}", Message.PrepareArgs(args));
+            var requestToSend = new RequestMessage(resultType, $"{controllerName}/{remoteMethodName}", args);
 
             // Сериализуем запрос в память. Лучше выполнить до подключения.
             SerializedMessageToSend serMsg = SerializeRequest(requestToSend);
@@ -688,13 +696,16 @@ namespace vRPC
 
                             // Получен ожидаемый ответ на запрос.
                             if (Interlocked.Decrement(ref _reqAndRespCount) != -1)
-                            // Был запрос на остановку.
                             {
                                 continue;
                             }
                             else
+                            // Пользователь запросил остановку сервиса.
                             {
-                                SendClose();
+                                // Не бросает исключения.
+                                await SendCloseAsync();
+
+                                // Завершить поток.
                                 return;
                             }
                         }
@@ -796,11 +807,7 @@ namespace vRPC
             var serMsg = new SerializedMessageToSend(requestToSend);
             try
             {
-                var request = new RequestMessageDto
-                {
-                    ActionName = requestToSend.ActionName,
-                    Args = requestToSend.Args,
-                };
+                var request = new RequestMessageDto(requestToSend.ActionName, requestToSend.Args);
                 //ExtensionMethods.SerializeObjectJson(serMsg.MemoryStream, request);
                 ExtensionMethods.SerializeObjectBson(serMsg.MemPoolStream, request);
             }
@@ -1003,9 +1010,12 @@ namespace vRPC
                                 continue;
                             }
                             else
-                            // Был заказ на остановку.
+                            // Пользователь запросил остановку сервиса.
                             {
-                                SendClose();
+                                // Не бросает исключения.
+                                await SendCloseAsync();
+
+                                // Завершить поток.
                                 return;
                             }
                         }
@@ -1366,7 +1376,8 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Потокобезопасно освобождает ресурсы соединения. Вызывается при обрыве соединения.
+        /// Потокобезопасно освобождает ресурсы соединения. Вызывается при закрытии соединения.
+        /// Взводит <see cref="Completion"/>.
         /// </summary>
         /// <param name="possibleReason">Возможная причина обрыва соединения.</param>
         private void AtomicDispose(CloseReason possibleReason)

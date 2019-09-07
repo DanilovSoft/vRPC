@@ -24,7 +24,7 @@ namespace Server
             Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
             Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
 
-            using (var listener = new Listener(IPAddress.Any, Port))
+            using (var listener = new RpcListener(IPAddress.Any, Port))
             {
                 listener.ConfigureService(ioc =>
                 {
