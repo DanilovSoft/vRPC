@@ -71,22 +71,6 @@ namespace vRPC
             ProtoBuf.Serializer.Serialize(destination, instance);
         }
 
-        //internal static void SerializeObjectProtobuf<T>(Stream destination, T instance)
-        //{
-        //    try
-        //    {
-        //        ProtoBuf.Serializer.Serialize(destination, instance);
-        //        destination.Position = 0;
-        //        var obj = ProtoBuf.Serializer.Deserialize<T>(destination);
-        //    }
-        //    catch (Exception ex)
-        //    {
-
-        //        throw;
-        //    }
-            
-        //}
-
         /// <summary>
         /// Десериализует Json.
         /// </summary>
@@ -127,8 +111,8 @@ namespace vRPC
         {
             var dto = new RequestMessageDto
             {
-                ActionName = "1",
-                Args = Array.Empty<JToken>(),
+                ActionName = "n",
+                Args = new JToken[] { JToken.FromObject(1) }
             };
 
             using (var mem = new MemoryStream())
@@ -265,7 +249,7 @@ namespace vRPC
             }
         }
 
-        public static Exception ToException(this in CloseReason closeReason)
+        public static Exception ToException(this CloseReason closeReason)
         {
             if(closeReason.Error == null)
             // Закрытие было грациозное но нам всёравно нужно исключение.

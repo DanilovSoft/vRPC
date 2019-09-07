@@ -12,13 +12,13 @@ namespace vRPC
     [DebuggerDisplay(@"\{Request: {ActionName,nq}\}")]
     internal sealed class RequestMessage : Message
     {
-        public string ActionName { get; protected set; }
+        public string ActionName { get; }
         public Type ReturnType { get; }
 
         /// <summary>
         /// Конструктор запроса.
         /// </summary>
-        public RequestMessage(Type returnType, string actionName, Arg[] args) : base()
+        public RequestMessage(Type returnType, string actionName, in Arg[] args) : base()
         {
             ReturnType = returnType;
             ActionName = actionName;

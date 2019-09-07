@@ -18,7 +18,7 @@ namespace vRPC
         /// Заголовок располагается в конце этого стрима, так как мы не можем сформировать заголовок 
         /// до сериализации тела сообщения.
         /// </summary>
-        public MemoryPoolStream MemoryStream { get; } = new MemoryPoolStream();
+        public MemoryPoolStream MemPoolStream { get; } = new MemoryPoolStream();
         public Message MessageToSend { get; }
         /// <summary>
         /// Уникальный идентификатор который будет отправлен удалённой стороне.
@@ -45,7 +45,7 @@ namespace vRPC
         /// </summary>
         public void Dispose()
         {
-            MemoryStream.Dispose();
+            MemPoolStream.Dispose();
         }
     }
 }

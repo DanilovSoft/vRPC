@@ -5,7 +5,7 @@ using System.Text;
 
 namespace vRPC
 {
-    public readonly struct CloseReason
+    public sealed class CloseReason
     {
         internal static readonly CloseReason NotConnectedError = FromException(
             new InvalidOperationException("Произошло обращение к Completion до того как соединение было установлено."));
@@ -17,15 +17,18 @@ namespace vRPC
         /// <summary>
         /// Может быть <see langword="null"/> если разъединение завершилось грациозно.
         /// </summary>
-        public readonly Exception Error { get; }
+        public Exception Error { get; }
         /// <summary>
         /// Сообщение от удалённой стороны указывающее причину разъединения.
         /// Если текст совпадает с переданным в метод Stop то разъединение произошло по вашей инициативе.
         /// Может быть <see langword="null"/>.
         /// </summary>
-        public readonly string CloseDescription { get; }
-        public readonly string AdditionalDescription { get; }
-        internal readonly WebSocketCloseStatus? CloseStatus { get; }
+        public string CloseDescription { get; }
+        /// <summary>
+        /// Может быть <see langword="null"/>. Не зависит от <see cref="Gracifully"/>.
+        /// </summary>
+        public string AdditionalDescription { get; }
+        internal WebSocketCloseStatus? CloseStatus { get; }
 
         internal static CloseReason FromException(Exception ex, string additionalDescription = null)
         {

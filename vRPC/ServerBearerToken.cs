@@ -3,13 +3,13 @@ using System;
 
 namespace vRPC
 {
-    [ProtoContract]
-    internal struct ServerBearerToken
-    {
-        [ProtoMember(1)]
-        public int UserId;
+    //[ProtoContract]
+    //internal struct ServerBearerToken
+    //{
+    //    [ProtoMember(1)]
+    //    public int UserId;
 
-        [ProtoMember(2, DataFormat = DataFormat.WellKnown)]
-        public DateTime Validity;
-    }
+    //    [ProtoMember(2, DataFormat = DataFormat.WellKnown)]
+    //    public DateTime Validity;
+    //}
 }

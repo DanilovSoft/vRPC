@@ -13,7 +13,7 @@ namespace vRPC
         public CloseReason DisconnectReason { get; }
 
         [DebuggerStepThrough]
-        public SocketDisconnectedEventArgs(in CloseReason closeResult)
+        public SocketDisconnectedEventArgs(CloseReason closeResult)
         {
             DisconnectReason = closeResult;
         }

@@ -12,9 +12,10 @@ namespace vRPC
     /// </summary>
     [ProtoContract]
     [DebuggerDisplay(@"\{Status = {StatusCode}, Content = {ContentLength} байт\}")]
-    internal sealed class HeaderDto
+    internal readonly struct HeaderDto
     {
         public const int HeaderMaxSize = 64;
+        public static readonly HeaderDto Empty = default;
         private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
 
         [ProtoMember(1)]
@@ -31,53 +32,34 @@ namespace vRPC
         /// следует использовать формат по умолчанию.
         /// </summary>
         [ProtoMember(4, IsRequired = false)]
-        public string ContentEncoding { get; set; }
+        public string ContentEncoding { get; }
 
-        // Для сериализатора.
-        private HeaderDto()
+        /// <summary>
+        /// Создаёт заголовок ответа на запрос.
+        /// </summary>
+        public static HeaderDto FromResponse(ushort uid, StatusCode responseCode, int contentLength, string contentEncoding)
         {
-
+            return new HeaderDto(uid, responseCode, contentLength, contentEncoding);
         }
 
-        public HeaderDto(ushort uid, StatusCode statusCode, int contentLength)
+        /// <summary>
+        /// Создаёт заголовок для нового запроса.
+        /// </summary>
+        public static HeaderDto CreateRequest(ushort uid, int contentLength)
+        {
+            return new HeaderDto(uid, StatusCode.Request, contentLength, null);
+        }
+
+        /// <summary>
+        /// Конструктор заголовка и для ответа и для запроса.
+        /// </summary>
+        private HeaderDto(ushort uid, StatusCode responseCode, int contentLength, string contentEncoding)
         {
             Uid = uid;
-            StatusCode = statusCode;
+            StatusCode = responseCode;
             ContentLength = contentLength;
+            ContentEncoding = contentEncoding;
         }
-
-        ///// <summary>
-        ///// У заголовка в самом начале записан префикс фиксированного размера.
-        ///// </summary>
-        ///// <param name="source"></param>
-        ///// <param name="headerLength">Размер хэдера с учётом префикса.</param>
-        ///// <returns></returns>
-        //public static bool TryGetHeaderLength(byte[] buffer, int count, out int headerLength)
-        //{
-        //    // Заголовок сообщения находится в самом начале.
-        //    bool gotHeaderPrefix = ProtoBufSerializer.TryReadLengthPrefix(buffer, 0, count, HeaderLengthPrefix, out headerLength);
-
-        //    headerLength += 4; // С учётом размера префикса Fixed32.
-
-        //    if (headerLength > HeaderMaxSize)
-        //        throw new InvalidOperationException(HeaderSizeExceededException);
-
-        //    return gotHeaderPrefix && count >= headerLength;
-        //}
-
-        //public void SerializeWithLengthPrefix(Stream destination, out int headerSizeWithPrefix)
-        //{
-        //    long initialPos = destination.Position;
-
-        //    // Сериализуем хедэр с префикс размером в начале.
-        //    ProtoBufSerializer.SerializeWithLengthPrefix(destination, this, HeaderLengthPrefix);
-
-        //    headerSizeWithPrefix = (int)(destination.Position - initialPos);
-
-        //    Debug.Assert(headerSizeWithPrefix <= HeaderMaxSize);
-        //    if (headerSizeWithPrefix > HeaderMaxSize)
-        //        throw new InvalidOperationException(HeaderSizeExceededException);
-        //}
 
         /// <summary>
         /// Сериализует заголовок. Не должно бросать исключения(!).
@@ -111,20 +93,6 @@ namespace vRPC
                 HeaderDto header = ProtoBufSerializer.Deserialize<HeaderDto>(mem);
                 return header; // может быть null если не удалось десериализовать.
             }
-            //throw new ApplicationException("Результатом десериализации оказался Null.");
-        }
-
-        /// <summary>
-        /// Может вернуть <see langword="null"/> если не удалось десериализовать.
-        /// </summary>
-        public static HeaderDto DeserializeProtobuf(Stream stream)
-        {
-            //using (var mem = new MemoryStream(buffer, offset, count))
-            {
-                HeaderDto header = ProtoBufSerializer.Deserialize<HeaderDto>(stream);
-                return header; // может быть null если не удалось десериализовать.
-            }
-            //throw new ApplicationException("Результатом десериализации оказался Null.");
         }
 
         /// <summary>
@@ -140,5 +108,15 @@ namespace vRPC
                     return ExtensionMethods.DeserializeJson; // Сериализатор по умолчанию.
             }
         }
+
+        //public static bool operator ==(in HeaderDto a, in HeaderDto b)
+        //{
+        //    return a.Equals(b);
+        //}
+
+        //public static bool operator !=(in HeaderDto a, in HeaderDto b)
+        //{
+        //    return !a.Equals(b);
+        //}
     }
 }

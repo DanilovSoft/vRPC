@@ -22,7 +22,7 @@ namespace vRPC
         /// </summary>
         public RequestMessageDto RequestDto { get; }
 
-        public RequestContext(HeaderDto header, RequestMessageDto receivedRequest)
+        public RequestContext(in HeaderDto header, RequestMessageDto receivedRequest)
         {
             HeaderDto = header;
             RequestDto = receivedRequest;

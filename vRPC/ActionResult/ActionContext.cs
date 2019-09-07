@@ -14,6 +14,7 @@ namespace vRPC
         public StatusCode StatusCode { get; internal set; }
         internal string ProducesEncoding { get; set; }
 
+        [DebuggerStepThrough]
         internal ActionContext(RequestContext requestContext, Stream responseStream)
         {
             RequestContext = requestContext;

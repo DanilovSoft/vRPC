@@ -7,7 +7,8 @@ using System.Threading.Tasks;
 namespace vRPC.Decorator
 {
     /// <summary>
-    /// От этого класса наследуются динамические типы и пользовательский интерфейс. Поэтому должен быть публичным и не запечатанным.
+    /// От этого класса наследуются динамические типы и пользовательский интерфейс. 
+    /// Поэтому должен быть публичным и не запечатанным.
     /// </summary>
     public class ClientInterfaceProxy : ICloneable, IInterfaceProxy
     {

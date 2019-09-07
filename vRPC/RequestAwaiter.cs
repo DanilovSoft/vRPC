@@ -12,10 +12,9 @@ namespace vRPC
     [DebuggerDisplay(@"\{Request: {Request.ActionName,nq}\}")]
     internal sealed class RequestAwaiter : INotifyCompletion
     {
-        //[DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
         public RequestMessage Request { get; }
         /// <summary>
-        /// Флаг используется как fast-path
+        /// Флаг используется как fast-path.
         /// </summary>
         private volatile bool _isCompleted;
         [DebuggerNonUserCode]
@@ -33,14 +32,18 @@ namespace vRPC
         [DebuggerStepThrough]
         public RequestAwaiter GetAwaiter() => this;
 
-        //[DebuggerStepThrough]
         [DebuggerNonUserCode]
         public object GetResult()
         {
             if (_exception == null)
+            {
                 return _response;
+            }
             else
+            {
+                // Результатом является исключение.
                 throw _exception;
+            }
         }
 
         /// <summary>

@@ -14,7 +14,7 @@ namespace vRPC
         public CloseReason CloseReason { get; }
 
         [DebuggerStepThrough]
-        public ClientDisconnectedEventArgs(ServerSideConnection clientContext, in CloseReason closeReason)
+        public ClientDisconnectedEventArgs(ServerSideConnection clientContext, CloseReason closeReason)
         {
             Connection = clientContext;
             CloseReason = closeReason;
