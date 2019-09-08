@@ -74,11 +74,13 @@ namespace Client
 
                         var homeController = client.GetProxy<IServerHomeController>();
 
-                        bool exit = false;
-                        while (!exit)
+                        while (true)
                         {
-                            while (!client.ConnectAsync().GetAwaiter().GetResult().Success)
+                            while (client.ConnectAsync().GetAwaiter().GetResult().State == ConnectState.RetryLater)
                                 Thread.Sleep(400);
+
+                            if (client.State == ConnectState.Stopped)
+                                break;
 
                             while (true)
                             {
@@ -86,9 +88,8 @@ namespace Client
                                 {
                                     DateTime date = homeController.DummyCall("Test");
                                 }
-                                catch (StopRequiredException ex)
+                                catch (StopRequiredException)
                                 {
-                                    exit = true;
                                     break;
                                 }
                                 catch (Exception ex)

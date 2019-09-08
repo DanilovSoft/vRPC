@@ -56,9 +56,9 @@ namespace vRPC
         public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
         private Action<ServiceProvider> _configureApp;
         /// <summary>
-        /// Не позволяет подключаться новым клиентам. Единожны меняет состояние на <see langword="true"/>.
+        /// Не позволяет подключаться новым клиентам. Единожны меняет состояние.
         /// </summary>
-        private volatile bool _stopRequired;
+        private volatile StopRequired _stopRequired;
         public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
         public TimeSpan ClientReceiveTimeout { get => _wsServ.ClientReceiveTimeout; set => _wsServ.ClientReceiveTimeout = value; }
 
@@ -135,11 +135,14 @@ namespace vRPC
 
         private async void BeginStop(TimeSpan timeout, string closeDescription)
         {
+            StopRequired stopRequired;
             lock (StartLock)
             {
-                if (!_stopRequired)
+                stopRequired = _stopRequired;
+                if (stopRequired == null)
                 {
-                    _stopRequired = true;
+                    stopRequired = new StopRequired(timeout, closeDescription);
+                    _stopRequired = stopRequired;
 
                     // Прекратить приём новых соединений.
                     _wsServ.Dispose();
@@ -159,42 +162,34 @@ namespace vRPC
                 }
             }
 
-            // Грациозно останавливаем соединения.
-            foreach (var con in activeConnections)
-            {
-                // Прекращаем принимать запросы.
-                con.RequireStop(closeDescription);
-            }
-
-            bool gracefully;
             if (activeConnections.Length > 0)
             {
-                var allConnTask = Task.WhenAll(activeConnections.Select(x => x.Completion));
-                var timeoutTask = Task.Delay(timeout);
+                var tasks = new Task<bool>[activeConnections.Length];
 
-                if (await Task.WhenAny(allConnTask, timeoutTask).ConfigureAwait(false) != timeoutTask)
+                // Грациозно останавливаем соединения.
+                for (int i = 0; i < activeConnections.Length; i++)
                 {
-                    gracefully = true;
-                }
-                else
-                // Истекло время ожидания грациозного завершения.
-                {
-                    gracefully = false;
+                    var con = activeConnections[i];
+
+                    // Прекращаем принимать запросы.
+                    tasks[i] = con.StopAsync(stopRequired);
                 }
 
-                foreach (var con in activeConnections)
-                {
-                    con.CloseAndDispose(timeout);
-                }
+                var allConnTask = await Task.WhenAll(tasks).ConfigureAwait(false);
+
+                // Грациозная остановка сервера это когда все клиенты
+                // отключились до достижения таймаута.
+                bool gracefully = allConnTask.All(x => x == true);
+
+                // Установить Completion.
+                _completionTcs.TrySetResult(gracefully);
             }
             else
             // К серверу не было установлено ни одного соединения.
             {
-                gracefully = true;
+                // Установить Completion.
+                _completionTcs.TrySetResult(true);
             }
-
-            // Установить Completion.
-            _completionTcs.TrySetResult(gracefully);
         }
 
         /// <summary>
@@ -234,7 +229,7 @@ namespace vRPC
         {
             Debug.Assert(Monitor.IsEntered(StartLock));
 
-            if (!_stopRequired)
+            if (_stopRequired == null)
             {
                 if (!_started)
                 {
@@ -254,34 +249,54 @@ namespace vRPC
         private void Listener_OnConnected(object sender, DanilovSoft.WebSocket.ClientConnectedEventArgs e)
         {
             // Возможно сервер находится в режиме остановки.
-            ServerSideConnection context;
+            ServerSideConnection connection;
             lock (_connections.SyncObj)
             {
-                if (!_stopRequired) // volatile.
+                if (_stopRequired == null) // volatile.
                 {
                     // Создать контекст для текущего подключения.
-                    context = new ServerSideConnection(e.Connection, _serviceProvider, listener: this);
-
-                    _connections.Add(context);
+                    connection = new ServerSideConnection(e.WebSocket, _serviceProvider, listener: this);
+                    
+                    _connections.Add(connection);
                 }
                 else
+                // Был запрос на остановку сервера но кто-то успел подключиться.
                 {
-                    e.Connection.Abort();
-                    context = null;
+                    // Начать закрытие сокета.
+                    CloseWebSocket(e.WebSocket, _stopRequired.CloseDescription);
+
+                    // Игнорируем это подключение.
+                    connection = null;
                 }
             }
 
-            if (context != null)
+            if (connection != null)
             {
                 // Сервер разрешил установку этого соединения, можно начать чтение.
-                context.StartReceive();
+                connection.InitStartThreads();
 
                 // Сначала нужно запустить чтение, а потом вызвать событие.
-                ClientConnected?.Invoke(this, new ClientConnectedEventArgs(context));
+                ClientConnected?.Invoke(this, new ClientConnectedEventArgs(connection));
 
                 // Состояние гонки здесь отсутствует.
                 // Событие гарантирует что обрыв пропущен не будет.
-                context.Disconnected += Context_Disconnected;
+                connection.Disconnected += Context_Disconnected;
+            }
+        }
+
+        private static async void CloseWebSocket(ManagedWebSocket ws, string closeDescription)
+        {
+            using (ws)
+            {
+                try
+                {
+                    await ws.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
+                        closeDescription, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(ex);
+                }
             }
         }
 

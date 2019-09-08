@@ -44,13 +44,6 @@ namespace vRPC
             return _proxyCache.GetProxy<T>(this);
         }
 
-        // Вызывается после конструктора.
-        internal void StartReceive()
-        {
-            // Начать обработку запросов текущего пользователя.
-            StartReceivingLoop();
-        }
-
         ///// <summary>
         ///// Производит авторизацию текущего подключения.
         ///// </summary>

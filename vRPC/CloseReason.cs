@@ -9,6 +9,9 @@ namespace vRPC
     [DebuggerDisplay(@"\{Gracifully = {Gracifully}\}")]
     public sealed class CloseReason
     {
+        /// <summary>
+        /// "Соединение не установлено."
+        /// </summary>
         internal static readonly CloseReason NoConnectionError = FromException(
             new ConnectionClosedException("Соединение не установлено."));
 

@@ -11,13 +11,13 @@ namespace vRPC
     internal readonly struct ConnectionResult
     {
         public ReceiveResult ReceiveResult { get; }
-        public ManagedConnection Context { get; }
+        public ManagedConnection Connection { get; }
 
         [DebuggerStepThrough]
         public ConnectionResult(in ReceiveResult receiveResult, ManagedConnection context)
         {
             ReceiveResult = receiveResult;
-            Context = context;
+            Connection = context;
         }
     }
 }

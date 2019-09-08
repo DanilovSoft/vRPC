@@ -54,7 +54,7 @@ namespace vRPC
         /// </summary>
         public Task<CloseReason> Completion => _completionTcs.Task;
         //private readonly bool _isServer;
-        public ServiceProvider ServiceProvider { get; private set; }
+        public ServiceProvider ServiceProvider { get; }
         /// <summary>
         /// Подключенный TCP сокет.
         /// </summary>
@@ -74,10 +74,11 @@ namespace vRPC
         /// <summary>
         /// <see langword="true"/> если происходит остановка сервиса.
         /// Используется для проверки возможности начать новый запрос.
+        /// Использовать через блокировку <see cref="StopRequiredLock"/>.
         /// </summary>
-        private volatile bool _stopRequired;
+        private volatile StopRequired _stopRequired;
         /// <summary>
-        /// Предотвращает повторный вызов <see cref="RequireStop(string)"/>.
+        /// Предотвращает повторный вызов Stop.
         /// </summary>
         private object StopRequiredLock => _completionTcs;
         /// <summary>
@@ -131,10 +132,10 @@ namespace vRPC
         /// После <see langword="false"/> текущий экземпляр не может стать <see langword="true"/>.
         /// </summary>
         public bool IsConnected => _isConnected;
-        /// <summary>
-        /// Причина грациозного закрытия соединения которую устанавливает пользователь перед разъединением.
-        /// </summary>
-        private volatile string _closeDescription;
+        ///// <summary>
+        ///// Причина грациозного закрытия соединения которую устанавливает пользователь перед разъединением.
+        ///// </summary>
+        //private volatile string _closeDescription;
 
         // static ctor.
         static ManagedConnection()
@@ -172,18 +173,29 @@ namespace vRPC
                 SingleWriter = false,
             });
 
-            // Запустить диспетчер отправки сообщений.
-            // Может спровоцировать Disconnect раньше.
-            // Эта ситуация должна быть синхронизирована.
+            // Не может сработать сразу потому что пока не запущен 
+            // поток чтения или отправки – некому спровоцировать событие.
+            _socket.Disconnected += WebSocket_Disconnected;
+        }
+
+        /// <summary>
+        /// Запускает бесконечный цикл обработки запросов.
+        /// </summary>
+        internal void InitStartThreads()
+        {
+            // Запустить цикл отправки сообщений.
             ThreadPool.UnsafeQueueUserWorkItem(state =>
             {
                 // Не бросает исключения.
                 ((ManagedConnection)state).SenderLoop();
             }, this); // Без замыкания.
 
-            // Лучше подписаться в конце.
-            // Может сработать сразу.
-            _socket.Disconnected += WebSocket_Disconnected;
+            // Запустить цикл приёма сообщений.
+            ThreadPool.UnsafeQueueUserWorkItem(state =>
+            {
+                // Не бросает исключения.
+                ((ManagedConnection)state).ReceiveLoop();
+            }, this); // Без замыкания.
         }
 
         private void WebSocket_Disconnected(object sender, DanilovSoft.WebSocket.SocketDisconnectedEventArgs e)
@@ -201,35 +213,72 @@ namespace vRPC
         }
 
         /// <summary>
-        /// Запрещает отправку новых запросов; Ожидает когда завершатся текущие запросы 
-        /// и отправляет удалённой стороне сообщение о закрытии соединения с ожиданием подтверджения.
-        /// Взводит <see cref="Completion"/>.
+        /// Вызывает Dispose распространяя исключение <see cref="StopRequiredException"/> ожидающим потокам.
         /// Не бросает исключения.
         /// Потокобезопасно.
         /// </summary>
-        /// <param name="closeDescription">Может быть <see langword="null"/>.</param>
-        internal void RequireStop(string closeDescription)
+        /// <param name="afterTimeout">Таймаут использованный ранее для остановки сервиса. 
+        /// Будет использован для объяснения ожидающим потокам причины закрытия соединения.</param>
+        private void CloseAndDispose(StopRequired stopRequired)
         {
+            AtomicDispose(CloseReason.FromException(new StopRequiredException(stopRequired)));
+        }
+
+        /// <summary>
+        /// Запрещает отправку новых запросов; Ожидает когда завершатся текущие запросы 
+        /// и отправляет удалённой стороне сообщение о закрытии соединения с ожиданием подтверджения.
+        /// Затем выполняет Dispose, взводит <see cref="Completion"/> и 
+        /// возвращает <see langword="true"/> если остановка завершилась раньше таймаута.
+        /// Не бросает исключения.
+        /// Потокобезопасно.
+        /// </summary>
+        internal async Task<bool> StopAsync(StopRequired stopRequired)
+        {
+            bool firstTime;
             lock (StopRequiredLock)
             {
-                if (!_stopRequired)
+                if (_stopRequired == null)
                 {
-                    // Запретить выполнять новые запросы.
-                    _stopRequired = true; // volatile.
+                    firstTime = true;
 
+                    // Запретить выполнять новые запросы.
                     // Запомнить причину отключения что-бы позднее передать её удалённой стороне.
-                    _closeDescription = closeDescription; // volatile.
+                    _stopRequired = stopRequired; // volatile.
 
                     if (Interlocked.Decrement(ref _reqAndRespCount) == -1)
                     // Нет ни одного ожадающего запроса.
                     {
                         // Можно безопасно остановить сокет.
                         // Не бросает исключения.
-                        SendCloseAsync(closeDescription).GetAwaiter();
+                        SendCloseAsync(stopRequired.CloseDescription).GetAwaiter();
                     }
                     // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
                     // Это будет соглашением о необходимости остановки.
                 }
+                else
+                {
+                    firstTime = false;
+                    stopRequired = _stopRequired;
+                }
+            }
+
+            if (firstTime)
+            {
+                // Подождать грациозную остановку.
+                var timeoutTask = Task.Delay(stopRequired.Timeout);
+                var t = await Task.WhenAny(Completion, timeoutTask).ConfigureAwait(false);
+
+                // Не бросает исключения.
+                CloseAndDispose(stopRequired);
+
+                bool gracefully = t != timeoutTask;
+
+                // Передать результат другим потокам которые вызовут Stop.
+                return stopRequired.SetTaskAndReturn(gracefully);
+            }
+            else
+            {
+                return await stopRequired.Task.ConfigureAwait(false);
             }
         }
 
@@ -272,9 +321,9 @@ namespace vRPC
         /// Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
         /// Не бросает исключения.
         /// </summary>
-        private Task SendCloseAsync()
+        private Task SendCloseBeforeStopAsync()
         {
-            return SendCloseAsync(_closeDescription);
+            return SendCloseAsync(_stopRequired.CloseDescription);
         }
 
         /// <summary>
@@ -418,19 +467,6 @@ namespace vRPC
         private string GetProxyMethodName(MethodInfo method)
         {
             return _proxyMethodName.GetOrAdd(method, valueFactory: m => m.GetNameTrimAsync());
-        }
-
-        /// <summary>
-        /// Запускает бесконечный цикл, в фоновом потоке, считывающий из сокета запросы и ответы.
-        /// </summary>
-        internal void StartReceivingLoop()
-        {
-            ThreadPool.UnsafeQueueUserWorkItem(state =>
-            {
-                // Не бросает исключения.
-                ((ManagedConnection)state).ReceiveLoop();
-                
-            }, this); // Без замыкания.
         }
 
         private async void ReceiveLoop()
@@ -703,7 +739,7 @@ namespace vRPC
                             // Пользователь запросил остановку сервиса.
                             {
                                 // Не бросает исключения.
-                                await SendCloseAsync();
+                                await SendCloseBeforeStopAsync();
 
                                 // Завершить поток.
                                 return;
@@ -1013,7 +1049,7 @@ namespace vRPC
                             // Пользователь запросил остановку сервиса.
                             {
                                 // Не бросает исключения.
-                                await SendCloseAsync();
+                                await SendCloseBeforeStopAsync();
 
                                 // Завершить поток.
                                 return;
@@ -1346,20 +1382,10 @@ namespace vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowIfStopRequired()
         {
-            if (!_stopRequired)
+            if (_stopRequired == null)
                 return;
 
-            throw new StopRequiredException();
-        }
-
-        /// <summary>
-        /// Вызывает Dispose распространяя исключение <see cref="StopRequiredException"/> другим потокам.
-        /// Потокобезопасно.
-        /// Не бросает исключения.
-        /// </summary>
-        internal void CloseAndDispose(TimeSpan afterTimeout)
-        {
-            AtomicDispose(CloseReason.FromException(new StopRequiredException(afterTimeout)));
+            throw new StopRequiredException(_stopRequired);
         }
 
         /// <summary>

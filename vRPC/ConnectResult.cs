@@ -8,13 +8,13 @@ namespace vRPC
 {
     public readonly struct ConnectResult
     {
-        public bool Success { get; }
+        public ConnectState State { get; }
         public SocketError SocketError { get; }
 
         [DebuggerStepThrough]
-        internal ConnectResult(bool success, SocketError socketError)
+        internal ConnectResult(ConnectState connectState, SocketError socketError)
         {
-            Success = success;
+            State = connectState;
             SocketError = socketError;
         }
     }

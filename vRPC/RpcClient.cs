@@ -8,7 +8,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
+//using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
 
 namespace vRPC
 {
@@ -34,19 +34,27 @@ namespace vRPC
         private ApplicationBuilder _appBuilder;
         public ServiceProvider ServiceProvider { get; private set; }
         private Action<ApplicationBuilder> _configureApp;
-        private volatile ClientSideConnection _context;
+        /// <summary>
+        /// Устанавливается в блокировке <see cref="StateLock"/>.
+        /// </summary>
+        private volatile ClientSideConnection _connection;
         /// <summary>
         /// Завершается если подключение разорвано или не установлено.
         /// Не бросает исключения.
         /// </summary>
-        public Task<CloseReason> Completion => _context?.Completion ?? Task.FromResult(CloseReason.NoConnectionError);
-        public bool IsConnected => _context?.IsConnected ?? false;
-        private volatile bool _stopRequired;
+        public Task<CloseReason> Completion => _connection?.Completion ?? Task.FromResult(CloseReason.NoConnectionError);
+        public bool IsConnected => _connection?.IsConnected ?? false;
+        private StopRequired _stopRequired;
         private bool _disposed;
         /// <summary>
         /// Для доступа к <see cref="_disposed"/> и <see cref="_stopRequired"/>.
         /// </summary>
-        private object DisposeLock => _proxyCache;
+        private object StateLock => _proxyCache;
+        //public RpcClientState State { get; private set; }
+        /// <summary>
+        /// Используется только что-бы аварийно прервать подключение через Dispose.
+        /// </summary>
+        private ClientWebSocket _connectingWs;
 
         static RpcClient()
         {
@@ -115,7 +123,6 @@ namespace vRPC
         /// Может произойти исключение после вызова Dispose или если был вызван Stop.
         /// Потокобезопасно.
         /// </summary>
-        /// <exception cref="StopRequiredException"/>
         /// <exception cref="ObjectDisposedException"/>
         public Task<ConnectResult> ConnectAsync()
         {
@@ -140,8 +147,9 @@ namespace vRPC
         }
 
         /// <summary>
-        /// 
+        /// Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
         /// </summary>
+        /// <typeparam name="T">Интерфейс.</typeparam>
         public T GetProxy<T>()
         {
             return _proxyCache.GetProxy<T>(ContextCallback);
@@ -156,7 +164,7 @@ namespace vRPC
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         public void Stop(TimeSpan timeout, string closeDescription = null)
         {
-            BeginStop(timeout, closeDescription).GetAwaiter();
+            PrivateStopAsync(timeout, closeDescription).GetAwaiter();
         }
 
         /// <summary>
@@ -169,37 +177,72 @@ namespace vRPC
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         public Task<bool> StopAsync(TimeSpan timeout, string closeDescription = null)
         {
-            return BeginStop(timeout, closeDescription);
+            return PrivateStopAsync(timeout, closeDescription);
         }
 
-        private async Task<bool> BeginStop(TimeSpan timeout, string closeDescription)
+        private async Task<bool> PrivateStopAsync(TimeSpan timeout, string closeDescription)
         {
-            // Больше клиент не должен переподключаться.
-            _stopRequired = true;
-
-            var context = _context;
-            if (context != null)
+            bool created;
+            StopRequired stopRequired;
+            ClientSideConnection connection;
+            lock (StateLock)
             {
-                context.RequireStop(closeDescription);
+                stopRequired = _stopRequired;
+                if (stopRequired == null)
+                {
+                    stopRequired = new StopRequired(timeout, closeDescription);
+                    _stopRequired = stopRequired;
+                    created = true;
 
-                var timeoutTask = Task.Delay(timeout);
-                var t = await Task.WhenAny(context.Completion, Task.Delay(timeout)).ConfigureAwait(false);
-
-                // Не бросает исключения.
-                context.CloseAndDispose(timeout);
-
-                bool gracefully = t != timeoutTask;
-                return gracefully;
+                    // Скопировать пока мы в блокировке.
+                    connection = _connection;
+                }
+                else
+                {
+                    created = false;
+                    connection = null;
+                }
             }
-            return true;
+
+            bool gracifully;
+
+            if (created)
+            // Только один поток зайдёт сюда.
+            {
+                if (connection != null)
+                // Существует живое соединение.
+                {
+                    gracifully = await connection.StopAsync(stopRequired).ConfigureAwait(false);
+                }
+                else
+                // Соединения не существует и новые создаваться не смогут.
+                {
+                    // Передать результат другим потокам которые повторно вызовут Stop.
+                    gracifully = stopRequired.SetTaskAndReturn(true);
+                }
+            }
+            else
+            // Другой поток уже начал остановку.
+            {
+                gracifully = await stopRequired.Task.ConfigureAwait(false);
+            }
+
+            return gracifully;
         }
 
+        /// <summary>
+        /// Возвращает существующее подключение или создаёт новое, когда 
+        /// происходит вызов метода интерфеса.
+        /// </summary>
         private ValueTask<ManagedConnection> ContextCallback()
         {
-            if (!_stopRequired)
+            // volatile копия.
+            var stopRequired = _stopRequired;
+
+            if (stopRequired == null)
             {
                 // Копия volatile.
-                var context = _context;
+                var context = _connection;
 
                 if (context != null)
                 // Есть живое соединение.
@@ -214,7 +257,7 @@ namespace vRPC
                     {
                         ConnectionResult connectionResult = t.Result;
                         if (connectionResult.ReceiveResult.IsReceivedSuccessfully)
-                            return new ValueTask<ManagedConnection>(connectionResult.Context);
+                            return new ValueTask<ManagedConnection>(connectionResult.Connection);
 
                         return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(connectionResult.ReceiveResult.ToException()));
                     }
@@ -225,10 +268,10 @@ namespace vRPC
                 }
             }
             else
-            // Установлен флаг _stopRequired.
+            // Был запрос на остановку.
             {
                 return new ValueTask<ManagedConnection>(
-                   Task.FromException<ManagedConnection>(new StopRequiredException()));
+                   Task.FromException<ManagedConnection>(new StopRequiredException(stopRequired)));
             }
         }
 
@@ -237,7 +280,7 @@ namespace vRPC
             ConnectionResult connectionResult = await t.ConfigureAwait(false);
 
             if (connectionResult.ReceiveResult.IsReceivedSuccessfully)
-                return connectionResult.Context;
+                return connectionResult.Connection;
 
             throw connectionResult.ReceiveResult.ToException();
         }
@@ -247,7 +290,8 @@ namespace vRPC
         /// </summary>
         private void Disconnected(object sender, SocketDisconnectedEventArgs e)
         {
-            _context = null;
+            // volatile.
+            _connection = null;
         }
 
         /// <summary>
@@ -256,7 +300,7 @@ namespace vRPC
         private ValueTask<ConnectionResult> ConnectIfNeededAsync()
         {
             // Копия volatile.
-            var context = _context;
+            var context = _connection;
 
             if (context != null)
             // Есть живое соединение.
@@ -286,29 +330,38 @@ namespace vRPC
             return await LockAquiredConnectAsync(releaser).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="ObjectDisposedException"/>
         private async ValueTask<ConnectionResult> LockAquiredConnectAsync(ChannelLock.Releaser conLock)
         {
             using (conLock)
             {
                 // Копия volatile.
-                var context = _context;
+                var connection = _connection;
 
-                if (context == null)
+                if (connection == null)
                 {
-                    // Мы в блокировке поэтому можно безопасно проверить свойство.
-                    if (_stopRequired)
-                        throw new StopRequiredException();
-
                     ServiceProvider serviceProvider = ServiceProvider;
-                    lock (DisposeLock)
+                    lock (StateLock)
                     {
                         if (!_disposed)
                         {
-                            if (serviceProvider == null)
+                            if (_stopRequired != null)
                             {
-                                var serviceCollection = new ServiceCollection();
-                                serviceProvider = ConfigureIoC(serviceCollection);
-                                ServiceProvider = serviceProvider;
+                                // Нельзя создавать новое подключение если был вызван Stop.
+                                throw new StopRequiredException(_stopRequired);
+                            }
+                            else
+                            {
+                                if (serviceProvider == null)
+                                {
+                                    var serviceCollection = new ServiceCollection();
+                                    serviceProvider = ConfigureIoC(serviceCollection);
+                                    ServiceProvider = serviceProvider;
+                                }
                             }
                         }
                         else
@@ -321,46 +374,83 @@ namespace vRPC
                     _configureApp?.Invoke(_appBuilder);
 
                     // Новый сокет.
-                    var ws = new MyClientWebSocket();
+                    var ws = new ClientWebSocket();
                     ws.Options.KeepAliveInterval = _appBuilder.KeepAliveInterval;
                     ws.Options.ReceiveTimeout = _appBuilder.ReceiveTimeout;
 
                     ReceiveResult receiveResult;
+
+                    // Позволить Dispose прервать подключение.
+                    Interlocked.Exchange(ref _connectingWs, ws);
+
                     try
                     {
-                        // Простое подключение веб-сокета.
+                        // Обычное подключение Tcp.
                         receiveResult = await ws.ConnectExAsync(_uri, CancellationToken.None).ConfigureAwait(false);
                     }
                     catch (Exception ex)
-                    // Не удалось подключиться (сервер не запущен?).
+                    // Не удалось подключиться (сервер не запущен или вызван Dispose).
                     {
                         ws.Dispose();
                         Debug.WriteLine(ex);
                         throw;
                     }
 
-                    if (receiveResult.IsReceivedSuccessfully)
+                    if(Interlocked.Exchange(ref _connectingWs, null) == null)
+                    // Dispose убил наш экземпляр.
                     {
-                        lock (DisposeLock)
+                        // Больше ничего делать не нужно.
+                        throw new ObjectDisposedException(GetType().FullName);
+                    }
+
+                    if (receiveResult.IsReceivedSuccessfully)
+                    // Соединение успешно установлено.
+                    {
+                        StopRequired stopRequired = null;
+                        lock (StateLock)
                         {
                             if (!_disposed)
                             {
-                                context = new ClientSideConnection(this, ws, serviceProvider, _controllers);
+                                connection = new ClientSideConnection(this, ws, serviceProvider, _controllers);
 
-                                // Косвенно устанавливает флаг IsConnected.
-                                _context = context;
+                                // Скопировать пока мы в блокировке.
+                                stopRequired = _stopRequired;
+
+                                if (stopRequired == null)
+                                {
+                                    // Косвенно устанавливает флаг IsConnected.
+                                    _connection = connection;
+                                }
                             }
                             else
+                            // Был выполнен Dispose в тот момент когда велась попытка установить соединение.
                             {
+                                // В этом случае лучше просто закрыть соединение.
                                 ws.Dispose();
                                 throw new ObjectDisposedException(GetType().FullName);
                             }
                         }
 
-                        context.StartReceivingLoop();
-                        context.Disconnected += Disconnected;
+                        if (stopRequired == null)
+                        // Запроса на остановку сервиса ещё не было.
+                        {
+                            connection.InitStartThreads();
+                            connection.Disconnected += Disconnected;
+                            return new ConnectionResult(ReceiveResult.AllSuccess, connection);
+                        }
+                        else
+                        // Был запрос на остановку сервиса. 
+                        // Он произошел в тот момент когда велась попытка установить соединение.
+                        // Это очень редкий случай но мы должны его предусмотреть.
+                        {
+                            using (connection)
+                            {
+                                // Мы обязаны закрыть это соединение.
+                                await connection.StopAsync(stopRequired).ConfigureAwait(false);
+                            }
 
-                        return new ConnectionResult(ReceiveResult.AllSuccess, context);
+                            throw new StopRequiredException(stopRequired);
+                        }
                     }
                     else
                     // Подключение не удалось.
@@ -370,7 +460,7 @@ namespace vRPC
                     }
                 }
                 else
-                    return new ConnectionResult(ReceiveResult.AllSuccess, context);
+                    return new ConnectionResult(ReceiveResult.AllSuccess, connection);
             }
         }
 
@@ -411,12 +501,16 @@ namespace vRPC
 
         public void Dispose()
         {
-            lock (DisposeLock)
+            lock (StateLock)
             {
                 if (!_disposed)
                 {
                     _disposed = true;
-                    _context?.Dispose();
+
+                    // Прервать установку подключения если она выполняется.
+                    Interlocked.Exchange(ref _connectingWs, null)?.Dispose();
+
+                    _connection?.Dispose();
                     ServiceProvider?.Dispose();
                 }
             }
