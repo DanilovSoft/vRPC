@@ -250,13 +250,13 @@ namespace vRPC
             if(closeReason.Error == null)
             // Закрытие было грациозное но нам всёравно нужно исключение.
             {
-                if(closeReason.WebSocketCloseStatus == WebSocketCloseStatus.NormalClosure)
+                if(closeReason.CloseStatus == WebSocketCloseStatus.NormalClosure)
                 {
-                    return new ConnectionClosedException(closeReason.WebSocketCloseDescription);
+                    return new ConnectionClosedException(closeReason.CloseDescription);
                 }
                 else
                 {
-                    return new ConnectionClosedException(GetMessageFromCloseFrame(closeReason.WebSocketCloseStatus, closeReason.WebSocketCloseDescription));
+                    return new ConnectionClosedException(GetMessageFromCloseFrame(closeReason.CloseStatus, closeReason.CloseDescription));
                 }
             }
             else

@@ -76,10 +76,11 @@ namespace Client
 
                         while (true)
                         {
-                            while (client.ConnectAsync().GetAwaiter().GetResult().State == ConnectState.RetryLater)
+                            ConnectResult conRes;
+                            while ((conRes = client.Connect()).State == ConnectState.RetryLater)
                                 Thread.Sleep(400);
 
-                            if (client.State == ConnectState.Stopped)
+                            if (conRes.State == ConnectState.Stopped)
                                 break;
 
                             while (true)
@@ -102,7 +103,7 @@ namespace Client
                             }
                         }
                         // Подождать грациозное закрытие.
-                        var closeReason = client.Completion.GetAwaiter().GetResult();
+                        CloseReason closeReason = client.WaitCompletion();
                     }
                     Interlocked.Decrement(ref activeThreads);
                 });
@@ -152,7 +153,7 @@ namespace Client
                     Console.WriteLine("Stopping...");
                 }
             }
-            client.Stop(TimeSpan.FromSeconds(100), "Был нажат Ctrl+C");
+            client.BeginStop(TimeSpan.FromSeconds(100), "Был нажат Ctrl+C");
         }
     }
 }

@@ -120,8 +120,25 @@ namespace vRPC
         }
 
         /// <summary>
+        /// Блокирует поток до завершения <see cref="Completion"/>.
+        /// </summary>
+        public CloseReason WaitCompletion()
+        {
+            return Completion.GetAwaiter().GetResult();
+        }
+
+        /// <summary>
         /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-        /// Может произойти исключение после вызова Dispose или если был вызван Stop.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <exception cref="ObjectDisposedException"/>
+        public ConnectResult Connect()
+        {
+            return ConnectAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
         /// Потокобезопасно.
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
@@ -167,21 +184,30 @@ namespace vRPC
         }
 
         /// <summary>
+        /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        public CloseReason Stop(TimeSpan timeout, string closeDescription = null)
+        {
+            return StopAsync(timeout, closeDescription).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
         /// Начинает грациозную остановку. Не блокирует поток.
         /// Результат остановки можно получить через <see cref="Completion"/>.
         /// Потокобезопасно.
         /// </summary>
         /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public void Stop(TimeSpan timeout, string closeDescription = null)
+        public void BeginStop(TimeSpan timeout, string closeDescription = null)
         {
             PrivateStopAsync(timeout, closeDescription).GetAwaiter();
         }
 
         /// <summary>
         /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
-        /// Возвращает <see langword="true"/> если разъединение завершено грациозно.
-        /// Результат остановки можно получить через <see cref="Completion"/>.
         /// Потокобезопасно.
         /// </summary>
         /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>

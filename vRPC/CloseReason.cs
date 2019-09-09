@@ -33,12 +33,12 @@ namespace vRPC
         /// Если текст совпадает с переданным в метод Stop то разъединение произошло по вашей инициативе.
         /// Может быть <see langword="null"/>.
         /// </summary>
-        public string WebSocketCloseDescription { get; }
+        public string CloseDescription { get; }
         /// <summary>
         /// Может быть <see langword="null"/>. Не зависит от <see cref="Gracifully"/>.
         /// </summary>
         public string AdditionalDescription { get; }
-        internal WebSocketCloseStatus? WebSocketCloseStatus { get; }
+        internal WebSocketCloseStatus? CloseStatus { get; }
         /// <summary>
         /// Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
         /// </summary>
@@ -66,8 +66,8 @@ namespace vRPC
         private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription, StopRequired stopRequired)
         {
             Error = error;
-            WebSocketCloseDescription = closeDescription;
-            WebSocketCloseStatus = closeStatus;
+            CloseDescription = closeDescription;
+            CloseStatus = closeStatus;
             AdditionalDescription = additionalDescription;
             StopRequest = stopRequired;
         }
