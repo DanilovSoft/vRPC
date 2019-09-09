@@ -203,25 +203,13 @@ namespace vRPC
             CloseReason closeReason;
             if (e.DisconnectReason.Gracifully)
             {
-                closeReason = CloseReason.FromCloseFrame(e.DisconnectReason.CloseStatus, e.DisconnectReason.CloseDescription, e.DisconnectReason.AdditionalDescription);
+                closeReason = CloseReason.FromCloseFrame(e.DisconnectReason.CloseStatus, e.DisconnectReason.CloseDescription, e.DisconnectReason.AdditionalDescription, _stopRequired);
             }
             else
             {
-                closeReason = CloseReason.FromException(e.DisconnectReason.Error, e.DisconnectReason.AdditionalDescription);
+                closeReason = CloseReason.FromException(e.DisconnectReason.Error, _stopRequired, e.DisconnectReason.AdditionalDescription);
             }
             AtomicDispose(closeReason);
-        }
-
-        /// <summary>
-        /// Вызывает Dispose распространяя исключение <see cref="StopRequiredException"/> ожидающим потокам.
-        /// Не бросает исключения.
-        /// Потокобезопасно.
-        /// </summary>
-        /// <param name="afterTimeout">Таймаут использованный ранее для остановки сервиса. 
-        /// Будет использован для объяснения ожидающим потокам причины закрытия соединения.</param>
-        private void CloseAndDispose(StopRequired stopRequired)
-        {
-            AtomicDispose(CloseReason.FromException(new StopRequiredException(stopRequired)));
         }
 
         /// <summary>
@@ -232,7 +220,7 @@ namespace vRPC
         /// Не бросает исключения.
         /// Потокобезопасно.
         /// </summary>
-        internal async Task<bool> StopAsync(StopRequired stopRequired)
+        internal async Task<CloseReason> StopAsync(StopRequired stopRequired)
         {
             bool firstTime;
             lock (StopRequiredLock)
@@ -265,16 +253,15 @@ namespace vRPC
             if (firstTime)
             {
                 // Подождать грациозную остановку.
-                var timeoutTask = Task.Delay(stopRequired.Timeout);
-                var t = await Task.WhenAny(Completion, timeoutTask).ConfigureAwait(false);
+                await Task.WhenAny(Completion, Task.Delay(stopRequired.Timeout)).ConfigureAwait(false);
 
                 // Не бросает исключения.
-                CloseAndDispose(stopRequired);
+                AtomicDispose(CloseReason.FromException(new StopRequiredException(stopRequired)));
 
-                bool gracefully = t != timeoutTask;
+                CloseReason closeReason = Completion.Result;
 
                 // Передать результат другим потокам которые вызовут Stop.
-                return stopRequired.SetTaskAndReturn(gracefully);
+                return stopRequired.SetTaskAndReturn(closeReason);
             }
             else
             {
@@ -288,7 +275,7 @@ namespace vRPC
         private void CloseReceived()
         {
             // Был получен Close. Это значит что веб сокет уже закрыт и нам остаётся только закрыть сервис.
-            AtomicDispose(CloseReason.FromCloseFrame(_socket.CloseStatus, _socket.CloseStatusDescription, null));
+            AtomicDispose(CloseReason.FromCloseFrame(_socket.CloseStatus, _socket.CloseStatusDescription, null, _stopRequired));
         }
 
         /// <summary>
@@ -308,7 +295,7 @@ namespace vRPC
             catch (Exception ex)
             {
                 // Оповестить об обрыве.
-                AtomicDispose(CloseReason.FromException(ex));
+                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
                 // Завершить поток.
                 return;
@@ -489,7 +476,7 @@ namespace vRPC
                 // Обрыв соединения.
                 {
                     // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(ex));
+                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
                     // Завершить поток.
                     return;
@@ -524,14 +511,14 @@ namespace vRPC
                             // Злой обрыв соединения.
                             {
                                 // Оповестить об обрыве.
-                                AtomicDispose(CloseReason.FromException(ex));
+                                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
                                 // Завершить поток.
                                 return;
                             }
 
                             // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(protocolErrorException));
+                            AtomicDispose(CloseReason.FromException(protocolErrorException, _stopRequired));
 
                             // Завершить поток.
                             return;
@@ -551,7 +538,7 @@ namespace vRPC
                 // Ошибка сокета при получении хедера.
                 {
                     // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(webSocketMessage.ReceiveResult.ToException()));
+                    AtomicDispose(CloseReason.FromException(webSocketMessage.ReceiveResult.ToException(), _stopRequired));
 
                     // Завершить поток.
                     return;
@@ -586,7 +573,7 @@ namespace vRPC
                         // Обрыв соединения.
                         {
                             // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(ex));
+                            AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
                             // Завершить поток.
                             return;
@@ -613,7 +600,7 @@ namespace vRPC
                         // Обрыв соединения.
                         {
                             // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(webSocketMessage.ReceiveResult.ToException()));
+                            AtomicDispose(CloseReason.FromException(webSocketMessage.ReceiveResult.ToException(), _stopRequired));
 
                             // Завершить поток.
                             return;
@@ -770,14 +757,14 @@ namespace vRPC
                     // Злой обрыв соединения.
                     {
                         // Оповестить об обрыве.
-                        AtomicDispose(CloseReason.FromException(ex));
+                        AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
                         // Завершить поток.
                         return;
                     }
 
                     // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(protocolErrorException));
+                    AtomicDispose(CloseReason.FromException(protocolErrorException, _stopRequired));
 
                     // Завершить поток.
                     return;
@@ -965,7 +952,7 @@ namespace vRPC
                         // Обрыв соединения.
                         {
                             // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(ex));
+                            AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
                             // Завершить поток.
                             return;
@@ -1003,7 +990,7 @@ namespace vRPC
                                 // Обрыв соединения.
                                 {
                                     // Оповестить об обрыве.
-                                    AtomicDispose(CloseReason.FromException(ex));
+                                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
                                     // Завершить поток.
                                     return;
@@ -1020,7 +1007,7 @@ namespace vRPC
                                 else
                                 {
                                     // Оповестить об обрыве.
-                                    AtomicDispose(CloseReason.FromException(socketError.ToException()));
+                                    AtomicDispose(CloseReason.FromException(socketError.ToException(), _stopRequired));
 
                                     // Завершить поток.
                                     return;
@@ -1032,7 +1019,7 @@ namespace vRPC
                         else
                         {
                             // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(socketError.ToException()));
+                            AtomicDispose(CloseReason.FromException(socketError.ToException(), _stopRequired));
 
                             // Завершить поток.
                             return;
@@ -1291,8 +1278,8 @@ namespace vRPC
             // Синхронно только в случае успеха.
             {
                 // Результат контроллера. Может быть Task.
-                var response = new ResponseMessage(requestContext, t.Result);
-                return new ValueTask<ResponseMessage>(response);
+                object result = t.Result;
+                return new ValueTask<ResponseMessage>(new ResponseMessage(requestContext, result));
             }
             else
             {
@@ -1398,7 +1385,7 @@ namespace vRPC
 
         protected virtual void DisposeManaged()
         {
-            AtomicDispose(CloseReason.FromException(new ObjectDisposedException(GetType().FullName), "Пользователь вызвал Dispose."));
+            AtomicDispose(CloseReason.FromException(new ObjectDisposedException(GetType().FullName), _stopRequired, "Пользователь вызвал Dispose."));
         }
 
         /// <summary>

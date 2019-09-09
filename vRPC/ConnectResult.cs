@@ -9,10 +9,10 @@ namespace vRPC
     public readonly struct ConnectResult
     {
         public ConnectState State { get; }
-        public SocketError SocketError { get; }
+        public SocketError? SocketError { get; }
 
         [DebuggerStepThrough]
-        internal ConnectResult(ConnectState connectState, SocketError socketError)
+        internal ConnectResult(ConnectState connectState, SocketError? socketError)
         {
             State = connectState;
             SocketError = socketError;

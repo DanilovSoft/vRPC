@@ -1,15 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace vRPC
 {
-    internal sealed class StopRequired
+    [DebuggerDisplay("{Timeout}, {CloseDescription}")]
+    public sealed class StopRequired
     {
-        private readonly TaskCompletionSource<bool> _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<CloseReason> _tcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
+        /// <summary>
+        /// Причина остановки сервиса указанная пользователем. Может быть <see langword="null"/>.
+        /// </summary>
         public string CloseDescription { get; }
-        public Task<bool> Task => _tcs.Task;
+        internal Task<CloseReason> Task => _tcs.Task;
+        /// <summary>
+        /// Максимальное время ожидания остановки сервиса указанное пользователем 
+        /// после которого соединение закрывается принудительно.
+        /// </summary>
         public TimeSpan Timeout { get; }
 
         public StopRequired(TimeSpan timeout, string closeDescription)
@@ -23,10 +32,10 @@ namespace vRPC
         /// </summary>
         /// <param name="gracefully"></param>
         /// <returns></returns>
-        public bool SetTaskAndReturn(bool gracefully)
+        internal CloseReason SetTaskAndReturn(CloseReason closeReason)
         {
-            _tcs.TrySetResult(gracefully);
-            return gracefully;
+            _tcs.TrySetResult(closeReason);
+            return closeReason;
         }
     }
 }

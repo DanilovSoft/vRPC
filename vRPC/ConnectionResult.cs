@@ -10,14 +10,17 @@ namespace vRPC
 {
     internal readonly struct ConnectionResult
     {
-        public ReceiveResult ReceiveResult { get; }
+        public SocketError? SocketError { get; }
+        //public ConnectState State { get; }
         public ManagedConnection Connection { get; }
+        public StopRequired StopState { get; }
 
         [DebuggerStepThrough]
-        public ConnectionResult(in ReceiveResult receiveResult, ManagedConnection context)
+        public ConnectionResult(SocketError? socketError, StopRequired stopState, ManagedConnection context)
         {
-            ReceiveResult = receiveResult;
+            SocketError = socketError;
             Connection = context;
+            StopState = stopState;
         }
     }
 }

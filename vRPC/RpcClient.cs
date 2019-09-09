@@ -45,6 +45,7 @@ namespace vRPC
         public Task<CloseReason> Completion => _connection?.Completion ?? Task.FromResult(CloseReason.NoConnectionError);
         public bool IsConnected => _connection?.IsConnected ?? false;
         private StopRequired _stopRequired;
+        //public StopRequired StopRequired => _stopRequired;
         private bool _disposed;
         /// <summary>
         /// Для доступа к <see cref="_disposed"/> и <see cref="_stopRequired"/>.
@@ -131,8 +132,8 @@ namespace vRPC
             var t = ConnectIfNeededAsync();
             if(t.IsCompleted)
             {
-                var conRes = t.Result;
-                return Task.FromResult(new ConnectResult(conRes.ReceiveResult.IsReceivedSuccessfully, conRes.ReceiveResult.SocketError));
+                ConnectionResult conRes = t.Result;
+                return Task.FromResult(Result(conRes));
             }
             else
             {
@@ -142,7 +143,17 @@ namespace vRPC
             static async Task<ConnectResult> WaitForConnectAsync(ValueTask<ConnectionResult> t)
             {
                 ConnectionResult conRes = await t.ConfigureAwait(false);
-                return new ConnectResult(conRes.ReceiveResult.IsReceivedSuccessfully, conRes.ReceiveResult.SocketError);
+                return Result(conRes);
+            }
+
+            static ConnectResult Result(in ConnectionResult conRes)
+            {
+                if (conRes.Connection != null)
+                    return new ConnectResult(ConnectState.Connected, conRes.SocketError);
+                else if (conRes.SocketError != null)
+                    return new ConnectResult(ConnectState.RetryLater, conRes.SocketError);
+                else
+                    return new ConnectResult(ConnectState.Stopped, conRes.SocketError);
             }
         }
 
@@ -175,12 +186,12 @@ namespace vRPC
         /// </summary>
         /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public Task<bool> StopAsync(TimeSpan timeout, string closeDescription = null)
+        public Task<CloseReason> StopAsync(TimeSpan timeout, string closeDescription = null)
         {
             return PrivateStopAsync(timeout, closeDescription);
         }
 
-        private async Task<bool> PrivateStopAsync(TimeSpan timeout, string closeDescription)
+        private async Task<CloseReason> PrivateStopAsync(TimeSpan timeout, string closeDescription)
         {
             bool created;
             StopRequired stopRequired;
@@ -204,7 +215,7 @@ namespace vRPC
                 }
             }
 
-            bool gracifully;
+            CloseReason closeReason;
 
             if (created)
             // Только один поток зайдёт сюда.
@@ -212,22 +223,22 @@ namespace vRPC
                 if (connection != null)
                 // Существует живое соединение.
                 {
-                    gracifully = await connection.StopAsync(stopRequired).ConfigureAwait(false);
+                    closeReason = await connection.StopAsync(stopRequired).ConfigureAwait(false);
                 }
                 else
                 // Соединения не существует и новые создаваться не смогут.
                 {
                     // Передать результат другим потокам которые повторно вызовут Stop.
-                    gracifully = stopRequired.SetTaskAndReturn(true);
+                    closeReason = stopRequired.SetTaskAndReturn(CloseReason.NoConnectionGracifully);
                 }
             }
             else
             // Другой поток уже начал остановку.
             {
-                gracifully = await stopRequired.Task.ConfigureAwait(false);
+                closeReason = await stopRequired.Task.ConfigureAwait(false);
             }
 
-            return gracifully;
+            return closeReason;
         }
 
         /// <summary>
@@ -256,10 +267,13 @@ namespace vRPC
                     if (t.IsCompleted)
                     {
                         ConnectionResult connectionResult = t.Result;
-                        if (connectionResult.ReceiveResult.IsReceivedSuccessfully)
-                            return new ValueTask<ManagedConnection>(connectionResult.Connection);
 
-                        return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(connectionResult.ReceiveResult.ToException()));
+                        if (connectionResult.Connection != null)
+                            return new ValueTask<ManagedConnection>(connectionResult.Connection);
+                        else if (connectionResult.SocketError != null)
+                            return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(connectionResult.SocketError.Value.ToException()));
+                        else
+                            return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new StopRequiredException(connectionResult.StopState)));
                     }
                     else
                     {
@@ -279,10 +293,12 @@ namespace vRPC
         {
             ConnectionResult connectionResult = await t.ConfigureAwait(false);
 
-            if (connectionResult.ReceiveResult.IsReceivedSuccessfully)
+            if (connectionResult.Connection != null)
                 return connectionResult.Connection;
-
-            throw connectionResult.ReceiveResult.ToException();
+            else if (connectionResult.SocketError != null)
+                throw connectionResult.SocketError.Value.ToException();
+            else
+                throw new StopRequiredException(connectionResult.StopState);
         }
 
         /// <summary>
@@ -305,7 +321,7 @@ namespace vRPC
             if (context != null)
             // Есть живое соединение.
             {
-                return new ValueTask<ConnectionResult>(new ConnectionResult(ReceiveResult.AllSuccess, context));
+                return new ValueTask<ConnectionResult>(new ConnectionResult(null, null, context));
             }
             else
             // Подключение отсутствует.
@@ -352,7 +368,7 @@ namespace vRPC
                             if (_stopRequired != null)
                             {
                                 // Нельзя создавать новое подключение если был вызван Stop.
-                                throw new StopRequiredException(_stopRequired);
+                                return new ConnectionResult(null, _stopRequired, null);
                             }
                             else
                             {
@@ -436,7 +452,7 @@ namespace vRPC
                         {
                             connection.InitStartThreads();
                             connection.Disconnected += Disconnected;
-                            return new ConnectionResult(ReceiveResult.AllSuccess, connection);
+                            return new ConnectionResult(receiveResult.SocketError, null, connection);
                         }
                         else
                         // Был запрос на остановку сервиса. 
@@ -449,18 +465,19 @@ namespace vRPC
                                 await connection.StopAsync(stopRequired).ConfigureAwait(false);
                             }
 
-                            throw new StopRequiredException(stopRequired);
+                            return new ConnectionResult(receiveResult.SocketError, stopRequired, null);
+                            //throw new StopRequiredException(stopRequired);
                         }
                     }
                     else
                     // Подключение не удалось.
                     {
                         ws.Dispose();
-                        return new ConnectionResult(receiveResult, null);
+                        return new ConnectionResult(receiveResult.SocketError, null, null);
                     }
                 }
                 else
-                    return new ConnectionResult(ReceiveResult.AllSuccess, connection);
+                    return new ConnectionResult(SocketError.Success, null, connection);
             }
         }
 

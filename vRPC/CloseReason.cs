@@ -13,7 +13,12 @@ namespace vRPC
         /// "Соединение не установлено."
         /// </summary>
         internal static readonly CloseReason NoConnectionError = FromException(
-            new ConnectionClosedException("Соединение не установлено."));
+            new ConnectionClosedException("Соединение не установлено."), null);
+
+        /// <summary>
+        /// "Соединение не установлено."
+        /// </summary>
+        internal static readonly CloseReason NoConnectionGracifully = new CloseReason(null,null, null, "Соединение не установлено.", null);
 
         /// <summary>
         /// Если разъединение завершилось грациозно — <see langword="true"/>.
@@ -28,32 +33,43 @@ namespace vRPC
         /// Если текст совпадает с переданным в метод Stop то разъединение произошло по вашей инициативе.
         /// Может быть <see langword="null"/>.
         /// </summary>
-        public string CloseDescription { get; }
+        public string WebSocketCloseDescription { get; }
         /// <summary>
         /// Может быть <see langword="null"/>. Не зависит от <see cref="Gracifully"/>.
         /// </summary>
         public string AdditionalDescription { get; }
-        internal WebSocketCloseStatus? CloseStatus { get; }
+        internal WebSocketCloseStatus? WebSocketCloseStatus { get; }
+        /// <summary>
+        /// Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
+        /// </summary>
+        public StopRequired StopRequest { get; }
 
         [DebuggerStepThrough]
-        internal static CloseReason FromException(Exception ex, string additionalDescription = null)
+        internal static CloseReason FromException(StopRequiredException stopRequiredException)
         {
-            return new CloseReason(ex, null, null, additionalDescription);
+            return new CloseReason(stopRequiredException, null, null, null, stopRequiredException.StopRequired);
         }
 
         [DebuggerStepThrough]
-        internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription)
+        internal static CloseReason FromException(Exception ex, StopRequired stopRequired, string additionalDescription = null)
         {
-            return new CloseReason(null, closeStatus, closeDescription, additionalDescription);
+            return new CloseReason(ex, null, null, additionalDescription, stopRequired);
         }
 
         [DebuggerStepThrough]
-        private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription)
+        internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription, StopRequired stopRequired)
+        {
+            return new CloseReason(null, closeStatus, closeDescription, additionalDescription, stopRequired);
+        }
+
+        [DebuggerStepThrough]
+        private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription, StopRequired stopRequired)
         {
             Error = error;
-            CloseDescription = closeDescription;
-            CloseStatus = closeStatus;
+            WebSocketCloseDescription = closeDescription;
+            WebSocketCloseStatus = closeStatus;
             AdditionalDescription = additionalDescription;
+            StopRequest = stopRequired;
         }
     }
 }

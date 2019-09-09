@@ -9,23 +9,17 @@ namespace vRPC
     public class StopRequiredException : Exception
     {
         private const string DefaultMessage = "Был вызван Stop — использовать этот экземпляр больше нельзя.";
-
-        /// <summary>
-        /// Причина остановки сервиса указанная пользователем. Может быть <see langword="null"/>.
-        /// </summary>
-        public string CloseDescription { get; }
-        /// <summary>
-        /// Максимальное время ожидания остановки сервиса указанное пользователем 
-        /// после которого соединение закрывается принудительно.
-        /// </summary>
-        public TimeSpan Timeout { get; }
+        //public string CloseDescription { get; }
+        //public TimeSpan Timeout { get; }
+        public StopRequired StopRequired { get; }
 
         internal StopRequiredException(StopRequired stopRequired) : base(CreateMessage(stopRequired))
         {
             Debug.Assert(stopRequired != null);
 
-            CloseDescription = stopRequired.CloseDescription;
-            Timeout = stopRequired.Timeout;
+            StopRequired = stopRequired;
+            //CloseDescription = stopRequired.CloseDescription;
+            //Timeout = stopRequired.Timeout;
         }
 
         public StopRequiredException(string message) : base(message)

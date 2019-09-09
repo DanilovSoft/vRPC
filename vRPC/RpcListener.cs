@@ -164,7 +164,7 @@ namespace vRPC
 
             if (activeConnections.Length > 0)
             {
-                var tasks = new Task<bool>[activeConnections.Length];
+                var tasks = new Task<CloseReason>[activeConnections.Length];
 
                 // Грациозно останавливаем соединения.
                 for (int i = 0; i < activeConnections.Length; i++)
@@ -179,7 +179,7 @@ namespace vRPC
 
                 // Грациозная остановка сервера это когда все клиенты
                 // отключились до достижения таймаута.
-                bool gracefully = allConnTask.All(x => x == true);
+                bool gracefully = allConnTask.All(x => x.Gracifully);
 
                 // Установить Completion.
                 _completionTcs.TrySetResult(gracefully);

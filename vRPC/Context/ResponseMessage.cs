@@ -40,6 +40,7 @@ namespace vRPC
         /// </summary>
         /// <param name="receivedRequest"></param>
         /// <param name="rawResult"></param>
+        [DebuggerStepThrough]
         public ResponseMessage(RequestContext receivedRequest, object rawResult) : this(receivedRequest.HeaderDto.Uid, rawResult)
         {
             ReceivedRequest = receivedRequest;
