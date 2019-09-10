@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.29209.62
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DynamicMethodsLib", "DynamicMethodsLib\DynamicMethodsLib.csproj", "{EF84F600-DC56-49B7-83C6-4589D3E04050}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "vRPC", "vRPC\vRPC.csproj", "{A0E0A5DE-B21F-45B3-9BB2-180458EB4288}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DanilovSoft.vRPC", "vRPC\DanilovSoft.vRPC.csproj", "{A0E0A5DE-B21F-45B3-9BB2-180458EB4288}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Demo", "Demo", "{CBE0B9BB-823B-47B7-8453-6F62A268D619}"
 EndProject
