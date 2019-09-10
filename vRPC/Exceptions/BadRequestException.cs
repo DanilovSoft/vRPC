@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Исключение для передачи информации об ошибке удаленному подключению.

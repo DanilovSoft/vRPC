@@ -2,7 +2,7 @@
 using ProtoBuf;
 using System;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     [JsonObject]
     [ProtoContract]

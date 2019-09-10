@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     [DebuggerDisplay("{Timeout}, {CloseDescription}")]
     public sealed class StopRequired

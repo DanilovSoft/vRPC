@@ -2,8 +2,8 @@
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using DanilovSoft.vRPC;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using vRPC;
 
 namespace Tests
 {

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     // Тип передаваемого сообщения. Не сериализуется.
     internal enum MessageType

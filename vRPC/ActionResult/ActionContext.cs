@@ -2,7 +2,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     public sealed class ActionContext
     {

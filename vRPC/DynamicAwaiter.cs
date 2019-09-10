@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     internal static class DynamicAwaiter
     {

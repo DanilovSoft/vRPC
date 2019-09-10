@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     internal static class GlobalVars
     {

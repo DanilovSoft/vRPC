@@ -10,7 +10,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     public sealed class RpcListener : IDisposable
     {

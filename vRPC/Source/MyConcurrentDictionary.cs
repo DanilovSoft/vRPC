@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     internal sealed class MyConcurrentDictionary<TKey, TValue> : IConcurrentDictionary<TKey, TValue>
     {

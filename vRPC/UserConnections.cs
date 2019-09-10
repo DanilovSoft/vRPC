@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Потокобезопасный список авторизованных соединений пользователя.

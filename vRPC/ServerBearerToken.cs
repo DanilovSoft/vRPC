@@ -1,7 +1,7 @@
 ﻿using ProtoBuf;
 using System;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     //[ProtoContract]
     //internal struct ServerBearerToken

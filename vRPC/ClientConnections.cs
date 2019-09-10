@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     [DebuggerDisplay(@"\{Count = {_list.Count}\}")]
     internal sealed class ClientConnections : ICollection<ServerSideConnection>

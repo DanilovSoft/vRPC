@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.

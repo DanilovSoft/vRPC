@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     internal sealed class SyncDictionary<TKey, TValue>
     {

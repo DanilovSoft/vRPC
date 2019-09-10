@@ -16,7 +16,7 @@ using System.Net;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Контекст соединения Web-Сокета. Владеет соединением.

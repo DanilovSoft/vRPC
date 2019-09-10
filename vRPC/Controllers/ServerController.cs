@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     public abstract class ServerController : Controller
     {

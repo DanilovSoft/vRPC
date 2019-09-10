@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Содержит запрос полученный от удалённой стороны.

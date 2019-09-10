@@ -1,0 +1,1520 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>DanilovSoft.DanilovSoft.vRPC</name>
+    </assembly>
+    <members>
+        <member name="P:DanilovSoft.vRPC.ActionContext.RequestContext">
+            <summary>
+            Не может быть <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.InternalErrorResult">
+            <summary>
+            Код ошибки 50, аналогично 500.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.InternalErrorResult.#ctor(System.String)">
+            <summary>
+            Код ошибки 50, аналогично 500.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.ControllerContractAttribute">
+            <summary>
+            Указывает имя контроллера к которому будут осуществляться вызовы через помеченный интерфейс.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.BearerToken.Key">
+            <summary>
+            Зашифрованное тело токена.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.BearerToken.ExpiresAt">
+            <summary>
+            Время актуальности токена.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ClientConnections.SyncObj">
+            <summary>
+            Модификация коллекции допускается с захватом этой блокировки.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.CloseReason.NoConnectionError">
+            <summary>
+            "Соединение не установлено."
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.CloseReason.NoConnectionGracifully">
+            <summary>
+            "Соединение не установлено."
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.CloseReason.Gracifully">
+            <summary>
+            Если разъединение завершилось грациозно — <see langword="true"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.CloseReason.Error">
+            <summary>
+            Может быть <see langword="null"/> если разъединение завершилось грациозно.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.CloseReason.CloseDescription">
+            <summary>
+            Сообщение от удалённой стороны указывающее причину разъединения.
+            Если текст совпадает с переданным в метод Stop то разъединение произошло по вашей инициативе.
+            Может быть <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.CloseReason.AdditionalDescription">
+            <summary>
+            Может быть <see langword="null"/>. Не зависит от <see cref="P:DanilovSoft.vRPC.CloseReason.Gracifully"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.CloseReason.StopRequest">
+            <summary>
+            Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ConnectState.RetryLater">
+            <summary>
+            Не удалось установить соединение.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ConnectState.Connected">
+            <summary>
+            Соединение успешно установлено.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ConnectState.Stopped">
+            <summary>
+            Был запрос на остановку сервиса – переподключать данный экземпляр больше нельзя.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.ManagedConnection">
+            <summary>
+            Контекст соединения Web-Сокета. Владеет соединением.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ManagedConnection.WebSocketMaxFrameSize">
+            <summary>
+            Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ManagedConnection._proxyMethodName">
+            <summary>
+            Содержит имена методов прокси интерфейса без постфикса Async.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._controllers">
+            <summary>
+            Содержит все доступные для вызова экшены контроллеров.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._completionTcs">
+            <summary>
+            Для <see cref="T:System.Threading.Tasks.Task"/> <see cref="P:DanilovSoft.vRPC.ManagedConnection.Completion"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ManagedConnection.DisconnectReason">
+            <summary>
+            Причина закрытия соединения. Это свойство возвращает <see cref="P:DanilovSoft.vRPC.ManagedConnection.Completion"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ManagedConnection.Completion">
+            <summary>
+            Возвращает <see cref="T:System.Threading.Tasks.Task"/> который завершается когда 
+            соединение переходит в закрытое состояние.
+            Не мутабельное свойство.
+            Возвращает <see cref="P:DanilovSoft.vRPC.ManagedConnection.DisconnectReason"/>.
+            Не бросает исключения.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._socket">
+            <summary>
+            Подключенный TCP сокет.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._pendingRequests">
+            <summary>
+            Коллекция запросов ожидающие ответ от удалённой стороны.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._sendChannel">
+            <summary>
+            Отправка сообщения <see cref="!:Message"/> должна выполняться только через этот канал.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._stopRequired">
+            <summary>
+            <see langword="true"/> если происходит остановка сервиса.
+            Используется для проверки возможности начать новый запрос.
+            Использовать через блокировку <see cref="P:DanilovSoft.vRPC.ManagedConnection.StopRequiredLock"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ManagedConnection.StopRequiredLock">
+            <summary>
+            Предотвращает повторный вызов Stop.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._reqAndRespCount">
+            <summary>
+            Количество запросов для обработки и количество ответов для отправки.
+            Для отслеживания грациозной остановки сервиса.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ManagedConnection.DisconnectEventObj">
+            <summary>
+            Подписку на событие Disconnected нужно синхронизировать что-бы подписчики не пропустили момент обрыва.
+            </summary>
+        </member>
+        <member name="E:DanilovSoft.vRPC.ManagedConnection.Disconnected">
+            <summary>
+            Событие обрыва соединения. Может сработать только один раз.
+            Если подписка на событие происходит к уже отключенному сокету то событие сработает сразу же.
+            Гарантирует что событие не будет пропущено в какой бы момент не происходила подписка.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ManagedConnection.IsConnected">
+            <summary>
+            Является <see langword="volatile"/>. Если значение – <see langword="false"/>, то можно узнать причину через свойство <see cref="P:DanilovSoft.vRPC.ManagedConnection.DisconnectReason"/>.
+            После <see langword="false"/> текущий экземпляр не может стать <see langword="true"/>.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.InitStartThreads">
+            <summary>
+            Запускает бесконечный цикл обработки запросов.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.StopAsync(DanilovSoft.vRPC.StopRequired)">
+            <summary>
+            Запрещает отправку новых запросов; Ожидает когда завершатся текущие запросы 
+            и отправляет удалённой стороне сообщение о закрытии соединения с ожиданием подтверджения.
+            Затем выполняет Dispose, взводит <see cref="P:DanilovSoft.vRPC.ManagedConnection.Completion"/> и 
+            возвращает <see langword="true"/> если остановка завершилась раньше таймаута.
+            Не бросает исключения.
+            Потокобезопасно.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.CloseReceived">
+            <summary>
+            Не бросает исключения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendCloseAsync(System.String)">
+            <summary>
+            Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
+            Не бросает исключения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendCloseBeforeStopAsync">
+            <summary>
+            Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
+            Не бросает исключения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.OnServerProxyCall(System.Reflection.MethodInfo,System.Object[],System.String)">
+            <summary>
+            Происходит при обращении к проксирующему интерфейсу.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.OnClientProxyCallStatic(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},System.Reflection.MethodInfo,System.Object[],System.String)">
+            <summary>
+            Происходит при обращении к проксирующему интерфейсу.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.OnProxyCall(DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestMessage)">
+            <summary>
+            Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
+            </summary>
+            /// <param name="resultType">Тип в который будет десериализован результат запроса.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.GetProxyMethodName(System.Reflection.MethodInfo)">
+            <summary>
+            Возвращает имя метода без постфикса Async.
+            </summary>
+            <param name="method"></param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendResponse(DanilovSoft.vRPC.ResponseMessage)">
+            <summary>
+            Сериализует сообщение в новом потоке и добавляет в очередь на отправку.
+            Не должно бросать исключения(!).
+            </summary>
+            <param name="responseToSend"></param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendMessage(DanilovSoft.vRPC.SerializedMessageToSend)">
+            <summary>
+            Добавляет хэдер и передает на отправку другому потоку.
+            Не бросает исключения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeRequest(DanilovSoft.vRPC.RequestMessage)">
+            <summary>
+            Сериализует сообщение в память. Может бросить исключение сериализации.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponse(DanilovSoft.vRPC.ResponseMessage)">
+            <summary>
+            Сериализует сообщение в память. Может бросить исключение сериализации.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.AppendHeader(DanilovSoft.vRPC.SerializedMessageToSend)">
+            <summary>
+            Сериализует хэдер в стрим сообщения. Не бросает исключения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SenderLoop">
+            <summary>
+            Принимает заказы на отправку и отправляет в сокет. Запускается из конструктора. Не бросает исключения.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.InvokeControllerAsync(DanilovSoft.vRPC.RequestContext)">
+            <summary>
+            Вызывает запрошенный метод контроллера и возвращает результат.
+            Результатом может быть IActionResult или Raw объект или исключение.
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.InvokeMethodPermissionCheck(System.Reflection.MethodInfo,System.Type,DanilovSoft.vRPC.IActionResult@)">
+            <summary>
+            Проверяет доступность запрашиваемого метода для удаленного пользователя.
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryGetRequestedController(DanilovSoft.vRPC.RequestContext,System.String@,System.String@,System.Type@)">
+            <summary>
+            Пытается найти запрашиваемый пользователем контроллер.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.DeserializeArguments(System.Reflection.ParameterInfo[],DanilovSoft.vRPC.RequestMessageDto)">
+            <summary>
+            Производит маппинг аргументов по их порядку.
+            </summary>
+            <param name="method">Метод который будем вызывать.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.StartProcessRequest(DanilovSoft.vRPC.RequestContext)">
+            <summary>
+            В новом потоке выполняет запрос и отправляет ему результат или ошибку.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.StartProcessRequestThread(DanilovSoft.vRPC.RequestContext)">
+            <summary>
+            Выполняет запрос и отправляет результат или ошибку.
+            </summary>
+            <param name="requestContext"></param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeAndSendResponse(DanilovSoft.vRPC.ResponseMessage,DanilovSoft.vRPC.RequestContext)">
+            <summary>
+            Не бросает исключения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.GetResponseAsync(DanilovSoft.vRPC.RequestContext)">
+            <summary>
+            Выполняет запрос клиента и инкапсулирует результат в <see cref="!:Response"/>.
+            Не бросает исключения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ThrowIfDisposed">
+            <summary>
+            AggressiveInlining.
+            </summary>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ThrowIfStopRequired">
+            <summary>
+            Не позволять начинать новый запрос если происходит остановка.
+            AggressiveInlining.
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.Dispose">
+            <summary>
+            Потокобезопасно закрывает соединение и освобождает все ресурсы.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.AtomicDispose(DanilovSoft.vRPC.CloseReason)">
+            <summary>
+            Потокобезопасно освобождает ресурсы соединения. Вызывается при закрытии соединения.
+            Взводит <see cref="P:DanilovSoft.vRPC.ManagedConnection.Completion"/>.
+            </summary>
+            <param name="possibleReason">Возможная причина обрыва соединения.</param>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RequestMessage">
+            <summary>
+            Сообщение для передачи удаленной стороне. Не подлежит сериализации.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestMessage.Args">
+            <summary>
+            Параметры для удаленного метода <see cref="P:DanilovSoft.vRPC.RequestMessage.ActionName"/>.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestMessage.#ctor(System.Type,System.String,System.Object[])">
+            <summary>
+            Конструктор запроса.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.ResponseMessage">
+            <summary>
+            Ответ на запрос для передачи удаленной стороне. Не подлежит сериализации.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ResponseMessage.Uid">
+            <summary>
+            Идентификатор скопированный из запроса.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ResponseMessage.ReceivedRequest">
+            <summary>
+            Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ResponseMessage.Args">
+            <summary>
+            Параметры для удаленного метода <see cref="!:ActionName"/>.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.UInt16,System.Object)">
+            <summary>
+            Конструктор ответа.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(DanilovSoft.vRPC.RequestContext,System.Object)">
+            <summary>
+            Ответ на основе запроса.
+            </summary>
+            <param name="receivedRequest"></param>
+            <param name="rawResult"></param>
+        </member>
+        <member name="T:DanilovSoft.vRPC.SerializedMessageToSend">
+            <summary>
+            Содержит <see cref="T:System.IO.MemoryPoolStream"/> в который сериализуется 
+            сообщение и заголовок для отправки удалённой стороне.
+            Необходимо обязательно выполнить Dispose.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.MemPoolStream">
+            <summary>
+            Содержит сериализованное сообщение типа <see cref="T:DanilovSoft.vRPC.RequestMessageDto"/> или любой 
+            другой тип если это ответ на запрос.
+            Заголовок располагается в конце этого стрима, так как мы не можем сформировать заголовок 
+            до сериализации тела сообщения.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.Uid">
+            <summary>
+            Уникальный идентификатор который будет отправлен удалённой стороне.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.HeaderSize">
+            <summary>
+            Размер хэдера располагающийся в конце стрима.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.SerializedMessageToSend.#ctor(DanilovSoft.vRPC.IMessage)">
+            <summary>
+            Содержит <see cref="T:System.IO.MemoryPoolStream"/> в который сериализуется сообщение и заголовок.
+            Необходимо обязательно выполнить Dispose.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.SerializedMessageToSend.Dispose">
+            <summary>
+            Возвращает арендрванную память обратно в пул.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.ServerSideConnection">
+            <summary>
+            Подключенный к серверу клиент.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ServerSideConnection.Listener">
+            <summary>
+            Сервер который принял текущее соединение.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.GetProxy``1">
+            <summary>
+            Создает прокси к методам удалённой стороны на основе интерфейса.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.InvokeMethodPermissionCheck(System.Reflection.MethodInfo,System.Type,DanilovSoft.vRPC.IActionResult@)">
+            <summary>
+            Проверяет доступность запрашиваемого метода пользователем.
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
+        </member>
+        <member name="T:DanilovSoft.vRPC.ControllerAction">
+            <summary>
+            Содержит исчерпывающую информацию о методе контроллера.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ControllerAction.ProducesEncoding">
+            <summary>
+            Формат возвращаемых данных.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ControllerActionsDictionary._actions">
+            <summary>
+            Словарь используемый только для чтения.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ControllerActionsDictionary.Controllers">
+            <summary>
+            Словарь используемый только для чтения.
+            Хранит все доступные контроллеры.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ClientController.Context">
+            <summary>
+            Контекст подключения на стороне клиента.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ServerController.Context">
+            <summary>
+            Контекст подключения на стороне сервера.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.Decorator.ClientInterfaceProxy">
+            <summary>
+            От этого класса наследуются динамические типы и пользовательский интерфейс. 
+            Поэтому должен быть публичным и не запечатанным.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.Decorator.ServerInterfaceProxy">
+            <summary>
+            От этого класса наследуются динамические типы и пользовательский интерфейс. Поэтому должен быть публичным и не запечатанным.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.HeaderDto">
+            <summary>
+            Заголовок передаваемого сообщения. Размер заголовка — динамический. Сериализатор всегда ProtoBuf.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.HeaderDto.ContentEncoding">
+            <summary>
+            Формат контента. Может быть <see langword="null"/>, тогда 
+            следует использовать формат по умолчанию.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.HeaderDto.FromResponse(System.UInt16,DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
+            <summary>
+            Создаёт заголовок ответа на запрос.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.HeaderDto.CreateRequest(System.UInt16,System.Int32)">
+            <summary>
+            Создаёт заголовок для нового запроса.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.UInt16,DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
+            <summary>
+            Конструктор заголовка и для ответа и для запроса.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.HeaderDto.SerializeProtoBuf(System.IO.Stream,System.Int32@)">
+            <summary>
+            Сериализует заголовок. Не должно бросать исключения(!).
+            </summary>
+            <param name="stream"></param>
+            <param name="headerSize"></param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.HeaderDto.DeserializeProtobuf(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            Может вернуть <see langword="null"/> если не удалось десериализовать.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.HeaderDto.GetDeserializer">
+            <summary>
+            Возвращает подходящий десериализатор соответственно <see cref="P:DanilovSoft.vRPC.HeaderDto.ContentEncoding"/>.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RequestMessageDto">
+            <summary>
+            Сериализуемое сообщение для передачи через сокет. На данный момент сериализуется только в Json.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestMessageDto.ActionName">
+            <summary>
+            Вызываемый метод.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestMessageDto.Args">
+            <summary>
+            Аргументы вызываемого метода.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.StatusCode">
+            <summary>
+            Код состояния передаваемого сообщения.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.StatusCode.InvalidRequestFormat">
+            <summary>
+            Unprocessable Entity.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.DynamicAwaiter.WaitAsync(System.Object)">
+            <summary>
+            Асинхронно ожидает завершение задачи если <paramref name="controllerResult"/> является <see cref="T:System.Threading.Tasks.Task"/>'ом.
+            </summary>
+            <param name="controllerResult"><see cref="T:System.Threading.Tasks.Task"/> или любой объект.</param>
+            <returns></returns>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ClientConnectedEventArgs.Connection">
+            <summary>
+            Подключенный к серверу клиент.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ClientDisconnectedEventArgs.CloseReason">
+            <summary>
+            Причина закрытия соединения.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.SocketDisconnectedEventArgs.DisconnectReason">
+            <summary>
+            Причина обрыва соединения.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.BadRequestException">
+            <summary>
+            Исключение для передачи информации об ошибке удаленному подключению.
+            Исключение этого типа прозрачно транслируется на удаленное подключение.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.ConnectionClosedException">
+            <summary>
+            Исключение которое происходит при грациозном закрытии соединения одной из сторон.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ExtensionMethods._UTF8NoBOM">
+            <summary>
+            Используется Bson сериализатором по умолчанию.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectJson(System.IO.Stream,System.Object)">
+            <summary>
+            Сериализует объект в JSON.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectBson(System.IO.Stream,System.Object)">
+            <summary>
+            Сериализует объект в BSON.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeRequestJson(System.IO.Stream)">
+            <summary>
+            Десериализует Json.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeRequestBson(System.IO.Stream)">
+            <summary>
+            Десериализует Bson.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeJson(System.IO.Stream,System.Type)">
+            <summary>
+            Десериализует Json.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ReadAsString(System.IO.Stream)">
+            <summary>
+            Читает строку в формате Utf-8.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.WriteStringBinary(System.IO.Stream,System.String)">
+            <summary>
+            Записывает строку в формате Utf-8.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.IsAsyncMethod(System.Reflection.MethodInfo)">
+            <summary>
+            Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="T:System.Threading.Tasks.Task"/> (<see cref="T:System.Threading.Tasks.Task`1"/>)
+            или <see cref="T:System.Threading.Tasks.ValueTask"/> (<see cref="T:System.Threading.Tasks.ValueTask`1"/>).
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetNameTrimAsync(System.Reflection.MethodInfo)">
+            <summary>
+            Нормализует имя функции если она является Task-Async.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ToException(DanilovSoft.WebSocket.ReceiveResult)">
+            <summary>
+            
+            </summary>
+            <exception cref="T:System.IO.IOException"/>
+            <exception cref="T:System.Net.Sockets.SocketException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetMethodReturnType(System.Reflection.MethodInfo)">
+            <summary>
+            Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetMessageFromCloseFrame(System.Nullable{System.Net.WebSockets.WebSocketCloseStatus},System.String)">
+            <summary>
+            Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
+            <summary>
+            Содержит прокси созданные из интерфейсов.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ProxyCache._instanceDict">
+            <summary>
+            Содержит прокси созданные из интерфейсов.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RequestAwaiter">
+            <summary>
+            Атомарный <see langword="await"/>'ер. Связывает запрос с его результатом.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RequestAwaiter._isCompleted">
+            <summary>
+            Флаг используется как fast-path.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestAwaiter.TrySetException(System.Exception)">
+            <summary>
+            Передает ожидающему потоку исключение как результат запроса.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestAwaiter.TrySetResult(System.Object)">
+            <summary>
+            Передает результат ожидающему потоку.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RequestContext">
+            <summary>
+            Содержит запрос полученный от удалённой стороны.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestContext.ActionToInvoke">
+            <summary>
+            Запрашиваемый метод контроллера.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestContext.HeaderDto">
+            <summary>
+            Десериализованный заголовок запроса. Не может быть <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestContext.RequestDto">
+            <summary>
+            Десериализованный запрос. Не может быть <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RequestQueue">
+            <summary>
+            Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
+            Имеет лимит в 65'535 запросов.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RequestQueue._spinWait">
+            <summary>
+            Не является потокобезопасным.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestQueue.#ctor">
+            <summary>
+            Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestQueue.AddRequest(DanilovSoft.vRPC.RequestMessage,System.UInt16@)">
+            <summary>
+            Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
+            </summary>
+            <exception cref="T:System.Exception">Происходит если уже происходил обрыв соединения.</exception>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestQueue.TryRemove(System.UInt16,DanilovSoft.vRPC.RequestAwaiter@)">
+            <summary>
+            Потокобезопасно удаляет запрос из словаря.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestQueue.PropagateExceptionAndLockup(System.Exception)">
+            <summary>
+            Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет провоцировать это исключение.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RijndaelEnhanced">
+            <summary>
+            This class uses a symmetric key algorithm (Rijndael/AES) to encrypt and
+            decrypt data. As long as it is initialized with the same constructor
+            parameters, the class will use the same key. Before performing encryption,
+            the class can prepend random bytes to plain text and generate different
+            encrypted values from the same plain text, encryption key, initialization
+            vector, and other parameters. This class is thread-safe.
+            </summary>
+            <remarks>
+            Be careful when performing encryption and decryption. There is a bug
+            ("feature"?) in .NET Framework, which causes corruption of encryptor/
+            decryptor if a cryptographic exception occurs during encryption/
+            decryption operation. To correct the problem, re-initialize the class
+            instance when a cryptographic exception occurs.
+            </remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption with 256-bit key, derived using 1 password iteration,
+            hashing without salt, no initialization vector, electronic codebook
+            (ECB) mode, SHA-1 hashing algorithm, and 4-to-8 byte long salt.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <remarks>
+            This constructor is not recommended because it does not use
+            initialization vector and uses the ECB cipher mode, which is less
+            secure than the CBC mode.
+            </remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption with 256-bit key, derived using 1 password iteration,
+            hashing without salt, cipher block chaining (CBC) mode, SHA-1
+            hashing algorithm, and 4-to-8 byte long salt.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption with 256-bit key, derived using 1 password iteration,
+            hashing without salt, cipher block chaining (CBC) mode, SHA-1 
+            hashing algorithm, and 0-to-8 byte long salt.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 4, the default min value will be used (currently 4
+            bytes).
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption with 256-bit key, derived using 1 password iteration,
+            hashing without salt, cipher block chaining (CBC) mode, SHA-1
+            hashing algorithm. Use the minSaltLen and maxSaltLen parameters to
+            specify the size of randomly generated salt.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 4, the default min value will be used (currently 4
+            bytes).
+            </param>
+            <param name="maxSaltLen">
+            Max size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is negative or greater than 255, the default max value will be
+            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
+            than the specified min value (which can be adjusted to default value),
+            salt will not be used and plain text value will be encrypted as is.
+            In this case, salt will not be processed during decryption either.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption using the key derived from 1 password iteration,
+            hashing without salt, cipher block chaining (CBC) mode, and
+            SHA-1 hashing algorithm.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 4, the default min value will be used (currently 4
+            bytes).
+            </param>
+            <param name="maxSaltLen">
+            Max size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is negative or greater than 255, the default max value will be 
+            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
+            than the specified min value (which can be adjusted to default value),
+            salt will not be used and plain text value will be encrypted as is.
+            In this case, salt will not be processed during decryption either.
+            </param>
+            <param name="keySize">
+            Size of symmetric key (in bits): 128, 192, or 256.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption using the key derived from 1 password iteration, hashing 
+            without salt, and cipher block chaining (CBC) mode.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 4, the default min value will be used (currently 4
+            bytes).
+            </param>
+            <param name="maxSaltLen">
+            Max size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is negative or greater than 255, the default max value will be
+            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
+            than the specified min value (which can be adjusted to default value),
+            salt will not be used and plain text value will be encrypted as is.
+            In this case, salt will not be processed during decryption either.
+            </param>
+            <param name="keySize">
+            Size of symmetric key (in bits): 128, 192, or 256.
+            </param>
+            <param name="hashAlgorithm">
+            Hashing algorithm: "MD5" or "SHA1". SHA1 is recommended.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String,System.String)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption using the key derived from 1 password iteration, and
+            cipher block chaining (CBC) mode.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 4, the default min value will be used (currently 4
+            bytes).
+            </param>
+            <param name="maxSaltLen">
+            Max size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is negative or greater than 255, the default max value will be
+            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
+            than the specified min value (which can be adjusted to default value),
+            salt will not be used and plain text value will be encrypted as is.
+            In this case, salt will not be processed during decryption either.
+            </param>
+            <param name="keySize">
+            Size of symmetric key (in bits): 128, 192, or 256.
+            </param>
+            <param name="hashAlgorithm">
+            Hashing algorithm: "MD5" or "SHA1". SHA1 is recommended.
+            </param>
+            <param name="saltValue">
+            Salt value used for password hashing during key generation. This is
+            not the same as the salt we will use during encryption. This parameter
+            can be any string.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String,System.String,System.Int32)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption with the key derived from the explicitly specified
+            parameters.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 4, the default min value will be used (currently 4
+            bytes).
+            </param>
+            <param name="maxSaltLen">
+            Max size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is negative or greater than 255, the default max value will be
+            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
+            than the specified min value (which can be adjusted to default value),
+            salt will not be used and plain text value will be encrypted as is.
+            In this case, salt will not be processed during decryption either.
+            </param>
+            <param name="keySize">
+            Size of symmetric key (in bits): 128, 192, or 256.
+            </param>
+            <param name="hashAlgorithm">
+            Hashing algorithm: "MD5" or "SHA1". SHA1 is recommended.
+            </param>
+            <param name="saltValue">
+            Salt value used for password hashing during key generation. This is
+            not the same as the salt we will use during encryption. This parameter
+            can be any string.
+            </param>
+            <param name="passwordIterations">
+            Number of iterations used to hash password. More iterations are
+            considered more secure but may take longer.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Encrypt(System.String)">
+            <summary>
+            Encrypts a string value generating a base64-encoded string.
+            </summary>
+            <param name="plainText">
+            Plain text string to be encrypted.
+            </param>
+            <returns>
+            Cipher text formatted as a base64-encoded string.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Encrypt(System.Byte[])">
+            <summary>
+            Encrypts a byte array generating a base64-encoded string.
+            </summary>
+            <param name="plainTextBytes">
+            Plain text bytes to be encrypted.
+            </param>
+            <returns>
+            Cipher text formatted as a base64-encoded string.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.EncryptToBytes(System.String)">
+            <summary>
+            Encrypts a string value generating a byte array of cipher text.
+            </summary>
+            <param name="plainText">
+            Plain text string to be encrypted.
+            </param>
+            <returns>
+            Cipher text formatted as a byte array.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.EncryptToBytes(System.Byte[])">
+            <summary>
+            Encrypts a byte array generating a byte array of cipher text.
+            </summary>
+            <param name="plainTextBytes">
+            Plain text bytes to be encrypted.
+            </param>
+            <returns>
+            Cipher text formatted as a byte array.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Decrypt(System.String)">
+            <summary>
+            Decrypts a base64-encoded cipher text value generating a string result.
+            </summary>
+            <param name="cipherText">
+            Base64-encoded cipher text string to be decrypted.
+            </param>
+            <returns>
+            Decrypted string value.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Decrypt(System.Byte[])">
+            <summary>
+            Decrypts a byte array containing cipher text value and generates a
+            string result.
+            </summary>
+            <param name="cipherTextBytes">
+            Byte array containing encrypted data.
+            </param>
+            <returns>
+            Decrypted string value.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.DecryptToBytes(System.String)">
+            <summary>
+            Decrypts a base64-encoded cipher text value and generates a byte array
+            of plain text data.
+            </summary>
+            <param name="cipherText">
+            Base64-encoded cipher text string to be decrypted.
+            </param>
+            <returns>
+            Byte array containing decrypted value.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.DecryptToBytes(System.Byte[])">
+            <summary>
+            Decrypts a base64-encoded cipher text value and generates a byte array
+            of plain text data.
+            </summary>
+            <param name="cipherTextBytes">
+            Byte array containing encrypted data.
+            </param>
+            <returns>
+            Byte array containing decrypted value.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.AddSalt(System.Byte[])">
+            <summary>
+            Adds an array of randomly generated bytes at the beginning of the
+            array holding original plain text value.
+            </summary>
+            <param name="plainTextBytes">
+            Byte array containing original plain text value.
+            </param>
+            <returns>
+            Either original array of plain text bytes (if salt is not used) or a
+            modified array containing a randomly generated salt added at the 
+            beginning of the plain text bytes. 
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.GenerateSalt">
+            <summary>
+            Generates an array holding cryptographically strong bytes.
+            </summary>
+            <returns>
+            Array of randomly generated bytes.
+            </returns>
+            <remarks>
+            Salt size will be defined at random or exactly as specified by the
+            minSlatLen and maxSaltLen parameters passed to the object constructor.
+            The first four bytes of the salt array will contain the salt length
+            split into four two-bit pieces.
+            </remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.GenerateRandomNumber(System.Int32,System.Int32)">
+            <summary>
+            Generates random integer.
+            </summary>
+            <param name="minValue">
+            Min value (inclusive).
+            </param>
+            <param name="maxValue">
+            Max value (inclusive).
+            </param>
+            <returns>
+            Random integer value between the min and max values (inclusive).
+            </returns>
+            <remarks>
+            This methods overcomes the limitations of .NET Framework's Random
+            class, which - when initialized multiple times within a very short
+            period of time - can generate the same "random" number.
+            </remarks>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RijndaelEnhancedTest">
+            <summary>
+            Illustrates the use of RijndaelEnhanced class to encrypt and decrypt data
+            using a random salt value.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhancedTest.Main">
+            <summary>
+            The main entry point for the application.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RpcClient">
+            <summary>
+            Контекст клиентского соединения.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._connectLock">
+            <summary>
+            Используется для синхронизации установки соединения.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._uri">
+            <summary>
+            Адрес для подключеия к серверу.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._appBuilder">
+            <summary>
+            <see langword="volatile"/>.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._connection">
+            <summary>
+            Устанавливается в блокировке <see cref="P:DanilovSoft.vRPC.RpcClient.StateLock"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcClient.Completion">
+            <summary>
+            Завершается если подключение разорвано или не установлено.
+            Не бросает исключения.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcClient.StateLock">
+            <summary>
+            Для доступа к <see cref="F:DanilovSoft.vRPC.RpcClient._disposed"/> и <see cref="F:DanilovSoft.vRPC.RpcClient._stopRequired"/>.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._connectingWs">
+            <summary>
+            Используется только что-бы аварийно прервать подключение через Dispose.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Uri)">
+            <summary>
+            Создаёт контекст клиентского соединения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.String,System.Int32)">
+            <summary>
+            Создаёт контекст клиентского соединения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Reflection.Assembly,System.Uri)">
+            <summary>
+            Конструктор клиента.
+            </summary>
+            <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
+            <param name="uri">Адрес сервера.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConfigureService(System.Action{Microsoft.Extensions.DependencyInjection.ServiceCollection})">
+            <summary>
+            Позволяет настроить IoC контейнер.
+            Выполняется единожды при инициализации подключения.
+            </summary>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.Configure(System.Action{DanilovSoft.vRPC.ApplicationBuilder})">
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.WaitCompletion">
+            <summary>
+            Блокирует поток до завершения <see cref="P:DanilovSoft.vRPC.RpcClient.Completion"/>.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.Connect">
+            <summary>
+            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+            Потокобезопасно.
+            </summary>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectAsync">
+            <summary>
+            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+            Потокобезопасно.
+            </summary>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.GetProxy``1">
+            <summary>
+            Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
+            </summary>
+            <typeparam name="T">Интерфейс.</typeparam>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.Stop(System.TimeSpan,System.String)">
+            <summary>
+            Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+            Потокобезопасно.
+            </summary>
+            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.BeginStop(System.TimeSpan,System.String)">
+            <summary>
+            Начинает грациозную остановку. Не блокирует поток.
+            Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcClient.Completion"/>.
+            Потокобезопасно.
+            </summary>
+            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.StopAsync(System.TimeSpan,System.String)">
+            <summary>
+            Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+            Потокобезопасно.
+            </summary>
+            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ContextCallback">
+            <summary>
+            Возвращает существующее подключение или создаёт новое, когда 
+            происходит вызов метода интерфеса.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.Disconnected(System.Object,DanilovSoft.vRPC.SocketDisconnectedEventArgs)">
+            <summary>
+            Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectIfNeededAsync">
+            <summary>
+            Выполнить подключение сокета если еще не подключен.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.LockAquiredConnectAsync(System.Threading.ChannelLock.Releaser)">
+            <summary>
+            
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConfigureIoC(Microsoft.Extensions.DependencyInjection.ServiceCollection)">
+            <summary>
+            Добавляет в IoC контейнер контроллеры из сборки и компилирует контейнер.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener.Controllers">
+            <summary>
+            Словарь используемый только для чтения, поэтому потокобезопасен.
+            Хранит все доступные контроллеры. Не учитывает регистр.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._connections">
+            <summary>
+            Доступ через блокировку SyncObj.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcListener.StartLock">
+            <summary>
+            Для доступа к <see cref="F:DanilovSoft.vRPC.RpcListener._stopRequired"/> и <see cref="F:DanilovSoft.vRPC.RpcListener._started"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcListener.Completion">
+            <summary>
+            <see cref="T:System.Threading.Tasks.Task"/> который завершается когда все 
+            соединения перешли в закрытое состояние и сервис полностью остановлен.
+            Не бросает исключения.
+            Возвращает <see langword="true"/> если остановка прошла грациозно.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._started">
+            <summary>
+            Единожны меняет состояние на <see langword="true"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcListener.Connections">
+            <summary>
+            Коллекция авторизованных пользователей.
+            Ключ словаря — UserId авторизованного пользователя.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcListener.ServiceProvider">
+            <summary>
+            Может быть <see langword="null"/> если не выполнен ConfigureService и сервис ещё не запущен.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._stopRequired">
+            <summary>
+            Не позволяет подключаться новым клиентам. Единожны меняет состояние.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.ConfigureService(System.Action{Microsoft.Extensions.DependencyInjection.ServiceCollection})">
+            <summary>
+            Позволяет настроить IoC контейнер.
+            Выполняется единожды при инициализации подключения.
+            </summary>
+            <param name="configure"></param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.Stop(System.TimeSpan,System.String)">
+            <summary>
+            Начинает остановку сервиса. Не блокирует поток.
+            Не бросает исключения.
+            Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
+            </summary>
+            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
+            Может быть <see langword="null"/>.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.StopAsync(System.TimeSpan,System.String)">
+            <summary>
+            Останавливает сервис и ожидает до полной остановки.
+            Не бросает исключения.
+            Эквивалентно <see cref="!:Stop(TimeSpan)"/> + <see langword="await"/> <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
+            </summary>
+            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
+            Может быть <see langword="null"/>.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.RunAsync">
+            <summary>
+            Начинает приём подключений и обработку запросов до полной остановки методом Stop.
+            Эквивалентно вызову Start + <see langword="await"/> Completion.
+            Потокобезопасно.
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.RpcListenerException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.Start">
+            <summary>
+            Начинает приём новых подключений.
+            Повторный вызов спровоцирует исключение.
+            Потокобезопасно.
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.RpcListenerException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.InnerStart">
+            <summary>
+            Предотвращает повторный запуск сервера.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.StopRequired.CloseDescription">
+            <summary>
+            Причина остановки сервиса указанная пользователем. Может быть <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.StopRequired.Timeout">
+            <summary>
+            Максимальное время ожидания остановки сервиса указанное пользователем 
+            после которого соединение закрывается принудительно.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.StopRequired.SetTaskAndReturn(DanilovSoft.vRPC.CloseReason)">
+            <summary>
+            Возвращает переданное значение.
+            </summary>
+            <param name="gracefully"></param>
+            <returns></returns>
+        </member>
+        <member name="T:DanilovSoft.vRPC.UserConnections">
+            <summary>
+            Потокобезопасный список авторизованных соединений пользователя.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.UserConnections._list">
+            <summary>
+            Доступ осуществляется только через блокировку <see cref="F:DanilovSoft.vRPC.UserConnections.SyncRoot"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.UserConnections.IsDestroyed">
+            <summary>
+            Доступ осуществляется только через блокировку <see cref="F:DanilovSoft.vRPC.UserConnections.SyncRoot"/>.
+            Если коллекция уже была удалена из словаря подключений, то значение будет <see langword="true"/> 
+            и испольльзовать этот экземпляр больше нельзя.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.UserConnections.GetEnumerator">
+            <summary>
+            Возвращает копию своей коллекции.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.TaskConverter.ConvertTask(System.Threading.Tasks.Task{System.Object},System.Type,System.Type)">
+            <summary>
+            Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object&gt;"/> в <see cref="T:System.Threading.Tasks.Task`1"/>.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.Warmup.DoWarmup">
+            <summary>
+            Выполняет AOT(Ahead-Of-Time) оптимизацию.
+            </summary>
+        </member>
+        <member name="F:System.IO.MemoryPoolStream._bufferPosition">
+            <summary>
+            Должен совпадать с _position после операции чтения или записи.
+            </summary>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.#ctor(System.Int32,System.Boolean)">
+            <param name="capacity">Начальный размер буфера.</param>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.DangerousGetBuffer">
+            <summary>
+            Возвращает массив байт, из которого был создан этот поток.
+            Не используйте этот массив после любых операций с потоком.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.SetLength(System.Int64,System.Boolean)">
+            <summary>
+            
+            </summary>
+            <param name="value"></param>
+            <param name="clear">При увеличении размера стрима позволяет указать 
+            требуется ли очистить буфер начиная с текущей позиции до конца стрима. 
+            Значение по умолчанию — <see langword="true"/>.</param>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.ReadByte">
+            <summary>
+            Возвращает -1 если достигнут конец потока.
+            </summary>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
+            <summary>
+            Увеличивает размер буфера сохраняя данные.
+            </summary>
+            <param name="newSize">Необходимый размер буфера. Новый буфер может быть больше указанного размера.</param>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.ThrowIfDisposed">
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:System.Threading.ChannelLock.LockAsync">
+            <summary>
+            Не бросает исключения.
+            </summary>
+        </member>
+    </members>
+</doc>

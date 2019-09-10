@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using vRPC.Decorator;
+using DanilovSoft.vRPC.Decorator;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     internal sealed class ProxyCache
     {

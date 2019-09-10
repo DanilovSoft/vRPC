@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     public abstract class ActionResult : IActionResult
     {

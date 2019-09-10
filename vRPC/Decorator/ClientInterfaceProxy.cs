@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
 
-namespace vRPC.Decorator
+namespace DanilovSoft.vRPC.Decorator
 {
     /// <summary>
     /// От этого класса наследуются динамические типы и пользовательский интерфейс. 

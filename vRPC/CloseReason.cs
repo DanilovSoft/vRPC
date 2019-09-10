@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     [DebuggerDisplay(@"\{Gracifully = {Gracifully}\}")]
     public sealed class CloseReason

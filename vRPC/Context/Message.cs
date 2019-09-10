@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json.Linq;
 using System.Diagnostics;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     ///// <summary>
     ///// Сообщение для передачи удаленной стороне. Не подлежит сериализации.

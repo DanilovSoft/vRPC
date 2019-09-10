@@ -1,4 +1,4 @@
-﻿namespace vRPC
+﻿namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Код состояния передаваемого сообщения.

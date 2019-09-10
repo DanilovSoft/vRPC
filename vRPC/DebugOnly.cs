@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     internal static class DebugOnly
     {

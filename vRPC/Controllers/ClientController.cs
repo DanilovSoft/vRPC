@@ -1,4 +1,4 @@
-﻿namespace vRPC
+﻿namespace DanilovSoft.vRPC
 {
     public abstract class ClientController : Controller
     {

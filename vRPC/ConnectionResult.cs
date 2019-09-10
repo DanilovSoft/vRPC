@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.Net.Sockets;
 using System.Text;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     internal readonly struct ConnectionResult
     {

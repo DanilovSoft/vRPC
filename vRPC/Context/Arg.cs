@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     [DebuggerDisplay("{Value}")]
     internal readonly struct Arg

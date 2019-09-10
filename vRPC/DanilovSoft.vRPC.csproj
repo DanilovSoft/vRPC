@@ -3,20 +3,22 @@
   <PropertyGroup>
     <TargetFrameworks>netcoreapp2.2;netstandard2.0;net461</TargetFrameworks>
     <LangVersion>8.0</LangVersion>
-    <AssemblyName>vRPC</AssemblyName>
-    <RootNamespace>vRPC</RootNamespace>
+    <AssemblyName>DanilovSoft.DanilovSoft.vRPC</AssemblyName>
+    <RootNamespace>DanilovSoft.DanilovSoft.vRPC</RootNamespace>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Company />
     <Description>Asynchronous full-duplex Remote Procedure Call based on WebSocket</Description>
     <Copyright>Vitalii Danilov</Copyright>
     <Authors>Vitalii Danilov</Authors>
-    <PackageId>DanilovSoft.vRPC</PackageId>
-    <Product>DanilovSoft.vRPC</Product>
+    <PackageId>DanilovSoft.DanilovSoft.vRPC</PackageId>
+    <Product>DanilovSoft.DanilovSoft.vRPC</Product>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|netcoreapp2.2|AnyCPU'">
     <DebugType>full</DebugType>
     <DebugSymbols>true</DebugSymbols>
+    <DocumentationFile>DanilovSoft.DanilovSoft.vRPC.xml</DocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>

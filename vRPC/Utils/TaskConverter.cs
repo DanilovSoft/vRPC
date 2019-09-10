@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     internal static class TaskConverter
     {

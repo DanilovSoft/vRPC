@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using vRPC.Source;
+using DanilovSoft.vRPC.Source;
 
 namespace System.Threading
 {

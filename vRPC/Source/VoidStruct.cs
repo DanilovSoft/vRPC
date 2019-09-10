@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace vRPC.Source
+namespace DanilovSoft.vRPC.Source
 {
     internal readonly struct VoidStruct
     {

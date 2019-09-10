@@ -5,7 +5,7 @@ using System.IO;
 using System.Text;
 using ProtoBufSerializer = ProtoBuf.Serializer;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Заголовок передаваемого сообщения. Размер заголовка — динамический. Сериализатор всегда ProtoBuf.

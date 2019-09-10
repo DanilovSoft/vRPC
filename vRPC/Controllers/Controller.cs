@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     public abstract class Controller /*: IDisposable*/
     {

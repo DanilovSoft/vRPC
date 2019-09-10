@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     internal interface IConcurrentDictionary<TKey, TValue>
     {

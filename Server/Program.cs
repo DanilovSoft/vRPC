@@ -7,7 +7,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using vRPC;
+using DanilovSoft.vRPC;
 
 namespace Server
 {

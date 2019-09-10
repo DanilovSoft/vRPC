@@ -7,7 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using vRPC;
+using DanilovSoft.vRPC;
 
 namespace Client
 {
@@ -141,7 +141,7 @@ namespace Client
             }
         }
 
-        private static void Console_CancelKeyPress(ConsoleCancelEventArgs e, vRPC.RpcClient client)
+        private static void Console_CancelKeyPress(ConsoleCancelEventArgs e, RpcClient client)
         {
             _appExit = true;
 

@@ -1,4 +1,4 @@
-﻿namespace vRPC
+﻿namespace DanilovSoft.vRPC
 {
     ///////////////////////////////////////////////////////////////////////////////
     // SAMPLE: Illustrates symmetric key encryption and decryption using Rijndael

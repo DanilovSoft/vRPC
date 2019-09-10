@@ -6,7 +6,7 @@ using System.Text;
 using DanilovSoft.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public sealed class ClientSideConnection : ManagedConnection

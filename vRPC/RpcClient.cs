@@ -10,7 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 //using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Контекст клиентского соединения.

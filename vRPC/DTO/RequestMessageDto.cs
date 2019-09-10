@@ -4,7 +4,7 @@ using ProtoBuf;
 using System.Diagnostics;
 using System.Runtime.Serialization;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Сериализуемое сообщение для передачи через сокет. На данный момент сериализуется только в Json.

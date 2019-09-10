@@ -4,7 +4,7 @@ using System.Text;
 
 #if NET461 || NETSTANDARD2_0
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Существует только для Net Framework.

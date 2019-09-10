@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Net.Sockets;
 using System.Text;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     public readonly struct ConnectResult
     {

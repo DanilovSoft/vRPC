@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace vRPC.Decorator
+namespace DanilovSoft.vRPC.Decorator
 {
     internal interface IInterfaceProxy
     {

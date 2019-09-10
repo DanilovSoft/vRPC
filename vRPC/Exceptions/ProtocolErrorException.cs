@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     [Serializable]
     public class ProtocolErrorException : Exception

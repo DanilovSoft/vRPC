@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace vRPC
+namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Указывает имя контроллера к которому будут осуществляться вызовы через помеченный интерфейс.
