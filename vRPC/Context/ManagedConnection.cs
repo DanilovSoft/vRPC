@@ -140,6 +140,9 @@ namespace vRPC
         // static ctor.
         static ManagedConnection()
         {
+            //var proto = ProtoBuf.Serializer.GetProto<HeaderDto>();
+            //Console.WriteLine(proto);
+
             //ManagedWebSocket.DefaultNoDelay = true;
             Debug.Assert(Marshal.SizeOf<HeaderDto>() <= 16, $"Структуру {nameof(HeaderDto)} лучше заменить на класс");
             //Debug.Assert(Marshal.SizeOf<RequestMessageDto>() <= 16, $"Структуру {nameof(RequestMessageDto)} лучше заменить на класс");
