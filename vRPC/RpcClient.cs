@@ -74,7 +74,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт контекст клиентского соединения.
         /// </summary>
-        public RpcClient(string host, int port) : this(Assembly.GetCallingAssembly(), new Uri($"ws://{host}:{port}"))
+        public RpcClient(string host, int port, bool ssl = false) : this(Assembly.GetCallingAssembly(), new Uri($"{(ssl ? "wss" : "ws")}://{host}:{port}"))
         {
             
         }
@@ -230,6 +230,9 @@ namespace DanilovSoft.vRPC
                     stopRequired = new StopRequired(timeout, closeDescription);
                     _stopRequired = stopRequired;
                     created = true;
+
+                    // Прервать установку подключения если она выполняется.
+                    Interlocked.Exchange(ref _connectingWs, null)?.Dispose();
 
                     // Скопировать пока мы в блокировке.
                     connection = _connection;
@@ -439,10 +442,24 @@ namespace DanilovSoft.vRPC
                     }
 
                     if(Interlocked.Exchange(ref _connectingWs, null) == null)
-                    // Dispose убил наш экземпляр.
+                    // Stop или Dispose убил наш экземпляр.
                     {
-                        // Больше ничего делать не нужно.
-                        throw new ObjectDisposedException(GetType().FullName);
+                        lock (StateLock)
+                        {
+                            if (!_disposed)
+                            {
+                                if (_stopRequired != null)
+                                {
+                                    // Нельзя создавать новое подключение если был вызван Stop.
+                                    return new ConnectionResult(null, _stopRequired, null);
+                                }
+                            }
+                            else
+                            {
+                                // Больше ничего делать не нужно.
+                                throw new ObjectDisposedException(GetType().FullName);
+                            }
+                        }
                     }
 
                     if (receiveResult.IsReceivedSuccessfully)
@@ -492,7 +509,6 @@ namespace DanilovSoft.vRPC
                             }
 
                             return new ConnectionResult(receiveResult.SocketError, stopRequired, null);
-                            //throw new StopRequiredException(stopRequired);
                         }
                     }
                     else
