@@ -7,6 +7,6 @@ namespace DanilovSoft.vRPC
 {
     internal interface IMessage
     {
-        JToken[] Args { get; }
+        //JToken[] Args { get; }
     }
 }

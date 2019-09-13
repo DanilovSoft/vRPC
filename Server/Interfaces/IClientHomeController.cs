@@ -11,5 +11,8 @@ namespace Server
     {
         Task SetClientIdAsync(int id);
         Task<string> SayHelloAsync(string s);
+
+        [Notification]
+        Task NotifyAsync();
     }
 }

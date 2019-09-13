@@ -88,12 +88,18 @@ namespace Server
             Interlocked.Decrement(ref _connections);
         }
 
-        private static void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
+        private static async void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
         {
             //var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
             Interlocked.Increment(ref _connections);
-            
+
+            //while (true)
+            //{
+            //    await e.Connection.GetProxy<IClientHomeController>().NotifyAsync();
+            //    Thread.Sleep(1000);
+            //}
+
             //var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
             //logger.LogInformation("Инициализируем подключенного клиента");

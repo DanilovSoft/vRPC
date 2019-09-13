@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC;
+using System.Diagnostics;
 
 namespace Server.Controllers
 {
@@ -28,6 +29,12 @@ namespace Server.Controllers
             return resp;
         }
            
+        public void NotifyTest()
+        {
+            Debug.WriteLine("NotifyTest");
+            //_logger.LogInformation("NotifyTest");
+        }
+
         [ProducesProtoBuf]
         public DateTime DummyCall(string s)
         {

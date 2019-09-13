@@ -1,5 +1,7 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 
@@ -12,6 +14,18 @@ namespace DanilovSoft.vRPC
     /// </summary>
     internal sealed class SerializedMessageToSend : IDisposable
     {
+#if DEBUG
+        private string DebugJson
+        {
+            get
+            {
+                var copy = MemPoolStream.ToArray();
+                string j = Encoding.UTF8.GetString(copy);
+                return JToken.Parse(j).ToString(Newtonsoft.Json.Formatting.Indented);
+            }
+        }
+#endif
+
         /// <summary>
         /// Содержит сериализованное сообщение типа <see cref="RequestMessageDto"/> или любой 
         /// другой тип если это ответ на запрос.
@@ -23,7 +37,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Уникальный идентификатор который будет отправлен удалённой стороне.
         /// </summary>
-        public ushort Uid { get; set; }
+        public ushort? Uid { get; set; }
         public StatusCode? StatusCode { get; set; }
         public string ContentEncoding { get; set; }
         /// <summary>
@@ -46,6 +60,10 @@ namespace DanilovSoft.vRPC
         public void Dispose()
         {
             MemPoolStream.Dispose();
+        }
+
+        private sealed class TypeProxy
+        {
         }
     }
 }

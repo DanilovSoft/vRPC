@@ -24,6 +24,12 @@
             Указывает имя контроллера к которому будут осуществляться вызовы через помеченный интерфейс.
             </summary>
         </member>
+        <member name="T:DanilovSoft.vRPC.NotificationAttribute">
+            <summary>
+            Метод помеченный атрибутом Notification не ожидает результата.
+            Возвращаемый тип метода должен быть void или Task или ValueTask.
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.BearerToken.Key">
             <summary>
             Зашифрованное тело токена.
@@ -101,7 +107,7 @@
             Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.ManagedConnection._proxyMethodName">
+        <member name="P:DanilovSoft.vRPC.ManagedConnection._interfaceMethods">
             <summary>
             Содержит имена методов прокси интерфейса без постфикса Async.
             </summary>
@@ -142,7 +148,7 @@
         </member>
         <member name="F:DanilovSoft.vRPC.ManagedConnection._sendChannel">
             <summary>
-            Отправка сообщения <see cref="!:Message"/> должна выполняться только через этот канал.
+            Отправка сообщения <see cref="T:DanilovSoft.vRPC.SerializedMessageToSend"/> должна выполняться только через этот канал.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.ManagedConnection._stopRequired">
@@ -223,17 +229,15 @@
             Происходит при обращении к проксирующему интерфейсу.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.OnProxyCall(DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestMessage)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotification(DanilovSoft.vRPC.SerializedMessageToSend)">
+            <summary>
+            Происходит при обращении к проксирующему интерфейсу. Отправляет запрос-уведомление.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestWithResult(DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestMessage)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
             </summary>
-            /// <param name="resultType">Тип в который будет десериализован результат запроса.</param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.GetProxyMethodName(System.Reflection.MethodInfo)">
-            <summary>
-            Возвращает имя метода без постфикса Async.
-            </summary>
-            <param name="method"></param>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
@@ -291,7 +295,6 @@
             <summary>
             Производит маппинг аргументов по их порядку.
             </summary>
-            <param name="method">Метод который будем вызывать.</param>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.StartProcessRequest(DanilovSoft.vRPC.RequestContext)">
             <summary>
@@ -311,7 +314,7 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.GetResponseAsync(DanilovSoft.vRPC.RequestContext)">
             <summary>
-            Выполняет запрос клиента и инкапсулирует результат в <see cref="!:Response"/>.
+            Выполняет запрос клиента и инкапсулирует результат в <see cref="T:DanilovSoft.vRPC.ResponseMessage"/>.
             Не бросает исключения.
             </summary>
         </member>
@@ -342,7 +345,12 @@
         </member>
         <member name="T:DanilovSoft.vRPC.RequestMessage">
             <summary>
-            Сообщение для передачи удаленной стороне. Не подлежит сериализации.
+            Запрос для передачи удаленной стороне. Не подлежит сериализации.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestMessage.ActionName">
+            <summary>
+            Имя вызываемого метода вместе с контроллером например 'Home/Hello'.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.RequestMessage.Args">
@@ -350,9 +358,9 @@
             Параметры для удаленного метода <see cref="P:DanilovSoft.vRPC.RequestMessage.ActionName"/>.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestMessage.#ctor(System.Type,System.String,System.Object[])">
+        <member name="M:DanilovSoft.vRPC.RequestMessage.#ctor(DanilovSoft.vRPC.InterfaceMethodInfo,System.String,System.Object[])">
             <summary>
-            Конструктор запроса.
+            Запрос для передачи удаленной стороне. Не подлежит сериализации.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.ResponseMessage">
@@ -368,11 +376,6 @@
         <member name="P:DanilovSoft.vRPC.ResponseMessage.ReceivedRequest">
             <summary>
             Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.ResponseMessage.Args">
-            <summary>
-            Параметры для удаленного метода <see cref="!:ActionName"/>.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.UInt16,System.Object)">
@@ -502,12 +505,12 @@
             Создаёт заголовок ответа на запрос.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.HeaderDto.CreateRequest(System.UInt16,System.Int32)">
+        <member name="M:DanilovSoft.vRPC.HeaderDto.CreateRequest(System.Nullable{System.UInt16},System.Int32)">
             <summary>
             Создаёт заголовок для нового запроса.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.UInt16,DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
+        <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.Nullable{System.UInt16},DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
             <summary>
             Конструктор заголовка и для ответа и для запроса.
             </summary>
@@ -653,6 +656,21 @@
         <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetMessageFromCloseFrame(System.Nullable{System.Net.WebSockets.WebSocketCloseStatus},System.String)">
             <summary>
             Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.InterfaceMethodInfo.IncapsulatedReturnType">
+            <summary>
+            Инкапсулированный в Task тип результата функции.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.InterfaceMethodInfo.MethodName">
+            <summary>
+            Имя метода без постфикса Async.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.InterfaceMethodInfo.GetMethodReturnType(System.Reflection.MethodInfo)">
+            <summary>
+            Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">

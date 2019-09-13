@@ -52,7 +52,7 @@ namespace Client
             var threads = new List<Thread>(Threads);
             for (int i = 0; i < Threads; i++)
             {
-                var t = new Thread(async _ =>
+                var t = new Thread(_ =>
                 {
                     if (_appExit)
                         return;
@@ -73,6 +73,13 @@ namespace Client
                         });
 
                         var homeController = client.GetProxy<IServerHomeController>();
+
+                        //while (true)
+                        //{
+                        //    homeController.NotifyTestAsync().GetAwaiter().GetResult();
+
+                        //    Thread.Sleep(1000);
+                        //}
 
                         while (true)
                         {

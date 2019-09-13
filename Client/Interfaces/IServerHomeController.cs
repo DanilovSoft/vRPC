@@ -15,5 +15,7 @@ namespace Client
         Task<int> Test4Async();
         Task<int> Test2Async();
         Task<int> Test0Async();
+        [Notification]
+        Task NotifyTestAsync();
     }
 }

@@ -32,7 +32,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Содержит имена методов прокси интерфейса без постфикса Async.
         /// </summary>
-        private protected abstract IConcurrentDictionary<MethodInfo, string> _proxyMethodName { get; }
+        private protected abstract IConcurrentDictionary<MethodInfo, InterfaceMethodInfo> _interfaceMethods { get; }
+        ///// <summary>
+        ///// Содержит имена методов прокси интерфейса без постфикса Async.
+        ///// </summary>
+        //private protected abstract IConcurrentDictionary<MethodInfo, string> _proxyMethodName { get; }
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
@@ -66,7 +70,7 @@ namespace DanilovSoft.vRPC
         public EndPoint LocalEndPoint => _socket.LocalEndPoint;
         public EndPoint RemoteEndPoint => _socket.RemoteEndPoint;
         /// <summary>
-        /// Отправка сообщения <see cref="Message"/> должна выполняться только через этот канал.
+        /// Отправка сообщения <see cref="SerializedMessageToSend"/> должна выполняться только через этот канал.
         /// </summary>
         private readonly Channel<SerializedMessageToSend> _sendChannel;
         private int _disposed;
@@ -144,7 +148,7 @@ namespace DanilovSoft.vRPC
             //Console.WriteLine(proto);
 
             //ManagedWebSocket.DefaultNoDelay = true;
-            Debug.Assert(Marshal.SizeOf<HeaderDto>() <= 16, $"Структуру {nameof(HeaderDto)} лучше заменить на класс");
+            //Debug.Assert(Marshal.SizeOf<HeaderDto>() <= 16, $"Структуру {nameof(HeaderDto)} лучше заменить на класс");
             //Debug.Assert(Marshal.SizeOf<RequestMessageDto>() <= 16, $"Структуру {nameof(RequestMessageDto)} лучше заменить на класс");
             //Debug.Assert(Marshal.SizeOf<RequestMessage>() <= 16, $"Структуру {nameof(RequestMessage)} лучше заменить на класс");
             //Debug.Assert(Marshal.SizeOf<ValueWebSocketReceiveExResult>() <= 16, $"Структуру {nameof(ValueWebSocketReceiveExResult)} лучше заменить на класс");
@@ -321,22 +325,25 @@ namespace DanilovSoft.vRPC
         /// </summary>
         internal object OnServerProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
+            //var sw = Stopwatch.StartNew();
             // Тип результата инкапсулированный в Task<T>.
-            Type resultType = targetMethod.GetMethodReturnType();
+            InterfaceMethodInfo ifaceMethodInfo = _interfaceMethods.GetOrAdd(targetMethod, mi => new InterfaceMethodInfo(mi));
+            //sw.Stop();
+            //Trace.WriteLine($"_interfaceMethods: {sw.ElapsedTicks}");
 
             // Имя метода без постфикса Async.
-            string remoteMethodName = GetProxyMethodName(targetMethod);
+            //string remoteMethodName = GetProxyMethodName(targetMethod);
 
             // Создаём запрос для отправки.
-            var requestToSend = new RequestMessage(resultType, $"{controllerName}/{remoteMethodName}", args);
+            var requestToSend = new RequestMessage(ifaceMethodInfo, $"{controllerName}/{ifaceMethodInfo.MethodName}", args);
 
             // Сериализуем запрос в память.
             SerializedMessageToSend serMsg = SerializeRequest(requestToSend);
 
             // Отправляем запрос.
-            Task<object> taskObject = OnProxyCall(serMsg, requestToSend);
+            Task<object> taskObject = SendRequestWithResult(serMsg, requestToSend);
 
-            return OnProxyCallConvert(targetMethod, resultType, taskObject);
+            return ConvertRequestTask(ifaceMethodInfo, taskObject);
         }
 
         /// <summary>
@@ -344,60 +351,102 @@ namespace DanilovSoft.vRPC
         /// </summary>
         internal static object OnClientProxyCallStatic(ValueTask<ManagedConnection> contextTask, MethodInfo targetMethod, object[] args, string controllerName)
         {
+            //var sw = Stopwatch.StartNew();
             // Тип результата инкапсулированный в Task<T>.
-            Type resultType = targetMethod.GetMethodReturnType();
-
-            // Имя метода без постфикса Async.
-            string remoteMethodName = ClientSideConnection.ProxyMethodName.GetOrAdd(targetMethod, m => m.GetNameTrimAsync());
+            InterfaceMethodInfo ifaceMethodInfo = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, mi => new InterfaceMethodInfo(mi));
+            //sw.Stop();
+            //Trace.WriteLine($"InterfaceMethodsInfo: {sw.ElapsedTicks}");
 
             // Создаём запрос для отправки.
-            var requestToSend = new RequestMessage(resultType, $"{controllerName}/{remoteMethodName}", args);
+            var requestToSend = new RequestMessage(ifaceMethodInfo, $"{controllerName}/{ifaceMethodInfo.MethodName}", args);
 
             // Сериализуем запрос в память. Лучше выполнить до подключения.
             SerializedMessageToSend serMsg = SerializeRequest(requestToSend);
 
-            // Отправляем запрос.
-            Task<object> taskObject = OnProxyCallAsync(contextTask, serMsg, requestToSend);
-
-            return OnProxyCallConvert(targetMethod, resultType, taskObject);
-        }
-
-        private static Task<object> OnProxyCallAsync(ValueTask<ManagedConnection> contextTask, SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
-        {
-            if(contextTask.IsCompleted)
+            if(!requestToSend.InterfaceMethod.Notification)
             {
-                // Отправляет запрос и получает результат от удалённой стороны.
-                return contextTask.Result.OnProxyCall(serializedMessage, requestMessage);
+                // Отправляем запрос.
+                Task<object> taskObject = SendRequestWithResultAsync(contextTask, serMsg, requestToSend);
+
+                object convertedResult = ConvertRequestTask(ifaceMethodInfo, taskObject);
+
+                // Результатом может быть не завершённый Task.
+                return convertedResult;
             }
             else
             {
-                return WaitForConnectAndCallProxy(contextTask, serializedMessage, requestMessage);
+                Task task = SendNotificationAsync(contextTask, serMsg);
+
+                object convertedResult = ConvertNotificationTask(ifaceMethodInfo, task);
+
+                // Результатом может быть не завершённый Task.
+                return convertedResult;
+            }   
+        }
+
+        private static Task SendNotificationAsync(ValueTask<ManagedConnection> connectingTask, SerializedMessageToSend serializedMessage)
+        {
+            if (connectingTask.IsCompleted)
+            {
+                ManagedConnection connection = connectingTask.Result;
+
+                // Отправляет уведомление.
+                connection.SendNotification(serializedMessage);
+                return Task.CompletedTask;
+            }
+            else
+            {
+                return WaitForConnectAndSendNotification(connectingTask, serializedMessage);
             }
         }
 
-        private static async Task<object> WaitForConnectAndCallProxy(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
+        private static Task<object> SendRequestWithResultAsync(ValueTask<ManagedConnection> contextTask, SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
         {
-            // Ждём завершение подключения к серверу.
-            ManagedConnection context = await t.ConfigureAwait(false);
+            if(contextTask.IsCompleted)
+            {
+                ManagedConnection connection = contextTask.Result;
 
-            // Отправляет запрос и получает результат от удалённой стороны.
-            return await context.OnProxyCall(serializedMessage, requestMessage).ConfigureAwait(false);
+                // Отправляет запрос и получает результат от удалённой стороны.
+                return connection.SendRequestWithResult(serializedMessage, requestMessage);
+            }
+            else
+            {
+                return WaitForConnectAndSendRequest(contextTask, serializedMessage, requestMessage);
+            }
         }
 
-        private static object OnProxyCallConvert(MethodInfo targetMethod, Type resultType, Task<object> taskObject)
+        private static async Task WaitForConnectAndSendNotification(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage)
         {
-            if (targetMethod.IsAsyncMethod())
+            // Ждём завершение подключения к серверу.
+            ManagedConnection connection = await t.ConfigureAwait(false);
+
+            // Отправляет запрос и получает результат от удалённой стороны.
+            connection.SendNotification(serializedMessage);
+        }
+
+        private static async Task<object> WaitForConnectAndSendRequest(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
+        {
+            // Ждём завершение подключения к серверу.
+            ManagedConnection connection = await t.ConfigureAwait(false);
+
+            // Отправляет запрос и получает результат от удалённой стороны.
+            return await connection.SendRequestWithResult(serializedMessage, requestMessage).ConfigureAwait(false);
+        }
+
+        private static object ConvertRequestTask(InterfaceMethodInfo targetMethod, Task<object> taskObject)
+        {
+            if (targetMethod.IsAsync)
             // Возвращаемый тип функции интерфейса — Task.
             {
-                if (targetMethod.ReturnType.IsGenericType)
+                if (targetMethod.Method.ReturnType.IsGenericType)
                 // У задачи есть результат.
                 {
                     // Task<object> должен быть преобразован в Task<T>.
-                    return TaskConverter.ConvertTask(taskObject, resultType, targetMethod.ReturnType);
+                    return TaskConverter.ConvertTask(taskObject, targetMethod.IncapsulatedReturnType, targetMethod.IncapsulatedReturnType);
                 }
                 else
                 {
-                    if (targetMethod.ReturnType != typeof(ValueTask))
+                    if (targetMethod.Method.ReturnType != typeof(ValueTask))
                     {
                         // Если возвращаемый тип интерфейса – Task то можно вернуть Task<object>.
                         return taskObject;
@@ -417,11 +466,46 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        private static object ConvertNotificationTask(InterfaceMethodInfo targetMethod, Task taskObject)
+        {
+            if (targetMethod.IsAsync)
+            // Возвращаемый тип функции интерфейса — Task.
+            {
+                if (targetMethod.Method.ReturnType != typeof(ValueTask))
+                {
+                    // Если возвращаемый тип интерфейса – Task то можно вернуть Task<object>.
+                    return taskObject;
+                }
+                else
+                {
+                    return new ValueTask(taskObject);
+                }
+            }
+            else
+            // Была вызвана синхронная функция.
+            {
+                // Результатом может быть исключение.
+                taskObject.GetAwaiter().GetResult();
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос-уведомление.
+        /// </summary>
+        internal void SendNotification(SerializedMessageToSend serializedMessage)
+        {
+            ThrowIfDisposed();
+            ThrowIfStopRequired();
+
+            // Планируем отправку запроса.
+            QueueSendMessage(serializedMessage);
+        }
+
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
         /// </summary>
-        /// /// <param name="resultType">Тип в который будет десериализован результат запроса.</param>
-        internal Task<object> OnProxyCall(SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
+        private Task<object> SendRequestWithResult(SerializedMessageToSend serializedMessage, RequestMessage requestMessage)
         {
             ThrowIfDisposed();
             ThrowIfStopRequired();
@@ -439,6 +523,12 @@ namespace DanilovSoft.vRPC
             return WaitForAwaiterAsync(tcs);
         }
 
+        //private void SendNotification(SerializedMessageToSend serializedMessage)
+        //{
+        //    // Планируем отправку запроса.
+        //    QueueSendMessage(serializedMessage);
+        //}
+
         private async Task<object> WaitForAwaiterAsync(RequestAwaiter tcs)
         {
             // Ожидаем результат от потока поторый читает из сокета.
@@ -449,15 +539,15 @@ namespace DanilovSoft.vRPC
             return rawResult;
         }
 
-        /// <summary>
-        /// Возвращает имя метода без постфикса Async.
-        /// </summary>
-        /// <param name="method"></param>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private string GetProxyMethodName(MethodInfo method)
-        {
-            return _proxyMethodName.GetOrAdd(method, valueFactory: m => m.GetNameTrimAsync());
-        }
+        ///// <summary>
+        ///// Возвращает имя метода без постфикса Async.
+        ///// </summary>
+        ///// <param name="method"></param>
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //private string GetProxyMethodName(MethodInfo method)
+        //{
+        //    return _proxyMethodName.GetOrAdd(method, m => m.GetNameTrimAsync());
+        //}
 
         private async void ReceiveLoop()
         {
@@ -634,11 +724,15 @@ namespace DanilovSoft.vRPC
                         {
                             #region Игнорируем запрос
 
-                            // Подготовить ответ с ошибкой.
-                            var errorResponse = new ResponseMessage(header.Uid, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\"."));
+                            if (header.Uid != null)
+                            // Запрос ожидает ответ.
+                            {
+                                // Подготовить ответ с ошибкой.
+                                var errorResponse = new ResponseMessage(header.Uid.Value, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\"."));
 
-                            // Передать на отправку результат с ошибкой через очередь.
-                            QueueSendResponse(errorResponse);
+                                // Передать на отправку результат с ошибкой через очередь.
+                                QueueSendResponse(errorResponse);
+                            }
 
                             // Вернуться к чтению заголовка.
                             continue;
@@ -663,7 +757,7 @@ namespace DanilovSoft.vRPC
                         #region Передача другому потоку ответа на запрос
 
                         // Удалить запрос из словаря.
-                        if (_pendingRequests.TryRemove(header.Uid, out RequestAwaiter reqAwaiter))
+                        if (_pendingRequests.TryRemove(header.Uid.Value, out RequestAwaiter reqAwaiter))
                         // Передать ответ ожидающему потоку.
                         {
                             #region Передать ответ ожидающему потоку
@@ -673,7 +767,7 @@ namespace DanilovSoft.vRPC
                             {
                                 #region Передать успешный результат
 
-                                if (reqAwaiter.Request.ReturnType != typeof(void))
+                                if (reqAwaiter.Request.InterfaceMethod.IncapsulatedReturnType != typeof(void))
                                 {
                                     // Десериализатор в соответствии с ContentEncoding.
                                     var deserializer = header.GetDeserializer();
@@ -682,7 +776,7 @@ namespace DanilovSoft.vRPC
                                     object rawResult = null;
                                     try
                                     {
-                                        rawResult = deserializer(messageStream, reqAwaiter.Request.ReturnType);
+                                        rawResult = deserializer(messageStream, reqAwaiter.Request.InterfaceMethod.IncapsulatedReturnType);
                                         deserialized = true;
                                     }
                                     catch (Exception deserializationException)
@@ -1096,6 +1190,7 @@ namespace DanilovSoft.vRPC
                             // Вызов метода контроллера.
                             object controllerResult = action.TargetMethod.InvokeFast(controller, args);
 
+                            // Может быть не завершённый Task.
                             if (controllerResult != null)
                             {
                                 // Извлекает результат из Task'а.
@@ -1179,11 +1274,9 @@ namespace DanilovSoft.vRPC
         //    return args;
         //}
 
-        // TODO заменить исключение.
         /// <summary>
         /// Производит маппинг аргументов по их порядку.
         /// </summary>
-        /// <param name="method">Метод который будем вызывать.</param>
         private object[] DeserializeArguments(ParameterInfo[] targetArguments, RequestMessageDto request)
         {
             object[] args = new object[targetArguments.Length];
@@ -1224,25 +1317,59 @@ namespace DanilovSoft.vRPC
                 // Увеличить счетчик запросов.
                 if (Interlocked.Increment(ref _reqAndRespCount) > 0)
                 {
-                    // Выполняет запрос и возвращает ответ.
-                    var t = GetResponseAsync(requestContext);
-                    if (t.IsCompleted)
-                    {
-                        ResponseMessage responseMessage = t.Result; // Не бросает исключения.
-
-                        // Не бросает исключения.
-                        SerializeAndSendResponse(responseMessage, requestContext);
-                    }
-                    else
-                    {
-                        WaitResponseAndSendAsync(t, requestContext);
-                    }
+                    ProcessRequest(requestContext);
                 }
                 else
                 // Значение было -1, значит происходит остановка. Выполнять запрос не нужно.
                 {
                     return;
                 }
+            }
+        }
+
+        private void ProcessRequest(RequestContext requestContext)
+        {
+            if (requestContext.HeaderDto.Uid != null)
+            {
+                // Выполняет запрос и возвращает ответ.
+                var t = GetResponseAsync(requestContext);
+                if (t.IsCompleted)
+                {
+                    // Не бросает исключения.
+                    ResponseMessage responseMessage = t.Result;
+
+                    // Не бросает исключения.
+                    SerializeAndSendResponse(responseMessage, requestContext);
+                }
+                else
+                {
+                    WaitResponseAndSendAsync(t, requestContext);
+                }
+            }
+            else
+            // Notification
+            {
+                ValueTask<object> t = InvokeControllerAsync(requestContext);
+                if(!t.IsCompletedSuccessfully)
+                {
+                    WaitForNotification(t);
+                }
+            }
+        }
+
+        private async void WaitForNotification(ValueTask<object> t)
+        {
+            try
+            {
+                await t.ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            // Злая ошибка обработки запроса. Аналогично ошибке 500.
+            {
+                // Прервать отладку.
+                DebugOnly.Break();
+
+                Debug.WriteLine(ex);
             }
         }
 
@@ -1269,7 +1396,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Выполняет запрос клиента и инкапсулирует результат в <see cref="Response"/>.
+        /// Выполняет запрос клиента и инкапсулирует результат в <see cref="ResponseMessage"/>.
         /// Не бросает исключения.
         /// </summary>
         private ValueTask<ResponseMessage> GetResponseAsync(RequestContext requestContext)
@@ -1282,6 +1409,7 @@ namespace DanilovSoft.vRPC
             {
                 // Результат контроллера. Может быть Task.
                 object result = t.Result;
+
                 return new ValueTask<ResponseMessage>(new ResponseMessage(requestContext, result));
             }
             else

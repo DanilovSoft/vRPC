@@ -21,18 +21,18 @@ namespace DanilovSoft.vRPC
         /// Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
         /// </summary>
         public RequestContext ReceivedRequest { get; private set; }
-        /// <summary>
-        /// Параметры для удаленного метода <see cref="ActionName"/>.
-        /// </summary>
-        public JToken[] Args { get; }
+        ///// <summary>
+        ///// Параметры для удаленного метода.
+        ///// </summary>
+        //public JToken[] Args { get; }
 
         /// <summary>
         /// Конструктор ответа.
         /// </summary>
-        public ResponseMessage(ushort uid, object result) : base()
+        public ResponseMessage(ushort uid, object rawResult)
         {
             Uid = uid;
-            Result = result;
+            Result = rawResult;
         }
 
         /// <summary>
@@ -41,9 +41,13 @@ namespace DanilovSoft.vRPC
         /// <param name="receivedRequest"></param>
         /// <param name="rawResult"></param>
         [DebuggerStepThrough]
-        public ResponseMessage(RequestContext receivedRequest, object rawResult) : this(receivedRequest.HeaderDto.Uid, rawResult)
+        public ResponseMessage(RequestContext receivedRequest, object rawResult)
         {
+            Debug.Assert(receivedRequest.HeaderDto.Uid != null);
+
             ReceivedRequest = receivedRequest;
+            Uid = receivedRequest.HeaderDto.Uid.Value;
+            Result = rawResult;
         }
     }
 }

@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace DanilovSoft.vRPC
 {
+    [DebuggerDisplay(@"\{Count = {_dict.Count}\}")]
     internal sealed class LockedDictionary<TKey, TValue> : IConcurrentDictionary<TKey, TValue>
     {
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
         private readonly Dictionary<TKey, TValue> _dict = new Dictionary<TKey, TValue>();
 
         public TValue GetOrAdd(TKey key, Func<TKey, TValue> factory)

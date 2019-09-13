@@ -12,14 +12,14 @@ namespace DanilovSoft.vRPC
     /// </summary>
     [ProtoContract]
     [DebuggerDisplay(@"\{Status = {StatusCode}, Content = {ContentLength} байт\}")]
-    internal readonly struct HeaderDto
+    internal sealed class HeaderDto
     {
         public const int HeaderMaxSize = 64;
-        public static readonly HeaderDto Empty = default;
+        public static HeaderDto Empty => default;
         private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
 
-        [ProtoMember(1)]
-        public ushort Uid { get; }
+        [ProtoMember(1, IsRequired = false)]
+        public ushort? Uid { get; }
 
         [ProtoMember(2)]
         public StatusCode StatusCode { get; }
@@ -34,6 +34,12 @@ namespace DanilovSoft.vRPC
         [ProtoMember(4, IsRequired = false)]
         public string ContentEncoding { get; }
 
+        // Требуется для десериализатора. Если структура то не используется.
+        private HeaderDto()
+        {
+
+        }
+
         /// <summary>
         /// Создаёт заголовок ответа на запрос.
         /// </summary>
@@ -45,7 +51,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт заголовок для нового запроса.
         /// </summary>
-        public static HeaderDto CreateRequest(ushort uid, int contentLength)
+        public static HeaderDto CreateRequest(ushort? uid, int contentLength)
         {
             return new HeaderDto(uid, StatusCode.Request, contentLength, null);
         }
@@ -53,7 +59,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Конструктор заголовка и для ответа и для запроса.
         /// </summary>
-        private HeaderDto(ushort uid, StatusCode responseCode, int contentLength, string contentEncoding)
+        private HeaderDto(ushort? uid, StatusCode responseCode, int contentLength, string contentEncoding)
         {
             Uid = uid;
             StatusCode = responseCode;

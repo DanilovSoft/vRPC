@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC;
+using System.Diagnostics;
 
 namespace Client.Controllers
 {
@@ -27,6 +28,11 @@ namespace Client.Controllers
         public void SetClientId(int id)
         {
             Console.WriteLine($"Сервер прислал уникальный идентификатор: {id}");
+        }
+
+        public void Notify()
+        {
+            Debug.WriteLine("Notify");
         }
     }
 }

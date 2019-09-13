@@ -17,15 +17,21 @@ namespace DanilovSoft.vRPC
     {
         private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
         private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
-        internal static readonly MyConcurrentDictionary<MethodInfo, string> ProxyMethodName = new MyConcurrentDictionary<MethodInfo, string>();
-        //private readonly ValueTask<ManagedConnection> _thisConnection;
+        internal static readonly ServerConcurrentDictionary<MethodInfo, string> ProxyMethodName = new ServerConcurrentDictionary<MethodInfo, string>();
+        private static readonly ServerConcurrentDictionary<MethodInfo, InterfaceMethodInfo> _interfaceMethodsInfo;
         private readonly ProxyCache _proxyCache = new ProxyCache();
-        private protected override IConcurrentDictionary<MethodInfo, string> _proxyMethodName => ProxyMethodName;
+        //private protected override IConcurrentDictionary<MethodInfo, string> _proxyMethodName => ProxyMethodName;
+        private protected override IConcurrentDictionary<MethodInfo, InterfaceMethodInfo> _interfaceMethods => _interfaceMethodsInfo;
 
         /// <summary>
         /// Сервер который принял текущее соединение.
         /// </summary>
         public RpcListener Listener { get; }
+
+        static ServerSideConnection()
+        {
+            _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, InterfaceMethodInfo>();
+        }
 
         // ctor.
         internal ServerSideConnection(MyWebSocket clientConnection, ServiceProvider serviceProvider, RpcListener listener) 
