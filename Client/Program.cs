@@ -52,7 +52,7 @@ namespace Client
             var threads = new List<Thread>(Threads);
             for (int i = 0; i < Threads; i++)
             {
-                var t = new Thread(_ =>
+                var t = new Thread(async _ =>
                 {
                     if (_appExit)
                         return;
