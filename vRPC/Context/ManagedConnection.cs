@@ -626,8 +626,8 @@ namespace DanilovSoft.vRPC
                         try
                         {
                             // Десериализуем запрос.
-                            //receivedRequest = ExtensionMethods.DeserializeRequestJson(messageStream);
-                            receivedRequest = ExtensionMethods.DeserializeRequestBson(messageStream);
+                            receivedRequest = ExtensionMethods.DeserializeRequestJson(messageStream);
+                            //receivedRequest = ExtensionMethods.DeserializeRequestBson(messageStream);
                         }
                         catch (Exception ex)
                         // Ошибка десериализации запроса.
@@ -834,8 +834,8 @@ namespace DanilovSoft.vRPC
             try
             {
                 var request = new RequestMessageDto(requestToSend.ActionName, requestToSend.Args);
-                //ExtensionMethods.SerializeObjectJson(serMsg.MemoryStream, request);
-                ExtensionMethods.SerializeObjectBson(serMsg.MemPoolStream, request);
+                ExtensionMethods.SerializeObjectJson(serMsg.MemPoolStream, request);
+                //ExtensionMethods.SerializeObjectBson(serMsg.MemPoolStream, request);
             }
             catch
             {

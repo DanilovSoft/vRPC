@@ -59,7 +59,7 @@ namespace Client
 
                     Interlocked.Increment(ref activeThreads);
 
-                    using (var client = new RpcClient(ipAddress.ToString(), Port))
+                    using (var client = new RpcClient(new Uri($"ws://{ipAddress}:{Port}")))
                     {
                         Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client);
 
@@ -76,6 +76,12 @@ namespace Client
 
                         while (true)
                         {
+                            //ThreadPool.QueueUserWorkItem(delegate 
+                            //{
+                            //    Thread.Sleep(200);
+                            //    client.BeginStop(TimeSpan.FromSeconds(10));
+                            //});
+
                             ConnectResult conRes;
                             while ((conRes = client.Connect()).State == ConnectState.RetryLater)
                                 Thread.Sleep(400);

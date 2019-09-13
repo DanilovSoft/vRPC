@@ -32,7 +32,7 @@ namespace Server.Controllers
         public DateTime DummyCall(string s)
         {
             Interlocked.Increment(ref Program.ReqCount);
-            Thread.Sleep(10_000);
+            //Thread.Sleep(10_000);
             return DateTime.Now;
         }
 
