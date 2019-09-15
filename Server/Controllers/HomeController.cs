@@ -31,6 +31,7 @@ namespace Server.Controllers
            
         public void NotifyTest()
         {
+            ServerSideConnection[] connections = this.Context.GetConnectionsExceptSelf();
             Debug.WriteLine("NotifyTest");
             //_logger.LogInformation("NotifyTest");
         }

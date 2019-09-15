@@ -13,11 +13,10 @@ namespace System.Reflection
         /// <summary>
         /// Dynamic Method.
         /// </summary>
-        //[DebuggerStepThrough]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static object InvokeFast(this MethodInfo methodInfo, object instance, object[] args, bool skipConvertion = true)
+        public static object InvokeFast(this MethodInfo methodInfo, object instance, object[] args)
         {
-            Func<object, object[], object> func = _methodsDict.GetOrAdd(methodInfo, m => DynamicMethodFactory.CreateMethodCall(m, skipConvertion));
+            Func<object, object[], object> func = _methodsDict.GetOrAdd(methodInfo, m => DynamicMethodFactory.CreateMethodCall(m, skipConvertion: true));
             object result = func.Invoke(instance, args);
             return result;
         }

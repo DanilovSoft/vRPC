@@ -75,11 +75,14 @@ namespace Client
                         var homeController = client.GetProxy<IServerHomeController>();
 
                         //while (true)
-                        //{
-                        //    homeController.NotifyTestAsync().GetAwaiter().GetResult();
+                        {
+                            Task.Delay(5000).ContinueWith(tt => 
+                            {
+                                homeController.NotifyTest();
+                            });
 
-                        //    Thread.Sleep(1000);
-                        //}
+                            //Thread.Sleep(1000);
+                        }
 
                         while (true)
                         {

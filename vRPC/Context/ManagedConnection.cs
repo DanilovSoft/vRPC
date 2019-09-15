@@ -205,7 +205,7 @@ namespace DanilovSoft.vRPC
             }, this); // Без замыкания.
         }
 
-        private void WebSocket_Disconnected(object sender, DanilovSoft.WebSocket.SocketDisconnectedEventArgs e)
+        private void WebSocket_Disconnected(object sender, WebSocket.SocketDisconnectedEventArgs e)
         {
             CloseReason closeReason;
             if (e.DisconnectReason.Gracifully)
@@ -325,14 +325,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         internal object OnServerProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
-            //var sw = Stopwatch.StartNew();
-            // Тип результата инкапсулированный в Task<T>.
             InterfaceMethodInfo ifaceMethodInfo = _interfaceMethods.GetOrAdd(targetMethod, mi => new InterfaceMethodInfo(mi));
-            //sw.Stop();
-            //Trace.WriteLine($"_interfaceMethods: {sw.ElapsedTicks}");
-
-            // Имя метода без постфикса Async.
-            //string remoteMethodName = GetProxyMethodName(targetMethod);
 
             // Создаём запрос для отправки.
             var requestToSend = new RequestMessage(ifaceMethodInfo, $"{controllerName}/{ifaceMethodInfo.MethodName}", args);
@@ -351,11 +344,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         internal static object OnClientProxyCallStatic(ValueTask<ManagedConnection> contextTask, MethodInfo targetMethod, object[] args, string controllerName)
         {
-            //var sw = Stopwatch.StartNew();
-            // Тип результата инкапсулированный в Task<T>.
             InterfaceMethodInfo ifaceMethodInfo = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, mi => new InterfaceMethodInfo(mi));
-            //sw.Stop();
-            //Trace.WriteLine($"InterfaceMethodsInfo: {sw.ElapsedTicks}");
 
             // Создаём запрос для отправки.
             var requestToSend = new RequestMessage(ifaceMethodInfo, $"{controllerName}/{ifaceMethodInfo.MethodName}", args);
@@ -1188,7 +1177,7 @@ namespace DanilovSoft.vRPC
                             object[] args = DeserializeArguments(methodParameters, receivedRequest.RequestDto);
 
                             // Вызов метода контроллера.
-                            object controllerResult = action.TargetMethod.InvokeFast(controller, args);
+                            object controllerResult = action.FastInvokeDelegate(controller, args);
 
                             // Может быть не завершённый Task.
                             if (controllerResult != null)

@@ -20,7 +20,6 @@ namespace DanilovSoft.vRPC
         internal static readonly ServerConcurrentDictionary<MethodInfo, string> ProxyMethodName = new ServerConcurrentDictionary<MethodInfo, string>();
         private static readonly ServerConcurrentDictionary<MethodInfo, InterfaceMethodInfo> _interfaceMethodsInfo;
         private readonly ProxyCache _proxyCache = new ProxyCache();
-        //private protected override IConcurrentDictionary<MethodInfo, string> _proxyMethodName => ProxyMethodName;
         private protected override IConcurrentDictionary<MethodInfo, InterfaceMethodInfo> _interfaceMethods => _interfaceMethodsInfo;
 
         /// <summary>
@@ -191,6 +190,11 @@ namespace DanilovSoft.vRPC
         //    //serverController.Listener = Listener;
         //}
 
+        public ServerSideConnection[] GetConnectionsExceptSelf()
+        {
+            return Listener.GetConnectionsExcept(this);
+        }
+
         /// <summary>
         /// Проверяет доступность запрашиваемого метода пользователем.
         /// </summary>
@@ -221,7 +225,8 @@ namespace DanilovSoft.vRPC
 
         private protected override void BeforeInvokeController(Controller controller)
         {
-            //var serverController = (ServerController)controller;
+            var serverController = (ServerController)controller;
+            serverController.Context = this;
         }
     }
 }

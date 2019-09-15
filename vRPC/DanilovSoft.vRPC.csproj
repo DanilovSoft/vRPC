@@ -12,7 +12,7 @@
     <Authors>Vitalii Danilov</Authors>
     <PackageId>DanilovSoft.vRPC</PackageId>
     <Product>DanilovSoft.vRPC</Product>
-    <Version>1.0.2</Version>
+    <Version>1.1.0</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -39,7 +39,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSocket.csproj" />
-    <ProjectReference Include="..\DynamicMethodsLib\DynamicMethodsLib.csproj" />
+    <!--<ProjectReference Include="..\DynamicMethodsLib\DynamicMethodsLib.csproj" />-->
   </ItemGroup>
 
 </Project>

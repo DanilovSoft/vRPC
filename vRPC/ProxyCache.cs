@@ -60,7 +60,7 @@ namespace DanilovSoft.vRPC
                         }
                         else
                         {
-                            createdStatic = TypeProxy.Create<T, TProxy>();
+                            createdStatic = ProxyBuilder<TProxy>.CreateProxy<T>(instance: null);// TypeProxy.Create<T, TProxy>();
                             _staticDict.Add(interfaceType, createdStatic);
                         }
                     }

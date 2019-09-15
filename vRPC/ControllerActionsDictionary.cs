@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Словарь используемый только для чтения.
         /// </summary>
-        private readonly Dictionary<(Type, string), ControllerAction> _actions;
+        private readonly Dictionary<(Type, string), ControllerAction> _actionsDict;
         /// <summary>
         /// Словарь используемый только для чтения.
         /// Хранит все доступные контроллеры.
@@ -23,14 +23,14 @@ namespace DanilovSoft.vRPC
         {
             Controllers = controllers;
 
-            _actions = new Dictionary<(Type, string), ControllerAction>();
+            _actionsDict = new Dictionary<(Type, string), ControllerAction>();
 
             foreach (KeyValuePair<string, Type> controller in controllers)
             {
                 MethodInfo[] methods = controller.Value.GetMethods(BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance);
                 foreach (MethodInfo method in methods)
                 {
-                    _actions.Add((controller.Value, method.Name), new ControllerAction(method, $"{controller.Key}\\{method.Name}"));
+                    _actionsDict.Add((controller.Value, method.Name), new ControllerAction(method, $"{controller.Key}\\{method.Name}"));
                 }
             }
         }
@@ -38,7 +38,7 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetValue(Type controllerType, string actionName, out ControllerAction value)
         {
-            return _actions.TryGetValue((controllerType, actionName), out value);
+            return _actionsDict.TryGetValue((controllerType, actionName), out value);
         }
     }
 }

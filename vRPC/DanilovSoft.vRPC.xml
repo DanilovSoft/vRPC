@@ -457,7 +457,7 @@
             Формат возвращаемых данных.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ControllerActionsDictionary._actions">
+        <member name="F:DanilovSoft.vRPC.ControllerActionsDictionary._actionsDict">
             <summary>
             Словарь используемый только для чтения.
             </summary>
@@ -1393,12 +1393,6 @@
             Единожны меняет состояние на <see langword="true"/>.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RpcListener.Connections">
-            <summary>
-            Коллекция авторизованных пользователей.
-            Ключ словаря — UserId авторизованного пользователя.
-            </summary>
-        </member>
         <member name="P:DanilovSoft.vRPC.RpcListener.ServiceProvider">
             <summary>
             Может быть <see langword="null"/> если не выполнен ConfigureService и сервис ещё не запущен.
@@ -1505,6 +1499,21 @@
         <member name="M:DanilovSoft.vRPC.Warmup.DoWarmup">
             <summary>
             Выполняет AOT(Ahead-Of-Time) оптимизацию.
+            </summary>
+        </member>
+        <member name="M:DynamicMethodsLib.ILGeneratorExtensions.PushInstance(System.Reflection.Emit.ILGenerator,System.Type)">
+            <summary>
+            Ldarg_0.
+            </summary>
+        </member>
+        <member name="M:DynamicMethodsLib.ILGeneratorExtensions.Emit_Ldarg(System.Reflection.Emit.ILGenerator,System.Int32)">
+            <summary>
+            Загружает аргумент с индексом <paramref name="argIndex"/> в стек вычислений.
+            </summary>
+        </member>
+        <member name="M:DynamicMethodsLib.ILGeneratorExtensions.Emit_Ldc_I4(System.Reflection.Emit.ILGenerator,System.Int32)">
+            <summary>
+            Помещает целочисленное значение <paramref name="n"/> в стек вычислений как <see langword="int32"/>.
             </summary>
         </member>
         <member name="F:System.IO.MemoryPoolStream._bufferPosition">

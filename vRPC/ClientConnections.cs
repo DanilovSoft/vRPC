@@ -22,6 +22,12 @@ namespace DanilovSoft.vRPC
            
         }
 
+        public ServerSideConnection this[int index]
+        {
+            get => _list[index];
+            set => _list[index] = value;
+        }
+
         internal void Remove(ServerSideConnection context)
         {
             _list.Remove(context);
@@ -65,6 +71,11 @@ namespace DanilovSoft.vRPC
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        public int IndexOf(ServerSideConnection con)
+        {
+            return _list.IndexOf(con);
         }
     }
 }

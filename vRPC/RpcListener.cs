@@ -41,11 +41,11 @@ namespace DanilovSoft.vRPC
         /// Единожны меняет состояние на <see langword="true"/>.
         /// </summary>
         private bool _started;
-        /// <summary>
-        /// Коллекция авторизованных пользователей.
-        /// Ключ словаря — UserId авторизованного пользователя.
-        /// </summary>
-        public ConcurrentDictionary<int, UserConnections> Connections { get; } = new ConcurrentDictionary<int, UserConnections>();
+        ///// <summary>
+        ///// Коллекция авторизованных пользователей.
+        ///// Ключ словаря — UserId авторизованного пользователя.
+        ///// </summary>
+        //public ConcurrentDictionary<int, UserConnections> Connections { get; } = new ConcurrentDictionary<int, UserConnections>();
         private bool _disposed;
         private ServiceProvider _serviceProvider;
         /// <summary>
@@ -308,6 +308,38 @@ namespace DanilovSoft.vRPC
                 _connections.Remove(context);
             }
             ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(context, e.DisconnectReason));
+        }
+
+        public ServerSideConnection[] GetConnectionsExcept(ServerSideConnection self)
+        {
+            lock (_connections.SyncObj)
+            {
+                int selfIndex = _connections.IndexOf(self);
+                if (selfIndex != -1)
+                {
+                    if (_connections.Count == 1)
+                    // Только мы подключены.
+                    {
+                        return Array.Empty<ServerSideConnection>();
+                    }
+                    else
+                    {
+                        var ar = new ServerSideConnection[_connections.Count - 1];
+                        for (int i = 0; i < _connections.Count; i++)
+                        {
+                            if (i != selfIndex)
+                            {
+                                ar[i] = _connections[i];
+                            }
+                        }
+                        return ar;
+                    }
+                }
+                else
+                {
+                    return _connections.ToArray();
+                }
+            }
         }
 
         public void Dispose()

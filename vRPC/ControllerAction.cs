@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DynamicMethodsLib;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -13,7 +14,7 @@ namespace DanilovSoft.vRPC
     /// Содержит исчерпывающую информацию о методе контроллера.
     /// </summary>
     [DebuggerDisplay(@"\{{_methodFullName,nq}\}")]
-    internal readonly struct ControllerAction
+    internal sealed class ControllerAction
     {
         public Action<Stream, object> Serializer { get; }
         private readonly string _methodFullName;
@@ -22,6 +23,7 @@ namespace DanilovSoft.vRPC
         /// Формат возвращаемых данных.
         /// </summary>
         public string ProducesEncoding { get; }
+        public readonly Func<object, object[], object> FastInvokeDelegate;
 
         public ControllerAction(MethodInfo methodInfo, string methodFullName)
         {
@@ -39,12 +41,8 @@ namespace DanilovSoft.vRPC
                 Serializer = ExtensionMethods.SerializeObjectJson;
                 ProducesEncoding = "json";
             }
-        }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        //public void SerializeObject(Stream destination, object instance)
-        //{
-        //    _serializer.Invoke(destination, instance);
-        //}
+            FastInvokeDelegate = DynamicMethodFactory.CreateMethodCall(methodInfo, skipConvertion: true);
+        }
     }
 }
