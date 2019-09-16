@@ -310,19 +310,24 @@ namespace DanilovSoft.vRPC
             ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(context, e.DisconnectReason));
         }
 
-        public ServerSideConnection[] GetConnectionsExcept(ServerSideConnection self)
+        public ServerSideConnection[] GetConnections()
+        {
+            lock (_connections.SyncObj)
+            {
+                if (_connections.Count > 0)
+                    return _connections.ToArray();
+            }
+            return Array.Empty<ServerSideConnection>();
+        }
+
+        internal ServerSideConnection[] GetConnectionsExcept(ServerSideConnection self)
         {
             lock (_connections.SyncObj)
             {
                 int selfIndex = _connections.IndexOf(self);
                 if (selfIndex != -1)
                 {
-                    if (_connections.Count == 1)
-                    // Только мы подключены.
-                    {
-                        return Array.Empty<ServerSideConnection>();
-                    }
-                    else
+                    if (_connections.Count > 1)
                     {
                         var ar = new ServerSideConnection[_connections.Count - 1];
                         for (int i = 0; i < _connections.Count; i++)
@@ -340,6 +345,7 @@ namespace DanilovSoft.vRPC
                     return _connections.ToArray();
                 }
             }
+            return Array.Empty<ServerSideConnection>();
         }
 
         public void Dispose()
