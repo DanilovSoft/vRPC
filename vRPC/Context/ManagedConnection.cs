@@ -431,7 +431,7 @@ namespace DanilovSoft.vRPC
                 // У задачи есть результат.
                 {
                     // Task<object> должен быть преобразован в Task<T>.
-                    return TaskConverter.ConvertTask(taskObject, targetMethod.IncapsulatedReturnType, targetMethod.IncapsulatedReturnType);
+                    return TaskConverter.ConvertTask(taskObject, targetMethod.IncapsulatedReturnType, targetMethod.Method.ReturnType);
                 }
                 else
                 {

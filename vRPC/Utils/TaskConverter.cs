@@ -89,12 +89,14 @@ namespace DanilovSoft.vRPC
         {
             MethodInfo converterGenericMethod;
             if (returnType.GetGenericTypeDefinition() != typeof(ValueTask<>))
+            // Является Task.
             {
                 // Создать шаблонный метод InnerConvertTask<T>.
                 // Возвращает Task<T>
                 converterGenericMethod = _InnerConvertTaskMethod.MakeGenericMethod(key);
             }
             else
+            // Является ValueTask.
             {
                 // Создать шаблонный метод InnerConvertValueTask<T>.
                 // Возвращает ValueTask<T>
