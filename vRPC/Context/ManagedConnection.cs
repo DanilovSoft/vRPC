@@ -133,7 +133,8 @@ namespace DanilovSoft.vRPC
         private volatile bool _isConnected = true;
         /// <summary>
         /// Является <see langword="volatile"/>. Если значение – <see langword="false"/>, то можно узнать причину через свойство <see cref="DisconnectReason"/>.
-        /// После <see langword="false"/> текущий экземпляр не может стать <see langword="true"/>.
+        /// Когда значение становится <see langword="false"/>, то вызывается событие <see cref="Disconnected"/>.
+        /// После разъединения текущий экземпляр не может быть переподключен.
         /// </summary>
         public bool IsConnected => _isConnected;
         ///// <summary>

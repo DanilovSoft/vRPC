@@ -15,11 +15,13 @@ namespace DanilovSoft.vRPC
         private readonly RpcClient _client;
         private protected override IConcurrentDictionary<MethodInfo, InterfaceMethodInfo> _interfaceMethods => InterfaceMethodsInfo;
 
+        // ctor.
         static ClientSideConnection()
         {
             InterfaceMethodsInfo = new LockedDictionary<MethodInfo, InterfaceMethodInfo>();
         }
 
+        // ctor.
         internal ClientSideConnection(RpcClient client, ClientWebSocket ws, ServiceProvider serviceProvider, ControllerActionsDictionary controllers)
             : base(ws.ManagedWebSocket, isServer: false, serviceProvider, controllers)
         {

@@ -74,29 +74,12 @@ namespace Client
 
                         var homeController = client.GetProxy<IServerHomeController>();
 
-                        //while (true)
-                        {
-                            Task.Delay(5000).ContinueWith(tt => 
-                            {
-                                homeController.NotifyTest();
-                            });
-
-                            //Thread.Sleep(1000);
-                        }
-
                         while (true)
                         {
-                            //ThreadPool.QueueUserWorkItem(delegate 
-                            //{
-                            //    Thread.Sleep(200);
-                            //    client.BeginStop(TimeSpan.FromSeconds(10));
-                            //});
+                            while (client.Connect().State == ConnectState.NotConnected)
+                                Thread.Sleep(2000);
 
-                            ConnectResult conRes;
-                            while ((conRes = client.Connect()).State == ConnectState.RetryLater)
-                                Thread.Sleep(400);
-
-                            if (conRes.State == ConnectState.Stopped)
+                            if (client.State == RpcState.StopRequired)
                                 break;
 
                             while (true)

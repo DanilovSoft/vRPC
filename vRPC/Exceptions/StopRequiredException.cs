@@ -8,30 +8,18 @@ namespace DanilovSoft.vRPC
     [Serializable]
     public class StopRequiredException : Exception
     {
-        private const string DefaultMessage = "Был вызван Stop — использовать этот экземпляр больше нельзя.";
-        //public string CloseDescription { get; }
-        //public TimeSpan Timeout { get; }
-        public StopRequired StopRequired { get; }
+        public StopRequired StopRequiredState { get; }
 
         internal StopRequiredException(StopRequired stopRequired) : base(CreateMessage(stopRequired))
         {
             Debug.Assert(stopRequired != null);
-
-            StopRequired = stopRequired;
-            //CloseDescription = stopRequired.CloseDescription;
-            //Timeout = stopRequired.Timeout;
+            StopRequiredState = stopRequired;
         }
 
         public StopRequiredException(string message) : base(message)
         {
 
         }
-
-        //public StopRequiredException(TimeSpan afterTimeout) : base($"Сервис был остановлен по запросу пользователя с" +
-        //    $" дополнительным таймаутом для завершения выполняющихся запросов ({afterTimeout}).")
-        //{
-
-        //}
 
         private static string CreateMessage(StopRequired stopRequired)
         {

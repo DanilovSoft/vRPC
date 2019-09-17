@@ -45,6 +45,169 @@
             Модификация коллекции допускается с захватом этой блокировки.
             </summary>
         </member>
+        <member name="T:DanilovSoft.vRPC.RpcClient">
+            <summary>
+            Контекст клиентского соединения.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._connectLock">
+            <summary>
+            Используется для синхронизации установки соединения.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._uri">
+            <summary>
+            Адрес для подключеия к серверу.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._appBuilder">
+            <summary>
+            <see langword="volatile"/>.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._connection">
+            <summary>
+            Устанавливается в блокировке <see cref="P:DanilovSoft.vRPC.RpcClient.StateLock"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcClient.Completion">
+            <summary>
+            Завершается если подключение разорвано или не установлено.
+            Не бросает исключения.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._stopRequired">
+            <summary>
+            volatile требуется лишь для публичного доступа.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcClient.StopRequiredState">
+            <summary>
+            Если был начат запрос на остновку, то это свойство будет содержать переданную причину остановки.
+            Является <see langword="volatile"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcClient.StateLock">
+            <summary>
+            Для доступа к <see cref="F:DanilovSoft.vRPC.RpcClient._disposed"/> и <see cref="F:DanilovSoft.vRPC.RpcClient._stopRequired"/>.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._connectingWs">
+            <summary>
+            Используется только что-бы аварийно прервать подключение через Dispose.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Uri)">
+            <summary>
+            Создаёт контекст клиентского соединения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.String,System.Int32,System.Boolean)">
+            <summary>
+            Создаёт контекст клиентского соединения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Reflection.Assembly,System.Uri)">
+            <summary>
+            Конструктор клиента.
+            </summary>
+            <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
+            <param name="uri">Адрес сервера.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConfigureService(System.Action{Microsoft.Extensions.DependencyInjection.ServiceCollection})">
+            <summary>
+            Позволяет настроить IoC контейнер.
+            Выполняется единожды при инициализации подключения.
+            </summary>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.Configure(System.Action{DanilovSoft.vRPC.ApplicationBuilder})">
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.WaitCompletion">
+            <summary>
+            Блокирует поток до завершения <see cref="P:DanilovSoft.vRPC.RpcClient.Completion"/>.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.Connect">
+            <summary>
+            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+            Потокобезопасно.
+            </summary>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectAsync">
+            <summary>
+            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+            Потокобезопасно.
+            </summary>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.GetProxy``1">
+            <summary>
+            Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
+            </summary>
+            <typeparam name="T">Интерфейс.</typeparam>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.Stop(System.TimeSpan,System.String)">
+            <summary>
+            Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+            Потокобезопасно.
+            </summary>
+            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.BeginStop(System.TimeSpan,System.String)">
+            <summary>
+            Начинает грациозную остановку. Не блокирует поток.
+            Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcClient.Completion"/>.
+            Потокобезопасно.
+            </summary>
+            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.StopAsync(System.TimeSpan,System.String)">
+            <summary>
+            Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+            Потокобезопасно.
+            </summary>
+            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ContextCallback">
+            <summary>
+            Возвращает существующее подключение или создаёт новое, когда 
+            происходит вызов метода интерфеса.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.Disconnected(System.Object,DanilovSoft.vRPC.SocketDisconnectedEventArgs)">
+            <summary>
+            Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectIfNeededAsync">
+            <summary>
+            Выполнить подключение сокета если еще не подключен.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.LockAquiredConnectAsync(System.Threading.ChannelLock.Releaser)">
+            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConfigureIoC(Microsoft.Extensions.DependencyInjection.ServiceCollection)">
+            <summary>
+            Добавляет в IoC контейнер контроллеры из сборки и компилирует контейнер.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ThrowIfDisposed">
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcState.StopRequired">
+            <summary>
+            Произошел запрос на остановку сервиса – подключать данный экземпляр больше нельзя.
+            Причину остановки можно узнать через свойство <see cref="P:DanilovSoft.vRPC.RpcClient.StopRequiredState"/>.
+            </summary>
+        </member>
         <member name="F:DanilovSoft.vRPC.CloseReason.NoConnectionError">
             <summary>
             "Соединение не установлено."
@@ -82,7 +245,7 @@
             Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ConnectState.RetryLater">
+        <member name="F:DanilovSoft.vRPC.ConnectState.NotConnected">
             <summary>
             Не удалось установить соединение.
             </summary>
@@ -92,9 +255,9 @@
             Соединение успешно установлено.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ConnectState.Stopped">
+        <member name="F:DanilovSoft.vRPC.ConnectState.StopRequired">
             <summary>
-            Был запрос на остановку сервиса – переподключать данный экземпляр больше нельзя.
+            Во время подключения произошел запрос на остановку сервиса – подключать данный экземпляр больше нельзя.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.ManagedConnection">
@@ -184,7 +347,8 @@
         <member name="P:DanilovSoft.vRPC.ManagedConnection.IsConnected">
             <summary>
             Является <see langword="volatile"/>. Если значение – <see langword="false"/>, то можно узнать причину через свойство <see cref="P:DanilovSoft.vRPC.ManagedConnection.DisconnectReason"/>.
-            После <see langword="false"/> текущий экземпляр не может стать <see langword="true"/>.
+            Когда значение становится <see langword="false"/>, то вызывается событие <see cref="E:DanilovSoft.vRPC.ManagedConnection.Disconnected"/>.
+            После разъединения текущий экземпляр не может быть переподключен.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.InitStartThreads">
@@ -1037,20 +1201,7 @@
             first block of plaintext data. For RijndaelManaged class IV must be
             exactly 16 ASCII characters long. IV value does not have to be kept
             in secret.
-            </param>
-            <param name="minSaltLen">
-            Min size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is less than 4, the default min value will be used (currently 4
-            bytes).
-            </param>
-            <param name="maxSaltLen">
-            Max size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is negative or greater than 255, the default max value will be
-            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
-            than the specified min value (which can be adjusted to default value),
-            salt will not be used and plain text value will be encrypted as is.
+          salt will not be used and plain text value will be encrypted as is.
             In this case, salt will not be processed during decryption either.
             </param>
             <param name="keySize">
@@ -1216,152 +1367,6 @@
         <member name="M:DanilovSoft.vRPC.RijndaelEnhancedTest.Main">
             <summary>
             The main entry point for the application.
-            </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.RpcClient">
-            <summary>
-            Контекст клиентского соединения.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcClient._connectLock">
-            <summary>
-            Используется для синхронизации установки соединения.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcClient._uri">
-            <summary>
-            Адрес для подключеия к серверу.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcClient._appBuilder">
-            <summary>
-            <see langword="volatile"/>.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcClient._connection">
-            <summary>
-            Устанавливается в блокировке <see cref="P:DanilovSoft.vRPC.RpcClient.StateLock"/>.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.RpcClient.Completion">
-            <summary>
-            Завершается если подключение разорвано или не установлено.
-            Не бросает исключения.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.RpcClient.StateLock">
-            <summary>
-            Для доступа к <see cref="F:DanilovSoft.vRPC.RpcClient._disposed"/> и <see cref="F:DanilovSoft.vRPC.RpcClient._stopRequired"/>.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcClient._connectingWs">
-            <summary>
-            Используется только что-бы аварийно прервать подключение через Dispose.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Uri)">
-            <summary>
-            Создаёт контекст клиентского соединения.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.String,System.Int32,System.Boolean)">
-            <summary>
-            Создаёт контекст клиентского соединения.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Reflection.Assembly,System.Uri)">
-            <summary>
-            Конструктор клиента.
-            </summary>
-            <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
-            <param name="uri">Адрес сервера.</param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.ConfigureService(System.Action{Microsoft.Extensions.DependencyInjection.ServiceCollection})">
-            <summary>
-            Позволяет настроить IoC контейнер.
-            Выполняется единожды при инициализации подключения.
-            </summary>
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.Configure(System.Action{DanilovSoft.vRPC.ApplicationBuilder})">
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.WaitCompletion">
-            <summary>
-            Блокирует поток до завершения <see cref="P:DanilovSoft.vRPC.RpcClient.Completion"/>.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.Connect">
-            <summary>
-            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-            Потокобезопасно.
-            </summary>
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectAsync">
-            <summary>
-            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-            Потокобезопасно.
-            </summary>
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.GetProxy``1">
-            <summary>
-            Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
-            </summary>
-            <typeparam name="T">Интерфейс.</typeparam>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.Stop(System.TimeSpan,System.String)">
-            <summary>
-            Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
-            Потокобезопасно.
-            </summary>
-            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
-            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.BeginStop(System.TimeSpan,System.String)">
-            <summary>
-            Начинает грациозную остановку. Не блокирует поток.
-            Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcClient.Completion"/>.
-            Потокобезопасно.
-            </summary>
-            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
-            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.StopAsync(System.TimeSpan,System.String)">
-            <summary>
-            Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
-            Потокобезопасно.
-            </summary>
-            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
-            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.ContextCallback">
-            <summary>
-            Возвращает существующее подключение или создаёт новое, когда 
-            происходит вызов метода интерфеса.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.Disconnected(System.Object,DanilovSoft.vRPC.SocketDisconnectedEventArgs)">
-            <summary>
-            Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectIfNeededAsync">
-            <summary>
-            Выполнить подключение сокета если еще не подключен.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.LockAquiredConnectAsync(System.Threading.ChannelLock.Releaser)">
-            <summary>
-            
-            </summary>
-            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.ConfigureIoC(Microsoft.Extensions.DependencyInjection.ServiceCollection)">
-            <summary>
-            Добавляет в IoC контейнер контроллеры из сборки и компилирует контейнер.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.RpcListener.Controllers">
@@ -1544,6 +1549,24 @@
             <summary>
             Возвращает -1 если достигнут конец потока.
             </summary>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
+            <summary>
+            Увеличивает размер буфера сохраняя данные.
+            </summary>
+            <param name="newSize">Необходимый размер буфера. Новый буфер может быть больше указанного размера.</param>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.ThrowIfDisposed">
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:System.Threading.ChannelLock.LockAsync">
+            <summary>
+            Не бросает исключения.
+            </summary>
+        </member>
+    </members>
+</doc>
+mary>
         </member>
         <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
             <summary>

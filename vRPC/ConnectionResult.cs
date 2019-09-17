@@ -11,16 +11,15 @@ namespace DanilovSoft.vRPC
     internal readonly struct ConnectionResult
     {
         public SocketError? SocketError { get; }
-        //public ConnectState State { get; }
         public ManagedConnection Connection { get; }
-        public StopRequired StopState { get; }
+        public StopRequired StopRequired { get; }
 
         [DebuggerStepThrough]
-        public ConnectionResult(SocketError? socketError, StopRequired stopState, ManagedConnection context)
+        public ConnectionResult(SocketError? socketError, StopRequired stopRequired, ManagedConnection context)
         {
             SocketError = socketError;
             Connection = context;
-            StopState = stopState;
+            StopRequired = stopRequired;
         }
     }
 }
