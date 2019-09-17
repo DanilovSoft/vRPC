@@ -47,7 +47,7 @@ namespace DanilovSoft.vRPC
         [DebuggerStepThrough]
         internal static CloseReason FromException(StopRequiredException stopRequiredException)
         {
-            return new CloseReason(stopRequiredException, null, null, null, stopRequiredException.StopRequired);
+            return new CloseReason(stopRequiredException, null, null, null, stopRequiredException.StopRequiredState);
         }
 
         [DebuggerStepThrough]

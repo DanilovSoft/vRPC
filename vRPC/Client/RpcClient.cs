@@ -15,7 +15,7 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Контекст клиентского соединения.
     /// </summary>
-    [DebuggerDisplay(@"\{Connected = {IsConnected}\}")]
+    [DebuggerDisplay(@"\{{State}\}")]
     public sealed class RpcClient : IDisposable
     {
         /// <summary>
@@ -43,20 +43,36 @@ namespace DanilovSoft.vRPC
         /// Не бросает исключения.
         /// </summary>
         public Task<CloseReason> Completion => _connection?.Completion ?? Task.FromResult(CloseReason.NoConnectionError);
-        public bool IsConnected => _connection?.IsConnected ?? false;
-        private StopRequired _stopRequired;
-        //public StopRequired StopRequired => _stopRequired;
+        public RpcState State
+        {
+            get
+            {
+                if (_stopRequired != null)
+                    return RpcState.StopRequired;
+
+                return _connection != null ? RpcState.Open : RpcState.Closed;
+            }
+        }
+        /// <summary>
+        /// volatile требуется лишь для публичного доступа.
+        /// </summary>
+        private volatile StopRequired _stopRequired;
+        /// <summary>
+        /// Если был начат запрос на остновку, то это свойство будет содержать переданную причину остановки.
+        /// Является <see langword="volatile"/>.
+        /// </summary>
+        public StopRequired StopRequiredState => _stopRequired;
         private bool _disposed;
         /// <summary>
         /// Для доступа к <see cref="_disposed"/> и <see cref="_stopRequired"/>.
         /// </summary>
         private object StateLock => _proxyCache;
-        //public RpcClientState State { get; private set; }
         /// <summary>
         /// Используется только что-бы аварийно прервать подключение через Dispose.
         /// </summary>
         private ClientWebSocket _connectingWs;
 
+        // ctor.
         static RpcClient()
         {
             Warmup.DoWarmup();
@@ -166,11 +182,17 @@ namespace DanilovSoft.vRPC
             static ConnectResult Result(in ConnectionResult conRes)
             {
                 if (conRes.Connection != null)
+                {
                     return new ConnectResult(ConnectState.Connected, conRes.SocketError);
+                }
                 else if (conRes.SocketError != null)
-                    return new ConnectResult(ConnectState.RetryLater, conRes.SocketError);
+                {
+                    return new ConnectResult(ConnectState.NotConnected, conRes.SocketError);
+                }
                 else
-                    return new ConnectResult(ConnectState.Stopped, conRes.SocketError);
+                {
+                    return new ConnectResult(ConnectState.StopRequired, conRes.SocketError);
+                }
             }
         }
 
@@ -277,17 +299,17 @@ namespace DanilovSoft.vRPC
         private ValueTask<ManagedConnection> ContextCallback()
         {
             // volatile копия.
-            var stopRequired = _stopRequired;
+            StopRequired stopRequired = _stopRequired;
 
             if (stopRequired == null)
             {
                 // Копия volatile.
-                var context = _connection;
+                ClientSideConnection connection = _connection;
 
-                if (context != null)
+                if (connection != null)
                 // Есть живое соединение.
                 {
-                    return new ValueTask<ManagedConnection>(context);
+                    return new ValueTask<ManagedConnection>(connection);
                 }
                 else
                 // Нужно установить подключение.
@@ -298,11 +320,17 @@ namespace DanilovSoft.vRPC
                         ConnectionResult connectionResult = t.Result;
 
                         if (connectionResult.Connection != null)
+                        {
                             return new ValueTask<ManagedConnection>(connectionResult.Connection);
+                        }
                         else if (connectionResult.SocketError != null)
+                        {
                             return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(connectionResult.SocketError.Value.ToException()));
+                        }
                         else
-                            return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new StopRequiredException(connectionResult.StopState)));
+                        {
+                            return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new StopRequiredException(connectionResult.StopRequired)));
+                        }
                     }
                     else
                     {
@@ -327,7 +355,7 @@ namespace DanilovSoft.vRPC
             else if (connectionResult.SocketError != null)
                 throw connectionResult.SocketError.Value.ToException();
             else
-                throw new StopRequiredException(connectionResult.StopState);
+                throw new StopRequiredException(connectionResult.StopRequired);
         }
 
         /// <summary>
@@ -345,12 +373,12 @@ namespace DanilovSoft.vRPC
         private ValueTask<ConnectionResult> ConnectIfNeededAsync()
         {
             // Копия volatile.
-            var context = _connection;
+            ClientSideConnection connection = _connection;
 
-            if (context != null)
+            if (connection != null)
             // Есть живое соединение.
             {
-                return new ValueTask<ConnectionResult>(new ConnectionResult(null, null, context));
+                return new ValueTask<ConnectionResult>(new ConnectionResult(null, null, connection));
             }
             else
             // Подключение отсутствует.
@@ -375,9 +403,6 @@ namespace DanilovSoft.vRPC
             return await LockAquiredConnectAsync(releaser).ConfigureAwait(false);
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
         /// <exception cref="StopRequiredException"/>
         /// <exception cref="ObjectDisposedException"/>
         private async ValueTask<ConnectionResult> LockAquiredConnectAsync(ChannelLock.Releaser conLock)
@@ -385,7 +410,7 @@ namespace DanilovSoft.vRPC
             using (conLock)
             {
                 // Копия volatile.
-                var connection = _connection;
+                ClientSideConnection connection = _connection;
 
                 if (connection == null)
                 {
@@ -536,20 +561,7 @@ namespace DanilovSoft.vRPC
             return serviceProvider;
         }
 
-        ///// <summary>
-        ///// Отправляет специфический запрос содержащий токен авторизации. Ожидает ответ.
-        ///// </summary>
-        //private async Task<bool> AuthorizeAsync(SocketWrapper socketQueue, byte[] bearerToken)
-        //{
-        //    // Запрос на авторизацию по токену.
-        //    var requestToSend = Message.CreateRequest("Auth/AuthorizeToken", new Arg[] { new Arg("token", bearerToken) });
-
-        //    // Отправить запрос и получить ответ.
-        //    object result = await ExecuteRequestAsync(requestToSend, returnType: typeof(bool), socketQueue).ConfigureAwait(false);
-
-        //    return (bool)result;
-        //}
-
+        /// <exception cref="ObjectDisposedException"/>
         private void ThrowIfDisposed()
         {
             if (!_disposed)
