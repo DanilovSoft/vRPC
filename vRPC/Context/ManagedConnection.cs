@@ -74,7 +74,14 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private readonly Channel<SerializedMessageToSend> _sendChannel;
         private int _disposed;
-        private bool IsDisposed => Volatile.Read(ref _disposed) == 1;
+        private bool IsDisposed
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return Volatile.Read(ref _disposed) == 1;
+            }
+        }
         /// <summary>
         /// <see langword="true"/> если происходит остановка сервиса.
         /// Используется для проверки возможности начать новый запрос.
@@ -199,11 +206,13 @@ namespace DanilovSoft.vRPC
             }, this); // Без замыкания.
 
             // Запустить цикл приёма сообщений.
-            ThreadPool.UnsafeQueueUserWorkItem(state =>
-            {
-                // Не бросает исключения.
-                ((ManagedConnection)state).ReceiveLoop();
-            }, this); // Без замыкания.
+            ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this); // Без замыкания.
+        }
+
+        private static void ReceiveLoopStart(object state)
+        {
+            // Не бросает исключения.
+            ((ManagedConnection)state).ReceiveLoop();
         }
 
         private void WebSocket_Disconnected(object sender, WebSocket.SocketDisconnectedEventArgs e)
@@ -565,7 +574,7 @@ namespace DanilovSoft.vRPC
                     return;
                 }
 
-                HeaderDto header = default;
+                HeaderDto header = null;
                 if (webSocketMessage.ReceiveResult.IsReceivedSuccessfully)
                 {
                     if (webSocketMessage.MessageType != WebSocketMessageType.Close)
@@ -587,8 +596,8 @@ namespace DanilovSoft.vRPC
                             try
                             {
                                 // Отключаемся от сокета с небольшим таймаутом.
-                                using var cts = new CancellationTokenSource(2000);
-                                await _socket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации заголовка.", cts.Token);
+                                using (var cts = new CancellationTokenSource(2000))
+                                    await _socket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации заголовка.", cts.Token);
                             }
                             catch (Exception ex)
                             // Злой обрыв соединения.
@@ -628,201 +637,202 @@ namespace DanilovSoft.vRPC
                 }
                 #endregion
 
-                if (!header.Equals(default(HeaderDto)))
+                if (header != null)
                 {
                     // Стрим который будет содержать сообщение целиком.
-                    using var messageStream = new MemoryPoolStream(header.ContentLength);
-
-                    // Обязательно установить размер стрима. Можно не очищать – буффер будет перезаписан.
-                    messageStream.SetLength(header.ContentLength, clear: false);
-
-                    int offset = 0;
-                    int receiveMessageBytesLeft = header.ContentLength;
-                    byte[] messageStreamBuffer = messageStream.DangerousGetBuffer();
-
-                    do // Читаем и склеиваем фреймы веб-сокета пока не EndOfMessage.
+                    using (var messageStream = new MemoryPoolStream(header.ContentLength))
                     {
-                        #region Пока не EndOfMessage записывать в буфер памяти
+                        // Обязательно установить размер стрима. Можно не очищать – буффер будет перезаписан.
+                        messageStream.SetLength(header.ContentLength, clear: false);
 
-                        #region Читаем фрейм веб-сокета
+                        int offset = 0;
+                        int receiveMessageBytesLeft = header.ContentLength;
+                        byte[] messageStreamBuffer = messageStream.DangerousGetBuffer();
 
-                        try
+                        do // Читаем и склеиваем фреймы веб-сокета пока не EndOfMessage.
                         {
-                            // Читаем фрейм веб-сокета.
-                            webSocketMessage = await _socket.ReceiveExAsync(
-                                messageStreamBuffer.AsMemory().Slice(offset, receiveMessageBytesLeft), CancellationToken.None);
-                        }
-                        catch (Exception ex)
-                        // Обрыв соединения.
-                        {
-                            // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                            #region Пока не EndOfMessage записывать в буфер памяти
 
-                            // Завершить поток.
-                            return;
-                        }
-                        #endregion
+                            #region Читаем фрейм веб-сокета
 
-                        if (webSocketMessage.ReceiveResult.IsReceivedSuccessfully)
-                        {
-                            if (webSocketMessage.MessageType != WebSocketMessageType.Close)
+                            try
                             {
-                                offset += webSocketMessage.Count;
-                                receiveMessageBytesLeft -= webSocketMessage.Count;
+                                // Читаем фрейм веб-сокета.
+                                webSocketMessage = await _socket.ReceiveExAsync(
+                                    messageStreamBuffer.AsMemory().Slice(offset, receiveMessageBytesLeft), CancellationToken.None);
                             }
-                            else
-                            // Другая сторона закрыла соединение.
+                            catch (Exception ex)
+                            // Обрыв соединения.
                             {
-                                CloseReceived();
+                                // Оповестить об обрыве.
+                                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
                                 // Завершить поток.
                                 return;
                             }
-                        }
-                        else
-                        // Обрыв соединения.
-                        {
-                            // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(webSocketMessage.ReceiveResult.ToException(), _stopRequired));
-
-                            // Завершить поток.
-                            return;
-                        }
-
-                        #endregion
-
-                    } while (!webSocketMessage.EndOfMessage);
-
-                    #region Обработка Payload
-
-                    if (header.StatusCode == StatusCode.Request)
-                    // Получен запрос.
-                    {
-                        #region Выполнение запроса
-
-                        #region Десериализация запроса
-
-                        RequestMessageDto receivedRequest;
-                        try
-                        {
-                            // Десериализуем запрос.
-                            receivedRequest = ExtensionMethods.DeserializeRequestJson(messageStream);
-                            //receivedRequest = ExtensionMethods.DeserializeRequestBson(messageStream);
-                        }
-                        catch (Exception ex)
-                        // Ошибка десериализации запроса.
-                        {
-                            #region Игнорируем запрос
-
-                            if (header.Uid != null)
-                            // Запрос ожидает ответ.
-                            {
-                                // Подготовить ответ с ошибкой.
-                                var errorResponse = new ResponseMessage(header.Uid.Value, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\"."));
-
-                                // Передать на отправку результат с ошибкой через очередь.
-                                QueueSendResponse(errorResponse);
-                            }
-
-                            // Вернуться к чтению заголовка.
-                            continue;
                             #endregion
-                        }
-                        #endregion
 
-                        #region Выполнение запроса
-
-                        // Установить контекст запроса.
-                        var request = new RequestContext(header, receivedRequest);
-
-                        // Начать выполнение запроса в отдельном потоке.
-                        StartProcessRequest(request);
-                        #endregion
-
-                        #endregion
-                    }
-                    else
-                    // Получен ответ на запрос.
-                    {
-                        #region Передача другому потоку ответа на запрос
-
-                        // Удалить запрос из словаря.
-                        if (_pendingRequests.TryRemove(header.Uid.Value, out RequestAwaiter reqAwaiter))
-                        // Передать ответ ожидающему потоку.
-                        {
-                            #region Передать ответ ожидающему потоку
-
-                            if (header.StatusCode == StatusCode.Ok)
-                            // Запрос на удалённой стороне был выполнен успешно.
+                            if (webSocketMessage.ReceiveResult.IsReceivedSuccessfully)
                             {
-                                #region Передать успешный результат
-
-                                if (reqAwaiter.Request.InterfaceMethod.IncapsulatedReturnType != typeof(void))
+                                if (webSocketMessage.MessageType != WebSocketMessageType.Close)
                                 {
-                                    // Десериализатор в соответствии с ContentEncoding.
-                                    var deserializer = header.GetDeserializer();
-
-                                    bool deserialized;
-                                    object rawResult = null;
-                                    try
-                                    {
-                                        rawResult = deserializer(messageStream, reqAwaiter.Request.InterfaceMethod.IncapsulatedReturnType);
-                                        deserialized = true;
-                                    }
-                                    catch (Exception deserializationException)
-                                    {
-                                        var protocolErrorException = new ProtocolErrorException(
-                                            $"Ошибка десериализации ответа на запрос \"{reqAwaiter.Request.ActionName}\".", deserializationException);
-
-                                        // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
-                                        reqAwaiter.TrySetException(protocolErrorException);
-
-                                        deserialized = false;
-                                    }
-
-                                    if (deserialized)
-                                    {
-                                        // Передать результат ожидающему потоку.
-                                        reqAwaiter.TrySetResult(rawResult);
-                                    }
+                                    offset += webSocketMessage.Count;
+                                    receiveMessageBytesLeft -= webSocketMessage.Count;
                                 }
                                 else
-                                // void.
+                                // Другая сторона закрыла соединение.
                                 {
-                                    reqAwaiter.TrySetResult(null);
+                                    CloseReceived();
+
+                                    // Завершить поток.
+                                    return;
                                 }
-                                #endregion
                             }
                             else
-                            // Сервер прислал код ошибки.
+                            // Обрыв соединения.
                             {
-                                // Телом ответа в этом случае будет строка.
-                                string errorMessage = messageStream.ReadAsString();
-
-                                // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
-                                reqAwaiter.TrySetException(new BadRequestException(errorMessage, header.StatusCode));
-                            }
-                            #endregion
-
-                            // Получен ожидаемый ответ на запрос.
-                            if (Interlocked.Decrement(ref _reqAndRespCount) != -1)
-                            {
-                                continue;
-                            }
-                            else
-                            // Пользователь запросил остановку сервиса.
-                            {
-                                // Не бросает исключения.
-                                await SendCloseBeforeStopAsync();
+                                // Оповестить об обрыве.
+                                AtomicDispose(CloseReason.FromException(webSocketMessage.ReceiveResult.ToException(), _stopRequired));
 
                                 // Завершить поток.
                                 return;
                             }
-                        }
 
+                            #endregion
+
+                        } while (!webSocketMessage.EndOfMessage);
+
+                        #region Обработка Payload
+
+                        if (header.StatusCode == StatusCode.Request)
+                        // Получен запрос.
+                        {
+                            #region Выполнение запроса
+
+                            #region Десериализация запроса
+
+                            RequestMessageDto receivedRequest;
+                            try
+                            {
+                                // Десериализуем запрос.
+                                receivedRequest = ExtensionMethods.DeserializeRequestJson(messageStream);
+                                //receivedRequest = ExtensionMethods.DeserializeRequestBson(messageStream);
+                            }
+                            catch (Exception ex)
+                            // Ошибка десериализации запроса.
+                            {
+                                #region Игнорируем запрос
+
+                                if (header.Uid != null)
+                                // Запрос ожидает ответ.
+                                {
+                                    // Подготовить ответ с ошибкой.
+                                    var errorResponse = new ResponseMessage(header.Uid.Value, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\"."));
+
+                                    // Передать на отправку результат с ошибкой через очередь.
+                                    QueueSendResponse(errorResponse);
+                                }
+
+                                // Вернуться к чтению заголовка.
+                                continue;
+                                #endregion
+                            }
+                            #endregion
+
+                            #region Выполнение запроса
+
+                            // Установить контекст запроса.
+                            var request = new RequestContext(header, receivedRequest);
+
+                            // Начать выполнение запроса в отдельном потоке.
+                            StartProcessRequest(request);
+                            #endregion
+
+                            #endregion
+                        }
+                        else
+                        // Получен ответ на запрос.
+                        {
+                            #region Передача другому потоку ответа на запрос
+
+                            // Удалить запрос из словаря.
+                            if (_pendingRequests.TryRemove(header.Uid.Value, out RequestAwaiter reqAwaiter))
+                            // Передать ответ ожидающему потоку.
+                            {
+                                #region Передать ответ ожидающему потоку
+
+                                if (header.StatusCode == StatusCode.Ok)
+                                // Запрос на удалённой стороне был выполнен успешно.
+                                {
+                                    #region Передать успешный результат
+
+                                    if (reqAwaiter.Request.InterfaceMethod.IncapsulatedReturnType != typeof(void))
+                                    {
+                                        // Десериализатор в соответствии с ContentEncoding.
+                                        var deserializer = header.GetDeserializer();
+
+                                        bool deserialized;
+                                        object rawResult = null;
+                                        try
+                                        {
+                                            rawResult = deserializer(messageStream, reqAwaiter.Request.InterfaceMethod.IncapsulatedReturnType);
+                                            deserialized = true;
+                                        }
+                                        catch (Exception deserializationException)
+                                        {
+                                            var protocolErrorException = new ProtocolErrorException(
+                                                $"Ошибка десериализации ответа на запрос \"{reqAwaiter.Request.ActionName}\".", deserializationException);
+
+                                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
+                                            reqAwaiter.TrySetException(protocolErrorException);
+
+                                            deserialized = false;
+                                        }
+
+                                        if (deserialized)
+                                        {
+                                            // Передать результат ожидающему потоку.
+                                            reqAwaiter.TrySetResult(rawResult);
+                                        }
+                                    }
+                                    else
+                                    // void.
+                                    {
+                                        reqAwaiter.TrySetResult(null);
+                                    }
+                                    #endregion
+                                }
+                                else
+                                // Сервер прислал код ошибки.
+                                {
+                                    // Телом ответа в этом случае будет строка.
+                                    string errorMessage = messageStream.ReadAsString();
+
+                                    // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
+                                    reqAwaiter.TrySetException(new BadRequestException(errorMessage, header.StatusCode));
+                                }
+                                #endregion
+
+                                // Получен ожидаемый ответ на запрос.
+                                if (Interlocked.Decrement(ref _reqAndRespCount) != -1)
+                                {
+                                    continue;
+                                }
+                                else
+                                // Пользователь запросил остановку сервиса.
+                                {
+                                    // Не бросает исключения.
+                                    await SendCloseBeforeStopAsync();
+
+                                    // Завершить поток.
+                                    return;
+                                }
+                            }
+
+                            #endregion
+                        }
                         #endregion
                     }
-                    #endregion
                 }
                 else
                 // Ошибка в хедере.
@@ -868,17 +878,18 @@ namespace DanilovSoft.vRPC
         /// <param name="responseToSend"></param>
         private void QueueSendResponse(ResponseMessage responseToSend)
         {
-            ThreadPool.UnsafeQueueUserWorkItem(state => 
-            {
-                var tuple = ((ManagedConnection thisRef, ResponseMessage responseToSend))state;
+            ThreadPool.UnsafeQueueUserWorkItem(QueueSendResponseThread, Tuple.Create(this, responseToSend));
+        }
 
-                // Сериализуем.
-                SerializedMessageToSend serializedMessage = SerializeResponse(tuple.responseToSend);
+        private static void QueueSendResponseThread(object state)
+        {
+            var tuple = (Tuple<ManagedConnection, ResponseMessage>)state;
 
-                // Ставим в очередь.
-                tuple.thisRef.QueueSendMessage(serializedMessage);
+            // Сериализуем.
+            SerializedMessageToSend serializedMessage = SerializeResponse(tuple.Item2);
 
-            }, (this, responseToSend));
+            // Ставим в очередь.
+            tuple.Item1.QueueSendMessage(serializedMessage);
         }
 
         /// <summary>
@@ -895,13 +906,18 @@ namespace DanilovSoft.vRPC
             {
                 // Сериализуем хедер. Не бросает исключения.
                 AppendHeader(messageToSend);
-                
+
                 // Передать на отправку.
                 // Из-за AllowSynchronousContinuations частично начнёт отправку текущим потоком(!).
                 if (_sendChannel.Writer.TryWrite(messageToSend))
+                {
                     return;
+                }
                 else
-                    messageToSend.Dispose(); // Канал уже закрыт (был вызван Dispose).
+                {
+                    // Канал уже закрыт (был вызван Dispose).
+                    messageToSend.Dispose();
+                }
             }
             else
             {

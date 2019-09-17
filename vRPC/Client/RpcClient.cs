@@ -299,17 +299,17 @@ namespace DanilovSoft.vRPC
         private ValueTask<ManagedConnection> ContextCallback()
         {
             // volatile копия.
-            var stopRequired = _stopRequired;
+            StopRequired stopRequired = _stopRequired;
 
             if (stopRequired == null)
             {
                 // Копия volatile.
-                var context = _connection;
+                ClientSideConnection connection = _connection;
 
-                if (context != null)
+                if (connection != null)
                 // Есть живое соединение.
                 {
-                    return new ValueTask<ManagedConnection>(context);
+                    return new ValueTask<ManagedConnection>(connection);
                 }
                 else
                 // Нужно установить подключение.
@@ -320,11 +320,17 @@ namespace DanilovSoft.vRPC
                         ConnectionResult connectionResult = t.Result;
 
                         if (connectionResult.Connection != null)
+                        {
                             return new ValueTask<ManagedConnection>(connectionResult.Connection);
+                        }
                         else if (connectionResult.SocketError != null)
+                        {
                             return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(connectionResult.SocketError.Value.ToException()));
+                        }
                         else
+                        {
                             return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new StopRequiredException(connectionResult.StopRequired)));
+                        }
                     }
                     else
                     {
@@ -367,12 +373,12 @@ namespace DanilovSoft.vRPC
         private ValueTask<ConnectionResult> ConnectIfNeededAsync()
         {
             // Копия volatile.
-            var context = _connection;
+            ClientSideConnection connection = _connection;
 
-            if (context != null)
+            if (connection != null)
             // Есть живое соединение.
             {
-                return new ValueTask<ConnectionResult>(new ConnectionResult(null, null, context));
+                return new ValueTask<ConnectionResult>(new ConnectionResult(null, null, connection));
             }
             else
             // Подключение отсутствует.
@@ -404,7 +410,7 @@ namespace DanilovSoft.vRPC
             using (conLock)
             {
                 // Копия volatile.
-                var connection = _connection;
+                ClientSideConnection connection = _connection;
 
                 if (connection == null)
                 {
