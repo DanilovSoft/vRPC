@@ -1385,7 +1385,22 @@
         <member name="F:DanilovSoft.vRPC.RpcListener.Controllers">
             <summary>
             Словарь используемый только для чтения, поэтому потокобезопасен.
-            Хран� когда все 
+            Хранит все доступные контроллеры. Не учитывает регистр.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._connections">
+            <summary>
+            Доступ через блокировку SyncObj.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcListener.StartLock">
+            <summary>
+            Для доступа к <see cref="F:DanilovSoft.vRPC.RpcListener._stopRequired"/> и <see cref="F:DanilovSoft.vRPC.RpcListener._started"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcListener.Completion">
+            <summary>
+            <see cref="T:System.Threading.Tasks.Task"/> который завершается когда все 
             соединения перешли в закрытое состояние и сервис полностью остановлен.
             Не бросает исключения.
             Возвращает <see langword="true"/> если остановка прошла грациозно.
@@ -1503,20 +1518,6 @@
             <summary>
             Выполняет AOT(Ahead-Of-Time) оптимизацию.
             </summary>
-        </member>
-        <member name="M:DynamicMethodsLib.ILGeneratorExtensions.PushInstance(System.Reflection.Emit.ILGenerator,System.Type)">
-            <summary>
-            Ldarg_0.
-            </summary>
-        </member>
-        <member name="M:DynamicMethodsLib.ILGeneratorExtensions.Emit_Ldarg(System.Reflection.Emit.ILGenerator,System.Int32)">
-            <summary>
-            Загружает аргумент с индексом <paramref name="argIndex"/> в стек вычислений.
-            </summary>
-        </member>
-        <member name="M:DynamicMethodsLib.ILGeneratorExtensions.Emit_Ldc_I4(System.Reflection.Emit.ILGenerator,System.Int32)">
-            <summary>
-            Помещает целочисленное значение <paramref name="n"/>mary>
         </member>
         <member name="M:DynamicMethodsLib.ILGeneratorExtensions.PushInstance(System.Reflection.Emit.ILGenerator,System.Type)">
             <summary>
