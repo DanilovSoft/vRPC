@@ -194,7 +194,7 @@
             <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.ConfigureIoC(Microsoft.Extensions.DependencyInjection.ServiceCollection)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.InnerConfigureIoC(Microsoft.Extensions.DependencyInjection.ServiceCollection)">
             <summary>
             Добавляет в IoC контейнер контроллеры из сборки и компилирует контейнер.
             </summary>
@@ -837,6 +837,38 @@
             Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
             </summary>
         </member>
+        <member name="T:DanilovSoft.vRPC.IProxy`1">
+            <summary>
+            Служит для инъекции зависимостей. Фактически выполняет GetProxy&lt;<typeparamref name="T"/>&gt;() для текущего подключения.
+            </summary>
+            <typeparam name="T"></typeparam>
+        </member>
+        <member name="P:DanilovSoft.vRPC.IProxy`1.Proxy">
+            <summary>
+            Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ProxyFactory`1.Proxy">
+            <summary>
+            Прозрачный прокси к удалённой стороне.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
+            <summary>
+            Существует только для Net Framework.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
+            <summary>
+            Перегрузка для Net Framework.
+            Attempts to add the specified key and value to the dictionary.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
+            <summary>
+            Перегрузка для Net Framework.
+            </summary>
+        </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
             <summary>
             Содержит прокси созданные из интерфейсов.
@@ -1426,7 +1458,7 @@
             <summary>
             Останавливает сервис и ожидает до полной остановки.
             Не бросает исключения.
-            Эквивалентно <see cref="!:Stop(TimeSpan)"/> + <see langword="await"/> <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
+            Эквивалентно <see cref="M:DanilovSoft.vRPC.RpcListener.Stop(System.TimeSpan,System.String)"/> + <see langword="await"/> <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
             </summary>
             <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.

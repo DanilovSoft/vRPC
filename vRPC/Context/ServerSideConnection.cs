@@ -1,11 +1,11 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using DanilovSoft.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
-using MyWebSocket = DanilovSoft.WebSocket.ManagedWebSocket;
 
 namespace DanilovSoft.vRPC
 {
@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
     /// Подключенный к серверу клиент.
     /// </summary>
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public sealed class ServerSideConnection : ManagedConnection
+    public sealed class ServerSideConnection : ManagedConnection, IGetProxy
     {
         private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
         private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
@@ -33,7 +33,7 @@ namespace DanilovSoft.vRPC
         }
 
         // ctor.
-        internal ServerSideConnection(MyWebSocket clientConnection, ServiceProvider serviceProvider, RpcListener listener) 
+        internal ServerSideConnection(ManagedWebSocket clientConnection, ServiceProvider serviceProvider, RpcListener listener) 
             : base(clientConnection, isServer: true, serviceProvider, listener.Controllers)
         {
             Listener = listener;
@@ -227,6 +227,12 @@ namespace DanilovSoft.vRPC
         {
             var serverController = (ServerController)controller;
             serverController.Context = this;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private protected override T InnerGetProxy<T>()
+        {
+            return GetProxy<T>();
         }
     }
 }

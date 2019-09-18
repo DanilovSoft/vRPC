@@ -22,7 +22,7 @@ namespace DanilovSoft.vRPC
     /// Контекст соединения Web-Сокета. Владеет соединением.
     /// </summary>
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public abstract class ManagedConnection : IDisposable
+    public abstract class ManagedConnection : IDisposable, IGetProxy
     {
         /// <summary>
         /// Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
@@ -144,10 +144,6 @@ namespace DanilovSoft.vRPC
         /// После разъединения текущий экземпляр не может быть переподключен.
         /// </summary>
         public bool IsConnected => _isConnected;
-        ///// <summary>
-        ///// Причина грациозного закрытия соединения которую устанавливает пользователь перед разъединением.
-        ///// </summary>
-        //private volatile string _closeDescription;
 
         // static ctor.
         static ManagedConnection()
@@ -199,14 +195,16 @@ namespace DanilovSoft.vRPC
         internal void InitStartThreads()
         {
             // Запустить цикл отправки сообщений.
-            ThreadPool.UnsafeQueueUserWorkItem(state =>
-            {
-                // Не бросает исключения.
-                ((ManagedConnection)state).SenderLoop();
-            }, this); // Без замыкания.
+            ThreadPool.UnsafeQueueUserWorkItem(SenderLoopStart, this); // Без замыкания.
 
             // Запустить цикл приёма сообщений.
             ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this); // Без замыкания.
+        }
+
+        private static void SenderLoopStart(object state)
+        {
+            // Не бросает исключения.
+            ((ManagedConnection)state).SenderLoop();
         }
 
         private static void ReceiveLoopStart(object state)
@@ -574,7 +572,7 @@ namespace DanilovSoft.vRPC
                     return;
                 }
 
-                HeaderDto header = null;
+                HeaderDto header;
                 if (webSocketMessage.ReceiveResult.IsReceivedSuccessfully)
                 {
                     if (webSocketMessage.MessageType != WebSocketMessageType.Close)
@@ -1178,6 +1176,12 @@ namespace DanilovSoft.vRPC
                         // Блок IoC выполнит Dispose всем созданным экземплярам.
                         using IServiceScope scope = ServiceProvider.CreateScope();
 
+                        // Инициализируем Scope текущим соединением.
+                        var getProxyScope = scope.ServiceProvider.GetService<GetProxyScope>();
+                        getProxyScope.GetProxy = this;
+
+                        //conStore.Add(this);
+
                         // Активируем контроллер через IoC.
                         var controller = (Controller)scope.ServiceProvider.GetRequiredService(controllerType);
                         //{
@@ -1569,5 +1573,10 @@ namespace DanilovSoft.vRPC
                 disconnected?.Invoke(this, new SocketDisconnectedEventArgs(possibleReason));
             }
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        T IGetProxy.GetProxy<T>() => InnerGetProxy<T>();
+
+        private protected abstract T InnerGetProxy<T>();
     }
 }

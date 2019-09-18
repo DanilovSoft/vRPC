@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using DanilovSoft.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +40,12 @@ namespace DanilovSoft.vRPC
         {
             permissionError = null;
             return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private protected override T InnerGetProxy<T>()
+        {
+            return _client.GetProxy<T>();
         }
     }
 }

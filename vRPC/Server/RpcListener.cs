@@ -98,7 +98,15 @@ namespace DanilovSoft.vRPC
         public void ConfigureService(Action<ServiceCollection> configure)
         {
             configure(_serviceCollection);
-            _serviceProvider = _serviceCollection.BuildServiceProvider();
+            _serviceProvider = BuildServiceCollection();
+        }
+
+        private ServiceProvider BuildServiceCollection()
+        {
+            _serviceCollection.AddScoped<GetProxyScope>();
+            _serviceCollection.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
+
+            return _serviceCollection.BuildServiceProvider();
         }
 
         public void Configure(Action<ServiceProvider> configureApp)
@@ -122,7 +130,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Останавливает сервис и ожидает до полной остановки.
         /// Не бросает исключения.
-        /// Эквивалентно <see cref="Stop(TimeSpan)"/> + <see langword="await"/> <see cref="Completion"/>.
+        /// Эквивалентно <see cref="Stop(TimeSpan, string)"/> + <see langword="await"/> <see cref="Completion"/>.
         /// </summary>
         /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
@@ -236,7 +244,7 @@ namespace DanilovSoft.vRPC
                     _started = true;
                     if (_serviceProvider == null)
                     {
-                        _serviceProvider = _serviceCollection.BuildServiceProvider();
+                        _serviceProvider = BuildServiceCollection();
                         _configureApp?.Invoke(_serviceProvider);
                     }
 

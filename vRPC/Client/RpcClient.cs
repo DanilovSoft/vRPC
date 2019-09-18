@@ -16,7 +16,7 @@ namespace DanilovSoft.vRPC
     /// Контекст клиентского соединения.
     /// </summary>
     [DebuggerDisplay(@"\{{State}\}")]
-    public sealed class RpcClient : IDisposable
+    public sealed class RpcClient : IDisposable, IGetProxy
     {
         /// <summary>
         /// Используется для синхронизации установки соединения.
@@ -124,7 +124,7 @@ namespace DanilovSoft.vRPC
 
             var serviceCollection = new ServiceCollection();
             configure(serviceCollection);
-            ServiceProvider = ConfigureIoC(serviceCollection);
+            ServiceProvider = InnerConfigureIoC(serviceCollection);
         }
 
         /// <exception cref="ObjectDisposedException"/>
@@ -429,7 +429,7 @@ namespace DanilovSoft.vRPC
                                 if (serviceProvider == null)
                                 {
                                     var serviceCollection = new ServiceCollection();
-                                    serviceProvider = ConfigureIoC(serviceCollection);
+                                    serviceProvider = InnerConfigureIoC(serviceCollection);
                                     ServiceProvider = serviceProvider;
                                 }
                             }
@@ -551,11 +551,14 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Добавляет в IoC контейнер контроллеры из сборки и компилирует контейнер.
         /// </summary>
-        private ServiceProvider ConfigureIoC(ServiceCollection serviceCollection)
+        private ServiceProvider InnerConfigureIoC(ServiceCollection serviceCollection)
         {
             // Добавим в IoC все контроллеры сборки.
             foreach (Type controllerType in _controllers.Controllers.Values)
                 serviceCollection.AddScoped(controllerType);
+
+            serviceCollection.AddScoped<GetProxyScope>();
+            serviceCollection.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
             return serviceProvider;
