@@ -61,9 +61,5 @@ namespace DanilovSoft.vRPC
         {
             MemPoolStream.Dispose();
         }
-
-        private sealed class TypeProxy
-        {
-        }
     }
 }

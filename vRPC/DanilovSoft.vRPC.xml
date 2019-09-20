@@ -696,6 +696,11 @@
             Возвращает подходящий десериализатор соответственно <see cref="P:DanilovSoft.vRPC.HeaderDto.ContentEncoding"/>.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.HeaderDto.ToString">
+            <summary>
+            Используется только для отладки и логирования.
+            </summary>
+        </member>
         <member name="T:DanilovSoft.vRPC.RequestMessageDto">
             <summary>
             Сериализуемое сообщение для передачи через сокет. На данный момент сериализуется только в Json.

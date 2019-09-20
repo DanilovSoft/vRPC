@@ -17,8 +17,16 @@ namespace DanilovSoft.vRPC
             {
                 if (controllerType.IsSubclassOf(typeof(Controller)))
                 {
-                    // Имя без учета окончания 'Controller'.
-                    controllers.Add(controllerType.Name.Substring(0, controllerType.Name.IndexOf("Controller")), controllerType);
+                    int ind = controllerType.Name.IndexOf("Controller");
+                    if (ind != -1)
+                    {
+                        // Имя без учета окончания 'Controller'.
+                        controllers.Add(controllerType.Name.Substring(0, ind), controllerType);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Контроллер типа {controllerType.FullName} должен заканчиваться словом 'Controller'.");
+                    }
                 }
             }
             return controllers;

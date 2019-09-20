@@ -1035,6 +1035,8 @@ namespace DanilovSoft.vRPC
                             }
                         }
 
+                        LogResponse(serializedMessage);
+
                         byte[] streamBuffer = serializedMessage.MemPoolStream.DangerousGetBuffer();
 
                         // Размер сообщения без заголовка.
@@ -1152,6 +1154,29 @@ namespace DanilovSoft.vRPC
                     return;
                 }
             }
+        }
+
+        [Conditional("LOG_RESPONSE")]
+        private static void LogResponse(SerializedMessageToSend serializedMessage)
+        {
+            byte[] streamBuffer = serializedMessage.MemPoolStream.DangerousGetBuffer();
+
+            // Размер сообщения без заголовка.
+            int contentSize = (int)serializedMessage.MemPoolStream.Length - serializedMessage.HeaderSize;
+
+            var headerSpan = streamBuffer.AsSpan(contentSize, serializedMessage.HeaderSize);
+            var contentSpan = streamBuffer.AsSpan(0, contentSize);
+
+            string header = HeaderDto.DeserializeProtobuf(headerSpan.ToArray(), 0, headerSpan.Length).ToString();
+
+            //string header = Encoding.UTF8.GetString(headerSpan.ToArray());
+            string content = Encoding.UTF8.GetString(contentSpan.ToArray());
+
+            //header = Newtonsoft.Json.Linq.JToken.Parse(header).ToString(Newtonsoft.Json.Formatting.Indented);
+            content = Newtonsoft.Json.Linq.JToken.Parse(content).ToString(Newtonsoft.Json.Formatting.Indented);
+
+            Debug.WriteLine(header);
+            Debug.WriteLine(content);
         }
 
         /// <summary>

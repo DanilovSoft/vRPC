@@ -124,5 +124,16 @@ namespace DanilovSoft.vRPC
         //{
         //    return !a.Equals(b);
         //}
+
+        /// <summary>
+        /// Используется только для отладки и логирования.
+        /// </summary>
+        public override string ToString()
+        {
+            return @$"{nameof(Uid)} = {Uid}
+{nameof(StatusCode)} = {StatusCode}
+{nameof(ContentLength)} = {ContentLength}
+{nameof(ContentEncoding)} = {ContentEncoding}";
+        }
     }
 }
