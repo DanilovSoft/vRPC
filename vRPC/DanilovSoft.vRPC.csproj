@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netcoreapp2.2;netstandard2.0;net461</TargetFrameworks>
+    <TargetFrameworks>netcoreapp2.2;netstandard2.0</TargetFrameworks>
     <LangVersion>8.0</LangVersion>
     <AssemblyName>DanilovSoft.vRPC</AssemblyName>
     <RootNamespace>DanilovSoft.vRPC</RootNamespace>
@@ -25,10 +25,6 @@
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <NoWarn>1701;1702;1573;1591</NoWarn>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
