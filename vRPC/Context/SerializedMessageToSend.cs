@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -21,7 +20,7 @@ namespace DanilovSoft.vRPC
             {
                 var copy = MemPoolStream.ToArray();
                 string j = Encoding.UTF8.GetString(copy);
-                return JToken.Parse(j).ToString(Newtonsoft.Json.Formatting.Indented);
+                return System.Text.Json.JsonDocument.Parse(j).RootElement.ToString();
             }
         }
 #endif
@@ -33,6 +32,9 @@ namespace DanilovSoft.vRPC
         /// до сериализации тела сообщения.
         /// </summary>
         public MemoryPoolStream MemPoolStream { get; } = new MemoryPoolStream();
+        /// <summary>
+        /// Запрос или ответ на запрос.
+        /// </summary>
         public IMessage MessageToSend { get; }
         /// <summary>
         /// Уникальный идентификатор который будет отправлен удалённой стороне.

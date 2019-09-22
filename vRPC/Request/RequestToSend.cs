@@ -6,21 +6,32 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class InterfaceMethodInfo
+    /// <summary>
+    /// Запрос для передачи удаленной стороне.
+    /// Создаётся при вызове метода через интерфейс.
+    /// Не подлежит сериализации.
+    /// </summary>
+    internal sealed class RequestToSend : IMessage
     {
         public MethodInfo Method { get; }
         /// <summary>
         /// Инкапсулированный в Task тип результата функции.
         /// </summary>
         public Type IncapsulatedReturnType { get; }
+        /// <summary>
+        /// True если метод интерфейса был помечен атрибутом <see cref="NotificationAttribute"/> 
+        /// и соответственно не возвращает результат.
+        /// </summary>
         public bool Notification { get; }
         public bool IsAsync { get; }
         /// <summary>
-        /// Имя метода без постфикса Async.
+        /// Имя метода например 'Home/Hello' без постфиксов 'Async'.
         /// </summary>
-        public string MethodName { get; }
+        public string ActionName { get; }
 
-        public InterfaceMethodInfo(MethodInfo methodInfo)
+        public bool IsRequest => true;
+
+        public RequestToSend(MethodInfo methodInfo, string controllerName)
         {
             Method = methodInfo;
 
@@ -35,7 +46,7 @@ namespace DanilovSoft.vRPC
                 }
             }
             IncapsulatedReturnType = GetMethodReturnType(methodInfo);
-            MethodName = methodInfo.GetNameTrimAsync();
+            ActionName = $"{controllerName}/{methodInfo.GetNameTrimAsync()}";
             IsAsync = methodInfo.IsAsyncMethod();
         }
 

@@ -1,13 +1,15 @@
-﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using ProtoBuf;
+﻿using ProtoBuf;
 using System.Diagnostics;
 using System.Runtime.Serialization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace DanilovSoft.vRPC
 {
     /// <summary>
-    /// Сериализуемое сообщение для передачи через сокет. На данный момент сериализуется только в Json.
+    /// Сериализуемое сообщение для передачи через сокет. 
+    /// На данный момент сериализуется только в Json.
+    /// Для десериализации этот тип не используется.
     /// </summary>
     [DebuggerDisplay(@"\{Request = {ActionName,nq}\}")]
     internal sealed class RequestMessageDto
@@ -15,16 +17,16 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Вызываемый метод.
         /// </summary>
-        [JsonProperty("n", Order = 1)]
+        [JsonPropertyName("n")]
         public string ActionName { get; }
 
         /// <summary>
         /// Аргументы вызываемого метода.
         /// </summary>
-        [JsonProperty("a", Order = 2)]
-        public JToken[] Args { get; }
+        [JsonPropertyName("a")]
+        public object[] Args { get; }
 
-        public RequestMessageDto(string actionName, JToken[] args)
+        public RequestMessageDto(string actionName, object[] args)
         {
             ActionName = actionName;
             Args = args;

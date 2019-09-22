@@ -18,7 +18,7 @@ namespace DanilovSoft.vRPC
         /// Словарь используемый только для чтения, поэтому потокобезопасен.
         /// Хранит все доступные контроллеры. Не учитывает регистр.
         /// </summary>
-        internal readonly ControllerActionsDictionary Controllers;
+        internal readonly InvokeActionsDictionary InvokeActions;
         private readonly WebSocketServer _wsServ = new WebSocketServer();
         /// <summary>
         /// Доступ через блокировку SyncObj.
@@ -81,10 +81,13 @@ namespace DanilovSoft.vRPC
             Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
 
             // Найти контроллеры в сборке.
-            Controllers = new ControllerActionsDictionary(GlobalVars.FindAllControllers(controllersAssembly));
+            Dictionary<string, Type> controllerTypes = GlobalVars.FindAllControllers(controllersAssembly);
+
+            // Найти все методы в контроллерах.
+            InvokeActions = new InvokeActionsDictionary(controllerTypes);
 
             // Добавить контроллеры в IoC.
-            foreach (Type controllerType in Controllers.Controllers.Values)
+            foreach (Type controllerType in controllerTypes.Values)
             {
                 _serviceCollection.AddScoped(controllerType);
             }

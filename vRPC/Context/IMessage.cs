@@ -1,12 +1,12 @@
-﻿using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
+﻿
 namespace DanilovSoft.vRPC
 {
     internal interface IMessage
     {
-        //JToken[] Args { get; }
+        /// <summary>
+        /// True если сообщение является запросом, иначе 
+        /// сообщение это результат запроса.
+        /// </summary>
+        bool IsRequest { get; }
     }
 }

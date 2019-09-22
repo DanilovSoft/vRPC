@@ -10,12 +10,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Не может быть <see langword="null"/>.
         /// </summary>
-        internal RequestContext RequestContext { get; }
+        internal RequestToInvoke RequestContext { get; }
         public StatusCode StatusCode { get; internal set; }
         internal string ProducesEncoding { get; set; }
 
         [DebuggerStepThrough]
-        internal ActionContext(RequestContext requestContext, Stream responseStream)
+        internal ActionContext(in RequestToInvoke requestContext, Stream responseStream)
         {
             RequestContext = requestContext;
             ResponseStream = responseStream;

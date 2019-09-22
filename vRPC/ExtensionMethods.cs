@@ -1,8 +1,5 @@
 ﻿using DanilovSoft;
 using DanilovSoft.WebSocket;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Bson;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -33,26 +30,98 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public static void SerializeObjectJson(Stream destination, object instance)
         {
-            using (var writer = new StreamWriter(destination, _UTF8NoBOM, bufferSize: 1024, leaveOpen: true))
-            using (var json = new JsonTextWriter(writer))
-            {
-                var ser = new JsonSerializer();
-                ser.Serialize(json, instance);
-            }
+            using (var writer = new System.Text.Json.Utf8JsonWriter(destination))
+                System.Text.Json.JsonSerializer.Serialize(writer, instance);
         }
 
         /// <summary>
-        /// Сериализует объект в BSON.
+        /// Сериализует объект в JSON.
         /// </summary>
-        public static void SerializeObjectBson(Stream stream, object instance)
+        public static void SerializeObjectJson<T>(Stream destination, T instance)
         {
-            using (var bw = new BinaryWriter(stream, _UTF8NoBOM, leaveOpen: true))
-            using (var json = new BsonDataWriter(bw)) // Использует new UTF8Encoding(false, true)
-            {
-                var ser = new JsonSerializer();
-                ser.Serialize(json, instance);
-            }
+            using (var writer = new System.Text.Json.Utf8JsonWriter(destination))
+                System.Text.Json.JsonSerializer.Serialize(writer, instance);
         }
+
+        /// <summary>
+        /// Десериализует Json.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T DeserializeJson<T>(ReadOnlySpan<byte> utf8Json)
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<T>(utf8Json);
+        }
+
+        /// <summary>
+        /// Десериализует Json.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static object DeserializeJson(ReadOnlySpan<byte> utf8Json, Type returnType)
+        {
+            return System.Text.Json.JsonSerializer.Deserialize(utf8Json, returnType);
+        }
+
+        /// <summary>
+        /// Десериализует Json.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static object DeserializeJson(ReadOnlyMemory<byte> utf8Json, Type returnType)
+        {
+            return System.Text.Json.JsonSerializer.Deserialize(utf8Json.Span, returnType);
+        }
+
+        /// <summary>
+        /// Десериализует Json.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T DeserializeJson<T>(ReadOnlyMemory<byte> utf8Json)
+        {
+            return DeserializeJson<T>(utf8Json.Span);
+        }
+
+        ///// <summary>
+        ///// Сериализует объект в JSON.
+        ///// </summary>
+        //public static void SerializeObjectJson(Stream destination, object instance)
+        //{
+        //    using (var writer = new StreamWriter(destination, _UTF8NoBOM, bufferSize: 1024, leaveOpen: true))
+        //    using (var json = new JsonTextWriter(writer))
+        //    {
+        //        var ser = new JsonSerializer();
+        //        ser.Serialize(json, instance);
+        //    }
+        //}
+
+        ///// <summary>
+        ///// Десериализует Json.
+        ///// </summary>
+        //public static T DeserializeRequestJson<T>(Stream stream)
+        //{
+        //    using (var reader = new StreamReader(stream, _UTF8NoBOM, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
+        //    using (var json = new JsonTextReader(reader))
+        //    {
+        //        var ser = new JsonSerializer();
+        //        var req = ser.Deserialize<T>(json);
+        //        if (req != null)
+        //            return req;
+
+        //        // Сюда не должны попадать.
+        //        throw new InvalidOperationException("Результатом десериализации оказался Null.");
+        //    }
+        //}
+
+        ///// <summary>
+        ///// Сериализует объект в BSON.
+        ///// </summary>
+        //public static void SerializeObjectBson(Stream stream, object instance)
+        //{
+        //    using (var bw = new BinaryWriter(stream, _UTF8NoBOM, leaveOpen: true))
+        //    using (var json = new BsonDataWriter(bw)) // Использует new UTF8Encoding(false, true)
+        //    {
+        //        var ser = new JsonSerializer();
+        //        ser.Serialize(json, instance);
+        //    }
+        //}
 
         public static bool TryReadLengthPrefix(Stream source, out int length)
         {
@@ -60,9 +129,16 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static object DeserializeProtobuf(Stream source, Type type)
+        internal static object DeserializeProtoBuf(Stream source, Type type)
         {
             return ProtoBuf.Serializer.Deserialize(type, source);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static object DeserializeProtoBuf(ReadOnlyMemory<byte> source, Type type)
+        {
+            using (var stream = new MemoryReader(source))
+                return ProtoBuf.Serializer.Deserialize(type, stream);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -71,76 +147,82 @@ namespace DanilovSoft.vRPC
             ProtoBuf.Serializer.Serialize(destination, instance);
         }
 
-        /// <summary>
-        /// Десериализует Json.
-        /// </summary>
-        public static RequestMessageDto DeserializeRequestJson(Stream stream)
+        ///// <summary>
+        ///// Десериализует Bson.
+        ///// </summary>
+        //public static RequestMessageDto DeserializeRequestBson(Stream stream)
+        //{
+        //    using(var br = new BinaryReader(stream, _UTF8NoBOM, leaveOpen: true))
+        //    using (var json = new BsonDataReader(br))
+        //    {
+        //        var ser = new JsonSerializer();
+        //        var req = ser.Deserialize<RequestMessageDto>(json);
+        //        if (req != null)
+        //            return req;
+
+        //        // Сюда не должны попадать.
+        //        throw new InvalidOperationException("Результатом десериализации оказался Null.");
+        //    }
+        //}
+
+        public static void WarmupRequestMessageJson()
         {
-            using (var reader = new StreamReader(stream, _UTF8NoBOM, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
-            using (var json = new JsonTextReader(reader))
-            {
-                var ser = new JsonSerializer();
-                var req = ser.Deserialize<RequestMessageDto>(json);
-                if (req != null)
-                    return req;
-
-                // Сюда не должны попадать.
-                throw new InvalidOperationException("Результатом десериализации оказался Null.");
-            }
-        }
-
-        /// <summary>
-        /// Десериализует Bson.
-        /// </summary>
-        public static RequestMessageDto DeserializeRequestBson(Stream stream)
-        {
-            using(var br = new BinaryReader(stream, _UTF8NoBOM, leaveOpen: true))
-            using (var json = new BsonDataReader(br))
-            {
-                var ser = new JsonSerializer();
-                var req = ser.Deserialize<RequestMessageDto>(json);
-                if (req != null)
-                    return req;
-
-                // Сюда не должны попадать.
-                throw new InvalidOperationException("Результатом десериализации оказался Null.");
-            }
-        }
-
-        public static void WarmupRequestMessageSerialization()
-        {
-            var dto = new RequestMessageDto("n", new JToken[] { JToken.FromObject(1) });
+            var dto = new RequestMessageDto("Home/Hello", new object[] { 1 });
 
             using (var mem = new MemoryStream())
             {
-                SerializeObjectBson(mem, dto);
-                mem.Position = 0;
-                using (var json = new BsonDataReader(mem))
-                {
-                    var ser = new JsonSerializer();
-                    ser.Deserialize<RequestMessageDto>(json);
-                }
+                SerializeObjectJson(mem, dto);
+                //mem.Position = 0;
+                //DeserializeJson<RequestMessageDto>(mem.GetBuffer().AsSpan(0, (int)mem.Length));
+                //using (var reader = new StreamReader(mem))
+                //using (var json = new JsonTextReader(reader))
+                //{
+                //    var ser = new JsonSerializer();
+                //    ser.Deserialize<RequestMessageDto>(json);
+                //}
             }
         }
 
-        /// <summary>
-        /// Десериализует Json.
-        /// </summary>
-        public static object DeserializeJson(Stream stream, Type objectType)
-        {
-            using (var reader = new StreamReader(stream, _UTF8NoBOM, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
-            using (var json = new JsonTextReader(reader))
-            {
-                var ser = new JsonSerializer();
-                return ser.Deserialize(json, objectType);
-            }
-        }
+        ///// <summary>
+        ///// Десериализует Json.
+        ///// </summary>
+        //public static object DeserializeJson(Stream stream, Type objectType)
+        //{
+        //    using (var reader = new StreamReader(stream, _UTF8NoBOM, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
+        //    using (var json = new JsonTextReader(reader))
+        //    {
+        //        var ser = new JsonSerializer();
+        //        return ser.Deserialize(json, objectType);
+        //    }
+        //}
 
         /// <summary>
         /// Читает строку в формате Utf-8.
         /// </summary>
         public static string ReadAsString(this Stream stream)
         {
+            using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
+            {
+                // Десериализовать тело как строку.
+                string errorMessage = reader.ReadString();
+                return errorMessage;
+            }
+        }
+
+        /// <summary>
+        /// Читает строку в формате Utf-8.
+        /// </summary>
+        public static string ReadAsString(this Memory<byte> memory)
+        {
+            return ReadAsString(readonlyMemory: memory);
+        }
+
+        /// <summary>
+        /// Читает строку в формате Utf-8.
+        /// </summary>
+        public static string ReadAsString(this ReadOnlyMemory<byte> readonlyMemory)
+        {
+            using (var stream = new MemoryReader(readonlyMemory))
             using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
             {
                 // Десериализовать тело как строку.
@@ -291,6 +373,22 @@ namespace DanilovSoft.vRPC
                 exceptionMessage = "Удалённая сторона закрыла соединение без объяснения причины.";
 
             return exceptionMessage;
+        }
+
+        public static string GetControllerActionName(this MethodInfo controllerMethod)
+        {
+            string controllerName = controllerMethod.DeclaringType.Name.TrimEnd("Controller");
+            return $"{controllerName}/{controllerMethod.Name}";
+        }
+
+        public static string TrimEnd(this string s, string value)
+        {
+            int index = s.LastIndexOf(value);
+            if(index != -1)
+            {
+                return s.Remove(index);
+            }
+            return s;
         }
     }
 }

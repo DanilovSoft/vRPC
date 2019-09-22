@@ -26,8 +26,9 @@ namespace DanilovSoft.vRPC
         /// Адрес для подключеия к серверу.
         /// </summary>
         private readonly Uri _uri;
-        private readonly ControllerActionsDictionary _controllers;
+        private readonly InvokeActionsDictionary _invokeActions;
         private readonly ProxyCache _proxyCache = new ProxyCache();
+        private readonly ServiceCollection _serviceCollection = new ServiceCollection();
         /// <summary>
         /// <see langword="volatile"/>.
         /// </summary>
@@ -104,10 +105,15 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
 
-            // Словарь с найденными контроллерами в вызывающей сборке.
-            _controllers = new ControllerActionsDictionary(GlobalVars.FindAllControllers(controllersAssembly));
+            // Найти все контроллеры в вызывающей сборке.
+            Dictionary<string, Type> controllerTypes = GlobalVars.FindAllControllers(controllersAssembly);
+
+            // Словарь с методами контроллеров.
+            _invokeActions = new InvokeActionsDictionary(controllerTypes);
             _uri = uri;
             _connectLock = new ChannelLock();
+
+            InnerConfigureIoC(controllerTypes.Values);
         }
 
         /// <summary>
@@ -122,9 +128,8 @@ namespace DanilovSoft.vRPC
             if (ServiceProvider != null)
                 throw new InvalidOperationException("Service already configured.");
 
-            var serviceCollection = new ServiceCollection();
-            configure(serviceCollection);
-            ServiceProvider = InnerConfigureIoC(serviceCollection);
+            configure(_serviceCollection);
+            ServiceProvider = _serviceCollection.BuildServiceProvider();
         }
 
         /// <exception cref="ObjectDisposedException"/>
@@ -428,8 +433,7 @@ namespace DanilovSoft.vRPC
                             {
                                 if (serviceProvider == null)
                                 {
-                                    var serviceCollection = new ServiceCollection();
-                                    serviceProvider = InnerConfigureIoC(serviceCollection);
+                                    serviceProvider = _serviceCollection.BuildServiceProvider();
                                     ServiceProvider = serviceProvider;
                                 }
                             }
@@ -495,7 +499,7 @@ namespace DanilovSoft.vRPC
                         {
                             if (!_disposed)
                             {
-                                connection = new ClientSideConnection(this, ws, serviceProvider, _controllers);
+                                connection = new ClientSideConnection(this, ws, serviceProvider, _invokeActions);
 
                                 // Скопировать пока мы в блокировке.
                                 stopRequired = _stopRequired;
@@ -551,17 +555,17 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Добавляет в IoC контейнер контроллеры из сборки и компилирует контейнер.
         /// </summary>
-        private ServiceProvider InnerConfigureIoC(ServiceCollection serviceCollection)
+        private void InnerConfigureIoC(IEnumerable<Type> controllers)
         {
             // Добавим в IoC все контроллеры сборки.
-            foreach (Type controllerType in _controllers.Controllers.Values)
-                serviceCollection.AddScoped(controllerType);
+            foreach (Type controllerType in controllers)
+                _serviceCollection.AddScoped(controllerType);
 
-            serviceCollection.AddScoped<GetProxyScope>();
-            serviceCollection.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
+            _serviceCollection.AddScoped<GetProxyScope>();
+            _serviceCollection.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
 
-            ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
-            return serviceProvider;
+            //ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
+            //return serviceProvider;
         }
 
         /// <exception cref="ObjectDisposedException"/>

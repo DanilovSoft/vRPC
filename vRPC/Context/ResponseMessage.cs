@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
@@ -20,7 +19,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
         /// </summary>
-        public RequestContext ReceivedRequest { get; private set; }
+        public RequestToInvoke ReceivedRequest { get; private set; }
+
+        public bool IsRequest => false;
+
         ///// <summary>
         ///// Параметры для удаленного метода.
         ///// </summary>
@@ -41,12 +43,12 @@ namespace DanilovSoft.vRPC
         /// <param name="receivedRequest"></param>
         /// <param name="rawResult"></param>
         [DebuggerStepThrough]
-        public ResponseMessage(RequestContext receivedRequest, object rawResult)
+        public ResponseMessage(in RequestToInvoke receivedRequest, object rawResult)
         {
-            Debug.Assert(receivedRequest.HeaderDto.Uid != null);
+            Debug.Assert(receivedRequest.Uid != null);
 
             ReceivedRequest = receivedRequest;
-            Uid = receivedRequest.HeaderDto.Uid.Value;
+            Uid = receivedRequest.Uid.Value;
             Result = rawResult;
         }
     }

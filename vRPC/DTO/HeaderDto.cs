@@ -104,12 +104,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Возвращает подходящий десериализатор соответственно <see cref="ContentEncoding"/>.
         /// </summary>
-        public Func<Stream, Type, object> GetDeserializer()
+        public Func<ReadOnlyMemory<byte>, Type, object> GetDeserializer()
         {
             switch (ContentEncoding)
             {
                 case ProducesProtoBufAttribute.Encoding:
-                        return ExtensionMethods.DeserializeProtobuf;
+                        return ExtensionMethods.DeserializeProtoBuf;
                 default:
                     return ExtensionMethods.DeserializeJson; // Сериализатор по умолчанию.
             }

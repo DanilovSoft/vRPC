@@ -1,5 +1,5 @@
 ﻿// Vitalii Danilov
-// Version 1.2.2
+// Version 1.2.3
 
 using System.Buffers;
 using System.Runtime.CompilerServices;
@@ -7,7 +7,7 @@ using System.Threading;
 
 namespace System.IO
 {
-    public class MemoryPoolStream : MemoryStream, IDisposable
+    internal sealed class MemoryPoolStream : MemoryStream, IDisposable
     {
         private static readonly ArrayPool<byte> _pool = ArrayPool<byte>.Shared;
         private readonly bool _clearOnReturn;
@@ -89,7 +89,7 @@ namespace System.IO
         {
             ThrowIfDisposed();
 
-            int newPosition = 0;
+            int newPosition;
             switch (origin)
             {
                 case SeekOrigin.Begin:
@@ -108,6 +108,8 @@ namespace System.IO
                         newPosition = (int)(_length + offset);
                     }
                     break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(origin));
             }
 
             // Позиция не может быть отрицательной.

@@ -36,7 +36,7 @@ namespace Server.Controllers
             //_logger.LogInformation("NotifyTest");
         }
 
-        [ProducesProtoBuf]
+        //[ProducesProtoBuf]
         public DateTime DummyCall(string s)
         {
             Interlocked.Increment(ref Program.ReqCount);
