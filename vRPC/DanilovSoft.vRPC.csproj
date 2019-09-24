@@ -28,16 +28,16 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>LOG_RESPONSE</DefineConstants>
+    <DefineConstants>LOG_RPC</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CSharp" Version="4.5.0" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.2.0" />
-    <PackageReference Include="System.Text.Json" Version="4.6.0-rc1.19456.4" Condition="'$(TargetFramework)' != 'netcoreapp3.0'" />
+    <PackageReference Include="Microsoft.CSharp" Version="4.6.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.0.0" />
+    <PackageReference Include="System.Text.Json" Version="4.6.0" Condition="'$(TargetFramework)' != 'netcoreapp3.0'" />
     <PackageReference Include="protobuf-net" Version="2.4.0" />
     <PackageReference Include="System.Memory" Version="4.5.3" />
-    <PackageReference Include="System.Threading.Channels" Version="4.5.0" />
+    <PackageReference Include="System.Threading.Channels" Version="4.6.0" />
   </ItemGroup>
 
   <ItemGroup>

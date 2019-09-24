@@ -394,7 +394,7 @@
             Происходит при обращении к проксирующему интерфейсу. Отправляет запрос-уведомление.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestWithResult(DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndGetResult(DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestToSend)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
             </summary>

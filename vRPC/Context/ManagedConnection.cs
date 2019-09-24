@@ -249,7 +249,7 @@ namespace DanilovSoft.vRPC
                     // Запомнить причину отключения что-бы позднее передать её удалённой стороне.
                     _stopRequired = stopRequired; // volatile.
 
-                    if (Interlocked.Decrement(ref _reqAndRespCount) == -1)
+                    if (!DecActiveReqRespCount())
                     // Нет ни одного ожадающего запроса.
                     {
                         // Можно безопасно остановить сокет.
@@ -326,6 +326,8 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private Task SendCloseBeforeStopAsync()
         {
+            Debug.Assert(_stopRequired != null);
+
             return SendCloseAsync(_stopRequired.CloseDescription);
         }
 
@@ -341,7 +343,7 @@ namespace DanilovSoft.vRPC
             SerializedMessageToSend serMsg = SerializeRequest(ifaceMethodInfo, args);
 
             // Отправляем запрос.
-            Task<object> taskObject = SendRequestWithResult(serMsg, ifaceMethodInfo);
+            Task<object> taskObject = SendRequestAndGetResult(serMsg, ifaceMethodInfo);
 
             return ConvertRequestTask(ifaceMethodInfo, taskObject);
         }
@@ -401,7 +403,7 @@ namespace DanilovSoft.vRPC
                 ManagedConnection connection = contextTask.Result;
 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendRequestWithResult(serializedMessage, requestMessage);
+                return connection.SendRequestAndGetResult(serializedMessage, requestMessage);
             }
             else
             {
@@ -424,7 +426,7 @@ namespace DanilovSoft.vRPC
             ManagedConnection connection = await t.ConfigureAwait(false);
 
             // Отправляет запрос и получает результат от удалённой стороны.
-            return await connection.SendRequestWithResult(serializedMessage, requestMessage).ConfigureAwait(false);
+            return await connection.SendRequestAndGetResult(serializedMessage, requestMessage).ConfigureAwait(false);
         }
 
         private static object ConvertRequestTask(RequestToSend targetMethod, Task<object> taskObject)
@@ -499,7 +501,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
         /// </summary>
-        private Task<object> SendRequestWithResult(SerializedMessageToSend serializedMessage, RequestToSend requestMessage)
+        private Task<object> SendRequestAndGetResult(SerializedMessageToSend serializedMessage, RequestToSend requestMessage)
         {
             ThrowIfDisposed();
             ThrowIfStopRequired();
@@ -808,7 +810,7 @@ namespace DanilovSoft.vRPC
                                     #endregion
 
                                     // Получен ожидаемый ответ на запрос.
-                                    if (Interlocked.Decrement(ref _reqAndRespCount) != -1)
+                                    if (DecActiveReqRespCount())
                                     {
                                         continue;
                                     }
@@ -1025,15 +1027,15 @@ namespace DanilovSoft.vRPC
                         // Происходит отправка запроса, а не ответа на запрос.
                         {
                             // Должны получить ответ на этот запрос.
-                            if (Interlocked.Increment(ref _reqAndRespCount) == 0)
-                            // Значение было -1, значит происходит остановка и сокет уже уничтожен.
+                            if (!IncActiveReqRespCount())
+                            // Происходит остановка и сокет уже уничтожен.
                             {
                                 // Просто завершить поток.
                                 return;
                             }
                         }
 
-                        LogResponse(serializedMessage);
+                        LogSend(serializedMessage);
 
                         byte[] streamBuffer = serializedMessage.MemPoolStream.DangerousGetBuffer();
 
@@ -1126,10 +1128,10 @@ namespace DanilovSoft.vRPC
                             return;
                         }
 
-                        if (serializedMessage.MessageToSend is ResponseMessage)
+                        if (!serializedMessage.MessageToSend.IsRequest)
                         // Ответ успешно отправлен.
                         {
-                            if (Interlocked.Decrement(ref _reqAndRespCount) != -1)
+                            if (DecActiveReqRespCount())
                             {
                                 continue;
                             }
@@ -1154,8 +1156,8 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        [Conditional("LOG_RESPONSE")]
-        private static void LogResponse(SerializedMessageToSend serializedMessage)
+        [Conditional("LOG_RPC")]
+        private static void LogSend(SerializedMessageToSend serializedMessage)
         {
             byte[] streamBuffer = serializedMessage.MemPoolStream.DangerousGetBuffer();
 
@@ -1165,7 +1167,8 @@ namespace DanilovSoft.vRPC
             var headerSpan = streamBuffer.AsSpan(contentSize, serializedMessage.HeaderSize);
             //var contentSpan = streamBuffer.AsSpan(0, contentSize);
 
-            string header = HeaderDto.DeserializeProtobuf(headerSpan.ToArray(), 0, headerSpan.Length).ToString();
+            var header = HeaderDto.DeserializeProtobuf(headerSpan.ToArray(), 0, headerSpan.Length);
+            //string header = HeaderDto.DeserializeProtobuf(headerSpan.ToArray(), 0, headerSpan.Length).ToString();
 
             //string header = Encoding.UTF8.GetString(headerSpan.ToArray());
             //string content = Encoding.UTF8.GetString(contentSpan.ToArray());
@@ -1173,10 +1176,22 @@ namespace DanilovSoft.vRPC
             //header = Newtonsoft.Json.Linq.JToken.Parse(header).ToString(Newtonsoft.Json.Formatting.Indented);
             Debug.WriteLine(header);
 
-            if (serializedMessage.ContentEncoding == null || serializedMessage.ContentEncoding == "json")
+            if ((header.StatusCode == StatusCode.Ok || header.StatusCode == StatusCode.Request) 
+                && (serializedMessage.ContentEncoding == null || serializedMessage.ContentEncoding == "json"))
             {
-                string content = System.Text.Json.JsonDocument.Parse(streamBuffer.AsMemory(0, contentSize)).RootElement.ToString();
-                Debug.WriteLine(content);
+                if (contentSize > 0)
+                {
+                    try
+                    {
+                        string content = System.Text.Json.JsonDocument.Parse(streamBuffer.AsMemory(0, contentSize)).RootElement.ToString();
+                        Debug.WriteLine(content);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (Debugger.IsAttached)
+                            Debugger.Break();
+                    }
+                }
             }
             else
             {
@@ -1301,15 +1316,43 @@ namespace DanilovSoft.vRPC
             if (!IsDisposed)
             {
                 // Увеличить счетчик запросов.
-                if (Interlocked.Increment(ref _reqAndRespCount) > 0)
+                if (IncActiveReqRespCount())
                 {
                     ProcessRequest(requestContext);
                 }
                 else
-                // Значение было -1, значит происходит остановка. Выполнять запрос не нужно.
+                // Происходит остановка. Выполнять запрос не нужно.
                 {
                     return;
                 }
+            }
+        }
+
+        private bool IncActiveReqRespCount()
+        {
+            // Увеличить счетчик запросов.
+            if (Interlocked.Increment(ref _reqAndRespCount) > 0)
+            {
+                return true;
+            }
+            else
+            // Значение было -1, значит происходит остановка. Выполнять запрос не нужно.
+            {
+                return false;
+            }
+        }
+
+        private bool DecActiveReqRespCount()
+        {
+            // Получен ожидаемый ответ на запрос.
+            if (Interlocked.Decrement(ref _reqAndRespCount) != -1)
+            {
+                return true;
+            }
+            else
+            // Пользователь запросил остановку сервиса.
+            {
+                return false;
             }
         }
 

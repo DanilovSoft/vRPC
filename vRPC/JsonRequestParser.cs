@@ -67,7 +67,18 @@ namespace DanilovSoft.vRPC
                                                 argsList = new List<object>(1);
 
                                             Type type = targetArguments[argIndex].ParameterType;
-                                            argsList.Add(JsonSerializer.Deserialize(ref reader, type));
+
+                                            object o;
+                                            try
+                                            {
+                                                o = JsonSerializer.Deserialize(ref reader, type);
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                throw new InvalidOperationException($"Не удалось десериализовать аргумент вызываемой функции типа {type.FullName}.", ex);
+                                            }
+                                            
+                                            argsList.Add(o);
                                             argIndex++;
                                         }
                                         args = argsList?.ToArray() ?? Array.Empty<object>();
