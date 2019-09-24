@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Diagnostics;
+using System.Reflection;
+using System.Text.Json;
 
 namespace DanilovSoft.vRPC
 {
-    using System.Diagnostics;
-    using System.Reflection;
-//#if NETCOREAPP3_0
-
-    using System.Text.Json;
-
     internal static class JsonRequestParser
     {
         /// <summary>
@@ -17,6 +14,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public static RequestToInvoke TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeActions, HeaderDto header, out IActionResult error)
         {
+            string actionName = null;
             ControllerAction action = null;
             object[] args = null;
             ParameterInfo[] targetArguments = null;
@@ -35,11 +33,11 @@ namespace DanilovSoft.vRPC
                             {
                                 if (reader.TokenType == JsonTokenType.String)
                                 {
-                                    string actionName = reader.GetString();
+                                    actionName = reader.GetString();
                                     if (!invokeActions.TryGetAction(actionName, out action))
                                     {
                                         error = new NotFoundResult($"Unable to find requested action \"{actionName}\".");
-                                        return default;
+                                        return null;
                                     }
                                     else
                                     {
@@ -59,29 +57,31 @@ namespace DanilovSoft.vRPC
                                 {
                                     if (reader.TokenType == JsonTokenType.StartArray)
                                     {
-                                        int argIndex = 0;
-                                        List<object> argsList = null;
+                                        // Считает сколько аргументов было в json'е и используется как индекс.
+                                        short jsonArgsCount = 0;
+
+                                        if(targetArguments.Length == 0)
+                                            args = Array.Empty<object>();
+                                        else
+                                            args = new object[targetArguments.Length];
+
                                         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
                                         {
-                                            if (argsList == null)
-                                                argsList = new List<object>(1);
+                                            Type type = targetArguments[jsonArgsCount].ParameterType;
 
-                                            Type type = targetArguments[argIndex].ParameterType;
-
-                                            object o;
                                             try
                                             {
-                                                o = JsonSerializer.Deserialize(ref reader, type);
+                                                args[jsonArgsCount] = JsonSerializer.Deserialize(ref reader, type);
                                             }
                                             catch (Exception ex)
                                             {
-                                                throw new InvalidOperationException($"Не удалось десериализовать аргумент вызываемой функции типа {type.FullName}.", ex);
+                                                throw new InvalidOperationException($"Ошибка при десериализации аргумента №{jsonArgsCount + 1} функции {actionName}", ex);
                                             }
-                                            
-                                            argsList.Add(o);
-                                            argIndex++;
+                                            jsonArgsCount++;
                                         }
-                                        args = argsList?.ToArray() ?? Array.Empty<object>();
+
+                                        if (!ValidateArgumentsCount(targetArguments, jsonArgsCount, out error))
+                                            return null;
                                     }
                                 }
                             }
@@ -107,7 +107,7 @@ namespace DanilovSoft.vRPC
                     else
                     {
                         error = new BadRequestResult("В запросе остутствуют требуемые аргументы вызываемого метода.");
-                        return default;
+                        return null;
                     }
                 }
 
@@ -120,6 +120,39 @@ namespace DanilovSoft.vRPC
                 return default;
             }
         }
+
+        private static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, out IActionResult error)
+        {
+            if (jsonArgsCount == targetArguments.Length)
+            {
+                error = null;
+                return true;
+            }
+            else
+            {
+                error = new BadRequestResult("Argument count mismatch.");
+                return false;
+            }
+        }
+
+        ///// <summary>
+        ///// Производит маппинг аргументов запроса в соответствии с делегатом.
+        ///// </summary>
+        ///// <param name="method">Метод который будем вызывать.</param>
+        //private object[] DeserializeParameters(ParameterInfo[] targetArguments, RequestMessage request)
+        //{
+        //    object[] args = new object[targetArguments.Length];
+
+        //    for (int i = 0; i < targetArguments.Length; i++)
+        //    {
+        //        ParameterInfo p = targetArguments[i];
+        //        var arg = request.Args.FirstOrDefault(x => x.ParameterName.Equals(p.Name, StringComparison.InvariantCultureIgnoreCase));
+        //        if (arg == null)
+        //            throw new BadRequestException($"Argument \"{p.Name}\" missing.");
+
+        //        args[i] = arg.Value.ToObject(p.ParameterType);
+        //    }
+        //    return args;
+        //}
     }
-//#endif
 }

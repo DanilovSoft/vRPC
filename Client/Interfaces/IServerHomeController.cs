@@ -17,5 +17,6 @@ namespace Client
         Task<int> Test0Async();
         [Notification]
         void NotifyTest();
+        DateTime Test(TestDto testDto);
     }
 }

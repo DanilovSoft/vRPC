@@ -21,56 +21,16 @@ namespace Server.Controllers
             _program = program;
         }
 
-        public async Task<string> Echo()
-        {
-            _logger.LogInformation("Отправляем 'hello client'");
-            string resp = await Context.GetProxy<IClientHomeController>().SayHelloAsync("hello client");
-            _logger.LogInformation($"Клиент ответил: {resp}");
-            return resp;
-        }
-           
-        public void NotifyTest()
-        {
-            ServerSideConnection[] connections = this.Context.GetConnectionsExceptSelf();
-            Debug.WriteLine("NotifyTest");
-            //_logger.LogInformation("NotifyTest");
-        }
-
         [ProducesProtoBuf]
         public DateTime DummyCall(string s)
         {
             Interlocked.Increment(ref Program.ReqCount);
-            //Thread.Sleep(10_000);
             return DateTime.Now;
         }
 
-        public IActionResult Test0()
+        public DateTime Test(TestDto test)
         {
-            return Ok(123);
-        }
-
-        public async Task Test1()
-        {
-            await Task.Delay(1000);
-        }
-
-        [ProducesProtoBuf]
-        public async Task<IActionResult> Test2()
-        {
-            await Task.Delay(1000);
-            //return BadRequest("Error");
-            return Ok(123);
-        }
-
-        public async ValueTask Test3()
-        {
-            await Task.Delay(10000);
-        }
-
-        public async ValueTask<int> Test4()
-        {
-            await Task.Delay(1000);
-            return 123;
+            return DateTime.Now;
         }
     }
 }

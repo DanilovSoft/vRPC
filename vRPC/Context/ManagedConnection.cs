@@ -97,7 +97,7 @@ namespace DanilovSoft.vRPC
         /// Количество запросов для обработки и количество ответов для отправки.
         /// Для отслеживания грациозной остановки сервиса.
         /// </summary>
-        private int _reqAndRespCount;
+        private int _activeRequestCount;
         /// <summary>
         /// Подписку на событие Disconnected нужно синхронизировать что-бы подписчики не пропустили момент обрыва.
         /// </summary>
@@ -249,7 +249,7 @@ namespace DanilovSoft.vRPC
                     // Запомнить причину отключения что-бы позднее передать её удалённой стороне.
                     _stopRequired = stopRequired; // volatile.
 
-                    if (!DecActiveReqRespCount())
+                    if (!DecActiveRequestCount())
                     // Нет ни одного ожадающего запроса.
                     {
                         // Можно безопасно остановить сокет.
@@ -286,6 +286,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
+        /// Устанавливает причину закрытия соединения для текущего экземпляра и закрывает соединение.
         /// Не бросает исключения.
         /// </summary>
         private void CloseReceived()
@@ -692,58 +693,59 @@ namespace DanilovSoft.vRPC
                             if (header.StatusCode == StatusCode.Request)
                             // Получен запрос.
                             {
-                                #region Выполнение запроса
-
-                                #region Десериализация запроса
-
-                                RequestToInvoke requestToInvoke;
-                                IActionResult error = null;
-                                try
+                                if (IncActiveRequestCount())
                                 {
-                                    // Десериализуем запрос.
-                                    requestToInvoke = JsonRequestParser.TryDeserializeRequestJson(contentMem.Span, _invokeActions, header, out error);
-                                }
-                                catch (Exception ex)
-                                // Ошибка десериализации запроса.
-                                {
-                                    #region Игнорируем запрос
+                                    #region Десериализация запроса
 
-                                    if (header.Uid != null)
-                                    // Запрос ожидает ответ.
+                                    RequestToInvoke requestToInvoke;
+                                    IActionResult error = null;
+                                    try
                                     {
-                                        // Подготовить ответ с ошибкой.
-                                        var errorResponse = new ResponseMessage(header.Uid.Value, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\"."));
-
-                                        // Передать на отправку результат с ошибкой через очередь.
-                                        QueueSendResponse(errorResponse);
+                                        // Десериализуем запрос.
+                                        requestToInvoke = JsonRequestParser.TryDeserializeRequestJson(contentMem.Span, _invokeActions, header, out error);
                                     }
+                                    catch (Exception ex)
+                                    // Ошибка десериализации запроса.
+                                    {
+                                        #region Игнорируем запрос
 
-                                    // Вернуться к чтению заголовка.
-                                    continue;
+                                        if (header.Uid != null)
+                                        // Запрос ожидает ответ.
+                                        {
+                                            // Подготовить ответ с ошибкой.
+                                            var errorResponse = new ResponseMessage(header.Uid.Value, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\"."));
+
+                                            // Передать на отправку результат с ошибкой через очередь.
+                                            QueueSendResponse(errorResponse);
+                                        }
+
+                                        // Вернуться к чтению заголовка.
+                                        continue;
+                                        #endregion
+                                    }
                                     #endregion
-                                }
-                                #endregion
 
-                                if (requestToInvoke == null)
-                                // Не удалось десериализовать запрос.                                    
+                                    #region Не удалось десериализовать — игнорируем запрос
+
+                                    if (requestToInvoke == null)
+                                    // Не удалось десериализовать запрос.                                    
+                                    {
+                                        // Передать на отправку результат с ошибкой через очередь.
+                                        QueueSendResponse(new ResponseMessage(header.Uid.Value, error));
+
+                                        // Вернуться к чтению заголовка.
+                                        continue;
+                                    }
+                                    #endregion
+
+                                    // Начать выполнение запроса в отдельном потоке.
+                                    StartProcessRequest(requestToInvoke);
+                                }
+                                else
+                                // Происходит остановка. Выполнять запрос не нужно.
                                 {
-                                    // Передать на отправку результат с ошибкой через очередь.
-                                    QueueSendResponse(new ResponseMessage(header.Uid.Value, error));
-
-                                    // Вернуться к чтению заголовка.
-                                    continue;
+                                    return;
                                 }
-
-                                #region Выполнение запроса
-
-                                // Установить контекст запроса.
-                                //var request = new RequestContext(header, requestToInvoke);
-
-                                // Начать выполнение запроса в отдельном потоке.
-                                StartProcessRequest(requestToInvoke);
-                                #endregion
-
-                                #endregion
                             }
                             else
                             // Получен ответ на запрос.
@@ -810,7 +812,7 @@ namespace DanilovSoft.vRPC
                                     #endregion
 
                                     // Получен ожидаемый ответ на запрос.
-                                    if (DecActiveReqRespCount())
+                                    if (DecActiveRequestCount())
                                     {
                                         continue;
                                     }
@@ -1027,7 +1029,7 @@ namespace DanilovSoft.vRPC
                         // Происходит отправка запроса, а не ответа на запрос.
                         {
                             // Должны получить ответ на этот запрос.
-                            if (!IncActiveReqRespCount())
+                            if (!IncActiveRequestCount())
                             // Происходит остановка и сокет уже уничтожен.
                             {
                                 // Просто завершить поток.
@@ -1131,7 +1133,7 @@ namespace DanilovSoft.vRPC
                         if (!serializedMessage.MessageToSend.IsRequest)
                         // Ответ успешно отправлен.
                         {
-                            if (DecActiveReqRespCount())
+                            if (DecActiveRequestCount())
                             {
                                 continue;
                             }
@@ -1216,38 +1218,24 @@ namespace DanilovSoft.vRPC
                 var getProxyScope = scope.ServiceProvider.GetService<GetProxyScope>();
                 getProxyScope.GetProxy = this;
 
-                //conStore.Add(this);
-
                 // Активируем контроллер через IoC.
                 var controller = (Controller)scope.ServiceProvider.GetRequiredService(receivedRequest.ActionToInvoke.ControllerType);
                 //{
                 // Подготавливаем контроллер.
                 BeforeInvokeController(controller);
 
-                // Мапим и десериализуем аргументы по их именам.
-                //object[] args = DeserializeParameters(action.TargetMethod.GetParameters(), receivedRequest);
+                // Вызов метода контроллера.
+                object controllerResult = receivedRequest.ActionToInvoke.FastInvokeDelegate(controller, receivedRequest.Args);
 
-                ParameterInfo[] methodParameters = receivedRequest.ActionToInvoke.TargetMethod.GetParameters();
-                if (ValidateArguments(methodParameters, receivedRequest, out var paramsError))
+                // Может быть не завершённый Task.
+                if (controllerResult != null)
                 {
-                    // Мапим и десериализуем аргументы по их порядку.
-                    //object[] args = DeserializeArguments(methodParameters, receivedRequest);
-
-                    // Вызов метода контроллера.
-                    object controllerResult = receivedRequest.ActionToInvoke.FastInvokeDelegate(controller, receivedRequest.Args);
-
-                    // Может быть не завершённый Task.
-                    if (controllerResult != null)
-                    {
-                        // Извлекает результат из Task'а.
-                        controllerResult = await DynamicAwaiter.WaitAsync(controllerResult).ConfigureAwait(false);
-                    }
-
-                    // Результат успешно получен без исключения.
-                    return controllerResult;
+                    // Извлекает результат из Task'а.
+                    controllerResult = await DynamicAwaiter.WaitAsync(controllerResult).ConfigureAwait(false);
                 }
-                else
-                    return paramsError;
+
+                // Результат успешно получен без исключения.
+                return controllerResult;
             }
             else
                 return permissionError;
@@ -1259,50 +1247,20 @@ namespace DanilovSoft.vRPC
         /// <exception cref="BadRequestException"/>
         protected abstract bool InvokeMethodPermissionCheck(MethodInfo method, Type controllerType, out IActionResult permissionError);
 
-        private bool ValidateArguments(ParameterInfo[] targetArguments, RequestToInvoke request, out IActionResult error)
-        {
-            if (request.Args.Length == targetArguments.Length)
-            {
-                error = null;
-                return true;
-            }
-            error = new BadRequestResult("Argument count mismatch.");
-            return false;
-        }
-
-        ///// <summary>
-        ///// Производит маппинг аргументов запроса в соответствии с делегатом.
-        ///// </summary>
-        ///// <param name="method">Метод который будем вызывать.</param>
-        //private object[] DeserializeParameters(ParameterInfo[] targetArguments, RequestMessage request)
-        //{
-        //    object[] args = new object[targetArguments.Length];
-
-        //    for (int i = 0; i < targetArguments.Length; i++)
-        //    {
-        //        ParameterInfo p = targetArguments[i];
-        //        var arg = request.Args.FirstOrDefault(x => x.ParameterName.Equals(p.Name, StringComparison.InvariantCultureIgnoreCase));
-        //        if (arg == null)
-        //            throw new BadRequestException($"Argument \"{p.Name}\" missing.");
-
-        //        args[i] = arg.Value.ToObject(p.ParameterType);
-        //    }
-        //    return args;
-        //}
-
         /// <summary>
         /// В новом потоке выполняет запрос и отправляет ему результат или ошибку.
         /// </summary>
         private void StartProcessRequest(RequestToInvoke request)
         {
-            ThreadPool.UnsafeQueueUserWorkItem(state =>
-            {
-                var tuple = (Tuple<ManagedConnection, RequestToInvoke>)state;
+            ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestThread, Tuple.Create(this, request)); // Без замыкания.
+        }
 
-                // Не бросает исключения.
-                tuple.Item1.StartProcessRequestThread(tuple.Item2);
+        private static void StartProcessRequestThread(object state)
+        {
+            var tuple = (Tuple<ManagedConnection, RequestToInvoke>)state;
 
-            }, state: Tuple.Create(this, request)); // Без замыкания.
+            // Не бросает исключения.
+            tuple.Item1.StartProcessRequestThread(tuple.Item2);
         }
 
         /// <summary>
@@ -1315,23 +1273,18 @@ namespace DanilovSoft.vRPC
             // в этом случае ничего выполнять не нужно.
             if (!IsDisposed)
             {
-                // Увеличить счетчик запросов.
-                if (IncActiveReqRespCount())
-                {
-                    ProcessRequest(requestContext);
-                }
-                else
-                // Происходит остановка. Выполнять запрос не нужно.
-                {
-                    return;
-                }
+                ProcessRequest(requestContext);
             }
         }
 
-        private bool IncActiveReqRespCount()
+        /// <summary>
+        /// Увеличивает счётчик на 1 при получении запроса или при отправке запроса.
+        /// </summary>
+        /// <returns></returns>
+        private bool IncActiveRequestCount()
         {
             // Увеличить счетчик запросов.
-            if (Interlocked.Increment(ref _reqAndRespCount) > 0)
+            if (Interlocked.Increment(ref _activeRequestCount) > 0)
             {
                 return true;
             }
@@ -1342,10 +1295,14 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private bool DecActiveReqRespCount()
+        /// <summary>
+        /// Уменьшает счётчик на 1 при получении ответа на запрос или при отправке ответа на запрос.
+        /// </summary>
+        /// <returns></returns>
+        private bool DecActiveRequestCount()
         {
             // Получен ожидаемый ответ на запрос.
-            if (Interlocked.Decrement(ref _reqAndRespCount) != -1)
+            if (Interlocked.Decrement(ref _activeRequestCount) != -1)
             {
                 return true;
             }

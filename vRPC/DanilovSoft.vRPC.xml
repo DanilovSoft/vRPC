@@ -322,7 +322,7 @@
             Предотвращает повторный вызов Stop.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ManagedConnection._reqAndRespCount">
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._activeRequestCount">
             <summary>
             Количество запросов для обработки и количество ответов для отправки.
             Для отслеживания грациозной остановки сервиса.
@@ -364,6 +364,7 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.CloseReceived">
             <summary>
+            Устанавливает причину закрытия соединения для текущего экземпляра и закрывает соединение.
             Не бросает исключения.
             </summary>
         </member>
@@ -456,6 +457,18 @@
             Выполняет запрос и отправляет результат или ошибку.
             </summary>
             <param name="requestContext"></param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.IncActiveRequestCount">
+            <summary>
+            Увеличивает счётчик на 1 при получении запроса или при отправке запроса.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.DecActiveRequestCount">
+            <summary>
+            Уменьшает счётчик на 1 при получении ответа на запрос или при отправке ответа на запрос.
+            </summary>
+            <returns></returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeAndSendResponse(DanilovSoft.vRPC.ResponseMessage,DanilovSoft.vRPC.RequestToInvoke)">
             <summary>

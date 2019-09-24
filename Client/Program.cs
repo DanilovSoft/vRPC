@@ -77,7 +77,7 @@ namespace Client
                         while (true)
                         {
                             while (client.Connect().State == ConnectState.NotConnected)
-                                Thread.Sleep(2000);
+                                Thread.Sleep(new Random().Next(2000, 3000));
 
                             if (client.State == RpcState.StopRequired)
                                 break;
@@ -94,7 +94,7 @@ namespace Client
                                 }
                                 catch (Exception ex)
                                 {
-                                    Thread.Sleep(new Random().Next(200, 400));
+                                    Thread.Sleep(new Random().Next(2000, 3000));
                                     Debug.WriteLine(ex);
                                     break;
                                 }
