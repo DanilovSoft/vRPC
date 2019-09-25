@@ -338,7 +338,7 @@ namespace DanilovSoft.vRPC
         internal object OnServerProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
-            RequestToSend ifaceMethodInfo = _interfaceMethods.GetOrAdd(targetMethod, (mi, cn) => new RequestToSend(mi, cn), controllerName);
+            RequestToSend ifaceMethodInfo = _interfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestToSend(tm, cn), controllerName);
 
             // Сериализуем запрос в память.
             SerializedMessageToSend serMsg = SerializeRequest(ifaceMethodInfo, args);
@@ -430,20 +430,20 @@ namespace DanilovSoft.vRPC
             return await connection.SendRequestAndGetResult(serializedMessage, requestMessage).ConfigureAwait(false);
         }
 
-        private static object ConvertRequestTask(RequestToSend targetMethod, Task<object> taskObject)
+        private static object ConvertRequestTask(RequestToSend requestToSend, Task<object> taskObject)
         {
-            if (targetMethod.IsAsync)
+            if (requestToSend.IsAsync)
             // Возвращаемый тип функции интерфейса — Task.
             {
-                if (targetMethod.Method.ReturnType.IsGenericType)
+                if (requestToSend.Method.ReturnType.IsGenericType)
                 // У задачи есть результат.
                 {
                     // Task<object> должен быть преобразован в Task<T>.
-                    return TaskConverter.ConvertTask(taskObject, targetMethod.IncapsulatedReturnType, targetMethod.Method.ReturnType);
+                    return TaskConverter.ConvertTask(taskObject, requestToSend.IncapsulatedReturnType, requestToSend.Method.ReturnType);
                 }
                 else
                 {
-                    if (targetMethod.Method.ReturnType != typeof(ValueTask))
+                    if (requestToSend.Method.ReturnType != typeof(ValueTask))
                     {
                         // Если возвращаемый тип интерфейса – Task то можно вернуть Task<object>.
                         return taskObject;
@@ -642,10 +642,12 @@ namespace DanilovSoft.vRPC
 
                                 #region Читаем фрейм веб-сокета
 
+                                // Ограничиваем буфер памяти до колличества принятых байт из сокета.
+                                Memory<byte> buffer = contentMem.Slice(offset, receiveMessageBytesLeft);
                                 try
                                 {
                                     // Читаем фрейм веб-сокета.
-                                    webSocketMessage = await _socket.ReceiveExAsync(contentMem.Slice(offset, receiveMessageBytesLeft), CancellationToken.None);
+                                    webSocketMessage = await _socket.ReceiveExAsync(buffer, CancellationToken.None);
                                 }
                                 catch (Exception ex)
                                 // Обрыв соединения.
@@ -1087,7 +1089,9 @@ namespace DanilovSoft.vRPC
                                     endOfMessage = true;
                                 }
                                 else
+                                {
                                     endOfMessage = false;
+                                }
 
                                 try
                                 {
