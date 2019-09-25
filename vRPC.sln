@@ -15,8 +15,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DanilovSoft.WebSocket", "..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSocket.csproj", "{4F02272A-42B3-4C7F-927C-EF8560330251}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FeatureTest", "FeatureTest\FeatureTest.csproj", "{2DCBFC6C-5055-440C-9348-5593EB05DAC6}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,10 +41,6 @@ Global
 		{4F02272A-42B3-4C7F-927C-EF8560330251}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4F02272A-42B3-4C7F-927C-EF8560330251}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4F02272A-42B3-4C7F-927C-EF8560330251}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2DCBFC6C-5055-440C-9348-5593EB05DAC6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2DCBFC6C-5055-440C-9348-5593EB05DAC6}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2DCBFC6C-5055-440C-9348-5593EB05DAC6}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2DCBFC6C-5055-440C-9348-5593EB05DAC6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -54,7 +48,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{2470E9C9-2F26-4F55-AAB3-6CD6C68489E5} = {CBE0B9BB-823B-47B7-8453-6F62A268D619}
 		{1A5619D2-1DF2-42DC-9B1E-BB05A11508CB} = {CBE0B9BB-823B-47B7-8453-6F62A268D619}
-		{2DCBFC6C-5055-440C-9348-5593EB05DAC6} = {CBE0B9BB-823B-47B7-8453-6F62A268D619}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E8289719-8A9B-4E9A-AD6E-62C97A3E0C06}

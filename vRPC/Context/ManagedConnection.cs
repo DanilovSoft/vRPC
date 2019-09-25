@@ -1028,12 +1028,15 @@ namespace DanilovSoft.vRPC
                         if (serializedMessage.MessageToSend.IsRequest)
                         // Происходит отправка запроса, а не ответа на запрос.
                         {
+                            if (!serializedMessage.MessageToSend.IsNotificationRequest)
                             // Должны получить ответ на этот запрос.
-                            if (!IncActiveRequestCount())
-                            // Происходит остановка и сокет уже уничтожен.
                             {
-                                // Просто завершить поток.
-                                return;
+                                if (!IncActiveRequestCount())
+                                // Происходит остановка и сокет уже уничтожен.
+                                {
+                                    // Просто завершить поток.
+                                    return;
+                                }
                             }
                         }
 
@@ -1190,6 +1193,7 @@ namespace DanilovSoft.vRPC
                     }
                     catch (Exception ex)
                     {
+                        Debug.WriteLine(ex);
                         if (Debugger.IsAttached)
                             Debugger.Break();
                     }
@@ -1206,43 +1210,77 @@ namespace DanilovSoft.vRPC
         /// Результатом может быть IActionResult или Raw объект или исключение.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        private async ValueTask<object> InvokeControllerAsync(RequestToInvoke receivedRequest)
+        private ValueTask<object> InvokeControllerAsync(RequestToInvoke receivedRequest)
         {
             // Проверить доступ к функции.
             if (InvokeMethodPermissionCheck(receivedRequest.ActionToInvoke.TargetMethod, receivedRequest.ActionToInvoke.ControllerType, out IActionResult permissionError))
             {
-                // Блок IoC выполнит Dispose всем созданным экземплярам.
-                using IServiceScope scope = ServiceProvider.CreateScope();
-
-                // Инициализируем Scope текущим соединением.
-                var getProxyScope = scope.ServiceProvider.GetService<GetProxyScope>();
-                getProxyScope.GetProxy = this;
-
-                // Активируем контроллер через IoC.
-                var controller = (Controller)scope.ServiceProvider.GetRequiredService(receivedRequest.ActionToInvoke.ControllerType);
-                //{
-                // Подготавливаем контроллер.
-                BeforeInvokeController(controller);
-
-                // Вызов метода контроллера.
-                object controllerResult = receivedRequest.ActionToInvoke.FastInvokeDelegate(controller, receivedRequest.Args);
-
-                // Может быть не завершённый Task.
-                if (controllerResult != null)
+                IServiceScope scope = ServiceProvider.CreateScope();
+                try
                 {
-                    // Извлекает результат из Task'а.
-                    controllerResult = await DynamicAwaiter.WaitAsync(controllerResult).ConfigureAwait(false);
-                }
+                    // Инициализируем Scope текущим соединением.
+                    var getProxyScope = scope.ServiceProvider.GetService<GetProxyScope>();
+                    getProxyScope.GetProxy = this;
 
-                // Результат успешно получен без исключения.
-                return controllerResult;
+                    // Активируем контроллер через IoC.
+                    var controller = (Controller)scope.ServiceProvider.GetRequiredService(receivedRequest.ActionToInvoke.ControllerType);
+
+                    // Подготавливаем контроллер.
+                    BeforeInvokeController(controller);
+
+                    // Вызов метода контроллера.
+                    object controllerResult = receivedRequest.ActionToInvoke.FastInvokeDelegate(controller, receivedRequest.Args);
+
+                    // Может быть не завершённый Task.
+                    if (controllerResult != null)
+                    {
+                        ValueTask<object> t = DynamicAwaiter.WaitAsync(controllerResult);
+
+                        if (t.IsCompletedSuccessfully)
+                        {
+                            // Извлекает результат из Task'а.
+                            controllerResult = t.Result;
+
+                            // Результат успешно получен без исключения.
+                            return new ValueTask<object>(controllerResult);
+                        }
+                        else
+                        {
+                            // Предотвратить Dispose.
+                            scope = null;
+
+                            return WaitForInvokeControllerAsync(t, scope);
+                        }
+                    }
+                    else
+                    {
+                        return new ValueTask<object>(result: null);
+                    }
+                }
+                finally
+                {
+                    // ServiceScope выполнит Dispose всем созданным экземплярам.
+                    scope?.Dispose();
+                }
             }
             else
-                return permissionError;
+                return new ValueTask<object>(permissionError);
+        }
+
+        private async ValueTask<object> WaitForInvokeControllerAsync(ValueTask<object> t, IServiceScope scope)
+        {
+            using (scope)
+            {
+                object result = await t.ConfigureAwait(false);
+
+                // Результат успешно получен без исключения.
+                return result;
+            }
         }
 
         /// <summary>
         /// Проверяет доступность запрашиваемого метода для удаленного пользователя.
+        /// Не бросает исключения.
         /// </summary>
         /// <exception cref="BadRequestException"/>
         protected abstract bool InvokeMethodPermissionCheck(MethodInfo method, Type controllerType, out IActionResult permissionError);
@@ -1318,7 +1356,8 @@ namespace DanilovSoft.vRPC
             if (requestToInvoke.Uid != null)
             {
                 // Выполняет запрос и возвращает ответ.
-                var t = GetResponseAsync(requestToInvoke);
+                ValueTask<ResponseMessage> t = GetResponseAsync(requestToInvoke);
+
                 if (t.IsCompleted)
                 {
                     // Не бросает исключения.
@@ -1336,6 +1375,7 @@ namespace DanilovSoft.vRPC
             // Notification
             {
                 ValueTask<object> t = InvokeControllerAsync(requestToInvoke);
+
                 if(!t.IsCompletedSuccessfully)
                 {
                     WaitForNotification(t);
@@ -1387,9 +1427,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private ValueTask<ResponseMessage> GetResponseAsync(RequestToInvoke requestContext)
         {
-            // Функция обязательно должна быть с ключевым словом async 
-            // что-бы исключение могло агрегироваться в Task.
+            // Не должно бросать исключения.
             ValueTask<object> t = InvokeControllerAsync(requestContext);
+
             if(t.IsCompletedSuccessfully)
             // Синхронно только в случае успеха.
             {

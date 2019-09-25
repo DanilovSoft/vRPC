@@ -20,13 +20,8 @@ namespace DanilovSoft.vRPC
         /// Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
         /// </summary>
         public RequestToInvoke ReceivedRequest { get; private set; }
-
         public bool IsRequest => false;
-
-        ///// <summary>
-        ///// Параметры для удаленного метода.
-        ///// </summary>
-        //public JToken[] Args { get; }
+        public bool IsNotificationRequest => false;
 
         /// <summary>
         /// Конструктор ответа.
@@ -43,7 +38,7 @@ namespace DanilovSoft.vRPC
         /// <param name="receivedRequest"></param>
         /// <param name="rawResult"></param>
         [DebuggerStepThrough]
-        public ResponseMessage(in RequestToInvoke receivedRequest, object rawResult)
+        public ResponseMessage(RequestToInvoke receivedRequest, object rawResult)
         {
             Debug.Assert(receivedRequest.Uid != null);
 

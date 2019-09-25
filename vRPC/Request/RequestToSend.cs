@@ -28,26 +28,31 @@ namespace DanilovSoft.vRPC
         /// Имя метода например 'Home/Hello' без постфиксов 'Async'.
         /// </summary>
         public string ActionName { get; }
-
         public bool IsRequest => true;
+        public bool IsNotificationRequest => Notification;
 
-        public RequestToSend(MethodInfo methodInfo, string controllerName)
+        /// <summary>
+        /// ctor.
+        /// </summary>
+        /// <param name="interfaceMethod"></param>
+        /// <param name="controllerName"></param>
+        public RequestToSend(MethodInfo interfaceMethod, string controllerName)
         {
-            Method = methodInfo;
+            Method = interfaceMethod;
 
-            Notification = Attribute.IsDefined(methodInfo, typeof(NotificationAttribute));
+            Notification = Attribute.IsDefined(interfaceMethod, typeof(NotificationAttribute));
 
             if(Notification)
             {
                 if(Method.ReturnType != typeof(void) && Method.ReturnType != typeof(Task) && Method.ReturnType != typeof(ValueTask))
                 {
-                    throw new InvalidOperationException($"Метод '{methodInfo.Name}' помечен атрибутом [Notification] поэтому " +
+                    throw new InvalidOperationException($"Метод '{interfaceMethod.Name}' помечен атрибутом [Notification] поэтому " +
                         $"возвращаемый тип метода может быть только void или Task или ValueTask.");
                 }
             }
-            IncapsulatedReturnType = GetMethodReturnType(methodInfo);
-            ActionName = $"{controllerName}/{methodInfo.GetNameTrimAsync()}";
-            IsAsync = methodInfo.IsAsyncMethod();
+            IncapsulatedReturnType = GetMethodReturnType(interfaceMethod);
+            ActionName = $"{controllerName}/{interfaceMethod.GetNameTrimAsync()}";
+            IsAsync = interfaceMethod.IsAsyncMethod();
         }
 
         /// <summary>
