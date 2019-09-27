@@ -9,7 +9,7 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Атомарный <see langword="await"/>'ер. Связывает запрос с его результатом.
     /// </summary>
-    [DebuggerDisplay(@"\{Request: {Request.ActionName,nq}\}")]
+    [DebuggerDisplay(@"\{Request = {Request.ActionName}\}")]
     internal sealed class RequestAwaiter : INotifyCompletion
     {
         public RequestToSend Request { get; }

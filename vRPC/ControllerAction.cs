@@ -22,6 +22,7 @@ namespace DanilovSoft.vRPC
         /// Формат возвращаемых данных.
         /// </summary>
         public string ProducesEncoding { get; }
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public readonly Func<object, object[], object> FastInvokeDelegate;
         /// <summary>
         /// Контроллер для активации через IoC.

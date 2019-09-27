@@ -32,7 +32,7 @@ namespace Client.Controllers
 
         public void Notify()
         {
-            Debug.WriteLine("Notify");
+            //Debug.WriteLine("Notify");
         }
     }
 }

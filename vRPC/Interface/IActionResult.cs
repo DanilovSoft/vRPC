@@ -9,4 +9,9 @@ namespace DanilovSoft.vRPC
     {
         void ExecuteResult(ActionContext context);
     }
+
+    public interface IActionResult<T> : IActionResult
+    {
+        
+    }
 }

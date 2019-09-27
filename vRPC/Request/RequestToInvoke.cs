@@ -31,8 +31,6 @@ namespace DanilovSoft.vRPC
 
         public RequestToInvoke(ushort? uid, ControllerAction invokeAction, object[] args)
         {
-            //var sz = Marshal.SizeOf<RequestToInvoke>();
-            //HeaderDto = header;
             Uid = uid;
             ActionToInvoke = invokeAction;
             Args = args;

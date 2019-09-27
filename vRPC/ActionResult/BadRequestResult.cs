@@ -1,6 +1,6 @@
 ﻿namespace DanilovSoft.vRPC
 {
-    public sealed class BadRequestResult : IActionResult
+    public class BadRequestResult : IActionResult
     {
         private const StatusCode DefaultStatusCode = StatusCode.BadRequest;
         private readonly string _message;
@@ -14,6 +14,14 @@
         {
             context.StatusCode = DefaultStatusCode;
             context.ResponseStream.WriteStringBinary(_message);
+        }
+    }
+
+    public sealed class BadRequestResult<T> : BadRequestResult, IActionResult<T>
+    {
+        public BadRequestResult(string message) : base(message)
+        {
+            
         }
     }
 }

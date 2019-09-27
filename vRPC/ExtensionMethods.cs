@@ -30,8 +30,16 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public static void SerializeObjectJson(Stream destination, object instance)
         {
-            using (var writer = new System.Text.Json.Utf8JsonWriter(destination))
-                System.Text.Json.JsonSerializer.Serialize(writer, instance);
+            try
+            {
+                using (var writer = new System.Text.Json.Utf8JsonWriter(destination))
+                    System.Text.Json.JsonSerializer.Serialize(writer, instance);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
+            }
+            
         }
 
         /// <summary>

@@ -28,10 +28,14 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>LOG_RPC</DefineConstants>
+    <DefineConstants>LOG_REQ_INC</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.CSharp" Version="4.6.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.0.0" />
     <PackageReference Include="System.Text.Json" Version="4.6.0" Condition="'$(TargetFramework)' != 'netcoreapp3.0'" />

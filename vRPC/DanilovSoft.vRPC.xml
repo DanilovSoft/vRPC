@@ -256,6 +256,11 @@
             сообщение это результат запроса.
             </summary>
         </member>
+        <member name="P:DanilovSoft.vRPC.IMessage.IsNotificationRequest">
+            <summary>
+            Может быть True если IsRequest тоже является True.
+            </summary>
+        </member>
         <member name="T:DanilovSoft.vRPC.ManagedConnection">
             <summary>
             Контекст соединения Web-Сокета. Владеет соединением.
@@ -403,15 +408,10 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
             Сериализует сообщение в новом потоке и добавляет в очередь на отправку.
+            Уменьшит <see cref="F:DanilovSoft.vRPC.ManagedConnection._activeRequestCount"/>.
             Не должно бросать исключения(!).
             </summary>
             <param name="responseToSend"></param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendMessage(DanilovSoft.vRPC.SerializedMessageToSend)">
-            <summary>
-            Добавляет хэдер и передает на отправку другому потоку.
-            Не бросает исключения.
-            </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeRequest(DanilovSoft.vRPC.RequestToSend,System.Object[])">
             <summary>
@@ -426,6 +426,12 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.AppendHeader(DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
             Сериализует хэдер в стрим сообщения. Не бросает исключения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendMessage(DanilovSoft.vRPC.SerializedMessageToSend)">
+            <summary>
+            Добавляет хэдер и передает на отправку другому потоку.
+            Не бросает исключения.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SenderLoop">
@@ -444,6 +450,7 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.InvokeMethodPermissionCheck(System.Reflection.MethodInfo,System.Type,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Проверяет доступность запрашиваемого метода для удаленного пользователя.
+            Не бросает исключения.
             </summary>
             <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
         </member>
@@ -526,7 +533,7 @@
             Конструктор ответа.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(DanilovSoft.vRPC.RequestToInvoke@,System.Object)">
+        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(DanilovSoft.vRPC.RequestToInvoke,System.Object)">
             <summary>
             Ответ на основе запроса.
             </summary>
@@ -828,12 +835,12 @@
             </summary>
             <typeparam name="T"></typeparam>
         </member>
-        <member name="P:DanilovSoft.vRPC.IProxy`1.Proxy">
+        <member name="P:DanilovSoft.vRPC.IProxy`1.Interface">
             <summary>
             Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.ProxyFactory`1.Proxy">
+        <member name="P:DanilovSoft.vRPC.ProxyFactory`1.Interface">
             <summary>
             Прозрачный прокси к удалённой стороне.
             </summary>
@@ -949,6 +956,13 @@
             <summary>
             Имя метода например 'Home/Hello' без постфиксов 'Async'.
             </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestToSend.#ctor(System.Reflection.MethodInfo,System.String)">
+            <summary>
+            ctor.
+            </summary>
+            <param name="interfaceMethod"></param>
+            <param name="controllerName"></param>
         </member>
         <member name="M:DanilovSoft.vRPC.RequestToSend.GetMethodReturnType(System.Reflection.MethodInfo)">
             <summary>

@@ -8,5 +8,9 @@ namespace DanilovSoft.vRPC
         /// сообщение это результат запроса.
         /// </summary>
         bool IsRequest { get; }
+        /// <summary>
+        /// Может быть True если IsRequest тоже является True.
+        /// </summary>
+        bool IsNotificationRequest { get; }
     }
 }
