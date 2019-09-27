@@ -14,14 +14,17 @@ namespace DanilovSoft.vRPC
     internal sealed class SerializedMessageToSend : IDisposable
     {
 #if DEBUG
-        private string DebugJson
+        private string DebugJson => GetDebugJson();
+        
+        private string GetDebugJson()
         {
-            get
+            if (MemPoolStream.Length > 0)
             {
                 var copy = MemPoolStream.ToArray();
-                string j = Encoding.UTF8.GetString(copy);
+                string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
                 return System.Text.Json.JsonDocument.Parse(j).RootElement.ToString();
             }
+            return "";
         }
 #endif
 

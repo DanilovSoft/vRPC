@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
         /// </summary>
-        T Proxy { get; }
+        T Interface { get; }
     }
 
     internal class ProxyFactory<T> : IProxy<T>
@@ -21,11 +21,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Прозрачный прокси к удалённой стороне.
         /// </summary>
-        public T Proxy { get; }
+        public T Interface { get; }
 
         public ProxyFactory(GetProxyScope getProxyScope)
         {
-            Proxy = getProxyScope.GetProxy.GetProxy<T>();
+            Interface = getProxyScope.GetProxy.GetProxy<T>();
         }
     }
 }

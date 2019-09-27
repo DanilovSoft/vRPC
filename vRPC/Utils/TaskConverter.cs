@@ -8,9 +8,9 @@ namespace DanilovSoft.vRPC
 {
     internal static class TaskConverter
     {
+        private static readonly SyncDictionary<Type, Func<Task<object>, object>> _dict = new SyncDictionary<Type, Func<Task<object>, object>>();
         private static readonly MethodInfo _InnerConvertTaskMethod;
         private static readonly MethodInfo _InnerConvertValueTaskMethod;
-        private static readonly SyncDictionary<Type, Func<Task<object>, object>> _dict = new SyncDictionary<Type, Func<Task<object>, object>>();
 
         // ctor.
         static TaskConverter()

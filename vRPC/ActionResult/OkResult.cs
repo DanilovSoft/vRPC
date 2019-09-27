@@ -1,6 +1,6 @@
 ﻿namespace DanilovSoft.vRPC
 {
-    public sealed class OkResult : ActionResult
+    public class OkResult : ActionResult
     {
         private const StatusCode DefaultStatusCode = StatusCode.Ok;
 

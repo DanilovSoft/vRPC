@@ -25,7 +25,9 @@ namespace DanilovSoft.vRPC.Decorator
             _connection = connection;
         }
 
+#pragma warning disable CA1033 // Методы интерфейса должны быть доступны для вызова дочерним типам
         object ICloneable.Clone() => ((IInterfaceProxy)this).Clone<ServerInterfaceProxy>();
+#pragma warning restore CA1033 // Методы интерфейса должны быть доступны для вызова дочерним типам
 
         T IInterfaceProxy.Clone<T>()
         {

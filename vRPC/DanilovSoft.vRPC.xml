@@ -408,15 +408,10 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
             Сериализует сообщение в новом потоке и добавляет в очередь на отправку.
+            Уменьшит <see cref="F:DanilovSoft.vRPC.ManagedConnection._activeRequestCount"/>.
             Не должно бросать исключения(!).
             </summary>
             <param name="responseToSend"></param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendMessage(DanilovSoft.vRPC.SerializedMessageToSend)">
-            <summary>
-            Добавляет хэдер и передает на отправку другому потоку.
-            Не бросает исключения.
-            </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeRequest(DanilovSoft.vRPC.RequestToSend,System.Object[])">
             <summary>
@@ -431,6 +426,12 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.AppendHeader(DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
             Сериализует хэдер в стрим сообщения. Не бросает исключения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendMessage(DanilovSoft.vRPC.SerializedMessageToSend)">
+            <summary>
+            Добавляет хэдер и передает на отправку другому потоку.
+            Не бросает исключения.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SenderLoop">
@@ -834,12 +835,12 @@
             </summary>
             <typeparam name="T"></typeparam>
         </member>
-        <member name="P:DanilovSoft.vRPC.IProxy`1.Proxy">
+        <member name="P:DanilovSoft.vRPC.IProxy`1.Interface">
             <summary>
             Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.ProxyFactory`1.Proxy">
+        <member name="P:DanilovSoft.vRPC.ProxyFactory`1.Interface">
             <summary>
             Прозрачный прокси к удалённой стороне.
             </summary>
@@ -852,6 +853,22 @@
         <member name="M:DanilovSoft.vRPC.JsonRequestParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
+            <summary>
+            Существует только для Net Framework.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
+            <summary>
+            Перегрузка для Net Framework.
+            Attempts to add the specified key and value to the dictionary.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
+            <summary>
+            Перегрузка для Net Framework.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
@@ -1593,24 +1610,6 @@
             <summary>
             Возвращает -1 если достигнут конец потока.
             </summary>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
-            <summary>
-            Увеличивает размер буфера сохраняя данные.
-            </summary>
-            <param name="newSize">Необходимый размер буфера. Новый буфер может быть больше указанного размера.</param>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.ThrowIfDisposed">
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:System.Threading.ChannelLock.LockAsync">
-            <summary>
-            Не бросает исключения.
-            </summary>
-        </member>
-    </members>
-</doc>
-mary>
         </member>
         <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
             <summary>

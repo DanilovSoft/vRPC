@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,6 +12,7 @@ namespace DanilovSoft.vRPC
     /// Создаётся при вызове метода через интерфейс.
     /// Не подлежит сериализации.
     /// </summary>
+    [DebuggerDisplay(@"\{Request = {ActionName}\}")]
     internal sealed class RequestToSend : IMessage
     {
         public MethodInfo Method { get; }

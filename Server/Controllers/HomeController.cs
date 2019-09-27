@@ -14,11 +14,13 @@ namespace Server.Controllers
     {
         private readonly ILogger _logger;
         private readonly Program _program;
+        private readonly IClientHomeController _proxy;
 
-        public HomeController(ILogger<HomeController> logger, Program program)
+        public HomeController(ILogger<HomeController> logger, Program program, IProxy<IClientHomeController> proxy)
         {
             _logger = logger;
             _program = program;
+            _proxy = proxy.Interface;
         }
 
         [ProducesProtoBuf]
@@ -31,6 +33,11 @@ namespace Server.Controllers
         public DateTime Test(TestDto test)
         {
             return DateTime.Now;
+        }
+
+        public async Task NotifyTest()
+        {
+            await _proxy.NotifyAsync();
         }
     }
 }
