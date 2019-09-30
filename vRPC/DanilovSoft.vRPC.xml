@@ -271,7 +271,7 @@
             Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.ManagedConnection._interfaceMethods">
+        <member name="P:DanilovSoft.vRPC.ManagedConnection.InterfaceMethods">
             <summary>
             Содержит имена методов прокси интерфейса без постфикса Async.
             </summary>
@@ -389,21 +389,31 @@
             <summary>
             Происходит при обращении к проксирующему интерфейсу.
             </summary>
+            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.OnClientProxyCallStatic(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},System.Reflection.MethodInfo,System.Object[],System.String)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},DanilovSoft.vRPC.SerializedMessageToSend)">
+            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotification(DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу. Отправляет запрос-уведомление.
             </summary>
+            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndGetResult(DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestToSend)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
             </summary>
+            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
@@ -690,7 +700,6 @@
             <summary>
             Сериализуемое сообщение для передачи через сокет. 
             На данный момент сериализуется только в Json.
-            Для десериализации этот тип не используется.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.RequestMessageDto.ActionName">
@@ -744,11 +753,6 @@
         <member name="T:DanilovSoft.vRPC.ConnectionClosedException">
             <summary>
             Исключение которое происходит при грациозном закрытии соединения одной из сторон.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.ExtensionMethods._UTF8NoBOM">
-            <summary>
-            Используется Bson сериализатором по умолчанию.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectJson(System.IO.Stream,System.Object)">
@@ -835,12 +839,12 @@
             </summary>
             <typeparam name="T"></typeparam>
         </member>
-        <member name="P:DanilovSoft.vRPC.IProxy`1.Interface">
+        <member name="P:DanilovSoft.vRPC.IProxy`1.Proxy">
             <summary>
             Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.ProxyFactory`1.Interface">
+        <member name="P:DanilovSoft.vRPC.ProxyFactory`1.Proxy">
             <summary>
             Прозрачный прокси к удалённой стороне.
             </summary>
@@ -853,22 +857,6 @@
         <member name="M:DanilovSoft.vRPC.JsonRequestParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
-            </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
-            <summary>
-            Существует только для Net Framework.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
-            <summary>
-            Перегрузка для Net Framework.
-            Attempts to add the specified key and value to the dictionary.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
-            <summary>
-            Перегрузка для Net Framework.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
@@ -923,7 +911,21 @@
             </summary>
             <exception cref="T:System.Exception">Происходит если уже происходил обрыв соединения.</exception>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestQueue.TryRemove(System.UInt16,DanilovSoft.vRPC.RequestAwai      </member>
+        <member name="M:DanilovSoft.vRPC.RequestQueue.TryRemove(System.UInt16,DanilovSoft.vRPC.RequestAwaiter@)">
+            <summary>
+            Потокобезопасно удаляет запрос из словаря.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestQueue.PropagateExceptionAndLockup(System.Exception)">
+            <summary>
+            Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет провоцировать это исключение.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RequestToInvoke">
+            <summary>
+            Содержит запрос полученный от удалённой стороны.
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.RequestToInvoke.ActionToInvoke">
             <summary>
             Запрашиваемый метод контроллера.
@@ -1298,26 +1300,6 @@
             </param>
             <returns>
             Cipher text formatted as a byte array.
-            jndaelEnhanced.Encrypt(System.Byte[])">
-            <summary>
-            Encrypts a byte array generating a base64-encoded string.
-            </summary>
-            <param name="plainTextBytes">
-            Plain text bytes to be encrypted.
-            </param>
-            <returns>
-            Cipher text formatted as a base64-encoded string.
-            </returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.EncryptToBytes(System.String)">
-            <summary>
-            Encrypts a string value generating a byte array of cipher text.
-            </summary>
-            <param name="plainText">
-            Plain text string to be encrypted.
-            </param>
-            <returns>
-            Cipher text formatted as a byte array.
             </returns>
         </member>
         <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.EncryptToBytes(System.Byte[])">
@@ -1477,7 +1459,18 @@
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.ConfigureService(System.Action{Microsoft.Extensions.DependencyInjection.ServiceCollection})">
             <summary>
-            Позволяет настроить IoC кв.</param>
+            Позволяет настроить IoC контейнер.
+            Выполняется единожды при инициализации подключения.
+            </summary>
+            <param name="configure"></param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.Stop(System.TimeSpan,System.String)">
+            <summary>
+            Начинает остановку сервиса. Не блокирует поток.
+            Не бросает исключения.
+            Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
+            </summary>
+            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
             Может быть <see langword="null"/>.</param>
         </member>
@@ -1527,27 +1520,25 @@
             <summary>
             Возвращает переданное значение.
             </summary>
-            <param name="gracefully"></param>
-            <returns></returns>
         </member>
-        <member name="T:DanilovSoft.vRPC.UserConnections">
+        <member name="T:DanilovSoft.vRPC.UserConnectionCollection">
             <summary>
             Потокобезопасный список авторизованных соединений пользователя.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.UserConnections._list">
+        <member name="F:DanilovSoft.vRPC.UserConnectionCollection._list">
             <summary>
-            Доступ осуществляется только через блокировку <see cref="F:DanilovSoft.vRPC.UserConnections.SyncRoot"/>.
+            Доступ осуществляется только через блокировку <see cref="F:DanilovSoft.vRPC.UserConnectionCollection.SyncRoot"/>.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.UserConnections.IsDestroyed">
+        <member name="P:DanilovSoft.vRPC.UserConnectionCollection.IsDestroyed">
             <summary>
-            Доступ осуществляется только через блокировку <see cref="F:DanilovSoft.vRPC.UserConnections.SyncRoot"/>.
+            Доступ осуществляется только через блокировку <see cref="F:DanilovSoft.vRPC.UserConnectionCollection.SyncRoot"/>.
             Если коллекция уже была удалена из словаря подключений, то значение будет <see langword="true"/> 
             и испольльзовать этот экземпляр больше нельзя.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.UserConnections.GetEnumerator">
+        <member name="M:DanilovSoft.vRPC.UserConnectionCollection.GetEnumerator">
             <summary>
             Возвращает копию своей коллекции.
             </summary>
@@ -1605,24 +1596,6 @@
             <summary>
             Возвращает -1 если достигнут конец потока.
             </summary>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
-            <summary>
-            Увеличивает размер буфера сохраняя данные.
-            </summary>
-            <param name="newSize">Необходимый размер буфера. Новый буфер может быть больше указанного размера.</param>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.ThrowIfDisposed">
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:System.Threading.ChannelLock.LockAsync">
-            <summary>
-            Не бросает исключения.
-            </summary>
-        </member>
-    </members>
-</doc>
-mary>
         </member>
         <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
             <summary>

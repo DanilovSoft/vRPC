@@ -9,7 +9,12 @@
 
         }
 
-        public override void ExecuteResult(ActionContext context)
+        //public override void ExecuteResult(ActionContext context)
+        //{
+        //    context.StatusCode = StatusCode;
+        //}
+
+        private protected override void InnerExecuteResult(ActionContext context)
         {
             context.StatusCode = StatusCode;
         }

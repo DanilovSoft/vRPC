@@ -15,7 +15,6 @@ namespace DanilovSoft.vRPC
     {
 #if DEBUG
         private string DebugJson => GetDebugJson();
-        
         private string GetDebugJson()
         {
             if (MemPoolStream.Length > 0)

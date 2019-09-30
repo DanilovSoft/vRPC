@@ -10,7 +10,7 @@ namespace DanilovSoft.vRPC.Decorator
     /// От этого класса наследуются динамические типы и пользовательский интерфейс. 
     /// Поэтому должен быть публичным и не запечатанным.
     /// </summary>
-    public class ClientInterfaceProxy : ICloneable, IInterfaceProxy
+    public class ClientInterfaceProxy : IInterfaceProxy
     {
         private Func<ValueTask<ManagedConnection>> _contextCallback;
         private string _controllerName;
@@ -25,8 +25,6 @@ namespace DanilovSoft.vRPC.Decorator
             _controllerName = controllerName;
             _contextCallback = contextCallback;
         }
-
-        object ICloneable.Clone() => ((IInterfaceProxy)this).Clone<ClientInterfaceProxy>();
 
         T IInterfaceProxy.Clone<T>()
         {

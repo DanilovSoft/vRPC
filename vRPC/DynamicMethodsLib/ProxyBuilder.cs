@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -9,20 +10,16 @@ namespace DynamicMethodsLib
 {
     internal static class ProxyBuilder<TParent>
     {
-        private static readonly BindingFlags _visibilityFlags = BindingFlags.Public | BindingFlags.Instance;
-        private static readonly MethodInfo _invokeMethod;
+        private const BindingFlags _visibilityFlags = BindingFlags.Public | BindingFlags.Instance;
+        private static readonly MethodInfo _invokeMethod = typeof(TParent).GetMethod("Invoke",
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                new[] { typeof(MethodInfo), typeof(object[]) },
+                modifiers: null);
 
         static ProxyBuilder()
         {
-            _invokeMethod = typeof(TParent).GetMethod("Invoke",
-                BindingFlags.NonPublic | BindingFlags.Instance, 
-                null, 
-                new[] { typeof(MethodInfo), typeof(object[]) }, 
-                modifiers: null);
-
-            Debug.Assert(_invokeMethod != null);
-            if (_invokeMethod == null)
-                throw new InvalidOperationException($"У типа {typeof(TParent).FullName} должен быть метод Invoke(MethodInfo m, object[] args).");
+            Debug.Assert(_invokeMethod != null, $"У типа {typeof(TParent).FullName} должен быть метод Invoke(MethodInfo m, object[] args)");
         }
 
         private static AssemblyBuilder DefineDynamicAssembly(string name)
@@ -31,7 +28,7 @@ namespace DynamicMethodsLib
             return assembly;
         }
 
-        private static ModuleBuilder DefineDynamicModule(AssemblyBuilder assembly, string fileName)
+        private static ModuleBuilder DefineDynamicModule(AssemblyBuilder assembly)
         {
             return assembly.DefineDynamicModule("Module");
         }
@@ -48,7 +45,7 @@ namespace DynamicMethodsLib
 
             string assemblyName = typeof(TIface).Name + "_" + Guid.NewGuid().ToString();
             AssemblyBuilder assemblyBuilder = DefineDynamicAssembly(assemblyName);
-            ModuleBuilder moduleBuilder = DefineDynamicModule(assemblyBuilder, assemblyName + ".dll");
+            ModuleBuilder moduleBuilder = DefineDynamicModule(assemblyBuilder);
             string className = proxyParentClassType.Name + "_" + typeof(TIface).Name;
             TypeBuilder classType = moduleBuilder.DefineType(className, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class, parent: proxyParentClassType);
             var fieldsList = new List<string>();
@@ -110,9 +107,9 @@ namespace DynamicMethodsLib
             {
                 fieldsList.Add(v.Name);
 
-                var field = classType.DefineField("_" + v.Name.ToLower(), v.PropertyType, FieldAttributes.Private);
-                var property = classType.DefineProperty(v.Name, PropertyAttributes.None, v.PropertyType, new Type[0]);
-                var getter = classType.DefineMethod("get_" + v.Name, MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.Virtual, v.PropertyType, new Type[0]);
+                var field = classType.DefineField("_" + v.Name.ToUpperInvariant(), v.PropertyType, FieldAttributes.Private);
+                var property = classType.DefineProperty(v.Name, PropertyAttributes.None, v.PropertyType, Array.Empty<Type>());
+                var getter = classType.DefineMethod("get_" + v.Name, MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.Virtual, v.PropertyType, Array.Empty<Type>());
                 var setter = classType.DefineMethod("set_" + v.Name, MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.Virtual, null, new Type[] { v.PropertyType });
 
                 var getGenerator = getter.GetILGenerator();
@@ -143,10 +140,10 @@ namespace DynamicMethodsLib
 
                     fieldsList.Add(v.Name);
 
-                    var field = classType.DefineField("_" + v.Name.ToLower(), v.PropertyType, FieldAttributes.Private);
+                    var field = classType.DefineField("_" + v.Name.ToUpperInvariant(), v.PropertyType, FieldAttributes.Private);
 
-                    var property = classType.DefineProperty(v.Name, PropertyAttributes.None, v.PropertyType, new Type[0]);
-                    var getter = classType.DefineMethod("get_" + v.Name, MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.Virtual, v.PropertyType, new Type[0]);
+                    var property = classType.DefineProperty(v.Name, PropertyAttributes.None, v.PropertyType, Array.Empty<Type>());
+                    var getter = classType.DefineMethod("get_" + v.Name, MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.Virtual, v.PropertyType, Array.Empty<Type>());
                     var setter = classType.DefineMethod("set_" + v.Name, MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.Virtual, null, new Type[] { v.PropertyType });
 
                     var getGenerator = getter.GetILGenerator();

@@ -17,7 +17,7 @@ namespace DanilovSoft.vRPC
             {
                 if (controllerType.IsSubclassOf(typeof(Controller)))
                 {
-                    int ind = controllerType.Name.IndexOf("Controller");
+                    int ind = controllerType.Name.IndexOf("Controller", StringComparison.Ordinal);
                     if (ind != -1)
                     {
                         // Имя без учета окончания 'Controller'.

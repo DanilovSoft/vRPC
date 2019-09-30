@@ -10,6 +10,11 @@ namespace DanilovSoft.vRPC
         void ExecuteResult(ActionContext context);
     }
 
+    //internal interface IInnerActionResult
+    //{
+
+    //}
+
     public interface IActionResult<T> : IActionResult
     {
         

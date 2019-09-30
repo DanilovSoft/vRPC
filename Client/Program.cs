@@ -86,9 +86,9 @@ namespace Client
                             {
                                 try
                                 {
-                                    //DateTime date = homeController.DummyCall("Test");
-                                    homeController.NotifyTest();
-                                    Thread.Sleep(100);
+                                    DateTime date = homeController.DummyCall("Test");
+                                    //homeController.NotifyTest();
+                                    //Thread.Sleep(100);
                                 }
                                 catch (StopRequiredException)
                                 {

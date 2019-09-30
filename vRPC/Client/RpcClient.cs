@@ -125,6 +125,9 @@ namespace DanilovSoft.vRPC
         {
             ThrowIfDisposed();
 
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
             if (ServiceProvider != null)
                 throw new InvalidOperationException("Service already configured.");
 
@@ -452,99 +455,97 @@ namespace DanilovSoft.vRPC
                     ws.Options.KeepAliveInterval = _appBuilder.KeepAliveInterval;
                     ws.Options.ReceiveTimeout = _appBuilder.ReceiveTimeout;
 
-                    ReceiveResult receiveResult;
-
                     // Позволить Dispose прервать подключение.
                     Interlocked.Exchange(ref _connectingWs, ws);
 
                     try
                     {
                         // Обычное подключение Tcp.
-                        receiveResult = await ws.ConnectExAsync(_uri, CancellationToken.None).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    // Не удалось подключиться (сервер не запущен или вызван Dispose).
-                    {
-                        ws.Dispose();
-                        Debug.WriteLine(ex);
-                        throw;
-                    }
+                        ReceiveResult receiveResult = await ws.ConnectExAsync(_uri, CancellationToken.None).ConfigureAwait(false);
 
-                    if(Interlocked.Exchange(ref _connectingWs, null) == null)
-                    // Stop или Dispose убил наш экземпляр.
-                    {
-                        lock (StateLock)
+                        if (Interlocked.Exchange(ref _connectingWs, null) == null)
+                        // Stop или Dispose уже вызвали Dispose для ws.
                         {
-                            if (!_disposed)
+                            // Предотвратим лишний Dispose.
+                            ws = null;
+
+                            lock (StateLock)
                             {
-                                if (_stopRequired != null)
+                                if (!_disposed)
                                 {
-                                    // Нельзя создавать новое подключение если был вызван Stop.
-                                    return new ConnectionResult(null, _stopRequired, null);
+                                    if (_stopRequired != null)
+                                    {
+                                        // Нельзя создавать новое подключение если был вызван Stop.
+                                        return new ConnectionResult(null, _stopRequired, null);
+                                    }
                                 }
-                            }
-                            else
-                            {
-                                // Больше ничего делать не нужно.
-                                throw new ObjectDisposedException(GetType().FullName);
-                            }
-                        }
-                    }
-
-                    if (receiveResult.IsReceivedSuccessfully)
-                    // Соединение успешно установлено.
-                    {
-                        StopRequired stopRequired = null;
-                        lock (StateLock)
-                        {
-                            if (!_disposed)
-                            {
-                                connection = new ClientSideConnection(this, ws, serviceProvider, _invokeActions);
-
-                                // Скопировать пока мы в блокировке.
-                                stopRequired = _stopRequired;
-
-                                if (stopRequired == null)
+                                else
                                 {
-                                    // Косвенно устанавливает флаг IsConnected.
-                                    _connection = connection;
+                                    // Больше ничего делать не нужно.
+                                    throw new ObjectDisposedException(GetType().FullName);
                                 }
-                            }
-                            else
-                            // Был выполнен Dispose в тот момент когда велась попытка установить соединение.
-                            {
-                                // В этом случае лучше просто закрыть соединение.
-                                ws.Dispose();
-                                throw new ObjectDisposedException(GetType().FullName);
                             }
                         }
 
-                        if (stopRequired == null)
-                        // Запроса на остановку сервиса ещё не было.
+                        if (receiveResult.IsReceivedSuccessfully)
+                        // Соединение успешно установлено.
                         {
-                            connection.InitStartThreads();
-                            connection.Disconnected += Disconnected;
-                            return new ConnectionResult(receiveResult.SocketError, null, connection);
+                            StopRequired stopRequired = null;
+                            lock (StateLock)
+                            {
+                                if (!_disposed)
+                                {
+                                    connection = new ClientSideConnection(this, ws, serviceProvider, _invokeActions);
+
+                                    // Предотвратить Dispose.
+                                    ws = null;
+
+                                    // Скопировать пока мы в блокировке.
+                                    stopRequired = _stopRequired;
+
+                                    if (stopRequired == null)
+                                    {
+                                        // Косвенно устанавливает флаг IsConnected.
+                                        _connection = connection;
+                                    }
+                                }
+                                else
+                                // Был выполнен Dispose в тот момент когда велась попытка установить соединение.
+                                {
+                                    throw new ObjectDisposedException(GetType().FullName);
+                                }
+                            }
+
+                            if (stopRequired == null)
+                            // Запроса на остановку сервиса ещё не было.
+                            {
+                                connection.InitStartThreads();
+                                connection.Disconnected += Disconnected;
+                                return new ConnectionResult(receiveResult.SocketError, null, connection);
+                            }
+                            else
+                            // Был запрос на остановку сервиса. 
+                            // Он произошел в тот момент когда велась попытка установить соединение.
+                            // Это очень редкий случай но мы должны его предусмотреть.
+                            {
+                                using (connection)
+                                {
+                                    // Мы обязаны закрыть это соединение.
+                                    await connection.StopAsync(stopRequired).ConfigureAwait(false);
+                                }
+
+                                return new ConnectionResult(receiveResult.SocketError, stopRequired, null);
+                            }
                         }
                         else
-                        // Был запрос на остановку сервиса. 
-                        // Он произошел в тот момент когда велась попытка установить соединение.
-                        // Это очень редкий случай но мы должны его предусмотреть.
+                        // Подключение не удалось.
                         {
-                            using (connection)
-                            {
-                                // Мы обязаны закрыть это соединение.
-                                await connection.StopAsync(stopRequired).ConfigureAwait(false);
-                            }
-
-                            return new ConnectionResult(receiveResult.SocketError, stopRequired, null);
+                            return new ConnectionResult(receiveResult.SocketError, null, null);
                         }
                     }
-                    else
-                    // Подключение не удалось.
+                    finally
                     {
-                        ws.Dispose();
-                        return new ConnectionResult(receiveResult.SocketError, null, null);
+                        ws?.Dispose();
                     }
                 }
                 else

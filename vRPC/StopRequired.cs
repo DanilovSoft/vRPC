@@ -30,8 +30,6 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Возвращает переданное значение.
         /// </summary>
-        /// <param name="gracefully"></param>
-        /// <returns></returns>
         internal CloseReason SetTaskAndReturn(CloseReason closeReason)
         {
             _tcs.TrySetResult(closeReason);

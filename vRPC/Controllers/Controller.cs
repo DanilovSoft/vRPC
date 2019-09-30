@@ -14,27 +14,27 @@ namespace DanilovSoft.vRPC
             
         //}
 
-        protected BadRequestResult BadRequest(string message)
+        protected static BadRequestResult BadRequest(string message)
         {
             return new BadRequestResult(message);
         }
 
-        protected BadRequestResult<T> BadRequest<T>(string message)
+        protected static BadRequestResult<T> BadRequest<T>(string message)
         {
             return new BadRequestResult<T>(message);
         }
 
-        protected OkResult Ok()
+        protected static OkResult Ok()
         {
             return new OkResult();
         }
 
-        protected OkObjectResult<T> Ok<T>(T result)
+        protected static OkObjectResult<T> Ok<T>(T result)
         {
             return new OkObjectResult<T>(result);
         }
 
-        protected OkObjectResult Ok(object result)
+        protected static OkObjectResult Ok(object result)
         {
             return new OkObjectResult(result);
         }

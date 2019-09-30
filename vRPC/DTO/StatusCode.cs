@@ -3,7 +3,7 @@
     /// <summary>
     /// Код состояния передаваемого сообщения.
     /// </summary>
-    public enum StatusCode : byte
+    public enum StatusCode
     {
         Ok = 20,
         Request = 21,

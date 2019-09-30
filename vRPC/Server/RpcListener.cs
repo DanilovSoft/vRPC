@@ -100,6 +100,9 @@ namespace DanilovSoft.vRPC
         /// <param name="configure"></param>
         public void ConfigureService(Action<ServiceCollection> configure)
         {
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
             configure(_serviceCollection);
             _serviceProvider = BuildServiceCollection();
         }

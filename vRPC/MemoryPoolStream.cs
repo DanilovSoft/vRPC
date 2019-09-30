@@ -1,5 +1,5 @@
 ﻿// Vitalii Danilov
-// Version 1.2.3
+// Version 1.2.4
 
 using System.Buffers;
 using System.Runtime.CompilerServices;
@@ -23,7 +23,7 @@ namespace System.IO
                 if (value >= 0)
                     _position = (int)value;
                 else
-                    throw new ArgumentOutOfRangeException("Non-negative number required.");
+                    throw new ArgumentOutOfRangeException(nameof(value), "Non-negative number required.");
             }
         }
         public override int Capacity
@@ -38,7 +38,7 @@ namespace System.IO
                         ReDim(value);
                     }
                     else
-                        throw new ArgumentOutOfRangeException("Capacity was less than the current size.");
+                        throw new ArgumentOutOfRangeException(nameof(value), "Capacity was less than the current size.");
                 }
             }
 
@@ -400,9 +400,6 @@ namespace System.IO
                 // Если буфер не является Array.Empty<byte>().
                 if (_arrayBuffer.Length > 0)
                     _pool.Return(_arrayBuffer, _clearOnReturn);
-
-                if (disposing)
-                    GC.SuppressFinalize(this);
             }
         }
 

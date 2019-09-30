@@ -18,6 +18,7 @@
     // Copyright (C) 2003 Obviex(TM). All rights reserved.
     //
     using System;
+    using System.Globalization;
     using System.IO;
     using System.Security.Cryptography;
     using System.Text;
@@ -37,7 +38,7 @@
     /// decryption operation. To correct the problem, re-initialize the class
     /// instance when a cryptographic exception occurs.
     /// </remarks>
-    public class RijndaelEnhanced : IDisposable
+    public sealed class RijndaelEnhanced : IDisposable
     {
         #region Private members
         // If hashing algorithm is not specified, use SHA-1.
@@ -423,14 +424,22 @@
             if (hashAlgorithm == null)
                 hashAlgorithm = DEFAULT_HASH_ALGORITHM;
             else
-                hashAlgorithm = hashAlgorithm.ToUpper().Replace("-", "");
+            {
+                hashAlgorithm = hashAlgorithm.ToUpperInvariant();
+
+#if NETSTANDARD2_0
+                hashAlgorithm = hashAlgorithm.Replace("-", "");
+#else
+                hashAlgorithm = hashAlgorithm.Replace("-", "", StringComparison.Ordinal);
+#endif
+            }
 
             // Initialization vector converted to a byte array.
             byte[] initVectorBytes;
 
             // Get bytes of initialization vector.
             if (initVector == null)
-                initVectorBytes = new byte[0];
+                initVectorBytes = Array.Empty<byte>();
             else
                 initVectorBytes = Encoding.ASCII.GetBytes(initVector);
 
@@ -440,7 +449,7 @@
 
             // Get bytes of salt (used in hashing).
             if (saltValue == null)
-                saltValueBytes = new byte[0];
+                saltValueBytes = Array.Empty<byte>();
             else
                 saltValueBytes = Encoding.ASCII.GetBytes(saltValue);
 
@@ -529,6 +538,9 @@
         /// </returns>
         public byte[] EncryptToBytes(byte[] plainTextBytes)
         {
+            if (plainTextBytes == null)
+                throw new ArgumentNullException(nameof(plainTextBytes));
+
             // Add salt at the beginning of the plain text bytes (if needed).
             byte[] plainTextBytesWithSalt = AddSalt(plainTextBytes);
 
@@ -616,6 +628,9 @@
         /// </returns>
         public byte[] DecryptToBytes(byte[] cipherTextBytes)
         {
+            if (cipherTextBytes == null)
+                throw new ArgumentNullException(nameof(cipherTextBytes));
+
             int decryptedByteCount = 0;
             int saltLen = 0;
             byte[] decryptedBytes;
@@ -756,7 +771,7 @@
         /// class, which - when initialized multiple times within a very short
         /// period of time - can generate the same "random" number.
         /// </remarks>
-        private int GenerateRandomNumber(int minValue, int maxValue)
+        private static int GenerateRandomNumber(int minValue, int maxValue)
         {
             // We will make up an integer seed from 4 bytes of this array.
             byte[] randomBytes = new byte[4];
@@ -823,12 +838,14 @@
                     string cipherText = rijndaelKey.Encrypt(plainText);
                     Console.WriteLine($"Encrypted #{i}: {cipherText}");
 
-                    var rijndaelKey2 = new RijndaelEnhanced("Pas5pr@se", "@1B2c3D4e5F6g7H8");
-                    var decr = rijndaelKey2.DecryptToBytes(cipherText);
+                    using (var rijndaelKey2 = new RijndaelEnhanced("Pas5pr@se", "@1B2c3D4e5F6g7H8"))
+                    {
+                        var decr = rijndaelKey2.DecryptToBytes(cipherText);
+                    }
                 }
 
                 // Make sure we got decryption working correctly.
-                Console.WriteLine(string.Format("\nDecrypted   : {0}", plainText));
+                Console.WriteLine($"\nDecrypted   : {plainText}");
             }
         }
     }

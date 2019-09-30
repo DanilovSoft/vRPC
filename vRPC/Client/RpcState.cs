@@ -4,7 +4,7 @@ using System.Text;
 
 namespace DanilovSoft.vRPC
 {
-    public enum RpcState : byte
+    public enum RpcState
     {
         Closed,
         Open,

@@ -2,3 +2,6 @@
 
 # CA1031: Не перехватывать исключения общих типов
 dotnet_diagnostic.CA1031.severity = none
+
+# CA1303: Не передавать литералы в качестве локализованных параметров
+dotnet_diagnostic.CA1303.severity = none

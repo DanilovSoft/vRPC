@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
             _value = value;
         }
 
-        public override void ExecuteResult(ActionContext context)
+        private protected override void InnerExecuteResult(ActionContext context)
         {
             context.StatusCode = StatusCode;
 

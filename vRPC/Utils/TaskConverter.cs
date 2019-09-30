@@ -9,15 +9,12 @@ namespace DanilovSoft.vRPC
     internal static class TaskConverter
     {
         private static readonly SyncDictionary<Type, Func<Task<object>, object>> _dict = new SyncDictionary<Type, Func<Task<object>, object>>();
-        private static readonly MethodInfo _InnerConvertTaskMethod;
-        private static readonly MethodInfo _InnerConvertValueTaskMethod;
+        private static readonly MethodInfo _InnerConvertTaskMethod = typeof(TaskConverter).GetMethod(nameof(InnerConvertTask), BindingFlags.NonPublic | BindingFlags.Static);
+        private static readonly MethodInfo _InnerConvertValueTaskMethod = typeof(TaskConverter).GetMethod(nameof(InnerConvertValueTask), BindingFlags.NonPublic | BindingFlags.Static);
 
         // ctor.
         static TaskConverter()
         {
-            _InnerConvertTaskMethod = typeof(TaskConverter).GetMethod(nameof(InnerConvertTask), BindingFlags.NonPublic | BindingFlags.Static);
-            _InnerConvertValueTaskMethod = typeof(TaskConverter).GetMethod(nameof(InnerConvertValueTask), BindingFlags.NonPublic | BindingFlags.Static);
-
             Debug.Assert(_InnerConvertTaskMethod != null);
             Debug.Assert(_InnerConvertValueTaskMethod != null);
         }

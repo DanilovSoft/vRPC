@@ -15,24 +15,20 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public sealed class ServerSideConnection : ManagedConnection, IGetProxy
     {
-        private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
-        private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
+        //private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
+        //private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
         internal static readonly ServerConcurrentDictionary<MethodInfo, string> ProxyMethodName = new ServerConcurrentDictionary<MethodInfo, string>();
-        private static readonly ServerConcurrentDictionary<MethodInfo, RequestToSend> _interfaceMethodsInfo;
+        private static readonly ServerConcurrentDictionary<MethodInfo, RequestToSend> _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestToSend>();
         private readonly ProxyCache _proxyCache = new ProxyCache();
-        private protected override IConcurrentDictionary<MethodInfo, RequestToSend> _interfaceMethods => _interfaceMethodsInfo;
+        private protected override IConcurrentDictionary<MethodInfo, RequestToSend> InterfaceMethods => _interfaceMethodsInfo;
 
         /// <summary>
         /// Сервер который принял текущее соединение.
         /// </summary>
         public RpcListener Listener { get; }
 
-        static ServerSideConnection()
-        {
-            _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestToSend>();
-        }
-
         // ctor.
+        // Только Listener может создать этот класс.
         internal ServerSideConnection(ManagedWebSocket clientConnection, ServiceProvider serviceProvider, RpcListener listener) 
             : base(clientConnection, isServer: true, serviceProvider, listener.InvokeActions)
         {

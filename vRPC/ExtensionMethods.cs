@@ -14,16 +14,10 @@ namespace DanilovSoft.vRPC
 {
     internal static class ExtensionMethods
     {
-        /// <summary>
-        /// Используется Bson сериализатором по умолчанию.
-        /// </summary>
-        private static readonly Encoding _UTF8NoBOM;
-
-        // ctor.
-        static ExtensionMethods()
-        {
-            _UTF8NoBOM = new UTF8Encoding(false, true);
-        }
+        ///// <summary>
+        ///// Используется Bson сериализатором по умолчанию.
+        ///// </summary>
+        //private static readonly Encoding _UTF8NoBOM = new UTF8Encoding(false, true);
 
         /// <summary>
         /// Сериализует объект в JSON.
@@ -391,7 +385,7 @@ namespace DanilovSoft.vRPC
 
         public static string TrimEnd(this string s, string value)
         {
-            int index = s.LastIndexOf(value);
+            int index = s.LastIndexOf(value, StringComparison.Ordinal);
             if(index != -1)
             {
                 return s.Remove(index);

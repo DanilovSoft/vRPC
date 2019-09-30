@@ -33,11 +33,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Содержит имена методов прокси интерфейса без постфикса Async.
         /// </summary>
-        private protected abstract IConcurrentDictionary<MethodInfo, RequestToSend> _interfaceMethods { get; }
-        ///// <summary>
-        ///// Содержит имена методов прокси интерфейса без постфикса Async.
-        ///// </summary>
-        //private protected abstract IConcurrentDictionary<MethodInfo, string> _proxyMethodName { get; }
+        private protected abstract IConcurrentDictionary<MethodInfo, RequestToSend> InterfaceMethods { get; }
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
@@ -128,7 +124,7 @@ namespace DanilovSoft.vRPC
 
                 if(closeReason != null)
                 {
-                    value(this, new SocketDisconnectedEventArgs(closeReason));
+                    value?.Invoke(this, new SocketDisconnectedEventArgs(closeReason));
                 }
             }
             remove
@@ -335,10 +331,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
+        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="ObjectDisposedException"/>
         internal object OnServerProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
-            RequestToSend requestToSend = _interfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestToSend(tm, cn), controllerName);
+            RequestToSend requestToSend = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestToSend(tm, cn), controllerName);
 
             // Сериализуем запрос в память.
             SerializedMessageToSend serMsg = SerializeRequest(requestToSend, args);
@@ -368,35 +366,61 @@ namespace DanilovSoft.vRPC
             // Сериализуем запрос в память. Лучше выполнить до подключения.
             SerializedMessageToSend serMsg = SerializeRequest(requestToSend, args);
 
-            if(!requestToSend.Notification)
+            try
             {
-                // Отправляем запрос.
-                Task<object> taskObject = SendRequestWithResultAsync(contextTask, serMsg, requestToSend);
+                if (!requestToSend.Notification)
+                {
+                    // Отправляем запрос.
+                    Task<object> taskObject = SendRequestWithResultAsync(contextTask, serMsg, requestToSend);
 
-                object convertedResult = ConvertRequestTask(requestToSend, taskObject);
+                    // Предотвратить Dispose.
+                    serMsg = null;
 
-                // Результатом может быть не завершённый Task.
-                return convertedResult;
+                    object convertedResult = ConvertRequestTask(requestToSend, taskObject);
+
+                    // Результатом может быть не завершённый Task.
+                    return convertedResult;
+                }
+                else
+                {
+                    Task task = SendNotificationAsync(contextTask, serMsg);
+
+                    // Предотвратить Dispose.
+                    serMsg = null;
+
+                    object convertedResult = ConvertNotificationTask(requestToSend, task);
+
+                    // Результатом может быть не завершённый Task.
+                    return convertedResult;
+                }
             }
-            else
+            finally
             {
-                Task task = SendNotificationAsync(contextTask, serMsg);
-
-                object convertedResult = ConvertNotificationTask(requestToSend, task);
-
-                // Результатом может быть не завершённый Task.
-                return convertedResult;
-            }   
+                serMsg?.Dispose();
+            }
         }
 
+        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="ObjectDisposedException"/>
         private static Task SendNotificationAsync(ValueTask<ManagedConnection> connectingTask, SerializedMessageToSend serializedMessage)
         {
             if (connectingTask.IsCompleted)
             {
-                ManagedConnection connection = connectingTask.Result;
+                ManagedConnection connection;
+                try
+                {
+                    connection = connectingTask.Result;
+                }
+                catch
+                {
+                    serializedMessage.Dispose();
+                    throw;
+                }
 
                 // Отправляет уведомление.
                 connection.SendNotification(serializedMessage);
+
+                // Нотификации не возвращают результат.
                 return Task.CompletedTask;
             }
             else
@@ -409,7 +433,17 @@ namespace DanilovSoft.vRPC
         {
             if(contextTask.IsCompleted)
             {
-                ManagedConnection connection = contextTask.Result;
+                ManagedConnection connection;
+                try
+                {
+                    // Может быть исключение если не удалось подключиться.
+                    connection = contextTask.Result;
+                }
+                catch
+                {
+                    serializedMessage.Dispose();
+                    throw;
+                }
 
                 // Отправляет запрос и получает результат от удалённой стороны.
                 return connection.SendRequestAndGetResult(serializedMessage, requestMessage);
@@ -422,8 +456,17 @@ namespace DanilovSoft.vRPC
 
         private static async Task WaitForConnectAndSendNotification(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage)
         {
-            // Ждём завершение подключения к серверу.
-            ManagedConnection connection = await t.ConfigureAwait(false);
+            ManagedConnection connection;
+            try
+            {
+                // Ждём завершение подключения к серверу.
+                connection = await t.ConfigureAwait(false);
+            }
+            catch
+            {
+                serializedMessage.Dispose();
+                throw;
+            }
 
             // Отправляет запрос и получает результат от удалённой стороны.
             connection.SendNotification(serializedMessage);
@@ -431,8 +474,17 @@ namespace DanilovSoft.vRPC
 
         private static async Task<object> WaitForConnectAndSendRequest(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage, RequestToSend requestMessage)
         {
-            // Ждём завершение подключения к серверу.
-            ManagedConnection connection = await t.ConfigureAwait(false);
+            ManagedConnection connection;
+            try
+            {
+                // Ждём завершение подключения к серверу.
+                connection = await t.ConfigureAwait(false);
+            }
+            catch
+            {
+                serializedMessage.Dispose();
+                throw;
+            }
 
             // Отправляет запрос и получает результат от удалённой стороны.
             return await connection.SendRequestAndGetResult(serializedMessage, requestMessage).ConfigureAwait(false);
@@ -498,10 +550,20 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос-уведомление.
         /// </summary>
+        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="ObjectDisposedException"/>
         internal void SendNotification(SerializedMessageToSend serializedMessage)
         {
-            ThrowIfDisposed();
-            ThrowIfStopRequired();
+            try
+            {
+                ThrowIfDisposed();
+                ThrowIfStopRequired();
+            }
+            catch
+            {
+                serializedMessage.Dispose();
+                throw;
+            }
 
             // Планируем отправку запроса.
             QueueSendMessage(serializedMessage);
@@ -510,25 +572,38 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
         /// </summary>
+        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="ObjectDisposedException"/>
         private Task<object> SendRequestAndGetResult(SerializedMessageToSend serializedMessage, RequestToSend requestMessage)
         {
-            ThrowIfDisposed();
-            ThrowIfStopRequired();
+            try
+            {
+                ThrowIfDisposed();
+                ThrowIfStopRequired();
 
-            // Добавить запрос в словарь для дальнейшей связки с ответом.
-            RequestAwaiter tcs = _pendingRequests.AddRequest(requestMessage, out ushort uid);
+                // Добавить запрос в словарь для дальнейшей связки с ответом.
+                RequestAwaiter tcs = _pendingRequests.AddRequest(requestMessage, out ushort uid);
 
-            // Назначить запросу уникальный идентификатор.
-            serializedMessage.Uid = uid;
+                // Назначить запросу уникальный идентификатор.
+                serializedMessage.Uid = uid;
 
-            // Планируем отправку запроса.
-            QueueSendMessage(serializedMessage);
+                // Планируем отправку запроса.
+                // Не бросает исключения.
+                QueueSendMessage(serializedMessage);
 
-            // Ожидаем результат от потока поторый читает из сокета.
-            return WaitForAwaiterAsync(tcs);
+                // Предотвратить Dispose на месте.
+                serializedMessage = null;
+
+                // Ожидаем результат от потока поторый читает из сокета.
+                return WaitForAwaiterAsync(tcs);
+            }
+            finally
+            {
+                serializedMessage?.Dispose();
+            }
         }
 
-        private async Task<object> WaitForAwaiterAsync(RequestAwaiter tcs)
+        private static async Task<object> WaitForAwaiterAsync(RequestAwaiter tcs)
         {
             // Ожидаем результат от потока поторый читает из сокета.
             // Валидным результатом может быть исключение.
@@ -587,7 +662,7 @@ namespace DanilovSoft.vRPC
                             {
                                 // Отключаемся от сокета с небольшим таймаутом.
                                 using (var cts = new CancellationTokenSource(2000))
-                                    await _socket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации заголовка.", cts.Token);
+                                    await _socket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Ошибка десериализации заголовка.", cts.Token).ConfigureAwait(false);
                             }
                             catch (Exception ex)
                             // Злой обрыв соединения.
@@ -833,7 +908,7 @@ namespace DanilovSoft.vRPC
                                 // Пользователь запросил остановку сервиса.
                                 {
                                     // Не бросает исключения.
-                                    await SendCloseBeforeStopAsync();
+                                    await SendCloseBeforeStopAsync().ConfigureAwait(false);
 
                                     // Завершить поток.
                                     return;
@@ -858,8 +933,8 @@ namespace DanilovSoft.vRPC
                     try
                     {
                         // Отключаемся от сокета с небольшим таймаутом.
-                        using var cts = new CancellationTokenSource(1000);
-                        await _socket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Не удалось десериализовать полученный заголовок сообщения.", cts.Token);
+                        using (var cts = new CancellationTokenSource(1000))
+                            await _socket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Не удалось десериализовать полученный заголовок сообщения.", cts.Token).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     // Злой обрыв соединения.
@@ -899,7 +974,7 @@ namespace DanilovSoft.vRPC
 
             // Сериализуем.
             SerializedMessageToSend serializedMessage = SerializeResponse(tuple.Item2);
-
+            
             // Ставим в очередь.
             tuple.Item1.QueueSendMessage(serializedMessage);
         }
@@ -909,18 +984,18 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private static SerializedMessageToSend SerializeRequest(RequestToSend requestToSend, object[] args)
         {
-            var serMsg = new SerializedMessageToSend(requestToSend);
+            var serializedMessage = new SerializedMessageToSend(requestToSend);
+            var request = new RequestMessageDto(requestToSend.ActionName, args);
             try
             {
-                var request = new RequestMessageDto(requestToSend.ActionName, args);
-                ExtensionMethods.SerializeObjectJson(serMsg.MemPoolStream, request);
+                ExtensionMethods.SerializeObjectJson(serializedMessage.MemPoolStream, request);
             }
             catch
             {
-                serMsg.Dispose();
+                serializedMessage.Dispose();
                 throw;
             }
-            return serMsg;
+            return serializedMessage;
         }
 
         /// <summary>
@@ -996,28 +1071,29 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(messageToSend != null);
 
-            // На текущем этапе сокет может быть уже уничтожен другим потоком.
-            // В этом случае можем беспоследственно проигнорировать отправку; вызывающий получит исключение через RequestAwaiter.
-            if (!IsDisposed)
+            try
             {
-                // Сериализуем хедер. Не бросает исключения.
-                AppendHeader(messageToSend);
+                // На текущем этапе сокет может быть уже уничтожен другим потоком.
+                // В этом случае можем беспоследственно проигнорировать отправку; вызывающий получит исключение через RequestAwaiter.
+                if (!IsDisposed)
+                {
+                    // Сериализуем хедер. Не бросает исключения.
+                    AppendHeader(messageToSend);
 
-                // Передать на отправку.
-                // Из-за AllowSynchronousContinuations частично начнёт отправку текущим потоком(!).
-                if (_sendChannel.Writer.TryWrite(messageToSend))
-                {
-                    return;
-                }
-                else
-                {
-                    // Канал уже закрыт (был вызван Dispose).
-                    messageToSend.Dispose();
+                    // Передать на отправку.
+                    // Из-за AllowSynchronousContinuations частично начнёт отправку текущим потоком(!).
+                    if (_sendChannel.Writer.TryWrite(messageToSend))
+                    // Канал ещё не закрыт (не был вызван Dispose).
+                    {
+                        // Предотвратить Dispose на месте.
+                        messageToSend = null;
+                        return;
+                    }
                 }
             }
-            else
+            finally
             {
-                messageToSend.Dispose();
+                messageToSend?.Dispose();
             }
         }
 
@@ -1034,6 +1110,8 @@ namespace DanilovSoft.vRPC
                 {
                     // Всегда true — у нас только один читатель.
                     _sendChannel.Reader.TryRead(out SerializedMessageToSend serializedMessage);
+
+                    Debug.Assert(serializedMessage != null);
 
                     // Теперь мы владеем этим объектом.
                     using (serializedMessage)
@@ -1282,7 +1360,7 @@ namespace DanilovSoft.vRPC
                 return new ValueTask<object>(permissionError);
         }
 
-        private async ValueTask<object> WaitForInvokeControllerAsync(ValueTask<object> t, IServiceScope scope)
+        private static async ValueTask<object> WaitForInvokeControllerAsync(ValueTask<object> t, IServiceScope scope)
         {
             using (scope)
             {
@@ -1372,18 +1450,6 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        [Conditional("LOG_REQ_INC")]
-        private static void LogInc()
-        {
-            Debug.WriteLine(nameof(IncActiveRequestCount));
-        }
-
-        [Conditional("LOG_REQ_INC")]
-        private static void LogDec()
-        {
-            Debug.WriteLine(nameof(DecActiveRequestCount));
-        }
-
         private void ProcessRequest(RequestToInvoke requestToInvoke)
         {
             if (requestToInvoke.Uid != null)
@@ -1416,7 +1482,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private async void WaitForNotification(ValueTask<object> t)
+        private static async void WaitForNotification(ValueTask<object> t)
         {
             try
             {
@@ -1510,13 +1576,13 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private async ValueTask<ResponseMessage> WaitForInvokeControllerAsync(ValueTask<object> t, RequestToInvoke requestContext)
+        private static async ValueTask<ResponseMessage> WaitForInvokeControllerAsync(ValueTask<object> t, RequestToInvoke requestContext)
         {
+            object rawResult;
             try
             {
                 // Находит и выполняет запрашиваемую функцию.
-                object rawResult = await t.ConfigureAwait(false);
-                return new ResponseMessage(requestContext, rawResult);
+                rawResult = await t.ConfigureAwait(false);
             }
             catch (BadRequestException ex)
             {
@@ -1534,6 +1600,8 @@ namespace DanilovSoft.vRPC
                 // Вернуть результат с ошибкой.
                 return new ResponseMessage(requestContext, new InternalErrorResult("Internal Server Error"));
             }
+
+            return new ResponseMessage(requestContext, rawResult);
         }
 
         /// <summary>
@@ -1625,7 +1693,16 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public void Dispose()
         {
-            DisposeManaged();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if(disposing)
+            {
+                DisposeManaged();
+            }
         }
     }
 }

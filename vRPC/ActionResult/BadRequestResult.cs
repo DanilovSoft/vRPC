@@ -1,4 +1,6 @@
-﻿namespace DanilovSoft.vRPC
+﻿using System;
+
+namespace DanilovSoft.vRPC
 {
     public class BadRequestResult : IActionResult
     {
@@ -10,10 +12,23 @@
             _message = message;
         }
 
-        public void ExecuteResult(ActionContext context)
+        void IActionResult.ExecuteResult(ActionContext context)
+        {
+            InnerExecuteResult(context);
+        }
+
+        private void InnerExecuteResult(ActionContext context)
         {
             context.StatusCode = DefaultStatusCode;
             context.ResponseStream.WriteStringBinary(_message);
+        }
+
+        public void ExecuteResult(ActionContext context)
+        {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            InnerExecuteResult(context);
         }
     }
 

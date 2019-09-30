@@ -10,17 +10,17 @@ namespace DanilovSoft.vRPC
     /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
     [DebuggerTypeProxy(typeof(TypeProxy))]
-    public class UserConnections : IList<ServerSideConnection>
+    public class UserConnectionCollection : IList<ServerSideConnection>
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"Count = {_list.Count}" + "}";
 
-        public readonly object SyncRoot = new object();
+        internal readonly object SyncRoot = new object();
         /// <summary>
         /// Доступ осуществляется только через блокировку <see cref="SyncRoot"/>.
         /// </summary>
         private readonly List<ServerSideConnection> _list = new List<ServerSideConnection>();
-        public readonly int UserId;
+        //public readonly int UserId;
 
         /// <summary>
         /// Доступ осуществляется только через блокировку <see cref="SyncRoot"/>.
@@ -29,10 +29,10 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public bool IsDestroyed { get; set; }
 
-        public UserConnections(int userId)
-        {
-            UserId = userId;
-        }
+        //public UserConnectionCollection(int userId)
+        //{
+        //    UserId = userId;
+        //}
 
         public ServerSideConnection this[int index]
         {
@@ -149,8 +149,8 @@ namespace DanilovSoft.vRPC
         [DebuggerNonUserCode]
         private class TypeProxy
         {
-            private readonly UserConnections _self;
-            public TypeProxy(UserConnections self)
+            private readonly UserConnectionCollection _self;
+            public TypeProxy(UserConnectionCollection self)
             {
                 _self = self;
             }

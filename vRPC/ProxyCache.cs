@@ -48,7 +48,7 @@ namespace DanilovSoft.vRPC
                 {
                     var attrib = typeof(T).GetCustomAttribute<ControllerContractAttribute>(inherit: false);
                     if (attrib == null)
-                        throw new ArgumentNullException("controllerName", $"Укажите имя контроллера или пометьте интерфейс атрибутом \"{nameof(ControllerContractAttribute)}\".");
+                        throw new ArgumentNullException($"Укажите имя контроллера или пометьте интерфейс {typeof(T).FullName} атрибутом \"{nameof(ControllerContractAttribute)}\".");
 
                     IInterfaceProxy p;
                     TProxy createdStatic;

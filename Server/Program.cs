@@ -88,7 +88,7 @@ namespace Server
             Interlocked.Decrement(ref _connections);
         }
 
-        private static async void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
+        private static void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
         {
             //var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();
 

@@ -20,7 +20,12 @@ namespace DanilovSoft.vRPC
             return Task.CompletedTask;
         }
 
-        public virtual void ExecuteResult(ActionContext context)
+        public void ExecuteResult(ActionContext context)
+        {
+            InnerExecuteResult(context);
+        }
+
+        private protected virtual void InnerExecuteResult(ActionContext context)
         {
 
         }

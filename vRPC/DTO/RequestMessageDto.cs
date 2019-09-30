@@ -9,7 +9,6 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Сериализуемое сообщение для передачи через сокет. 
     /// На данный момент сериализуется только в Json.
-    /// Для десериализации этот тип не используется.
     /// </summary>
     [DebuggerDisplay(@"\{Request = {ActionName,nq}\}")]
     internal sealed class RequestMessageDto

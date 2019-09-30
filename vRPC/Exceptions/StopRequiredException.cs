@@ -6,7 +6,7 @@ using System.Text;
 namespace DanilovSoft.vRPC
 {
     [Serializable]
-    public class StopRequiredException : Exception
+    public sealed class StopRequiredException : Exception
     {
         public StopRequired StopRequiredState { get; }
 
@@ -33,6 +33,14 @@ namespace DanilovSoft.vRPC
                 return $"Использовать этот экземпляр больше нельзя — был вызван " +
                     $"Stop (таймаут: {stopRequired.Timeout}) без дополнительного объяснения причины.";
             }
+        }
+
+        public StopRequiredException()
+        {
+        }
+
+        public StopRequiredException(string message, Exception innerException) : base(message, innerException)
+        {
         }
     }
 }

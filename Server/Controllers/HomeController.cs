@@ -20,7 +20,7 @@ namespace Server.Controllers
         {
             _logger = logger;
             _program = program;
-            _proxy = proxy.Interface;
+            _proxy = proxy.Proxy;
         }
 
         [ProducesProtoBuf]

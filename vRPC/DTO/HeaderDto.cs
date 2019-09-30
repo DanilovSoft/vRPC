@@ -130,7 +130,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public override string ToString()
         {
-            return @$"{nameof(Uid)} = {Uid}
+            return $@"{nameof(Uid)} = {Uid}
 {nameof(StatusCode)} = {StatusCode}
 {nameof(ContentLength)} = {ContentLength}
 {nameof(ContentEncoding)} = {ContentEncoding}";

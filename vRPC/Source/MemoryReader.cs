@@ -24,7 +24,7 @@ namespace System.IO
             set
             {
                 if (value > _memory.Length)
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(value));
 
                 _position = (int)value;
             }

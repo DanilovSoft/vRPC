@@ -9,7 +9,7 @@ namespace DanilovSoft.vRPC.Decorator
     /// <summary>
     /// От этого класса наследуются динамические типы и пользовательский интерфейс. Поэтому должен быть публичным и не запечатанным.
     /// </summary>
-    public class ServerInterfaceProxy : ICloneable, IInterfaceProxy
+    public class ServerInterfaceProxy : IInterfaceProxy
     {
         private ManagedConnection _connection;
         private string _controllerName;
@@ -24,10 +24,6 @@ namespace DanilovSoft.vRPC.Decorator
             _controllerName = controllerName;
             _connection = connection;
         }
-
-#pragma warning disable CA1033 // Методы интерфейса должны быть доступны для вызова дочерним типам
-        object ICloneable.Clone() => ((IInterfaceProxy)this).Clone<ServerInterfaceProxy>();
-#pragma warning restore CA1033 // Методы интерфейса должны быть доступны для вызова дочерним типам
 
         T IInterfaceProxy.Clone<T>()
         {
