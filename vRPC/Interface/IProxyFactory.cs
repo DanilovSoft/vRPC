@@ -16,6 +16,7 @@ namespace DanilovSoft.vRPC
         T Proxy { get; }
     }
 
+#pragma warning disable CA1812
     internal sealed class ProxyFactory<T> : IProxy<T>
     {
         /// <summary>
@@ -28,4 +29,5 @@ namespace DanilovSoft.vRPC
             Proxy = getProxyScope.GetProxy.GetProxy<T>();
         }
     }
+#pragma warning restore CA1812
 }

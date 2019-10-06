@@ -54,7 +54,7 @@ namespace DanilovSoft.vRPC
         /// Не бросает исключения.
         /// </summary>
         public Task<CloseReason> Completion => _completionTcs.Task;
-        //private readonly bool _isServer;
+        public bool IsServer { get; }
         public ServiceProvider ServiceProvider { get; }
         /// <summary>
         /// Подключенный TCP сокет.
@@ -122,9 +122,9 @@ namespace DanilovSoft.vRPC
                     }
                 }
 
-                if(closeReason != null)
+                if(closeReason != null && value != null)
                 {
-                    value?.Invoke(this, new SocketDisconnectedEventArgs(closeReason));
+                    value(this, new SocketDisconnectedEventArgs(closeReason));
                 }
             }
             remove
@@ -163,7 +163,7 @@ namespace DanilovSoft.vRPC
         // ctor.
         internal ManagedConnection(ManagedWebSocket clientConnection, bool isServer, ServiceProvider serviceProvider, InvokeActionsDictionary controllers)
         {
-            //_isServer = isServer;
+            IsServer = isServer;
 
             _socket = clientConnection;
             _pendingRequests = new RequestQueue();
@@ -183,7 +183,7 @@ namespace DanilovSoft.vRPC
 
             // Не может сработать сразу потому что пока не запущен 
             // поток чтения или отправки – некому спровоцировать событие.
-            _socket.Disconnected += WebSocket_Disconnected;
+            _socket.Disconnecting += WebSocket_Disconnected;
         }
 
         /// <summary>
@@ -210,16 +210,16 @@ namespace DanilovSoft.vRPC
             ((ManagedConnection)state).ReceiveLoop();
         }
 
-        private void WebSocket_Disconnected(object sender, WebSocket.SocketDisconnectedEventArgs e)
+        private void WebSocket_Disconnected(object sender, WebSocket.SocketDisconnectingEventArgs e)
         {
             CloseReason closeReason;
-            if (e.DisconnectReason.Gracifully)
+            if (e.DisconnectingReason.Gracifully)
             {
-                closeReason = CloseReason.FromCloseFrame(e.DisconnectReason.CloseStatus, e.DisconnectReason.CloseDescription, e.DisconnectReason.AdditionalDescription, _stopRequired);
+                closeReason = CloseReason.FromCloseFrame(e.DisconnectingReason.CloseStatus, e.DisconnectingReason.CloseDescription, e.DisconnectingReason.AdditionalDescription, _stopRequired);
             }
             else
             {
-                closeReason = CloseReason.FromException(e.DisconnectReason.Error, _stopRequired, e.DisconnectReason.AdditionalDescription);
+                closeReason = CloseReason.FromException(e.DisconnectingReason.Error, _stopRequired, e.DisconnectingReason.AdditionalDescription);
             }
             AtomicDispose(closeReason);
         }
@@ -373,25 +373,46 @@ namespace DanilovSoft.vRPC
                     // Отправляем запрос.
                     Task<object> taskObject = SendRequestWithResultAsync(contextTask, serMsg, requestToSend);
 
+                    // Может бросить исключение.
+                    object convertedResult = ConvertRequestTask(requestToSend, taskObject);
+
                     // Предотвратить Dispose.
                     serMsg = null;
-
-                    object convertedResult = ConvertRequestTask(requestToSend, taskObject);
 
                     // Результатом может быть не завершённый Task.
                     return convertedResult;
                 }
                 else
                 {
-                    Task task = SendNotificationAsync(contextTask, serMsg);
+                    // Может бросить исключение.
+                    // Добавляет сообщение в очередь на отправку.
+                    Task connectionTask = SendNotificationAsync(contextTask, serMsg);
 
-                    // Предотвратить Dispose.
-                    serMsg = null;
+                    if (requestToSend.IsAsync)
+                    // Возвращаемый тип функции интерфейса — Task или ValueTask.
+                    {
+                        // Предотвратить Dispose.
+                        serMsg = null;
 
-                    object convertedResult = ConvertNotificationTask(requestToSend, task);
+                        // Сконвертировать в ValueTask если такой тип у интерфейса.
+                        // Не бросает исключения.
+                        object convertedTask = ConvertNotificationTask(requestToSend, connectionTask);
 
-                    // Результатом может быть не завершённый Task.
-                    return convertedResult;
+                        // Результатом может быть не завершённый Task.
+                        return convertedTask;
+                    }
+                    else
+                    // Была вызвана синхронная функция.
+                    {
+                        // Результатом может быть исключение.
+                        connectionTask.GetAwaiter().GetResult();
+
+                        // Предотвратить Dispose.
+                        serMsg = null;
+
+                        // Возвращаемый тип интерфейсы — void.
+                        return null;
+                    }
                 }
             }
             finally
@@ -400,23 +421,19 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        /// <summary>
+        /// Ожидает завершение подключения к серверу и передаёт сообщение в очередь на отправку.
+        /// Может бросить исключение.
+        /// </summary>
         /// <exception cref="StopRequiredException"/>
         /// <exception cref="ObjectDisposedException"/>
         private static Task SendNotificationAsync(ValueTask<ManagedConnection> connectingTask, SerializedMessageToSend serializedMessage)
         {
             if (connectingTask.IsCompleted)
             {
-                ManagedConnection connection;
-                try
-                {
-                    connection = connectingTask.Result;
-                }
-                catch
-                {
-                    serializedMessage.Dispose();
-                    throw;
-                }
-
+                // Может бросить исключение.
+                ManagedConnection connection = connectingTask.Result;
+                
                 // Отправляет уведомление.
                 connection.SendNotification(serializedMessage);
 
@@ -424,8 +441,18 @@ namespace DanilovSoft.vRPC
                 return Task.CompletedTask;
             }
             else
+            // Подключение к серверу ещё не завершено.
             {
                 return WaitForConnectAndSendNotification(connectingTask, serializedMessage);
+            }
+
+            // Локальная функция.
+            static async Task WaitForConnectAndSendNotification(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage)
+            {
+                ManagedConnection connection = await t.ConfigureAwait(false);
+                
+                // Отправляет запрос и получает результат от удалённой стороны.
+                connection.SendNotification(serializedMessage);
             }
         }
 
@@ -433,18 +460,9 @@ namespace DanilovSoft.vRPC
         {
             if(contextTask.IsCompleted)
             {
-                ManagedConnection connection;
-                try
-                {
-                    // Может быть исключение если не удалось подключиться.
-                    connection = contextTask.Result;
-                }
-                catch
-                {
-                    serializedMessage.Dispose();
-                    throw;
-                }
-
+                // Может быть исключение если не удалось подключиться.
+                ManagedConnection connection = contextTask.Result;
+                
                 // Отправляет запрос и получает результат от удалённой стороны.
                 return connection.SendRequestAndGetResult(serializedMessage, requestMessage);
             }
@@ -452,63 +470,42 @@ namespace DanilovSoft.vRPC
             {
                 return WaitForConnectAndSendRequest(contextTask, serializedMessage, requestMessage);
             }
+
+            static async Task<object> WaitForConnectAndSendRequest(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage, RequestToSend requestMessage)
+            {
+                ManagedConnection connection = await t.ConfigureAwait(false);
+                
+                // Отправляет запрос и получает результат от удалённой стороны.
+                return await connection.SendRequestAndGetResult(serializedMessage, requestMessage).ConfigureAwait(false);
+            }
         }
 
-        private static async Task WaitForConnectAndSendNotification(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage)
-        {
-            ManagedConnection connection;
-            try
-            {
-                // Ждём завершение подключения к серверу.
-                connection = await t.ConfigureAwait(false);
-            }
-            catch
-            {
-                serializedMessage.Dispose();
-                throw;
-            }
-
-            // Отправляет запрос и получает результат от удалённой стороны.
-            connection.SendNotification(serializedMessage);
-        }
-
-        private static async Task<object> WaitForConnectAndSendRequest(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage, RequestToSend requestMessage)
-        {
-            ManagedConnection connection;
-            try
-            {
-                // Ждём завершение подключения к серверу.
-                connection = await t.ConfigureAwait(false);
-            }
-            catch
-            {
-                serializedMessage.Dispose();
-                throw;
-            }
-
-            // Отправляет запрос и получает результат от удалённой стороны.
-            return await connection.SendRequestAndGetResult(serializedMessage, requestMessage).ConfigureAwait(false);
-        }
-
+        /// <summary>
+        /// Преобразует <see cref="Task"/><see langword="&lt;object&gt;"/> в <see cref="Task{T}"/> или возвращает TResult
+        /// если метод интерфейса является синхронной функцией.
+        /// </summary>
         private static object ConvertRequestTask(RequestToSend requestToSend, Task<object> taskObject)
         {
             if (requestToSend.IsAsync)
             // Возвращаемый тип функции интерфейса — Task.
             {
-                if (requestToSend.Method.ReturnType.IsGenericType)
+                if (requestToSend.MethodInfo.ReturnType.IsGenericType)
                 // У задачи есть результат.
                 {
                     // Task<object> должен быть преобразован в Task<T>.
-                    return TaskConverter.ConvertTask(taskObject, requestToSend.IncapsulatedReturnType, requestToSend.Method.ReturnType);
+                    // Не бросает исключения.
+                    return TaskConverter.ConvertTask(taskObject, requestToSend.IncapsulatedReturnType, requestToSend.MethodInfo.ReturnType);
                 }
                 else
                 {
-                    if (requestToSend.Method.ReturnType != typeof(ValueTask))
+                    if (requestToSend.MethodInfo.ReturnType != typeof(ValueTask))
+                    // Возвращаемый тип интерфейса – Task.
                     {
-                        // Если возвращаемый тип интерфейса – Task то можно вернуть Task<object>.
+                        // Можно вернуть как Task<object>.
                         return taskObject;
                     }
                     else
+                    // Возвращаемый тип интерфейса – ValueTask.
                     {
                         return new ValueTask(taskObject);
                     }
@@ -523,27 +520,25 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static object ConvertNotificationTask(RequestToSend targetMethod, Task taskObject)
+        /// <summary>
+        /// Конвертирует Task в ValueTask если этого требует интерфейс.
+        /// Не бросает исключения.
+        /// </summary>
+        /// <param name="requestToSend"></param>
+        /// <param name="taskObject">Задача с возвращаемым типом <see langword="void"/>.</param>
+        /// <returns></returns>
+        private static object ConvertNotificationTask(RequestToSend requestToSend, Task taskObject)
         {
-            if (targetMethod.IsAsync)
-            // Возвращаемый тип функции интерфейса — Task.
+            if (requestToSend.MethodInfo.ReturnType != typeof(ValueTask))
+            // Возвращаемый тип интерфейса – Task.
             {
-                if (targetMethod.Method.ReturnType != typeof(ValueTask))
-                {
-                    // Если возвращаемый тип интерфейса – Task то можно вернуть Task<object>.
-                    return taskObject;
-                }
-                else
-                {
-                    return new ValueTask(taskObject);
-                }
+                // Конвертировать не нужно.
+                return taskObject;
             }
             else
-            // Была вызвана синхронная функция.
+            // Возвращаемый тип интерфейса – ValueTask.
             {
-                // Результатом может быть исключение.
-                taskObject.GetAwaiter().GetResult();
-                return null;
+                return new ValueTask(taskObject);
             }
         }
 
@@ -554,16 +549,8 @@ namespace DanilovSoft.vRPC
         /// <exception cref="ObjectDisposedException"/>
         internal void SendNotification(SerializedMessageToSend serializedMessage)
         {
-            try
-            {
-                ThrowIfDisposed();
-                ThrowIfStopRequired();
-            }
-            catch
-            {
-                serializedMessage.Dispose();
-                throw;
-            }
+            ThrowIfDisposed();
+            ThrowIfStopRequired();
 
             // Планируем отправку запроса.
             QueueSendMessage(serializedMessage);
@@ -653,7 +640,7 @@ namespace DanilovSoft.vRPC
                         {
                             #region Отправка Close и выход
 
-                            var protocolErrorException = new ProtocolErrorException(ProtocolHeaderErrorMessage, headerException);
+                            var protocolErrorException = new RpcProtocolErrorException(ProtocolHeaderErrorMessage, headerException);
 
                             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
                             _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
@@ -706,68 +693,74 @@ namespace DanilovSoft.vRPC
                 {
                     using (var sharedMemHandler = MemoryPool<byte>.Shared.Rent(header.ContentLength))
                     {
-                        // Можно не очищать – буффер будет перезаписан.
-                        Memory<byte> contentMem = sharedMemHandler.Memory.Slice(0, header.ContentLength);
+                        Memory<byte> contentMem = null;
 
-                        // Обязательно установить размер стрима. Можно не очищать – буффер будет перезаписан.
-                        //messageStream.SetLength(header.ContentLength, clear: false);
-
-                        int offset = 0;
-                        int receiveMessageBytesLeft = header.ContentLength;
-
-                        do // Читаем и склеиваем фреймы веб-сокета пока не EndOfMessage.
+                        if (header.ContentLength > 0)
+                        // Есть дополнительный фрейм с телом сообщения.
                         {
-                            #region Пока не EndOfMessage записывать в буфер памяти
+                            // Можно не очищать – буффер будет перезаписан.
+                            contentMem = sharedMemHandler.Memory.Slice(0, header.ContentLength);
 
-                            #region Читаем фрейм веб-сокета
+                            // Обязательно установить размер стрима. Можно не очищать – буффер будет перезаписан.
+                            //messageStream.SetLength(header.ContentLength, clear: false);
 
-                            // Ограничиваем буфер памяти до колличества принятых байт из сокета.
-                            Memory<byte> buffer = contentMem.Slice(offset, receiveMessageBytesLeft);
-                            try
+                            int offset = 0;
+                            int receiveMessageBytesLeft = header.ContentLength;
+
+                            do // Читаем и склеиваем фреймы веб-сокета пока не EndOfMessage.
                             {
-                                // Читаем фрейм веб-сокета.
-                                webSocketMessage = await _socket.ReceiveExAsync(buffer, CancellationToken.None);
-                            }
-                            catch (Exception ex)
-                            // Обрыв соединения.
-                            {
-                                // Оповестить об обрыве.
-                                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                                #region Пока не EndOfMessage записывать в буфер памяти
 
-                                // Завершить поток.
-                                return;
-                            }
-                            #endregion
+                                #region Читаем фрейм веб-сокета
 
-                            if (webSocketMessage.ReceiveResult.IsReceivedSuccessfully)
-                            {
-                                if (webSocketMessage.MessageType != WebSocketMessageType.Close)
+                                // Ограничиваем буфер памяти до колличества принятых байт из сокета.
+                                Memory<byte> buffer = contentMem.Slice(offset, receiveMessageBytesLeft);
+                                try
                                 {
-                                    offset += webSocketMessage.Count;
-                                    receiveMessageBytesLeft -= webSocketMessage.Count;
+                                    // Читаем фрейм веб-сокета.
+                                    webSocketMessage = await _socket.ReceiveExAsync(buffer, CancellationToken.None);
                                 }
-                                else
-                                // Другая сторона закрыла соединение.
+                                catch (Exception ex)
+                                // Обрыв соединения.
                                 {
-                                    CloseReceived();
+                                    // Оповестить об обрыве.
+                                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
                                     // Завершить поток.
                                     return;
                                 }
-                            }
-                            else
-                            // Обрыв соединения.
-                            {
-                                // Оповестить об обрыве.
-                                AtomicDispose(CloseReason.FromException(webSocketMessage.ReceiveResult.ToException(), _stopRequired));
+                                #endregion
 
-                                // Завершить поток.
-                                return;
-                            }
+                                if (webSocketMessage.ReceiveResult.IsReceivedSuccessfully)
+                                {
+                                    if (webSocketMessage.MessageType != WebSocketMessageType.Close)
+                                    {
+                                        offset += webSocketMessage.Count;
+                                        receiveMessageBytesLeft -= webSocketMessage.Count;
+                                    }
+                                    else
+                                    // Другая сторона закрыла соединение.
+                                    {
+                                        CloseReceived();
 
-                            #endregion
+                                        // Завершить поток.
+                                        return;
+                                    }
+                                }
+                                else
+                                // Обрыв соединения.
+                                {
+                                    // Оповестить об обрыве.
+                                    AtomicDispose(CloseReason.FromException(webSocketMessage.ReceiveResult.ToException(), _stopRequired));
 
-                        } while (!webSocketMessage.EndOfMessage);
+                                    // Завершить поток.
+                                    return;
+                                }
+
+                                #endregion
+
+                            } while (!webSocketMessage.EndOfMessage);
+                        }
 
                         #region Обработка Payload
 
@@ -854,25 +847,50 @@ namespace DanilovSoft.vRPC
                                     if (reqAwaiter.Request.IncapsulatedReturnType != typeof(void))
                                     // Поток ожидает некий объект как результат.
                                     {
-                                        // Десериализатор в соответствии с ContentEncoding.
-                                        Func<ReadOnlyMemory<byte>, Type, object> deserializer = header.GetDeserializer();
-
                                         bool deserialized;
-                                        object rawResult = null;
-                                        try
+                                        object rawResult;
+                                        if (!contentMem.IsEmpty)
                                         {
-                                            rawResult = deserializer(contentMem, reqAwaiter.Request.IncapsulatedReturnType);
-                                            deserialized = true;
+                                            // Десериализатор в соответствии с ContentEncoding.
+                                            Func<ReadOnlyMemory<byte>, Type, object> deserializer = header.GetDeserializer();
+                                            try
+                                            {
+                                                rawResult = deserializer(contentMem, reqAwaiter.Request.IncapsulatedReturnType);
+                                                deserialized = true;
+                                            }
+                                            catch (Exception deserializationException)
+                                            {
+                                                deserialized = false;
+                                                rawResult = null;
+
+                                                var protocolErrorException = new RpcProtocolErrorException(
+                                                    $"Ошибка десериализации ответа на запрос \"{reqAwaiter.Request.ActionName}\".", deserializationException);
+
+                                                // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
+                                                reqAwaiter.TrySetException(protocolErrorException);
+                                            }
                                         }
-                                        catch (Exception deserializationException)
+                                        else
+                                        // У ответа отсутствует контент — это равнозначно Null.
                                         {
-                                            var protocolErrorException = new ProtocolErrorException(
-                                                $"Ошибка десериализации ответа на запрос \"{reqAwaiter.Request.ActionName}\".", deserializationException);
+                                            if (reqAwaiter.Request.IncapsulatedReturnType.CanBeNull())
+                                            // Результат запроса поддерживает Null.
+                                            {
+                                                deserialized = true;
+                                                rawResult = null;
+                                            }
+                                            else
+                                            // Результатом этого запроса не может быть Null.
+                                            {
+                                                deserialized = false;
+                                                rawResult = null;
 
-                                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
-                                            reqAwaiter.TrySetException(protocolErrorException);
+                                                var protocolErrorException = new RpcProtocolErrorException(
+                                                    $"Ожидался не пустой результат запроса но был получен ответ без результата.");
 
-                                            deserialized = false;
+                                                // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
+                                                reqAwaiter.TrySetException(protocolErrorException);
+                                            }
                                         }
 
                                         if (deserialized)
@@ -925,7 +943,7 @@ namespace DanilovSoft.vRPC
                 {
                     #region Отправка Close
 
-                    var protocolErrorException = new ProtocolErrorException("Не удалось десериализовать полученный заголовок сообщения.");
+                    var protocolErrorException = new RpcProtocolErrorException("Не удалось десериализовать полученный заголовок сообщения.");
 
                     // Сообщить потокам что обрыв произошел по вине удалённой стороны.
                     _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
@@ -1006,7 +1024,7 @@ namespace DanilovSoft.vRPC
             var serMsg = new SerializedMessageToSend(responseToSend);
             try
             {
-                if (responseToSend.Result is IActionResult actionResult)
+                if (responseToSend.ActionResult is IActionResult actionResult)
                 {
                     var actionContext = new ActionContext(responseToSend.ReceivedRequest, serMsg.MemPoolStream);
                     
@@ -1018,9 +1036,14 @@ namespace DanilovSoft.vRPC
                 else
                 {
                     // Сериализуем ответ.
-                    responseToSend.ReceivedRequest.ActionToInvoke.Serializer(serMsg.MemPoolStream, responseToSend.Result);
                     serMsg.StatusCode = StatusCode.Ok;
-                    serMsg.ContentEncoding = responseToSend.ReceivedRequest.ActionToInvoke.ProducesEncoding;
+
+                    object result = responseToSend.ActionResult;
+                    if (result != null)
+                    {
+                        responseToSend.ReceivedRequest.ActionToInvoke.Serializer(serMsg.MemPoolStream, result);
+                        serMsg.ContentEncoding = responseToSend.ReceivedRequest.ActionToInvoke.ProducesEncoding;
+                    }
                 }
             }
             catch
@@ -1160,62 +1183,65 @@ namespace DanilovSoft.vRPC
 
                         if (socketError == SocketError.Success)
                         {
-                            #region Отправка тела сообщения (запрос или ответ на запрос)
-
-                            // Отправляем сообщение по частям.
-                            int offset = 0;
-                            int bytesLeft = messageSize;
-                            do
+                            if (messageSize > 0)
                             {
-                                // TODO возможно нет смысла.
-                                #region Фрагментируем отправку
+                                #region Отправка тела сообщения (запрос или ответ на запрос)
 
-                                bool endOfMessage;
-                                int countToSend = WebSocketMaxFrameSize;
-                                if (countToSend >= bytesLeft)
+                                // Отправляем сообщение по частям.
+                                int offset = 0;
+                                int bytesLeft = messageSize;
+                                do
                                 {
-                                    countToSend = bytesLeft;
-                                    endOfMessage = true;
-                                }
-                                else
-                                {
-                                    endOfMessage = false;
-                                }
+                                    // TODO возможно нет смысла.
+                                    #region Фрагментируем отправку
 
-                                try
-                                {
-                                    socketError = await _socket.SendExAsync(streamBuffer.AsMemory(offset, countToSend),
-                                        WebSocketMessageType.Binary, endOfMessage, CancellationToken.None).ConfigureAwait(false);
-                                }
-                                catch (Exception ex)
-                                // Обрыв соединения.
-                                {
-                                    // Оповестить об обрыве.
-                                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                                    bool endOfMessage;
+                                    int countToSend = WebSocketMaxFrameSize;
+                                    if (countToSend >= bytesLeft)
+                                    {
+                                        countToSend = bytesLeft;
+                                        endOfMessage = true;
+                                    }
+                                    else
+                                    {
+                                        endOfMessage = false;
+                                    }
 
-                                    // Завершить поток.
-                                    return;
-                                }
+                                    try
+                                    {
+                                        socketError = await _socket.SendExAsync(streamBuffer.AsMemory(offset, countToSend),
+                                            WebSocketMessageType.Binary, endOfMessage, CancellationToken.None).ConfigureAwait(false);
+                                    }
+                                    catch (Exception ex)
+                                    // Обрыв соединения.
+                                    {
+                                        // Оповестить об обрыве.
+                                        AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
-                                if (socketError == SocketError.Success)
-                                {
-                                    if (endOfMessage)
-                                        break;
+                                        // Завершить поток.
+                                        return;
+                                    }
 
-                                    bytesLeft -= countToSend;
-                                    offset += countToSend;
-                                }
-                                else
-                                {
-                                    // Оповестить об обрыве.
-                                    AtomicDispose(CloseReason.FromException(socketError.ToException(), _stopRequired));
+                                    if (socketError == SocketError.Success)
+                                    {
+                                        if (endOfMessage)
+                                            break;
 
-                                    // Завершить поток.
-                                    return;
-                                }
+                                        bytesLeft -= countToSend;
+                                        offset += countToSend;
+                                    }
+                                    else
+                                    {
+                                        // Оповестить об обрыве.
+                                        AtomicDispose(CloseReason.FromException(socketError.ToException(), _stopRequired));
+
+                                        // Завершить поток.
+                                        return;
+                                    }
+                                    #endregion
+                                } while (bytesLeft > 0);
                                 #endregion
-                            } while (bytesLeft > 0);
-                            #endregion
+                            }
                         }
                         else
                         {
@@ -1670,11 +1696,11 @@ namespace DanilovSoft.vRPC
                     _disconnected = null;
                 }
 
-                // Установить Task Completion.
-                _completionTcs.TrySetResult(possibleReason);
-
                 // Сообщить об обрыве.
                 disconnected?.Invoke(this, new SocketDisconnectedEventArgs(possibleReason));
+
+                // Установить Task Completion.
+                _completionTcs.TrySetResult(possibleReason);
             }
         }
 

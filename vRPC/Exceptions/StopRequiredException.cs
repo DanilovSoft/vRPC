@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.Serialization;
 using System.Text;
 
 namespace DanilovSoft.vRPC
@@ -42,5 +43,12 @@ namespace DanilovSoft.vRPC
         public StopRequiredException(string message, Exception innerException) : base(message, innerException)
         {
         }
+
+#pragma warning disable CA1801
+        private StopRequiredException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        {
+            
+        }
+#pragma warning restore CA1801
     }
 }

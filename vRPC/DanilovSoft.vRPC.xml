@@ -124,6 +124,7 @@
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
             Потокобезопасно.
             </summary>
+            <exception cref="T:DanilovSoft.WebSocket.HttpHandshakeException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.ConnectAsync">
@@ -131,6 +132,7 @@
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
             Потокобезопасно.
             </summary>
+            <exception cref="T:DanilovSoft.WebSocket.HttpHandshakeException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.GetProxy``1">
@@ -170,7 +172,7 @@
             происходит вызов метода интерфеса.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.Disconnected(System.Object,DanilovSoft.vRPC.SocketDisconnectedEventArgs)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.OnDisconnected(System.Object,DanilovSoft.vRPC.SocketDisconnectedEventArgs)">
             <summary>
             Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
             </summary>
@@ -398,8 +400,27 @@
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},DanilovSoft.vRPC.SerializedMessageToSend)">
+            <summary>
+            Ожидает завершение подключения к серверу и передаёт сообщение в очередь на отправку.
+            Может бросить исключение.
+            </summary>
             <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
             <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertRequestTask(DanilovSoft.vRPC.RequestToSend,System.Threading.Tasks.Task{System.Object})">
+            <summary>
+            Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object&gt;"/> в <see cref="T:System.Threading.Tasks.Task`1"/> или возвращает TResult
+            если метод интерфейса является синхронной функцией.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertNotificationTask(DanilovSoft.vRPC.RequestToSend,System.Threading.Tasks.Task)">
+            <summary>
+            Конвертирует Task в ValueTask если этого требует интерфейс.
+            Не бросает исключения.
+            </summary>
+            <param name="requestToSend"></param>
+            <param name="taskObject">Задача с возвращаемым типом <see langword="void"/>.</param>
+            <returns></returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotification(DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
@@ -531,6 +552,11 @@
         <member name="P:DanilovSoft.vRPC.ResponseMessage.Uid">
             <summary>
             Идентификатор скопированный из запроса.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ResponseMessage.ActionResult">
+            <summary>
+            Результат вызова метода контроллера.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.ResponseMessage.ReceivedRequest">
@@ -954,6 +980,12 @@
             и соответственно не возвращает результат.
             </summary>
         </member>
+        <member name="P:DanilovSoft.vRPC.RequestToSend.IsAsync">
+            <summary>
+            Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="T:System.Threading.Tasks.Task"/> (<see cref="T:System.Threading.Tasks.Task`1"/>)
+            или <see cref="T:System.Threading.Tasks.ValueTask"/> (<see cref="T:System.Threading.Tasks.ValueTask`1"/>).
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.RequestToSend.ActionName">
             <summary>
             Имя метода например 'Home/Hello' без постфиксов 'Async'.
@@ -1135,47 +1167,6 @@
         <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String)">
             <summary>
             Use this constructor if you are planning to perform encryption/
-            decryption using the key derived from 1 password iteration, hashing 
-            without salt, and cipher block chaining (CBC) mode.
-            </summary>
-            <param name="passPhrase">
-            Passphrase from which a pseudo-random password will be derived.
-            The derived password will be used to generate the encryption key.
-            Passphrase can be any string. In this example we assume that the
-            passphrase is an ASCII string. Passphrase value must be kept in
-            secret.
-            </param>
-            <param name="initVector">
-            Initialization vector (IV). This value is required to encrypt the
-            first block of plaintext data. For RijndaelManaged class IV must be
-            exactly 16 ASCII characters long. IV value does not have to be kept
-            in secret.
-            </param>
-            <param name="minSaltLen">
-            Min size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is less than 4, the default min value will be used (currently 4
-            bytes).
-            </param>
-            <param name="maxSaltLen">
-            Max size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is negative or greater than 255, the default max value will be
-            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
-            than the specified min value (which can be adjusted to default value),
-            salt will not be used and plain text value will be encrypted as is.
-            In this case, salt will not be processed during decryption either.
-            </param>
-            <param name="keySize">
-            Size of symmetric key (in bits): 128, 192, or 256.
-            </param>
-            <param name="hashAlgorithm">
-            Hashing algorithm: "MD5" or "SHA1". SHA1 is recommended.
-            </param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String,System.String)">
-            <summary>
-            Use this constructor if you are planning to perform encryption/
             decryption using the key derived from 1 password iteration, and
             cipher block chaining (CBC) mode.
             </summary>
@@ -1210,16 +1201,13 @@
             <param name="keySize">
             Size of symmetric key (in bits): 128, 192, or 256.
             </param>
-            <param name="hashAlgorithm">
-            Hashing algorithm: "MD5" or "SHA1". SHA1 is recommended.
-            </param>
             <param name="saltValue">
             Salt value used for password hashing during key generation. This is
             not the same as the salt we will use during encryption. This parameter
             can be any string.
             </param>
         </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String,System.String,System.Int32)">
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String,System.Int32)">
             <summary>
             Use this constructor if you are planning to perform encryption/
             decryption with the key derived from the explicitly specified
@@ -1255,9 +1243,6 @@
             </param>
             <param name="keySize">
             Size of symmetric key (in bits): 128, 192, or 256.
-            </param>
-            <param name="hashAlgorithm">
-            Hashing algorithm: "MD5" or "SHA1". SHA1 is recommended.
             </param>
             <param name="saltValue">
             Salt value used for password hashing during key generation. This is
@@ -1490,7 +1475,6 @@
             Эквивалентно вызову Start + <see langword="await"/> Completion.
             Потокобезопасно.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.RpcListenerException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.Start">
             <summary>
@@ -1498,7 +1482,6 @@
             Повторный вызов спровоцирует исключение.
             Потокобезопасно.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.RpcListenerException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.InnerStart">
             <summary>
@@ -1545,7 +1528,13 @@
         </member>
         <member name="M:DanilovSoft.vRPC.TaskConverter.ConvertTask(System.Threading.Tasks.Task{System.Object},System.Type,System.Type)">
             <summary>
-            Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object&gt;"/> в <see cref="T:System.Threading.Tasks.Task`1"/>.
+            Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object&gt;"/> в <see cref="T:System.Threading.Tasks.Task`1"/> или в <see cref="T:System.Threading.Tasks.ValueTask`1"/>.
+            Не бросает исключения но агрегирует их в Task.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.TaskConverter.DelegateFactory(System.Type,System.Type)">
+            <summary>
+            Создаёт делегат к нужному конвертеру. Не бросает исключения.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.Warmup.DoWarmup">

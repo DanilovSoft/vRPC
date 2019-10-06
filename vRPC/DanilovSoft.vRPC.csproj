@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netcoreapp2.2;netcoreapp3.0;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>netcoreapp3.0;netcoreapp2.2;netstandard2.0</TargetFrameworks>
     <LangVersion>8.0</LangVersion>
     <AssemblyName>DanilovSoft.vRPC</AssemblyName>
     <RootNamespace>DanilovSoft.vRPC</RootNamespace>
@@ -32,7 +32,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.4">
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.6">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

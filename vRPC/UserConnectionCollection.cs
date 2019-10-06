@@ -147,6 +147,7 @@ namespace DanilovSoft.vRPC
 
         #region Debug
         [DebuggerNonUserCode]
+#pragma warning disable CA1812
         private class TypeProxy
         {
             private readonly UserConnectionCollection _self;
@@ -158,6 +159,7 @@ namespace DanilovSoft.vRPC
             [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
             public ServerSideConnection[] Items => _self._list.ToArray();
         }
+#pragma warning restore CA1812
         #endregion
     }
 }

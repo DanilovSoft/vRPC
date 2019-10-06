@@ -155,6 +155,7 @@ namespace DanilovSoft.vRPC
         /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
         /// Потокобезопасно.
         /// </summary>
+        /// <exception cref="HttpHandshakeException"/>
         /// <exception cref="ObjectDisposedException"/>
         public ConnectResult Connect()
         {
@@ -165,6 +166,7 @@ namespace DanilovSoft.vRPC
         /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
         /// Потокобезопасно.
         /// </summary>
+        /// <exception cref="HttpHandshakeException"/>
         /// <exception cref="ObjectDisposedException"/>
         public Task<ConnectResult> ConnectAsync()
         {
@@ -322,7 +324,7 @@ namespace DanilovSoft.vRPC
                 else
                 // Нужно установить подключение.
                 {
-                    var t = ConnectIfNeededAsync();
+                    ValueTask<ConnectionResult> t = ConnectIfNeededAsync();
                     if (t.IsCompleted)
                     {
                         ConnectionResult connectionResult = t.Result;
@@ -369,7 +371,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
         /// </summary>
-        private void Disconnected(object sender, SocketDisconnectedEventArgs e)
+        private void OnDisconnected(object sender, SocketDisconnectedEventArgs e)
         {
             // volatile.
             _connection = null;
@@ -497,6 +499,12 @@ namespace DanilovSoft.vRPC
                                 {
                                     connection = new ClientSideConnection(this, ws, serviceProvider, _invokeActions);
 
+                                    //new Timer(s =>
+                                    //{
+                                    //    var w = (ClientWebSocket)s;
+                                    //    w.Dispose();
+                                    //}, ws, 10000, -1);
+
                                     // Предотвратить Dispose.
                                     ws = null;
 
@@ -520,7 +528,7 @@ namespace DanilovSoft.vRPC
                             // Запроса на остановку сервиса ещё не было.
                             {
                                 connection.InitStartThreads();
-                                connection.Disconnected += Disconnected;
+                                connection.Disconnected += OnDisconnected;
                                 return new ConnectionResult(receiveResult.SocketError, null, connection);
                             }
                             else

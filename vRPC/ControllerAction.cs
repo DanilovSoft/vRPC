@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Содержит исчерпывающую информацию о методе контроллера.
     /// </summary>
-    [DebuggerDisplay(@"\{{TargetMethod.GetControllerActionName(),nq}\}")]
+    [DebuggerDisplay(@"\{{TargetMethod.GetControllerActionName()}\}")]
     internal sealed class ControllerAction
     {
         public Action<Stream, object> Serializer { get; }

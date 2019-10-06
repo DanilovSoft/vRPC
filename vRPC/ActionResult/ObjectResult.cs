@@ -17,11 +17,15 @@ namespace DanilovSoft.vRPC
         {
             context.StatusCode = StatusCode;
 
-            // Сериализуем в стрим.
-            context.RequestContext.ActionToInvoke.Serializer(context.ResponseStream, _value);
+            // Нет необходимости отправлять Null.
+            if (_value != null)
+            {
+                // Сериализуем в стрим.
+                context.RequestContext.ActionToInvoke.Serializer(context.ResponseStream, _value);
 
-            // Устанавливаем формат.
-            context.ProducesEncoding = context.RequestContext.ActionToInvoke.ProducesEncoding;
+                // Устанавливаем формат.
+                context.ProducesEncoding = context.RequestContext.ActionToInvoke.ProducesEncoding;
+            }
         }
     }
 }

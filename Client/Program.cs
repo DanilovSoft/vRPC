@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC;
+using System.Resources;
 
 namespace Client
 {
@@ -86,8 +87,8 @@ namespace Client
                             {
                                 try
                                 {
-                                    DateTime date = homeController.DummyCall("Test");
                                     //homeController.NotifyTest();
+                                    homeController.DummyCallAsync("Test").GetAwaiter().GetResult();
                                     //Thread.Sleep(100);
                                 }
                                 catch (StopRequiredException)
