@@ -8,7 +8,7 @@ namespace DanilovSoft.vRPC
     /// Исключение этого типа прозрачно транслируется на удаленное подключение.
     /// </summary>
     [Serializable]
-    public class BadRequestException : Exception
+    public sealed class BadRequestException : Exception, ISerializable
     {
         public StatusCode ErrorCode { get; }
 
@@ -31,9 +31,11 @@ namespace DanilovSoft.vRPC
         {
         }
 
-        protected BadRequestException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+#pragma warning disable CA1801
+        private BadRequestException(SerializationInfo serializationInfo, StreamingContext streamingContext)
         {
-            
+
         }
+#pragma warning restore CA1801
     }
 }

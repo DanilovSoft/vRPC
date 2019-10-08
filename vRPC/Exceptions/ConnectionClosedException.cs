@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net.WebSockets;
+using System.Runtime.Serialization;
 
 namespace DanilovSoft.vRPC
 {
@@ -22,5 +23,16 @@ namespace DanilovSoft.vRPC
         {
             CloseDescription = сloseDescription;
         }
+
+        public ConnectionClosedException(string message, Exception innerException) : base(message, innerException)
+        {
+        }
+
+#pragma warning disable CA1801
+        private ConnectionClosedException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        {
+            
+        }
+#pragma warning restore CA1801
     }
 }

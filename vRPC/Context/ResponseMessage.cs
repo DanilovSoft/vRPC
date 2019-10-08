@@ -15,7 +15,10 @@ namespace DanilovSoft.vRPC
         /// Идентификатор скопированный из запроса.
         /// </summary>
         public ushort Uid { get; }
-        public object Result { get; }
+        /// <summary>
+        /// Результат вызова метода контроллера.
+        /// </summary>
+        public object ActionResult { get; }
         /// <summary>
         /// Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
         /// </summary>
@@ -29,7 +32,7 @@ namespace DanilovSoft.vRPC
         public ResponseMessage(ushort uid, object rawResult)
         {
             Uid = uid;
-            Result = rawResult;
+            ActionResult = rawResult;
         }
 
         /// <summary>
@@ -44,7 +47,7 @@ namespace DanilovSoft.vRPC
 
             ReceivedRequest = receivedRequest;
             Uid = receivedRequest.Uid.Value;
-            Result = rawResult;
+            ActionResult = rawResult;
         }
     }
 }

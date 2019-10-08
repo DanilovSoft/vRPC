@@ -41,8 +41,6 @@
     public sealed class RijndaelEnhanced : IDisposable
     {
         #region Private members
-        // If hashing algorithm is not specified, use SHA-1.
-        private const string DEFAULT_HASH_ALGORITHM = "SHA1";
 
         // If key size is not specified, use the longest 256-bit key.
         private const int DEFAULT_KEY_SIZE = 256;
@@ -58,6 +56,9 @@
         // Random salt value will be between 4 and 8 bytes long.
         private const int DEFAULT_MIN_SALT_LEN = MIN_ALLOWED_SALT_LEN;
         private const int DEFAULT_MAX_SALT_LEN = 8;
+
+        // If hashing algorithm is not specified, use SHA-1.
+        //private static readonly HashAlgorithmName DEFAULT_HASH_ALGORITHM = HashAlgorithmName.SHA256;
 
         // Use these members to save min and max salt lengths.
         private readonly int minSaltLen = -1;
@@ -242,56 +243,6 @@
 
         /// <summary>
         /// Use this constructor if you are planning to perform encryption/
-        /// decryption using the key derived from 1 password iteration, hashing 
-        /// without salt, and cipher block chaining (CBC) mode.
-        /// </summary>
-        /// <param name="passPhrase">
-        /// Passphrase from which a pseudo-random password will be derived.
-        /// The derived password will be used to generate the encryption key.
-        /// Passphrase can be any string. In this example we assume that the
-        /// passphrase is an ASCII string. Passphrase value must be kept in
-        /// secret.
-        /// </param>
-        /// <param name="initVector">
-        /// Initialization vector (IV). This value is required to encrypt the
-        /// first block of plaintext data. For RijndaelManaged class IV must be
-        /// exactly 16 ASCII characters long. IV value does not have to be kept
-        /// in secret.
-        /// </param>
-        /// <param name="minSaltLen">
-        /// Min size (in bytes) of randomly generated salt which will be added at
-        /// the beginning of plain text before encryption is performed. When this
-        /// value is less than 4, the default min value will be used (currently 4
-        /// bytes).
-        /// </param>
-        /// <param name="maxSaltLen">
-        /// Max size (in bytes) of randomly generated salt which will be added at
-        /// the beginning of plain text before encryption is performed. When this
-        /// value is negative or greater than 255, the default max value will be
-        /// used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
-        /// than the specified min value (which can be adjusted to default value),
-        /// salt will not be used and plain text value will be encrypted as is.
-        /// In this case, salt will not be processed during decryption either.
-        /// </param>
-        /// <param name="keySize">
-        /// Size of symmetric key (in bits): 128, 192, or 256.
-        /// </param>
-        /// <param name="hashAlgorithm">
-        /// Hashing algorithm: "MD5" or "SHA1". SHA1 is recommended.
-        /// </param>
-        public RijndaelEnhanced(string passPhrase,
-                                string initVector,
-                                int minSaltLen,
-                                int maxSaltLen,
-                                int keySize,
-                                string hashAlgorithm) :
-            this(passPhrase, initVector, minSaltLen, maxSaltLen, keySize,
-                 hashAlgorithm, null)
-        {
-        }
-
-        /// <summary>
-        /// Use this constructor if you are planning to perform encryption/
         /// decryption using the key derived from 1 password iteration, and
         /// cipher block chaining (CBC) mode.
         /// </summary>
@@ -326,9 +277,6 @@
         /// <param name="keySize">
         /// Size of symmetric key (in bits): 128, 192, or 256.
         /// </param>
-        /// <param name="hashAlgorithm">
-        /// Hashing algorithm: "MD5" or "SHA1". SHA1 is recommended.
-        /// </param>
         /// <param name="saltValue">
         /// Salt value used for password hashing during key generation. This is
         /// not the same as the salt we will use during encryption. This parameter
@@ -339,10 +287,9 @@
                                 int minSaltLen,
                                 int maxSaltLen,
                                 int keySize,
-                                string hashAlgorithm,
                                 string saltValue) :
             this(passPhrase, initVector, minSaltLen, maxSaltLen, keySize,
-                 hashAlgorithm, saltValue, 1)
+                 saltValue, 1)
         {
         }
 
@@ -382,9 +329,6 @@
         /// <param name="keySize">
         /// Size of symmetric key (in bits): 128, 192, or 256.
         /// </param>
-        /// <param name="hashAlgorithm">
-        /// Hashing algorithm: "MD5" or "SHA1". SHA1 is recommended.
-        /// </param>
         /// <param name="saltValue">
         /// Salt value used for password hashing during key generation. This is
         /// not the same as the salt we will use during encryption. This parameter
@@ -399,7 +343,6 @@
                                 int minSaltLen,
                                 int maxSaltLen,
                                 int keySize,
-                                string hashAlgorithm,
                                 string saltValue,
                                 int passwordIterations)
         {
@@ -418,21 +361,6 @@
             // Set the size of cryptographic key.
             if (keySize <= 0)
                 keySize = DEFAULT_KEY_SIZE;
-
-            // Set the name of algorithm. Make sure it is in UPPER CASE and does
-            // not use dashes, e.g. change "sha-1" to "SHA1".
-            if (hashAlgorithm == null)
-                hashAlgorithm = DEFAULT_HASH_ALGORITHM;
-            else
-            {
-                hashAlgorithm = hashAlgorithm.ToUpperInvariant();
-
-#if NETSTANDARD2_0
-                hashAlgorithm = hashAlgorithm.Replace("-", "");
-#else
-                hashAlgorithm = hashAlgorithm.Replace("-", "", StringComparison.Ordinal);
-#endif
-            }
 
             // Initialization vector converted to a byte array.
             byte[] initVectorBytes;
@@ -456,16 +384,30 @@
 
             byte[] keyBytes;
 
+#if NETSTANDARD2_0
+            using (var password = new PasswordDeriveBytes(passPhrase,
+                                        saltValueBytes,
+                                        HashAlgorithmName.SHA256.Name,
+                                        passwordIterations))
+            {
+                // Convert key to a byte array adjusting the size from bits to bytes.
+#pragma warning disable CA5373 // Не используйте устаревшую функцию формирования ключа.
+                keyBytes = password.GetBytes(keySize / 8);
+#pragma warning restore CA5373 // Не используйте устаревшую функцию формирования ключа.
+            }
+
+#else
+
             // Generate password, which will be used to derive the key.
-            using (var password = new PasswordDeriveBytes(
-                                                       passPhrase,
-                                                       saltValueBytes,
-                                                       hashAlgorithm,
-                                                       passwordIterations))
+            using (var password = new Rfc2898DeriveBytes(passPhrase,
+                                        saltValueBytes,
+                                        passwordIterations,
+                                        HashAlgorithmName.SHA256))
             {
                 // Convert key to a byte array adjusting the size from bits to bytes.
                 keyBytes = password.GetBytes(keySize / 8);
             }
+#endif
 
             // Initialize Rijndael key object.
             using (var symmetricKey = new RijndaelManaged())
@@ -482,9 +424,9 @@
                 _decryptor = symmetricKey.CreateDecryptor(keyBytes, initVectorBytes);
             }
         }
-        #endregion
+#endregion
 
-        #region Encryption routines
+#region Encryption routines
         /// <summary>
         /// Encrypts a string value generating a base64-encoded string.
         /// </summary>
@@ -569,9 +511,9 @@
                 return cipherTextBytes;
             }
         }
-        #endregion
+#endregion
 
-        #region Decryption routines
+#region Decryption routines
         /// <summary>
         /// Decrypts a base64-encoded cipher text value generating a string result.
         /// </summary>
@@ -674,9 +616,9 @@
             // Return original plain text value.
             return plainTextBytes;
         }
-        #endregion
+#endregion
 
-        #region Helper functions
+#region Helper functions
         /// <summary>
         /// Adds an array of randomly generated bytes at the beginning of the
         /// array holding original plain text value.
@@ -804,7 +746,7 @@
                 _decryptor.Dispose();
             }
         }
-        #endregion
+#endregion
     }
 
     /// <summary>

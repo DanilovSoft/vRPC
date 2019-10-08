@@ -8,6 +8,7 @@ using System.Net.WebSockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
@@ -24,16 +25,18 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public static void SerializeObjectJson(Stream destination, object instance)
         {
+            // Сериализовать Null не нужно (Отправлять тело сообщения при этом тоже не нужно).
+            Debug.Assert(instance != null, "Сериализовать и отправлять Null не нужно");
+
             try
             {
-                using (var writer = new System.Text.Json.Utf8JsonWriter(destination))
-                    System.Text.Json.JsonSerializer.Serialize(writer, instance);
+                using (var writer = new Utf8JsonWriter(destination))
+                    JsonSerializer.Serialize(writer, instance/*, new JsonSerializerOptions { IgnoreNullValues = true }*/);
             }
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
             }
-            
         }
 
         /// <summary>
@@ -391,6 +394,26 @@ namespace DanilovSoft.vRPC
                 return s.Remove(index);
             }
             return s;
+        }
+
+        public static bool CanBeNull(this Type type)
+        {
+            bool canBeNull = !type.IsValueType || (Nullable.GetUnderlyingType(type) != null);
+            return canBeNull;
+        }
+
+#if !NETSTANDARD2_0
+        [DebuggerStepThrough]
+#endif
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsCompletedSuccessfully(this Task t)
+        {
+#if NETSTANDARD2_0
+
+            return t.Status == TaskStatus.RanToCompletion;
+#else
+            return t.IsCompletedSuccessfully;
+#endif
         }
     }
 }

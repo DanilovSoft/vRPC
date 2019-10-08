@@ -148,6 +148,7 @@ namespace DanilovSoft.vRPC
         #region Debug
 #pragma warning disable CA1812
         [DebuggerNonUserCode]
+#pragma warning disable CA1812
         private class TypeProxy
         {
             private readonly UserConnectionCollection _self;

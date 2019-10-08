@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,14 +21,13 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Преобразует <see cref="Task"/><see langword="&lt;object&gt;"/> в <see cref="Task{T}"/>.
+        /// Преобразует <see cref="Task"/><see langword="&lt;object&gt;"/> в <see cref="Task{T}"/> или в <see cref="ValueTask{T}"/>.
+        /// Не бросает исключения но агрегирует их в Task.
         /// </summary>
         public static object ConvertTask(Task<object> task, Type desireType, Type returnType)
         {
             // Получить делегат шаблонного конвертера.
-            Func<Task<object>, object> genericConverter = _dict.GetOrAdd(desireType, Factory, returnType);
-
-            return genericConverter(task);
+            return _dict.GetOrAdd(desireType, DelegateFactory, returnType).Invoke(task);
         }
 
         // Возвращает Task<T>
@@ -42,47 +42,62 @@ namespace DanilovSoft.vRPC
             return ConvertValueTaskAsync<T>(task);
         }
 
-        //[DebuggerStepThrough]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static ValueTask<T> ConvertValueTaskAsync<T>(Task<object> task)
         {
-            if (!task.IsCompleted)
+            // Получить результат синхронно можно только при успешном 
+            // завершении таска, что-бы в случае исключения они агрегировались в Task.
+
+            if (!task.IsCompletedSuccessfully())
             {
-                return WaitForValueTaskAsync<T>(task);
+                return WaitForValueTaskAsync(task);
             }
             else
             {
+                // Никогда не бросает исключения.
                 object taskResult = task.GetAwaiter().GetResult();
+
                 return new ValueTask<T>((T)taskResult);
             }
+
+            // Локальная функция.
+            static async ValueTask<T> WaitForValueTaskAsync(Task<object> t)
+            {
+                object result = await t.ConfigureAwait(false);
+                return (T)result;
+            }
         }
 
-        private static async ValueTask<T> WaitForValueTaskAsync<T>(Task<object> t)
-        {
-            object result = await t.ConfigureAwait(false);
-            return (T)result;
-        }
-
-        //[DebuggerStepThrough]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static Task<T> ConvertTaskAsync<T>(Task<object> task)
         {
-            if (!task.IsCompleted)
+            // Получить результат синхронно можно только при успешном 
+            // завершении таска, что-бы в случае исключения они агрегировались в Task.
+
+            if (!task.IsCompletedSuccessfully())
             {
-                return WaitForTaskAsync<T>(task);
+                return WaitForTaskAsync(task);
             }
             else
             {
+                // Никогда не бросает исключения.
                 object taskResult = task.GetAwaiter().GetResult();
+
                 return Task.FromResult((T)taskResult);
+            }
+
+            // Локальная функция.
+            static async Task<T> WaitForTaskAsync(Task<object> t)
+            {
+                object taskResult = await t.ConfigureAwait(false);
+                return (T)taskResult;
             }
         }
 
-        private static async Task<T> WaitForTaskAsync<T>(Task<object> t)
-        {
-            object taskResult = await t.ConfigureAwait(false);
-            return (T)taskResult;
-        }
-
-        private static Func<Task<object>, object> Factory(Type key, Type returnType)
+        /// <summary>
+        /// Создаёт делегат к нужному конвертеру. Не бросает исключения.
+        /// </summary>
+        private static Func<Task<object>, object> DelegateFactory(Type key, Type returnType)
         {
             MethodInfo converterGenericMethod;
             if (returnType.GetGenericTypeDefinition() != typeof(ValueTask<>))

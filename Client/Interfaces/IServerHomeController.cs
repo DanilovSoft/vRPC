@@ -10,13 +10,15 @@ namespace Client
     public interface IServerHomeController
     {
         DateTime DummyCall(string v);
-        Task<DateTime> DummyCallAsync(string v, out int n);
+        Task<DateTime> DummyCallAsync(string v);
         Task Test3Async();
         Task<int> Test4Async();
         Task<int> Test2Async();
         Task<int> Test0Async();
-        [Notification]
+
+        //[Notification]
         void NotifyTest();
+
         DateTime Test(TestDto testDto);
     }
 }

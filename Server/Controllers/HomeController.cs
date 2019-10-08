@@ -35,9 +35,9 @@ namespace Server.Controllers
             return DateTime.Now;
         }
 
-        public async Task NotifyTest()
+        public void NotifyTest()
         {
-            await _proxy.NotifyAsync();
+            //await _proxy.NotifyAsync();
         }
     }
 }

@@ -15,7 +15,7 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{Request = {ActionName}\}")]
     internal sealed class RequestToSend : IMessage
     {
-        public MethodInfo Method { get; }
+        public MethodInfo MethodInfo { get; }
         /// <summary>
         /// Инкапсулированный в Task тип результата функции.
         /// </summary>
@@ -25,6 +25,10 @@ namespace DanilovSoft.vRPC
         /// и соответственно не возвращает результат.
         /// </summary>
         public bool Notification { get; }
+        /// <summary>
+        /// Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="Task"/> (<see cref="Task{TResult}"/>)
+        /// или <see cref="ValueTask"/> (<see cref="ValueTask{TResult}"/>).
+        /// </summary>
         public bool IsAsync { get; }
         /// <summary>
         /// Имя метода например 'Home/Hello' без постфиксов 'Async'.
@@ -40,13 +44,13 @@ namespace DanilovSoft.vRPC
         /// <param name="controllerName"></param>
         public RequestToSend(MethodInfo interfaceMethod, string controllerName)
         {
-            Method = interfaceMethod;
+            MethodInfo = interfaceMethod;
 
             Notification = Attribute.IsDefined(interfaceMethod, typeof(NotificationAttribute));
 
             if(Notification)
             {
-                if(Method.ReturnType != typeof(void) && Method.ReturnType != typeof(Task) && Method.ReturnType != typeof(ValueTask))
+                if(MethodInfo.ReturnType != typeof(void) && MethodInfo.ReturnType != typeof(Task) && MethodInfo.ReturnType != typeof(ValueTask))
                 {
                     throw new InvalidOperationException($"Метод '{interfaceMethod.Name}' помечен атрибутом [Notification] поэтому " +
                         $"возвращаемый тип метода может быть только void или Task или ValueTask.");
