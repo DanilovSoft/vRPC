@@ -87,9 +87,7 @@ namespace Client
                             {
                                 try
                                 {
-                                    //homeController.NotifyTest();
-                                    homeController.DummyCallAsync("Test").GetAwaiter().GetResult();
-                                    //Thread.Sleep(100);
+                                    string date = homeController.DummyCall("Test");
                                 }
                                 catch (StopRequiredException)
                                 {

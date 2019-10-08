@@ -358,7 +358,7 @@ namespace DynamicMethodsLib
                 {
                     // Не нужно кастовать если возвращаемый тип совпадает.
                     if (returnType != typeof(object))
-                        il.Emit(OpCodes.Castclass, returnType);
+                        il.Emit(OpCodes.Isinst, returnType);
                 }
             }
             else

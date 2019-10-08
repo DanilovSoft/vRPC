@@ -18,7 +18,8 @@ namespace DynamicMethodsLib
             }
             else
             {
-                generator.Emit(OpCodes.Castclass, type);
+                //generator.Emit(OpCodes.Castclass, type);
+                generator.Emit(OpCodes.Isinst, type);
             }
         }
 
@@ -114,7 +115,8 @@ namespace DynamicMethodsLib
             }
             else
             {
-                generator.Emit(OpCodes.Castclass, type);
+                //generator.Emit(OpCodes.Castclass, type);
+                generator.Emit(OpCodes.Isinst, type);
             }
         }
 
