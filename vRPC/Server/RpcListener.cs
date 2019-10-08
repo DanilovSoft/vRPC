@@ -211,7 +211,6 @@ namespace DanilovSoft.vRPC
         /// Эквивалентно вызову Start + <see langword="await"/> Completion.
         /// Потокобезопасно.
         /// </summary>
-        /// <exception cref="RpcListenerException"/>
         public Task<bool> RunAsync()
         {
             lock (StartLock)
@@ -227,7 +226,6 @@ namespace DanilovSoft.vRPC
         /// Повторный вызов спровоцирует исключение.
         /// Потокобезопасно.
         /// </summary>
-        /// <exception cref="RpcListenerException"/>
         public void Start()
         {
             lock (StartLock)
