@@ -87,7 +87,7 @@ namespace Client
                             {
                                 try
                                 {
-                                    string date = homeController.DummyCall("Test");
+                                    homeController.DummyCall(123);
                                 }
                                 catch (StopRequiredException)
                                 {

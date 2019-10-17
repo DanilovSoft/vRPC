@@ -33,7 +33,7 @@ namespace DanilovSoft.vRPC
         /// Заголовок располагается в конце этого стрима, так как мы не можем сформировать заголовок 
         /// до сериализации тела сообщения.
         /// </summary>
-        public MemoryPoolStream MemPoolStream { get; } = new MemoryPoolStream();
+        public MemoryPoolStream MemPoolStream { get; }
         /// <summary>
         /// Запрос или ответ на запрос.
         /// </summary>
@@ -56,6 +56,9 @@ namespace DanilovSoft.vRPC
         public SerializedMessageToSend(IMessage messageToSend)
         {
             MessageToSend = messageToSend;
+
+            // Арендуем заранее под максимальный размер хэдера.
+            MemPoolStream = new MemoryPoolStream(32);
         }
 
         /// <summary>

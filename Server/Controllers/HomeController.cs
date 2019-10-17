@@ -24,10 +24,10 @@ namespace Server.Controllers
         }
 
         [ProducesProtoBuf]
-        public string DummyCall(string s)
+        public void DummyCall(int n)
         {
             Interlocked.Increment(ref Program.ReqCount);
-            return DateTime.Now.ToString();
+            //return DateTime.Now.ToString();
         }
 
         public DateTime Test(TestDto test)

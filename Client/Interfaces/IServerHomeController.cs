@@ -9,7 +9,7 @@ namespace Client
     [ControllerContract("Home")]
     public interface IServerHomeController
     {
-        string DummyCall(string v);
+        void DummyCall(int n);
         Task<DateTime> DummyCallAsync(string v);
         Task Test3Async();
         Task<int> Test4Async();
