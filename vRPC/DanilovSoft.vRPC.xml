@@ -124,7 +124,7 @@
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
             Потокобезопасно.
             </summary>
-            <exception cref="T:DanilovSoft.WebSocket.HttpHandshakeException"/>
+            <exception cref="T:DanilovSoft.WebSockets.HttpHandshakeException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.ConnectAsync">
@@ -132,7 +132,7 @@
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
             Потокобезопасно.
             </summary>
-            <exception cref="T:DanilovSoft.WebSocket.HttpHandshakeException"/>
+            <exception cref="T:DanilovSoft.WebSockets.HttpHandshakeException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.GetProxy``1">
@@ -842,7 +842,7 @@
             Нормализует имя функции если она является Task-Async.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ToException(DanilovSoft.WebSocket.ReceiveResult)">
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ToException(DanilovSoft.WebSockets.ReceiveResult)">
             <summary>
             
             </summary>
@@ -883,22 +883,6 @@
         <member name="M:DanilovSoft.vRPC.JsonRequestParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
-            </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
-            <summary>
-            Существует только для Net Framework.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
-            <summary>
-            Перегрузка для Net Framework.
-            Attempts to add the specified key and value to the dictionary.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
-            <summary>
-            Перегрузка для Net Framework.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
@@ -1017,6 +1001,32 @@
         <member name="M:DanilovSoft.vRPC.RequestToSend.GetMethodReturnType(System.Reflection.MethodInfo)">
             <summary>
             Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.SR">
+            <summary>
+              Класс ресурса со строгой типизацией для поиска локализованных строк и т.д.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.SR.ResourceManager">
+            <summary>
+              Возвращает кэшированный экземпляр ResourceManager, использованный этим классом.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.SR.Culture">
+            <summary>
+              Перезаписывает свойство CurrentUICulture текущего потока для всех
+              обращений к ресурсу с помощью этого класса ресурса со строгой типизацией.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.SR.CloseAsyncProtocolError">
+            <summary>
+              Ищет локализованную строку, похожую на An error has occurred during header deserialization: {0}.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.SR.ProtocolError">
+            <summary>
+              Ищет локализованную строку, похожую на An error has occurred during header deserialization from the remote side and connection will be closed. Error: {0}.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.RijndaelEnhanced">

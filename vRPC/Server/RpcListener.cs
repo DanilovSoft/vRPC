@@ -1,4 +1,4 @@
-﻿using DanilovSoft.WebSocket;
+﻿using DanilovSoft.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Concurrent;
@@ -258,7 +258,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private void Listener_OnConnected(object sender, DanilovSoft.WebSocket.ClientConnectedEventArgs e)
+        private void Listener_OnConnected(object sender, DanilovSoft.WebSockets.ClientConnectedEventArgs e)
         {
             // Возможно сервер находится в режиме остановки.
             ServerSideConnection connection;

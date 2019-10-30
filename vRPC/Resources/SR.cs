@@ -1,0 +1,20 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+
+namespace DanilovSoft.vRPC
+{
+    internal partial class SR
+    {
+        public static string GetString(string message, object arg0)
+        {
+            return string.Format(CultureInfo.CurrentCulture, message, arg0);
+        }
+
+        public static string GetString(string message, params object[] args)
+        {
+            return string.Format(CultureInfo.CurrentCulture, message, args);
+        }
+    }
+}

@@ -1,5 +1,5 @@
 ﻿using DanilovSoft;
-using DanilovSoft.WebSocket;
+using DanilovSoft.WebSockets;
 using System;
 using System.Diagnostics;
 using System.IO;

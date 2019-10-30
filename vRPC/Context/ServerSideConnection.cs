@@ -1,4 +1,4 @@
-﻿using DanilovSoft.WebSocket;
+﻿using DanilovSoft.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Diagnostics;

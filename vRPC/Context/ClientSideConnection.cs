@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
-using DanilovSoft.WebSocket;
+using DanilovSoft.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DanilovSoft.vRPC
