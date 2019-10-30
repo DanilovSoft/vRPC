@@ -44,8 +44,8 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public static void SerializeObjectJson<T>(Stream destination, T instance)
         {
-            using (var writer = new System.Text.Json.Utf8JsonWriter(destination))
-                System.Text.Json.JsonSerializer.Serialize(writer, instance);
+            using (var writer = new Utf8JsonWriter(destination))
+                JsonSerializer.Serialize(writer, instance);
         }
 
         /// <summary>

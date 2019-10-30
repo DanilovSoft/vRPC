@@ -1039,6 +1039,8 @@ namespace DanilovSoft.vRPC
         {
             HeaderDto header = CreateHeader(messageToSend);
 
+            //messageToSend.MemPoolStream.Position = 0;
+
             // Записать заголовок в конец стрима. Не бросает исключения.
             header.SerializeProtoBuf(messageToSend.MemPoolStream, out int headerSize);
 

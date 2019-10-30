@@ -79,7 +79,7 @@ namespace System.IO
 
             return _arrayBuffer;
         }
-
+        
         public override void Flush()
         {
             // Ничего флашить не нужно.
@@ -215,6 +215,14 @@ namespace System.IO
             }
         }
 
+#if !NETSTANDARD2_0
+        // TODO
+        //public override int Read(Span<byte> destination)
+        //{
+        //    return base.Read(destination);
+        //}
+#endif
+
         /// <summary>
         /// Возвращает -1 если достигнут конец потока.
         /// </summary>
@@ -271,6 +279,24 @@ namespace System.IO
             // Курсор буфера совпадает с позицией стрима.
             _bufferPosition = _position;
         }
+
+#if !NETSTANDARD2_0
+        public override void Write(ReadOnlySpan<byte> source)
+        {
+            ThrowIfDisposed();
+
+            PrepareAppend(source.Length);
+
+            // Копируем в буффер.
+            source.CopyTo(_arrayBuffer.AsSpan(_position));
+
+            // Увеличить позицию стрима.
+            _position += source.Length;
+
+            // Курсор буфера совпадает с позицией стрима.
+            _bufferPosition = _position;
+        }
+#endif
 
         private void PrepareAppend(int count)
         {
