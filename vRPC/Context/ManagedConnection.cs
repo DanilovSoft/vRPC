@@ -64,8 +64,8 @@ namespace DanilovSoft.vRPC
         /// Коллекция запросов ожидающие ответ от удалённой стороны.
         /// </summary>
         private readonly RequestQueue _pendingRequests;
-        //public EndPoint LocalEndPoint => _socket.LocalEndPoint;
-        //public EndPoint RemoteEndPoint => _socket.RemoteEndPoint;
+        public EndPoint LocalEndPoint => _socket.LocalEndPoint;
+        public EndPoint RemoteEndPoint => _socket.RemoteEndPoint;
         /// <summary>
         /// Отправка сообщения <see cref="SerializedMessageToSend"/> должна выполняться только через этот канал.
         /// </summary>
