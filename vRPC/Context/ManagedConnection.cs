@@ -16,6 +16,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Buffers;
 using Ms = System.Net.WebSockets;
+using DanilovSoft.vRPC.Resources;
 
 namespace DanilovSoft.vRPC
 {
@@ -627,7 +628,7 @@ namespace DanilovSoft.vRPC
                 }
 
                 HeaderDto header;
-                if (webSocketMessage.MessageType != Ms.WebSocketMessageType.Close)
+                if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
                 {
                     try
                     {
@@ -668,6 +669,13 @@ namespace DanilovSoft.vRPC
                         #endregion
                     }
                 }
+                else if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
+                // Тип Text не поддерживается.
+                {
+                    // Отправка Close и выход
+                    await SendCloseAndDisposeAsync().ConfigureAwait(false);
+                    return;
+                }
                 else
                 // Получен Close.
                 {
@@ -690,9 +698,6 @@ namespace DanilovSoft.vRPC
                         {
                             // Можно не очищать – буффер будет перезаписан.
                             contentMem = sharedMemHandler.Memory.Slice(0, header.ContentLength);
-
-                            // Обязательно установить размер стрима. Можно не очищать – буффер будет перезаписан.
-                            //messageStream.SetLength(header.ContentLength, clear: false);
 
                             int offset = 0;
                             int receiveMessageBytesLeft = header.ContentLength;
@@ -721,10 +726,16 @@ namespace DanilovSoft.vRPC
                                 }
                                 #endregion
 
-                                if (webSocketMessage.MessageType != Ms.WebSocketMessageType.Close)
+                                if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
                                 {
                                     offset += webSocketMessage.Count;
                                     receiveMessageBytesLeft -= webSocketMessage.Count;
+                                }
+                                else if(webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
+                                {
+                                    // Отправка Close и выход
+                                    await SendCloseAndDisposeAsync().ConfigureAwait(false);
+                                    return;
                                 }
                                 else
                                 // Другая сторона закрыла соединение.
@@ -951,6 +962,41 @@ namespace DanilovSoft.vRPC
                     #endregion
                 }
             }
+        }
+
+        private async Task SendCloseAndDisposeAsync()
+        {
+            #region Отправка Close и выход
+
+            // Тип фрейма должен быть Binary.
+            var protocolErrorException = new RpcProtocolErrorException(SR.TextMessageTypeNotSupported);
+
+            // Сообщить потокам что обрыв произошел по вине удалённой стороны.
+            _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
+
+            try
+            {
+                // Отключаемся от сокета с небольшим таймаутом.
+                using (var cts = new CancellationTokenSource(2000))
+                    await _socket.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError,
+                        SR.TextMessageTypeNotSupported, cts.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            // Злой обрыв соединения.
+            {
+                // Оповестить об обрыве.
+                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+
+                // Завершить поток.
+                return;
+            }
+
+            // Оповестить об обрыве.
+            AtomicDispose(CloseReason.FromException(protocolErrorException, _stopRequired));
+
+            // Завершить поток.
+            return;
+            #endregion
         }
 
         /// <summary>

@@ -45,9 +45,9 @@
             Используется для синхронизации установки соединения.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.RpcClient._uri">
+        <member name="P:DanilovSoft.vRPC.RpcClient.ServerAddress">
             <summary>
-            Адрес для подключеия к серверу.
+            Адрес для подключения к серверу.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.RpcClient._appBuilder">
@@ -883,6 +883,22 @@
         <member name="M:DanilovSoft.vRPC.JsonRequestParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
+            <summary>
+            Существует только для Net Framework.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
+            <summary>
+            Перегрузка для Net Framework.
+            Attempts to add the specified key and value to the dictionary.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
+            <summary>
+            Перегрузка для Net Framework.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
