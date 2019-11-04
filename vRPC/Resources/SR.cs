@@ -5,7 +5,7 @@ using System.Text;
 
 namespace DanilovSoft.vRPC.Resources
 {
-    internal partial class SR
+    internal class SR2
     {
         /// <summary>
         /// Форматирует строку.

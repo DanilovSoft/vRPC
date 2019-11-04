@@ -589,16 +589,16 @@ namespace DanilovSoft.vRPC
             {
                 serializedMessage?.Dispose();
             }
-        }
 
-        private static async Task<object> WaitForAwaiterAsync(RequestAwaiter tcs)
-        {
-            // Ожидаем результат от потока поторый читает из сокета.
-            // Валидным результатом может быть исключение.
-            object rawResult = await tcs;
+            static async Task<object> WaitForAwaiterAsync(RequestAwaiter tcs)
+            {
+                // Ожидаем результат от потока поторый читает из сокета.
+                // Валидным результатом может быть исключение.
+                object rawResult = await tcs;
 
-            // Успешно получили результат без исключений.
-            return rawResult;
+                // Успешно получили результат без исключений.
+                return rawResult;
+            }
         }
 
         private async void ReceiveLoop()
@@ -639,7 +639,7 @@ namespace DanilovSoft.vRPC
                     {
                         #region Отправка Close и выход
 
-                        var protocolErrorException = new RpcProtocolErrorException(SR.GetString(SR.ProtocolError, headerException.Message), headerException);
+                        var protocolErrorException = new RpcProtocolErrorException(SR2.GetString(SR.ProtocolError, headerException.Message), headerException);
 
                         // Сообщить потокам что обрыв произошел по вине удалённой стороны.
                         _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
@@ -649,7 +649,7 @@ namespace DanilovSoft.vRPC
                             // Отключаемся от сокета с небольшим таймаутом.
                             using (var cts = new CancellationTokenSource(2000))
                                 await _socket.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError,
-                                    SR.GetString(SR.CloseAsyncProtocolError, headerException.Message), cts.Token).ConfigureAwait(false);
+                                    SR2.GetString(SR.CloseAsyncProtocolError, headerException.Message), cts.Token).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         // Злой обрыв соединения.

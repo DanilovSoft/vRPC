@@ -885,22 +885,6 @@
             Десериализует json запрос.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
-            <summary>
-            Существует только для Net Framework.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
-            <summary>
-            Перегрузка для Net Framework.
-            Attempts to add the specified key and value to the dictionary.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
-            <summary>
-            Перегрузка для Net Framework.
-            </summary>
-        </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
             <summary>
             Содержит прокси созданные из интерфейсов.
@@ -1019,23 +1003,23 @@
             Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.Resources.SR">
-            <summary>
-              Класс ресурса со строгой типизацией для поиска локализованных строк и т.д.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.Resources.SR.GetString(System.String,System.Object)">
+        <member name="M:DanilovSoft.vRPC.Resources.SR2.GetString(System.String,System.Object)">
             <summary>
             Форматирует строку.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.Resources.SR.GetString(System.String,System.Object[])">
+        <member name="M:DanilovSoft.vRPC.Resources.SR2.GetString(System.String,System.Object[])">
             <summary>
             Форматирует строку.
             </summary>
             <param name="message"></param>
             <param name="args"></param>
             <returns></returns>
+        </member>
+        <member name="T:DanilovSoft.vRPC.Resources.SR">
+            <summary>
+              Класс ресурса со строгой типизацией для поиска локализованных строк и т.д.
+            </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.Resources.SR.ResourceManager">
             <summary>
@@ -1060,7 +1044,7 @@
         </member>
         <member name="P:DanilovSoft.vRPC.Resources.SR.TextMessageTypeNotSupported">
             <summary>
-              Ищет локализованную строку, похожую на WebSocket message type should be Binary.
+              Ищет локализованную строку, похожую на WebSocket messages type should be Binary but we&apos;ve got Text.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.RijndaelEnhanced">

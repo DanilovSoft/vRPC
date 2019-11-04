@@ -123,4 +123,7 @@
   <data name="ProtocolError" xml:space="preserve">
     <value>Произошла ошибка десериализации заголовка от удалённой стороны и будет выполнено закрытие соединения. Ошибка: {0}</value>
   </data>
+  <data name="TextMessageTypeNotSupported" xml:space="preserve">
+    <value>Типы сообщений веб-сокета должны быть Binary но был получен Text</value>
+  </data>
 </root>
