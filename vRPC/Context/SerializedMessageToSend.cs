@@ -41,7 +41,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Уникальный идентификатор который будет отправлен удалённой стороне.
         /// </summary>
-        public ushort? Uid { get; set; }
+        public int? Uid { get; set; }
         public StatusCode? StatusCode { get; set; }
         public string ContentEncoding { get; set; }
         /// <summary>

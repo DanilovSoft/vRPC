@@ -570,7 +570,7 @@ namespace DanilovSoft.vRPC
                 ThrowIfStopRequired();
 
                 // Добавить запрос в словарь для дальнейшей связки с ответом.
-                RequestAwaiter tcs = _pendingRequests.AddRequest(requestMessage, out ushort uid);
+                RequestAwaiter tcs = _pendingRequests.AddRequest(requestMessage, out int uid);
 
                 // Назначить запросу уникальный идентификатор.
                 serializedMessage.Uid = uid;
@@ -637,43 +637,21 @@ namespace DanilovSoft.vRPC
                     catch (Exception headerException)
                     // Не удалось десериализовать заголовок.
                     {
-                        #region Отправка Close и выход
+                        Debug.WriteLine(headerException);
 
-                        var protocolErrorException = new RpcProtocolErrorException(SR2.GetString(SR.ProtocolError, headerException.Message), headerException);
-
-                        // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-                        _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
-
-                        try
-                        {
-                            // Отключаемся от сокета с небольшим таймаутом.
-                            using (var cts = new CancellationTokenSource(2000))
-                                await _socket.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError,
-                                    SR2.GetString(SR.CloseAsyncProtocolError, headerException.Message), cts.Token).ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        // Злой обрыв соединения.
-                        {
-                            // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(ex, _stopRequired));
-
-                            // Завершить поток.
-                            return;
-                        }
-
-                        // Оповестить об обрыве.
-                        AtomicDispose(CloseReason.FromException(protocolErrorException, _stopRequired));
-
-                        // Завершить поток.
+                        // Отправка Close и выход
+                        var propagateException = new RpcProtocolErrorException(SR2.GetString(SR.ProtocolError, headerException.Message), headerException);
+                        await CloseAndDisposeAsync(propagateException, $"Unable to deserialize header. Count of bytes was {webSocketMessage.Count}").ConfigureAwait(false);
                         return;
-                        #endregion
                     }
                 }
                 else if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
                 // Тип Text не поддерживается.
                 {
                     // Отправка Close и выход
-                    await SendCloseAndDisposeAsync().ConfigureAwait(false);
+                    // Тип фрейма должен быть Binary.
+                    var protocolErrorException = new RpcProtocolErrorException(SR.TextMessageTypeNotSupported);
+                    await CloseAndDisposeAsync(protocolErrorException, SR.TextMessageTypeNotSupported).ConfigureAwait(false);
                     return;
                 }
                 else
@@ -734,7 +712,9 @@ namespace DanilovSoft.vRPC
                                 else if(webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
                                 {
                                     // Отправка Close и выход
-                                    await SendCloseAndDisposeAsync().ConfigureAwait(false);
+                                    // Тип фрейма должен быть Binary.
+                                    var protocolErrorException = new RpcProtocolErrorException(SR.TextMessageTypeNotSupported);
+                                    await CloseAndDisposeAsync(protocolErrorException, SR.TextMessageTypeNotSupported).ConfigureAwait(false);
                                     return;
                                 }
                                 else
@@ -930,47 +910,20 @@ namespace DanilovSoft.vRPC
                 else
                 // Ошибка в хедере.
                 {
-                    #region Отправка Close
-
-                    var protocolErrorException = new RpcProtocolErrorException("Не удалось десериализовать полученный заголовок сообщения.");
-
-                    // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-                    _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
-
-                    try
-                    {
-                        // Отключаемся от сокета с небольшим таймаутом.
-                        using (var cts = new CancellationTokenSource(1000))
-                            await _socket.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError, "Не удалось десериализовать полученный заголовок сообщения.", cts.Token).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    // Злой обрыв соединения.
-                    {
-                        // Оповестить об обрыве.
-                        AtomicDispose(CloseReason.FromException(ex, _stopRequired));
-
-                        // Завершить поток.
-                        return;
-                    }
-
-                    // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(protocolErrorException, _stopRequired));
-
-                    // Завершить поток.
+                    // Отправка Close и выход.
+                    var protocolException = new RpcProtocolErrorException("Не удалось десериализовать полученный заголовок сообщения.");
+                    await CloseAndDisposeAsync(protocolException, $"Unable to deserialize header. Count of bytes was {webSocketMessage.Count}").ConfigureAwait(false);
                     return;
-
-                    #endregion
                 }
             }
         }
 
-        private async Task SendCloseAndDisposeAsync()
+        /// <summary>
+        /// Отправляет Close и выполняет Dispose.
+        /// </summary>
+        /// <param name="protocolErrorException">Распространяет исключение ожидаюшим потокам.</param>
+        private async Task CloseAndDisposeAsync(Exception protocolErrorException, string closeDescription)
         {
-            #region Отправка Close и выход
-
-            // Тип фрейма должен быть Binary.
-            var protocolErrorException = new RpcProtocolErrorException(SR.TextMessageTypeNotSupported);
-
             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
             _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
 
@@ -978,8 +931,7 @@ namespace DanilovSoft.vRPC
             {
                 // Отключаемся от сокета с небольшим таймаутом.
                 using (var cts = new CancellationTokenSource(2000))
-                    await _socket.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError,
-                        SR.TextMessageTypeNotSupported, cts.Token).ConfigureAwait(false);
+                    await _socket.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError, closeDescription, cts.Token).ConfigureAwait(false);
             }
             catch (Exception ex)
             // Злой обрыв соединения.
@@ -996,7 +948,6 @@ namespace DanilovSoft.vRPC
 
             // Завершить поток.
             return;
-            #endregion
         }
 
         /// <summary>

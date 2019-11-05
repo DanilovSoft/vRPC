@@ -19,7 +19,7 @@ namespace DanilovSoft.vRPC
         private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
 
         [ProtoMember(1, IsRequired = false)]
-        public ushort? Uid { get; }
+        public int? Uid { get; }
 
         [ProtoMember(2)]
         public StatusCode StatusCode { get; }
@@ -43,7 +43,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт заголовок ответа на запрос.
         /// </summary>
-        public static HeaderDto FromResponse(ushort uid, StatusCode responseCode, int contentLength, string contentEncoding)
+        public static HeaderDto FromResponse(int uid, StatusCode responseCode, int contentLength, string contentEncoding)
         {
             return new HeaderDto(uid, responseCode, contentLength, contentEncoding);
         }
@@ -51,7 +51,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт заголовок для нового запроса.
         /// </summary>
-        public static HeaderDto CreateRequest(ushort? uid, int contentLength)
+        public static HeaderDto CreateRequest(int? uid, int contentLength)
         {
             return new HeaderDto(uid, StatusCode.Request, contentLength, null);
         }
@@ -59,7 +59,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Конструктор заголовка и для ответа и для запроса.
         /// </summary>
-        private HeaderDto(ushort? uid, StatusCode responseCode, int contentLength, string contentEncoding)
+        private HeaderDto(int? uid, StatusCode responseCode, int contentLength, string contentEncoding)
         {
             Uid = uid;
             StatusCode = responseCode;

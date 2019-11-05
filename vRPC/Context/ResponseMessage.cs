@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Идентификатор скопированный из запроса.
         /// </summary>
-        public ushort Uid { get; }
+        public int Uid { get; }
         /// <summary>
         /// Результат вызова метода контроллера.
         /// </summary>
@@ -29,7 +29,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Конструктор ответа.
         /// </summary>
-        public ResponseMessage(ushort uid, object rawResult)
+        public ResponseMessage(int uid, object rawResult)
         {
             Uid = uid;
             ActionResult = rawResult;

@@ -17,7 +17,7 @@ namespace DanilovSoft.vRPC
         ///// </summary>
         //public HeaderDto HeaderDto { get; }
 
-        public ushort? Uid { get; }
+        public int? Uid { get; }
 
         /// <summary>
         /// Запрашиваемый метод контроллера.
@@ -29,7 +29,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public object[] Args { get; }
 
-        public RequestToInvoke(ushort? uid, ControllerAction invokeAction, object[] args)
+        public RequestToInvoke(int? uid, ControllerAction invokeAction, object[] args)
         {
             Uid = uid;
             ActionToInvoke = invokeAction;
