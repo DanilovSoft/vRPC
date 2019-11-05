@@ -1532,6 +1532,18 @@
             Предотвращает повторный запуск сервера.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.GetConnections">
+            <summary>
+            Возвращает копию коллекции подключенных клиентов.
+            Потокобезопасно.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.GetConnectionsExcept(DanilovSoft.vRPC.ServerSideConnection)">
+            <summary>
+            Возвращает копию коллекции подключенных клиентов кроме <paramref name="exceptCon"/>.
+            Потокобезопасно.
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.StopRequired.CloseDescription">
             <summary>
             Причина остановки сервиса указанная пользователем. Может быть <see langword="null"/>.
