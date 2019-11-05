@@ -436,6 +436,12 @@
             <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.CloseAndDisposeAsync(System.Exception,System.String)">
+            <summary>
+            Отправляет Close и выполняет Dispose.
+            </summary>
+            <param name="protocolErrorException">Распространяет исключение ожидаюшим потокам.</param>
+        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
             Сериализует сообщение в новом потоке и добавляет в очередь на отправку.
@@ -564,7 +570,7 @@
             Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.UInt16,System.Object)">
+        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.Int32,System.Object)">
             <summary>
             Конструктор ответа.
             </summary>
@@ -685,17 +691,17 @@
             следует использовать формат по умолчанию.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.HeaderDto.FromResponse(System.UInt16,DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
+        <member name="M:DanilovSoft.vRPC.HeaderDto.FromResponse(System.Int32,DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
             <summary>
             Создаёт заголовок ответа на запрос.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.HeaderDto.CreateRequest(System.Nullable{System.UInt16},System.Int32)">
+        <member name="M:DanilovSoft.vRPC.HeaderDto.CreateRequest(System.Nullable{System.Int32},System.Int32)">
             <summary>
             Создаёт заголовок для нового запроса.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.Nullable{System.UInt16},DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
+        <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.Nullable{System.Int32},DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
             <summary>
             Конструктор заголовка и для ответа и для запроса.
             </summary>
@@ -931,13 +937,13 @@
             Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestQueue.AddRequest(DanilovSoft.vRPC.RequestToSend,System.UInt16@)">
+        <member name="M:DanilovSoft.vRPC.RequestQueue.AddRequest(DanilovSoft.vRPC.RequestToSend,System.Int32@)">
             <summary>
             Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
             </summary>
             <exception cref="T:System.Exception">Происходит если уже происходил обрыв соединения.</exception>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestQueue.TryRemove(System.UInt16,DanilovSoft.vRPC.RequestAwaiter@)">
+        <member name="M:DanilovSoft.vRPC.RequestQueue.TryRemove(System.Int32,DanilovSoft.vRPC.RequestAwaiter@)">
             <summary>
             Потокобезопасно удаляет запрос из словаря.
             </summary>
@@ -1530,6 +1536,18 @@
         <member name="M:DanilovSoft.vRPC.RpcListener.InnerStart">
             <summary>
             Предотвращает повторный запуск сервера.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.GetConnections">
+            <summary>
+            Возвращает копию коллекции подключенных клиентов.
+            Потокобезопасно.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.GetConnectionsExcept(DanilovSoft.vRPC.ServerSideConnection)">
+            <summary>
+            Возвращает копию коллекции подключенных клиентов кроме <paramref name="exceptCon"/>.
+            Потокобезопасно.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.StopRequired.CloseDescription">

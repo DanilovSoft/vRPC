@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
     internal sealed class RequestQueue
     {
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        private readonly Dictionary<ushort, RequestAwaiter> _dict = new Dictionary<ushort, RequestAwaiter>();
+        private readonly Dictionary<int, RequestAwaiter> _dict = new Dictionary<int, RequestAwaiter>();
         /// <summary>
         /// Не является потокобезопасным.
         /// </summary>
@@ -34,7 +34,7 @@ namespace DanilovSoft.vRPC
         /// Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
         /// </summary>
         /// <exception cref="Exception">Происходит если уже происходил обрыв соединения.</exception>
-        public RequestAwaiter AddRequest(RequestToSend requestToSend, out ushort uid)
+        public RequestAwaiter AddRequest(RequestToSend requestToSend, out int uid)
         {
             var tcs = new RequestAwaiter(requestToSend);
 
@@ -44,7 +44,7 @@ namespace DanilovSoft.vRPC
                 {
                     if (_disconnectException == null)
                     {
-                        if (_dict.Count < ushort.MaxValue)
+                        if (_dict.Count < int.MaxValue)
                         // Словарь еще не переполнен — можно найти свободный ключ.
                         {
                             do
@@ -65,16 +65,16 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private ushort IncrementSeq()
+        private int IncrementSeq()
         {
-            ushort uid = unchecked((ushort)Interlocked.Increment(ref _reqIdSeq));
+            int uid = Interlocked.Increment(ref _reqIdSeq);
             return uid;
         }
 
         /// <summary>
         /// Потокобезопасно удаляет запрос из словаря.
         /// </summary>
-        public bool TryRemove(ushort uid, out RequestAwaiter tcs)
+        public bool TryRemove(int uid, out RequestAwaiter tcs)
         {
             lock (_dict)
             {
