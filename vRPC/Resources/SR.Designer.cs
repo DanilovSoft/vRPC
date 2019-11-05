@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace DanilovSoft.vRPC {
+namespace DanilovSoft.vRPC.Resources {
     using System;
     
     
@@ -22,7 +22,7 @@ namespace DanilovSoft.vRPC {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal partial class SR {
+    internal class SR {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -75,6 +75,15 @@ namespace DanilovSoft.vRPC {
         internal static string ProtocolError {
             get {
                 return ResourceManager.GetString("ProtocolError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Ищет локализованную строку, похожую на WebSocket messages type should be Binary but we&apos;ve got Text.
+        /// </summary>
+        internal static string TextMessageTypeNotSupported {
+            get {
+                return ResourceManager.GetString("TextMessageTypeNotSupported", resourceCulture);
             }
         }
     }

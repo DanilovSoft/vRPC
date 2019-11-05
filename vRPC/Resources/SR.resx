@@ -123,4 +123,7 @@
   <data name="ProtocolError" xml:space="preserve">
     <value>An error has occurred during header deserialization from the remote side and connection will be closed. Error: {0}</value>
   </data>
+  <data name="TextMessageTypeNotSupported" xml:space="preserve">
+    <value>WebSocket messages type should be Binary but we've got Text</value>
+  </data>
 </root>

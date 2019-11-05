@@ -45,9 +45,9 @@
             Используется для синхронизации установки соединения.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.RpcClient._uri">
+        <member name="P:DanilovSoft.vRPC.RpcClient.ServerAddress">
             <summary>
-            Адрес для подключеия к серверу.
+            Адрес для подключения к серверу.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.RpcClient._appBuilder">
@@ -1003,30 +1003,48 @@
             Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.SR">
+        <member name="M:DanilovSoft.vRPC.Resources.SR2.GetString(System.String,System.Object)">
+            <summary>
+            Форматирует строку.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.Resources.SR2.GetString(System.String,System.Object[])">
+            <summary>
+            Форматирует строку.
+            </summary>
+            <param name="message"></param>
+            <param name="args"></param>
+            <returns></returns>
+        </member>
+        <member name="T:DanilovSoft.vRPC.Resources.SR">
             <summary>
               Класс ресурса со строгой типизацией для поиска локализованных строк и т.д.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.SR.ResourceManager">
+        <member name="P:DanilovSoft.vRPC.Resources.SR.ResourceManager">
             <summary>
               Возвращает кэшированный экземпляр ResourceManager, использованный этим классом.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.SR.Culture">
+        <member name="P:DanilovSoft.vRPC.Resources.SR.Culture">
             <summary>
               Перезаписывает свойство CurrentUICulture текущего потока для всех
               обращений к ресурсу с помощью этого класса ресурса со строгой типизацией.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.SR.CloseAsyncProtocolError">
+        <member name="P:DanilovSoft.vRPC.Resources.SR.CloseAsyncProtocolError">
             <summary>
               Ищет локализованную строку, похожую на An error has occurred during header deserialization: {0}.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.SR.ProtocolError">
+        <member name="P:DanilovSoft.vRPC.Resources.SR.ProtocolError">
             <summary>
               Ищет локализованную строку, похожую на An error has occurred during header deserialization from the remote side and connection will be closed. Error: {0}.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.Resources.SR.TextMessageTypeNotSupported">
+            <summary>
+              Ищет локализованную строку, похожую на WebSocket messages type should be Binary but we&apos;ve got Text.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.RijndaelEnhanced">

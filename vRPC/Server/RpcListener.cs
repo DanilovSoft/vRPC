@@ -322,6 +322,10 @@ namespace DanilovSoft.vRPC
             ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(context, e.DisconnectReason));
         }
 
+        /// <summary>
+        /// Возвращает копию коллекции подключенных клиентов.
+        /// Потокобезопасно.
+        /// </summary>
         public ServerSideConnection[] GetConnections()
         {
             lock (_connections.SyncObj)
@@ -332,11 +336,15 @@ namespace DanilovSoft.vRPC
             return Array.Empty<ServerSideConnection>();
         }
 
-        internal ServerSideConnection[] GetConnectionsExcept(ServerSideConnection self)
+        /// <summary>
+        /// Возвращает копию коллекции подключенных клиентов кроме <paramref name="exceptCon"/>.
+        /// Потокобезопасно.
+        /// </summary>
+        internal ServerSideConnection[] GetConnectionsExcept(ServerSideConnection exceptCon)
         {
             lock (_connections.SyncObj)
             {
-                int selfIndex = _connections.IndexOf(self);
+                int selfIndex = _connections.IndexOf(exceptCon);
                 if (selfIndex != -1)
                 {
                     if (_connections.Count > 1)

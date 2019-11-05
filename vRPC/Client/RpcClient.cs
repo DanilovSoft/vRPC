@@ -1,5 +1,4 @@
-﻿using DanilovSoft;
-using DanilovSoft.WebSockets;
+﻿using DanilovSoft.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
@@ -8,7 +7,6 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-//using MyClientWebSocket = DanilovSoft.WebSocket.ClientWebSocket;
 
 namespace DanilovSoft.vRPC
 {
@@ -23,9 +21,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private readonly ChannelLock _connectLock;
         /// <summary>
-        /// Адрес для подключеия к серверу.
+        /// Адрес для подключения к серверу.
         /// </summary>
-        private readonly Uri _uri;
+        public Uri ServerAddress { get; private set; }
         private readonly InvokeActionsDictionary _invokeActions;
         private readonly ProxyCache _proxyCache = new ProxyCache();
         private readonly ServiceCollection _serviceCollection = new ServiceCollection();
@@ -83,7 +81,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт контекст клиентского соединения.
         /// </summary>
-        public RpcClient(Uri uri) : this(Assembly.GetCallingAssembly(), uri)
+        public RpcClient(Uri serverAddress) : this(Assembly.GetCallingAssembly(), serverAddress)
         {
 
         }
@@ -110,7 +108,7 @@ namespace DanilovSoft.vRPC
 
             // Словарь с методами контроллеров.
             _invokeActions = new InvokeActionsDictionary(controllerTypes);
-            _uri = uri;
+            ServerAddress = uri;
             _connectLock = new ChannelLock();
 
             InnerConfigureIoC(controllerTypes.Values);
@@ -394,8 +392,8 @@ namespace DanilovSoft.vRPC
             // Подключение отсутствует.
             {
                 // Захватить блокировку.
-                var t = _connectLock.LockAsync();
-                if (t.IsCompleted)
+                ValueTask<ChannelLock.Releaser> t = _connectLock.LockAsync();
+                if (t.IsCompletedSuccessfully)
                 {
                     ChannelLock.Releaser releaser = t.Result;
                     return LockAquiredConnectAsync(releaser);
@@ -463,7 +461,7 @@ namespace DanilovSoft.vRPC
                     try
                     {
                         // Обычное подключение Tcp.
-                        ReceiveResult receiveResult = await ws.ConnectExAsync(_uri, CancellationToken.None).ConfigureAwait(false);
+                        ReceiveResult receiveResult = await ws.ConnectExAsync(ServerAddress, CancellationToken.None).ConfigureAwait(false);
 
                         if (Interlocked.Exchange(ref _connectingWs, null) == null)
                         // Stop или Dispose уже вызвали Dispose для ws.
@@ -498,12 +496,6 @@ namespace DanilovSoft.vRPC
                                 if (!_disposed)
                                 {
                                     connection = new ClientSideConnection(this, ws, serviceProvider, _invokeActions);
-
-                                    //new Timer(s =>
-                                    //{
-                                    //    var w = (ClientWebSocket)s;
-                                    //    w.Dispose();
-                                    //}, ws, 10000, -1);
 
                                     // Предотвратить Dispose.
                                     ws = null;
