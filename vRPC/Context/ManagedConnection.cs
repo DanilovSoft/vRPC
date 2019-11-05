@@ -910,36 +910,10 @@ namespace DanilovSoft.vRPC
                 else
                 // Ошибка в хедере.
                 {
-                    #region Отправка Close
-
-                    var protocolErrorException = new RpcProtocolErrorException("Не удалось десериализовать полученный заголовок сообщения.");
-
-                    // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-                    _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
-
-                    try
-                    {
-                        // Отключаемся от сокета с небольшим таймаутом.
-                        using (var cts = new CancellationTokenSource(1000))
-                            await _socket.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError, "Не удалось десериализовать полученный заголовок сообщения.", cts.Token).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    // Злой обрыв соединения.
-                    {
-                        // Оповестить об обрыве.
-                        AtomicDispose(CloseReason.FromException(ex, _stopRequired));
-
-                        // Завершить поток.
-                        return;
-                    }
-
-                    // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(protocolErrorException, _stopRequired));
-
-                    // Завершить поток.
+                    // Отправка Close и выход.
+                    var protocolException = new RpcProtocolErrorException("Не удалось десериализовать полученный заголовок сообщения.");
+                    await CloseAndDisposeAsync(protocolException, $"Unable to deserialize header. Count of bytes was {webSocketMessage.Count}").ConfigureAwait(false);
                     return;
-
-                    #endregion
                 }
             }
         }
