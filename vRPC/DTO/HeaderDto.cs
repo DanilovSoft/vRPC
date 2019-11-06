@@ -11,11 +11,11 @@ namespace DanilovSoft.vRPC
     /// Заголовок передаваемого сообщения. Размер заголовка — динамический. Сериализатор всегда ProtoBuf.
     /// </summary>
     [ProtoContract]
-    [DebuggerDisplay(@"\{Status = {StatusCode}, Content = {ContentLength} байт\}")]
+    [DebuggerDisplay(@"\{Uid = {Uid}, Status = {StatusCode}, Content = {ContentLength} байт\}")]
     internal sealed class HeaderDto
     {
         public const int HeaderMaxSize = 64;
-        public static HeaderDto Empty => default;
+        //public static HeaderDto Empty => default;
         private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
 
         [ProtoMember(1, IsRequired = false)]
@@ -75,10 +75,10 @@ namespace DanilovSoft.vRPC
         public void SerializeProtoBuf(Stream stream, out int headerSize)
         {
             int initialPos = (int)stream.Position;
-
+            
             // Сериализуем хедэр.
             ProtoBufSerializer.Serialize(stream, this);
-            
+
             headerSize = (int)stream.Position - initialPos;
 
             Debug.Assert(headerSize <= HeaderMaxSize);
@@ -106,13 +106,11 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public Func<ReadOnlyMemory<byte>, Type, object> GetDeserializer()
         {
-            switch (ContentEncoding)
+            return ContentEncoding switch
             {
-                case ProducesProtoBufAttribute.Encoding:
-                        return ExtensionMethods.DeserializeProtoBuf;
-                default:
-                    return ExtensionMethods.DeserializeJson; // Сериализатор по умолчанию.
-            }
+                ProducesProtoBufAttribute.Encoding => ExtensionMethods.DeserializeProtoBuf,
+                _ => ExtensionMethods.DeserializeJson, // Сериализатор по умолчанию.
+            };
         }
 
         //public static bool operator ==(in HeaderDto a, in HeaderDto b)
@@ -130,10 +128,13 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public override string ToString()
         {
-            return $@"{nameof(Uid)} = {Uid}
-{nameof(StatusCode)} = {StatusCode}
-{nameof(ContentLength)} = {ContentLength}
-{nameof(ContentEncoding)} = {ContentEncoding}";
+            string s = $"{nameof(Uid)} = {Uid} {nameof(StatusCode)} = {StatusCode} {nameof(ContentLength)} = {ContentLength}";
+            if(ContentEncoding != null)
+            {
+                s += $" {nameof(ContentEncoding)} = {ContentEncoding}";
+            }
+
+            return s;
         }
     }
 }

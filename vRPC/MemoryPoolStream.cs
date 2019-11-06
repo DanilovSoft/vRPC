@@ -4,6 +4,7 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace System.IO
 {
@@ -79,7 +80,12 @@ namespace System.IO
 
             return _arrayBuffer;
         }
-        
+
+        public override Task FlushAsync(CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;   
+        }
+
         public override void Flush()
         {
             // Ничего флашить не нужно.

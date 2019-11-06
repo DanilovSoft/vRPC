@@ -31,7 +31,9 @@ namespace DanilovSoft.vRPC
             try
             {
                 using (var writer = new Utf8JsonWriter(destination))
+                {
                     JsonSerializer.Serialize(writer, instance/*, new JsonSerializerOptions { IgnoreNullValues = true }*/);
+                }
             }
             catch (Exception ex)
             {
@@ -45,7 +47,9 @@ namespace DanilovSoft.vRPC
         public static void SerializeObjectJson<T>(Stream destination, T instance)
         {
             using (var writer = new Utf8JsonWriter(destination))
+            {
                 JsonSerializer.Serialize(writer, instance);
+            }
         }
 
         /// <summary>

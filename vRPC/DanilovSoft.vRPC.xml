@@ -268,11 +268,6 @@
             Контекст соединения Web-Сокета. Владеет соединением.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ManagedConnection.WebSocketMaxFrameSize">
-            <summary>
-            Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
-            </summary>
-        </member>
         <member name="P:DanilovSoft.vRPC.ManagedConnection.InterfaceMethods">
             <summary>
             Содержит имена методов прокси интерфейса без постфикса Async.
@@ -1647,24 +1642,6 @@
             <summary>
             Возвращает -1 если достигнут конец потока.
             </summary>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
-            <summary>
-            Увеличивает размер буфера сохраняя данные.
-            </summary>
-            <param name="newSize">Необходимый размер буфера. Новый буфер может быть больше указанного размера.</param>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.ThrowIfDisposed">
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:System.Threading.ChannelLock.LockAsync">
-            <summary>
-            Не бросает исключения.
-            </summary>
-        </member>
-    </members>
-</doc>
-mary>
         </member>
         <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
             <summary>
