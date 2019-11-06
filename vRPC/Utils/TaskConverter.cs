@@ -90,7 +90,8 @@ namespace DanilovSoft.vRPC
             static async Task<T> WaitForTaskAsync(Task<object> t)
             {
                 object taskResult = await t.ConfigureAwait(false);
-                return (T)taskResult;
+                var result = (T)taskResult;
+                return result;
             }
         }
 

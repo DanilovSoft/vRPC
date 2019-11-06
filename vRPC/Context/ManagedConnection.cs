@@ -675,7 +675,7 @@ namespace DanilovSoft.vRPC
 
                 if (header != null)
                 {
-                    Debug.WriteLine($"Received Header: {header}");
+                    //Debug.WriteLine($"Received Header: {header}");
 
                     using (var sharedMemHandler = MemoryPool<byte>.Shared.Rent(header.ContentLength))
                     {

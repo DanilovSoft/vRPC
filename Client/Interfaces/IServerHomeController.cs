@@ -10,7 +10,7 @@ namespace Client
     public interface IServerHomeController
     {
         void DummyCall(int n);
-        Task<DateTime> DummyCallAsync(string v);
+        Task DummyCallAsync(int n);
         Task Test3Async();
         Task<int> Test4Async();
         Task<int> Test2Async();
@@ -20,5 +20,6 @@ namespace Client
         void NotifyTest();
 
         DateTime Test(TestDto testDto);
+        Task<string> TestAsync();
     }
 }

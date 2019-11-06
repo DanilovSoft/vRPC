@@ -30,9 +30,9 @@ namespace Server.Controllers
             //return DateTime.Now.ToString();
         }
 
-        public DateTime Test(TestDto test)
+        public string Test()
         {
-            return DateTime.Now;
+            return DateTime.Now.ToString();
         }
 
         public void NotifyTest()

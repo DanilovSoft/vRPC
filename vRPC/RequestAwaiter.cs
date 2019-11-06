@@ -75,14 +75,15 @@ namespace DanilovSoft.vRPC
             {
                 // Нельзя делать продолжение текущим потоком т.к. это затормозит/остановит диспетчер 
                 // или произойдет побег специального потока диспетчера.
+#if NETCOREAPP3_0
+                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true);
+#else
                 ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
-
-                // TODO сравнить.
-                //QueueUserWorkItem(continuation);
+#endif
             }
         }
 
-        [DebuggerStepThrough]
+        //[DebuggerStepThrough]
         private static void CallContinuation(object state)
         {
             ((Action)state).Invoke();

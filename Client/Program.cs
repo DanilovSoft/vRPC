@@ -87,7 +87,7 @@ namespace Client
                             {
                                 try
                                 {
-                                    homeController.DummyCall(123);
+                                    string s = homeController.TestAsync().GetAwaiter().GetResult();
                                 }
                                 catch (StopRequiredException)
                                 {
