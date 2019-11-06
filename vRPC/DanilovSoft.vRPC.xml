@@ -1664,3 +1664,21 @@
         </member>
     </members>
 </doc>
+mary>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
+            <summary>
+            Увеличивает размер буфера сохраняя данные.
+            </summary>
+            <param name="newSize">Необходимый размер буфера. Новый буфер может быть больше указанного размера.</param>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.ThrowIfDisposed">
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:System.Threading.ChannelLock.LockAsync">
+            <summary>
+            Не бросает исключения.
+            </summary>
+        </member>
+    </members>
+</doc>

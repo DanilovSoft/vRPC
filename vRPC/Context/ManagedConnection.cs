@@ -612,20 +612,27 @@ namespace DanilovSoft.vRPC
 
                 ValueWebSocketReceiveResult webSocketMessage;
 
-                try
+                int offset = 0;
+                do
                 {
-                    // Читаем фрейм веб-сокета.
-                    webSocketMessage = await _socket.ReceiveExAsync(headerBuffer, CancellationToken.None).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                // Обрыв соединения.
-                {
-                    // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                    try
+                    {
+                        // Читаем фрейм веб-сокета.
+                        webSocketMessage = await _socket.ReceiveExAsync(headerBuffer.AsMemory(offset), CancellationToken.None).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    // Обрыв соединения.
+                    {
+                        // Оповестить об обрыве.
+                        AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
-                    // Завершить поток.
-                    return;
-                }
+                        // Завершить поток.
+                        return;
+                    }
+
+                    offset += webSocketMessage.Count;
+
+                } while (!webSocketMessage.EndOfMessage);
 
                 HeaderDto header;
                 if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
@@ -648,9 +655,10 @@ namespace DanilovSoft.vRPC
                 else if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
                 // Тип Text не поддерживается.
                 {
-                    // Отправка Close и выход
                     // Тип фрейма должен быть Binary.
                     var protocolErrorException = new RpcProtocolErrorException(SR.TextMessageTypeNotSupported);
+
+                    // Отправка Close и выход
                     await CloseAndDisposeAsync(protocolErrorException, SR.TextMessageTypeNotSupported).ConfigureAwait(false);
                     return;
                 }
@@ -677,7 +685,7 @@ namespace DanilovSoft.vRPC
                             // Можно не очищать – буффер будет перезаписан.
                             contentMem = sharedMemHandler.Memory.Slice(0, header.ContentLength);
 
-                            int offset = 0;
+                            offset = 0;
                             int receiveMessageBytesLeft = header.ContentLength;
 
                             do // Читаем и склеиваем фреймы веб-сокета пока не EndOfMessage.
@@ -711,9 +719,10 @@ namespace DanilovSoft.vRPC
                                 }
                                 else if(webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
                                 {
-                                    // Отправка Close и выход
                                     // Тип фрейма должен быть Binary.
                                     var protocolErrorException = new RpcProtocolErrorException(SR.TextMessageTypeNotSupported);
+
+                                    // Отправка Close и выход
                                     await CloseAndDisposeAsync(protocolErrorException, SR.TextMessageTypeNotSupported).ConfigureAwait(false);
                                     return;
                                 }
