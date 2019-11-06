@@ -26,10 +26,10 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public abstract class ManagedConnection : IDisposable, IGetProxy
     {
-        /// <summary>
-        /// Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
-        /// </summary>
-        private const int WebSocketMaxFrameSize = 8192;
+        ///// <summary>
+        ///// Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
+        ///// </summary>
+        //private const int WebSocketMaxFrameSize = 8192;
         //private const string ProtocolHeaderErrorMessage = "Произошла ошибка десериализации заголовка от удалённой стороны.";
         /// <summary>
         /// Содержит имена методов прокси интерфейса без постфикса Async.
@@ -612,20 +612,27 @@ namespace DanilovSoft.vRPC
 
                 ValueWebSocketReceiveResult webSocketMessage;
 
-                try
+                int bufferOffset = 0;
+                do
                 {
-                    // Читаем фрейм веб-сокета.
-                    webSocketMessage = await _socket.ReceiveExAsync(headerBuffer, CancellationToken.None).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                // Обрыв соединения.
-                {
-                    // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                    try
+                    {
+                        // Читаем фрейм веб-сокета.
+                        webSocketMessage = await _socket.ReceiveExAsync(headerBuffer.AsMemory(bufferOffset), CancellationToken.None).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    // Обрыв соединения.
+                    {
+                        // Оповестить об обрыве.
+                        AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
-                    // Завершить поток.
-                    return;
-                }
+                        // Завершить поток.
+                        return;
+                    }
+
+                    bufferOffset += webSocketMessage.Count;
+
+                } while (!webSocketMessage.EndOfMessage);
 
                 HeaderDto header;
                 if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
@@ -648,9 +655,10 @@ namespace DanilovSoft.vRPC
                 else if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
                 // Тип Text не поддерживается.
                 {
-                    // Отправка Close и выход
                     // Тип фрейма должен быть Binary.
                     var protocolErrorException = new RpcProtocolErrorException(SR.TextMessageTypeNotSupported);
+
+                    // Отправка Close и выход
                     await CloseAndDisposeAsync(protocolErrorException, SR.TextMessageTypeNotSupported).ConfigureAwait(false);
                     return;
                 }
@@ -667,6 +675,8 @@ namespace DanilovSoft.vRPC
 
                 if (header != null)
                 {
+                    Debug.WriteLine($"Received Header: {header}");
+
                     using (var sharedMemHandler = MemoryPool<byte>.Shared.Rent(header.ContentLength))
                     {
                         Memory<byte> contentMem = null;
@@ -677,21 +687,39 @@ namespace DanilovSoft.vRPC
                             // Можно не очищать – буффер будет перезаписан.
                             contentMem = sharedMemHandler.Memory.Slice(0, header.ContentLength);
 
-                            int offset = 0;
+                            bufferOffset = 0;
+
+                            // Сколько байт должны принять в следующих фреймах.
                             int receiveMessageBytesLeft = header.ContentLength;
 
                             do // Читаем и склеиваем фреймы веб-сокета пока не EndOfMessage.
                             {
+                                // Проверить на ошибку протокола.
+                                if(receiveMessageBytesLeft == 0)
+                                // Считали сколько заявлено в ContentLength но сообщение оказалось больше.
+                                {
+                                    // Размер данных оказался больше чем заявлено в ContentLength.
+                                    var protocolErrorException = new RpcProtocolErrorException("Размер сообщения оказался больше чем заявлено в заголовке");
+
+                                    // Отправка Close и выход
+                                    await CloseAndDisposeAsync(
+                                        protocolErrorException, 
+                                        closeDescription: "Web-Socket message size was larger than specified in the header's 'ContentLength'").ConfigureAwait(false);
+
+                                    // Завершить поток.
+                                    return;
+                                }
+
                                 #region Пока не EndOfMessage записывать в буфер памяти
 
                                 #region Читаем фрейм веб-сокета
 
                                 // Ограничиваем буфер памяти до колличества принятых байт из сокета.
-                                Memory<byte> buffer = contentMem.Slice(offset, receiveMessageBytesLeft);
+                                Memory<byte> contentBuffer = contentMem.Slice(bufferOffset, receiveMessageBytesLeft);
                                 try
                                 {
                                     // Читаем фрейм веб-сокета.
-                                    webSocketMessage = await _socket.ReceiveExAsync(buffer, CancellationToken.None).ConfigureAwait(false);
+                                    webSocketMessage = await _socket.ReceiveExAsync(contentBuffer, CancellationToken.None).ConfigureAwait(false);
                                 }
                                 catch (Exception ex)
                                 // Обрыв соединения.
@@ -706,14 +734,15 @@ namespace DanilovSoft.vRPC
 
                                 if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
                                 {
-                                    offset += webSocketMessage.Count;
+                                    bufferOffset += webSocketMessage.Count;
                                     receiveMessageBytesLeft -= webSocketMessage.Count;
                                 }
                                 else if(webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
                                 {
-                                    // Отправка Close и выход
                                     // Тип фрейма должен быть Binary.
                                     var protocolErrorException = new RpcProtocolErrorException(SR.TextMessageTypeNotSupported);
+
+                                    // Отправка Close и выход
                                     await CloseAndDisposeAsync(protocolErrorException, SR.TextMessageTypeNotSupported).ConfigureAwait(false);
                                     return;
                                 }
@@ -725,7 +754,6 @@ namespace DanilovSoft.vRPC
                                     // Завершить поток.
                                     return;
                                 }
-
                                 #endregion
 
                             } while (!webSocketMessage.EndOfMessage);
@@ -978,17 +1006,19 @@ namespace DanilovSoft.vRPC
         private static SerializedMessageToSend SerializeRequest(RequestToSend requestToSend, object[] args)
         {
             var serializedMessage = new SerializedMessageToSend(requestToSend);
-            var request = new RequestMessageDto(requestToSend.ActionName, args);
             try
             {
+                var request = new RequestMessageDto(requestToSend.ActionName, args);
                 ExtensionMethods.SerializeObjectJson(serializedMessage.MemPoolStream, request);
+
+                var ret = serializedMessage;
+                serializedMessage = null;
+                return ret;
             }
-            catch
+            finally
             {
-                serializedMessage.Dispose();
-                throw;
+                serializedMessage?.Dispose();
             }
-            return serializedMessage;
         }
 
         /// <summary>
@@ -1035,8 +1065,6 @@ namespace DanilovSoft.vRPC
         private static void AppendHeader(SerializedMessageToSend messageToSend)
         {
             HeaderDto header = CreateHeader(messageToSend);
-
-            //messageToSend.MemPoolStream.Position = 0;
 
             // Записать заголовок в конец стрима. Не бросает исключения.
             header.SerializeProtoBuf(messageToSend.MemPoolStream, out int headerSize);
@@ -1161,52 +1189,23 @@ namespace DanilovSoft.vRPC
                         {
                             #region Отправка тела сообщения (запрос или ответ на запрос)
 
-                            // Отправляем сообщение по частям.
-                            int offset = 0;
-                            int bytesLeft = messageSize;
-                            do
+                            try
                             {
-                                // TODO возможно нет смысла.
-                                #region Фрагментируем отправку
+                                await _socket.SendAsync(streamBuffer.AsMemory(0, messageSize),
+                                    Ms.WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            // Обрыв соединения.
+                            {
+                                // Оповестить об обрыве.
+                                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
-                                bool endOfMessage;
-                                int countToSend = WebSocketMaxFrameSize;
-                                if (countToSend >= bytesLeft)
-                                {
-                                    countToSend = bytesLeft;
-                                    endOfMessage = true;
-                                }
-                                else
-                                {
-                                    endOfMessage = false;
-                                }
+                                // Завершить поток.
+                                return;
+                            }
 
-                                try
-                                {
-                                    await _socket.SendAsync(streamBuffer.AsMemory(offset, countToSend),
-                                        Ms.WebSocketMessageType.Binary, endOfMessage, CancellationToken.None).ConfigureAwait(false);
-                                }
-                                catch (Exception ex)
-                                // Обрыв соединения.
-                                {
-                                    // Оповестить об обрыве.
-                                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
-
-                                    // Завершить поток.
-                                    return;
-                                }
-                                
-                                if (endOfMessage)
-                                    break;
-
-                                bytesLeft -= countToSend;
-                                offset += countToSend;
-                                
-                                #endregion
-                            } while (bytesLeft > 0);
                             #endregion
                         }
-                        
 
                         if (!serializedMessage.MessageToSend.IsRequest)
                         // Ответ успешно отправлен.

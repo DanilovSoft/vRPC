@@ -268,11 +268,6 @@
             Контекст соединения Web-Сокета. Владеет соединением.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ManagedConnection.WebSocketMaxFrameSize">
-            <summary>
-            Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
-            </summary>
-        </member>
         <member name="P:DanilovSoft.vRPC.ManagedConnection.InterfaceMethods">
             <summary>
             Содержит имена методов прокси интерфейса без постфикса Async.
