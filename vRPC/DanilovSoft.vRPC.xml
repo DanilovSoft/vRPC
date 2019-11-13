@@ -886,6 +886,22 @@
             Десериализует json запрос.
             </summary>
         </member>
+        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
+            <summary>
+            Существует только для Net Framework.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
+            <summary>
+            Перегрузка для Net Framework.
+            Attempts to add the specified key and value to the dictionary.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
+            <summary>
+            Перегрузка для Net Framework.
+            </summary>
+        </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
             <summary>
             Содержит прокси созданные из интерфейсов.
@@ -1432,25 +1448,7 @@
             Random integer value between the min and max values (inclusive).
             </returns>
             <remarks>
-            This methods overcomes the limitations of .NET Framework's Random
-            class, which - when initialized multiple times within a very short
-            period of time - can generate the same "random" number.
-            </remarks>
-        </member>
-        <member name="T:DanilovSoft.vRPC.RijndaelEnhancedTest">
-            <summary>
-            Illustrates the use of RijndaelEnhanced class to encrypt and decrypt data
-            using a random salt value.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhancedTest.Main">
-            <summary>
-            The main entry point for the application.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener.InvokeActions">
-            <summary>
-            Словарь используемый только для чтения, поэтому потокобезопасен.
+            This methods overcomes the limitations of .NET F�ько для чтения, поэтому потокобезопасен.
             Хранит все доступные контроллеры. Не учитывает регистр.
             </summary>
         </member>
@@ -1642,6 +1640,24 @@
             <summary>
             Возвращает -1 если достигнут конец потока.
             </summary>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
+            <summary>
+            Увеличивает размер буфера сохраняя данные.
+            </summary>
+            <param name="newSize">Необходимый размер буфера. Новый буфер может быть больше указанного размера.</param>
+        </member>
+        <member name="M:System.IO.MemoryPoolStream.ThrowIfDisposed">
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:System.Threading.ChannelLock.LockAsync">
+            <summary>
+            Не бросает исключения.
+            </summary>
+        </member>
+    </members>
+</doc>
+mary>
         </member>
         <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
             <summary>

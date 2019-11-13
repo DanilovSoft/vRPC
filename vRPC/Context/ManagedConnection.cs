@@ -665,6 +665,23 @@ namespace DanilovSoft.vRPC
                 else
                 // Получен Close.
                 {
+                    if(_socket.State == Ms.WebSocketState.CloseReceived)
+                    {
+                        try
+                        {
+                            await _socket.CloseOutputAsync(_socket.CloseStatus.Value, _socket.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        // Обрыв соединения.
+                        {
+                            // Оповестить об обрыве.
+                            AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+
+                            // Завершить поток.
+                            return;
+                        }
+                    }
+
                     CloseReceived();
 
                     // Завершить поток.
@@ -749,6 +766,23 @@ namespace DanilovSoft.vRPC
                                 else
                                 // Другая сторона закрыла соединение.
                                 {
+                                    if (_socket.State == Ms.WebSocketState.CloseReceived)
+                                    {
+                                        try
+                                        {
+                                            await _socket.CloseOutputAsync(_socket.CloseStatus.Value, _socket.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
+                                        }
+                                        catch (Exception ex)
+                                        // Обрыв соединения.
+                                        {
+                                            // Оповестить об обрыве.
+                                            AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+
+                                            // Завершить поток.
+                                            return;
+                                        }
+                                    }
+
                                     CloseReceived();
 
                                     // Завершить поток.
