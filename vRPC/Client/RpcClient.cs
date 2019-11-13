@@ -170,8 +170,8 @@ namespace DanilovSoft.vRPC
         {
             ThrowIfDisposed();
 
-            var t = ConnectIfNeededAsync();
-            if(t.IsCompleted)
+            ValueTask<ConnectionResult> t = ConnectIfNeededAsync();
+            if(t.IsCompletedSuccessfully)
             {
                 ConnectionResult conRes = t.Result;
                 return Task.FromResult(Result(conRes));
