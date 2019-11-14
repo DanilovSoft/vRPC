@@ -153,7 +153,7 @@ namespace Client
                     Console.WriteLine("Stopping...");
                 }
             }
-            client.BeginStop(TimeSpan.FromSeconds(100), "Был нажат Ctrl+C");
+            client.Stop(TimeSpan.FromSeconds(100), "Был нажат Ctrl+C");
         }
     }
 }

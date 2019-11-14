@@ -71,5 +71,24 @@ namespace DanilovSoft.vRPC
             AdditionalDescription = additionalDescription;
             StopRequest = stopRequired;
         }
+
+        public override string ToString()
+        {
+            if (Gracifully)
+            {
+                if(string.IsNullOrEmpty(CloseDescription))
+                {
+                    return "Удалённая сторона выполнила нормальное закрытие без объяснения причины";
+                }
+                else
+                {
+                    return $"Удалённая сторона выполнила нормальное закрытие: '{CloseDescription}'";
+                }
+            }
+            else
+            {
+                return $"Соединение оборвано: {AdditionalDescription ?? Error.Message}";
+            }
+        }
     }
 }
