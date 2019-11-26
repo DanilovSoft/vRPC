@@ -12,11 +12,13 @@
     <Authors>Vitalii Danilov</Authors>
     <PackageId>DanilovSoft.vRPC</PackageId>
     <Product>DanilovSoft.vRPC</Product>
-    <Version>1.2.8</Version>
+    <Version>1.2.9</Version>
   </PropertyGroup>
 
   <PropertyGroup>
     <DocumentationFile>DanilovSoft.vRPC.xml</DocumentationFile>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>DanilovSoft.vRPC.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

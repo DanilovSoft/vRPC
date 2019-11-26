@@ -42,7 +42,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Для <see cref="Task"/> <see cref="Completion"/>.
         /// </summary>
-        private readonly TaskCompletionSource<CloseReason> _completionTcs = new TaskCompletionSource<CloseReason>();
+        private readonly TaskCompletionSource<CloseReason> _completionTcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
         /// <summary>
         /// Причина закрытия соединения. Это свойство возвращает <see cref="Completion"/>.
         /// </summary>
@@ -216,11 +216,13 @@ namespace DanilovSoft.vRPC
             CloseReason closeReason;
             if (e.DisconnectingReason.Gracifully)
             {
-                closeReason = CloseReason.FromCloseFrame(e.DisconnectingReason.CloseStatus, e.DisconnectingReason.CloseDescription, e.DisconnectingReason.AdditionalDescription, _stopRequired);
+                closeReason = CloseReason.FromCloseFrame(e.DisconnectingReason.CloseStatus, 
+                    e.DisconnectingReason.CloseDescription, e.DisconnectingReason.AdditionalDescription, _stopRequired);
             }
             else
             {
-                closeReason = CloseReason.FromException(e.DisconnectingReason.Error, _stopRequired, e.DisconnectingReason.AdditionalDescription);
+                closeReason = CloseReason.FromException(e.DisconnectingReason.Error, 
+                    _stopRequired, e.DisconnectingReason.AdditionalDescription);
             }
             AtomicDispose(closeReason);
         }

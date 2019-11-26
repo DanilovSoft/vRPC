@@ -233,7 +233,7 @@ namespace DanilovSoft.vRPC
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         public void BeginStop(TimeSpan timeout, string closeDescription = null)
         {
-            PrivateStopAsync(timeout, closeDescription).GetAwaiter();
+            _ = PrivateStopAsync(timeout, closeDescription);
         }
 
         /// <summary>
