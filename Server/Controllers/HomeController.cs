@@ -10,7 +10,7 @@ using System.Diagnostics;
 namespace Server.Controllers
 {
     [AllowAnonymous]
-    public class HomeController : ServerController
+    internal class HomeController : ServerController
     {
         private readonly ILogger _logger;
         private readonly Program _program;
