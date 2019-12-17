@@ -45,11 +45,13 @@ namespace Server
                     {
                         Console.WriteLine("Stopping...");
                     }
-                    listener.Stop(TimeSpan.FromSeconds(3), "Пользователь нажал Ctrl+C");
+                    listener.BeginStop(TimeSpan.FromSeconds(3), "Пользователь нажал Ctrl+C");
                 };
 
                 listener.ClientConnected += Listener_ClientConnected;
                 listener.ClientDisconnected += Listener_ClientDisconnected;
+
+                //var lt = listener.ServiceProvider.GetRequiredService<IHostApplicationLifetime>();
 
                 listener.Start();
 

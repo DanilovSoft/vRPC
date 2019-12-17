@@ -32,7 +32,7 @@
         </member>
         <member name="F:DanilovSoft.vRPC.ClientConnections.SyncObj">
             <summary>
-            Модификация коллекции допускается с захватом этой блокировки.
+            Модификация коллекции <see cref="F:DanilovSoft.vRPC.RpcListener._connections"/> допускается с захватом этой блокировки.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.RpcClient">
@@ -143,10 +143,10 @@
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.Stop(System.TimeSpan,System.String)">
             <summary>
-            Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+            Выполняет грациозную остановку. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
             Потокобезопасно.
             </summary>
-            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.BeginStop(System.TimeSpan,System.String)">
@@ -155,15 +155,15 @@
             Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcClient.Completion"/>.
             Потокобезопасно.
             </summary>
-            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.StopAsync(System.TimeSpan,System.String)">
             <summary>
-            Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+            Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="disconnectTimeout"/>.
             Потокобезопасно.
             </summary>
-            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.ContextCallback">
@@ -860,6 +860,21 @@
             Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
             </summary>
         </member>
+        <member name="P:DanilovSoft.vRPC.IHostApplicationLifetime.ApplicationStarted">
+            <summary>
+            Triggered when the application host has fully started.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.IHostApplicationLifetime.ApplicationStopping">
+            <summary>
+            Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.IHostApplicationLifetime.ApplicationStopped">
+            <summary>
+            Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
+            </summary>
+        </member>
         <member name="T:DanilovSoft.vRPC.IProxy`1">
             <summary>
             Служит для инъекции зависимостей. Фактически выполняет GetProxy&lt;<typeparamref name="T"/>&gt;() для текущего подключения.
@@ -1464,6 +1479,21 @@
             The main entry point for the application.
             </summary>
         </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStarted">
+            <summary>
+            Triggered when the application host has fully started.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStopping">
+            <summary>
+            Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStopped">
+            <summary>
+            Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
+            </summary>
+        </member>
         <member name="F:DanilovSoft.vRPC.RpcListener.InvokeActions">
             <summary>
             Словарь используемый только для чтения, поэтому потокобезопасен.
@@ -1500,7 +1530,8 @@
         </member>
         <member name="F:DanilovSoft.vRPC.RpcListener._stopRequired">
             <summary>
-            Не позволяет подключаться новым клиентам. Единожны меняет состояние.
+            Не позволяет подключаться новым клиентам. Единожны меняет состояние в момент остановки сервиса.
+            Также предотвращает повторный запуск сервиса.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.ConfigureService(System.Action{Microsoft.Extensions.DependencyInjection.ServiceCollection})">
@@ -1512,11 +1543,19 @@
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.Stop(System.TimeSpan,System.String)">
             <summary>
+            Выполняет грациозную остановку сервиса. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
+            Потокобезопасно.
+            </summary>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.BeginStop(System.TimeSpan,System.String)">
+            <summary>
             Начинает остановку сервиса. Не блокирует поток.
             Не бросает исключения.
             Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
             </summary>
-            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
             Может быть <see langword="null"/>.</param>
         </member>
@@ -1524,18 +1563,43 @@
             <summary>
             Останавливает сервис и ожидает до полной остановки.
             Не бросает исключения.
-            Эквивалентно <see cref="M:DanilovSoft.vRPC.RpcListener.Stop(System.TimeSpan,System.String)"/> + <see langword="await"/> <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
+            Эквивалентно <see cref="M:DanilovSoft.vRPC.RpcListener.BeginStop(System.TimeSpan,System.String)"/> + <see langword="await"/> <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
             </summary>
-            <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
-            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
             Может быть <see langword="null"/>.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.InnerBeginStop(System.TimeSpan,System.String)">
+            <summary>
+            Начинает остановку сервера и взводит <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/> не дольше чем указано в <paramref name="disconnectTimeout"/>.
+            </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.RunAsync">
             <summary>
             Начинает приём подключений и обработку запросов до полной остановки методом Stop.
-            Эквивалентно вызову Start + <see langword="await"/> Completion.
+            Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
+            Повторный вызов не допускается.
             Потокобезопасно.
             </summary>
+            <exception cref="T:System.InvalidOperationException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.RunAsync(System.TimeSpan,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Начинает приём подключений и обработку запросов до полной остановки методом Stop
+            или с помощью токена отмены.
+            Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
+            Повторный вызов не допускается.
+            Потокобезопасно.
+            </summary>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов когда произойдёт остановка сервиса.</param>
+            <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
+            Может быть <see langword="null"/>.</param>
+            <param name="cancellationToken">Токен служащий для остановки сервиса.</param>
+            <exception cref="T:System.InvalidOperationException"/>
+            <exception cref="T:System.OperationCanceledException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.InnerRunAsync(System.TimeSpan,System.String,System.Threading.CancellationToken)">
+            <exception cref="T:System.OperationCanceledException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.Start">
             <summary>
@@ -1544,10 +1608,16 @@
             Потокобезопасно.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.InnerStart">
+        <member name="M:DanilovSoft.vRPC.RpcListener.TrySyncStart(System.Boolean)">
+            <summary>
+            Потокобезопасно запускает сервер. Только первый поток получит True.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.InnerTryStart(System.Boolean)">
             <summary>
             Предотвращает повторный запуск сервера.
             </summary>
+            <exception cref="T:System.InvalidOperationException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.GetConnections">
             <summary>
@@ -1566,13 +1636,13 @@
             Причина остановки сервиса указанная пользователем. Может быть <see langword="null"/>.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.StopRequired.Timeout">
+        <member name="P:DanilovSoft.vRPC.StopRequired.DisconnectTimeout">
             <summary>
             Максимальное время ожидания остановки сервиса указанное пользователем 
-            после которого соединение закрывается принудительно.
+            после которого все соединения закрываются принудительно.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.StopRequired.SetTaskAndReturn(DanilovSoft.vRPC.CloseReason)">
+        <member name="M:DanilovSoft.vRPC.StopRequired.SetTaskResult(DanilovSoft.vRPC.CloseReason)">
             <summary>
             Возвращает переданное значение.
             </summary>

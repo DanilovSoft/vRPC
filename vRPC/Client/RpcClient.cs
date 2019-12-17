@@ -214,14 +214,14 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+        /// Выполняет грациозную остановку. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
         /// Потокобезопасно.
         /// </summary>
-        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public CloseReason Stop(TimeSpan timeout, string closeDescription = null)
+        public CloseReason Stop(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            return StopAsync(timeout, closeDescription).GetAwaiter().GetResult();
+            return StopAsync(disconnectTimeout, closeDescription).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -229,25 +229,25 @@ namespace DanilovSoft.vRPC
         /// Результат остановки можно получить через <see cref="Completion"/>.
         /// Потокобезопасно.
         /// </summary>
-        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public void BeginStop(TimeSpan timeout, string closeDescription = null)
+        public void BeginStop(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            _ = PrivateStopAsync(timeout, closeDescription);
+            _ = PrivateStopAsync(disconnectTimeout, closeDescription);
         }
 
         /// <summary>
-        /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="timeout"/>.
+        /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="disconnectTimeout"/>.
         /// Потокобезопасно.
         /// </summary>
-        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public Task<CloseReason> StopAsync(TimeSpan timeout, string closeDescription = null)
+        public Task<CloseReason> StopAsync(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            return PrivateStopAsync(timeout, closeDescription);
+            return PrivateStopAsync(disconnectTimeout, closeDescription);
         }
 
-        private async Task<CloseReason> PrivateStopAsync(TimeSpan timeout, string closeDescription)
+        private async Task<CloseReason> PrivateStopAsync(TimeSpan disconnectTimeout, string closeDescription)
         {
             bool created;
             StopRequired stopRequired;
@@ -257,7 +257,7 @@ namespace DanilovSoft.vRPC
                 stopRequired = _stopRequired;
                 if (stopRequired == null)
                 {
-                    stopRequired = new StopRequired(timeout, closeDescription);
+                    stopRequired = new StopRequired(disconnectTimeout, closeDescription);
                     _stopRequired = stopRequired;
                     created = true;
 
@@ -288,7 +288,7 @@ namespace DanilovSoft.vRPC
                 // Соединения не существует и новые создаваться не смогут.
                 {
                     // Передать результат другим потокам которые повторно вызовут Stop.
-                    closeReason = stopRequired.SetTaskAndReturn(CloseReason.NoConnectionGracifully);
+                    closeReason = stopRequired.SetTaskResult(CloseReason.NoConnectionGracifully);
                 }
             }
             else

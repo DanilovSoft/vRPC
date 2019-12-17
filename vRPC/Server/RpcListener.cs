@@ -12,8 +12,25 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    public sealed class RpcListener : IDisposable
+    public sealed class RpcListener : IHostApplicationLifetime, IDisposable
     {
+        /// <summary>
+        /// Triggered when the application host has fully started.
+        /// </summary>
+        private readonly CancellationTokenSource _applicationStarted = new CancellationTokenSource();
+        /// <summary>
+        /// Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
+        /// </summary>
+        private readonly CancellationTokenSource _applicationStopping = new CancellationTokenSource();
+        /// <summary>
+        /// Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
+        /// </summary>
+        private readonly CancellationTokenSource _applicationStopped = new CancellationTokenSource();
+
+        public CancellationToken ApplicationStarted => _applicationStarted.Token;
+        public CancellationToken ApplicationStopping => _applicationStopping.Token;
+        public CancellationToken ApplicationStopped => _applicationStopped.Token;
+
         /// <summary>
         /// Словарь используемый только для чтения, поэтому потокобезопасен.
         /// Хранит все доступные контроллеры. Не учитывает регистр.
@@ -56,7 +73,8 @@ namespace DanilovSoft.vRPC
         public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
         private Action<ServiceProvider> _configureApp;
         /// <summary>
-        /// Не позволяет подключаться новым клиентам. Единожны меняет состояние.
+        /// Не позволяет подключаться новым клиентам. Единожны меняет состояние в момент остановки сервиса.
+        /// Также предотвращает повторный запуск сервиса.
         /// </summary>
         private volatile StopRequired _stopRequired;
         public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
@@ -111,6 +129,7 @@ namespace DanilovSoft.vRPC
         {
             _serviceCollection.AddScoped<GetProxyScope>();
             _serviceCollection.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
+            _serviceCollection.AddSingleton< IHostApplicationLifetime>(this);
 
             return _serviceCollection.BuildServiceProvider();
         }
@@ -121,51 +140,79 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
+        /// Выполняет грациозную остановку сервиса. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        public bool Stop(TimeSpan disconnectTimeout, string closeDescription = null)
+        {
+            return StopAsync(disconnectTimeout, closeDescription).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
         /// Начинает остановку сервиса. Не блокирует поток.
         /// Не бросает исключения.
         /// Результат остановки можно получить через <see cref="Completion"/>.
         /// </summary>
-        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
         /// Может быть <see langword="null"/>.</param>
-        public void Stop(TimeSpan timeout, string closeDescription = null)
+        public void BeginStop(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            BeginStop(timeout, closeDescription);
+            InnerBeginStop(disconnectTimeout, closeDescription);
         }
 
         /// <summary>
         /// Останавливает сервис и ожидает до полной остановки.
         /// Не бросает исключения.
-        /// Эквивалентно <see cref="Stop(TimeSpan, string)"/> + <see langword="await"/> <see cref="Completion"/>.
+        /// Эквивалентно <see cref="BeginStop(TimeSpan, string)"/> + <see langword="await"/> <see cref="Completion"/>.
         /// </summary>
-        /// <param name="timeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
-        /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
+        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
         /// Может быть <see langword="null"/>.</param>
-        public Task<bool> StopAsync(TimeSpan timeout, string closeDescription = null)
+        public Task<bool> StopAsync(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            BeginStop(timeout, closeDescription);
+            InnerBeginStop(disconnectTimeout, closeDescription);
             return Completion;
         }
 
-        private async void BeginStop(TimeSpan timeout, string closeDescription)
+        /// <summary>
+        /// Начинает остановку сервера и взводит <see cref="Completion"/> не дольше чем указано в <paramref name="disconnectTimeout"/>.
+        /// </summary>
+        private async void InnerBeginStop(TimeSpan disconnectTimeout, string closeDescription)
         {
             StopRequired stopRequired;
             lock (StartLock)
             {
+                // Копия volatile.
                 stopRequired = _stopRequired;
+
                 if (stopRequired == null)
                 {
-                    stopRequired = new StopRequired(timeout, closeDescription);
+                    stopRequired = new StopRequired(disconnectTimeout, closeDescription);
+
+                    // Это volatile свойство нужно установить перед 
+                    // остановкой WebSocketServer, оно не допустит новые соединения.
                     _stopRequired = stopRequired;
 
                     // Прекратить приём новых соединений.
                     _wsServ.Dispose();
                 }
+                else
+                // Остановка уже была инициализирована.
+                {
+                    return;
+                }
             }
 
-            // Необходимо закрыть все соединения.
+            // Только один поток выполнит дальнейший блок.
 
-            var activeConnections = Array.Empty<ServerSideConnection>();
+            // Выполним здесь - после блокировки.
+            _applicationStopping.Cancel();
+
+            // Необходимо закрыть все соединения.
+            ServerSideConnection[] activeConnections = Array.Empty<ServerSideConnection>();
             lock (_connections.SyncObj)
             {
                 if (_connections.Count > 0)
@@ -178,18 +225,19 @@ namespace DanilovSoft.vRPC
 
             if (activeConnections.Length > 0)
             {
-                var tasks = new Task<CloseReason>[activeConnections.Length];
+                var cliConStopTasks = new Task<CloseReason>[activeConnections.Length];
 
                 // Грациозно останавливаем соединения.
                 for (int i = 0; i < activeConnections.Length; i++)
                 {
-                    var con = activeConnections[i];
+                    ServerSideConnection clientConnection = activeConnections[i];
 
                     // Прекращаем принимать запросы.
-                    tasks[i] = con.StopAsync(stopRequired);
+                    // Не бросает исключений.
+                    cliConStopTasks[i] = clientConnection.StopAsync(stopRequired);
                 }
 
-                var allConnTask = await Task.WhenAll(tasks).ConfigureAwait(false);
+                CloseReason[] allConnTask = await Task.WhenAll(cliConStopTasks).ConfigureAwait(false);
 
                 // Грациозная остановка сервера это когда все клиенты
                 // отключились до достижения таймаута.
@@ -204,20 +252,54 @@ namespace DanilovSoft.vRPC
                 // Установить Completion.
                 _completionTcs.TrySetResult(true);
             }
+
+            _applicationStopped.Cancel();
         }
 
         /// <summary>
         /// Начинает приём подключений и обработку запросов до полной остановки методом Stop.
-        /// Эквивалентно вызову Start + <see langword="await"/> Completion.
+        /// Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
+        /// Повторный вызов не допускается.
         /// Потокобезопасно.
         /// </summary>
+        /// <exception cref="InvalidOperationException"/>
         public Task<bool> RunAsync()
         {
-            lock (StartLock)
-            {
-                InnerStart();
+            TrySyncStart(shouldThrow: true);
+            return Completion;
+        }
 
-                return Completion;
+        /// <summary>
+        /// Начинает приём подключений и обработку запросов до полной остановки методом Stop
+        /// или с помощью токена отмены.
+        /// Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
+        /// Повторный вызов не допускается.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов когда произойдёт остановка сервиса.</param>
+        /// <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
+        /// Может быть <see langword="null"/>.</param>
+        /// <param name="cancellationToken">Токен служащий для остановки сервиса.</param>
+        /// <exception cref="InvalidOperationException"/>
+        /// <exception cref="OperationCanceledException"/>
+        public Task<bool> RunAsync(TimeSpan disconnectTimeout, string closeDescription, CancellationToken cancellationToken)
+        {
+            TrySyncStart(shouldThrow: true);
+
+            // Только один поток зайдёт в этот блок.
+            return InnerRunAsync(disconnectTimeout, closeDescription, cancellationToken);
+        }
+
+        /// <exception cref="OperationCanceledException"/>
+        private async Task<bool> InnerRunAsync(TimeSpan disconnectTimeout, string closeDescription, CancellationToken cancellationToken)
+        {
+            using (cancellationToken.Register(s => BeginStop(disconnectTimeout, closeDescription), false))
+            {
+                bool graceful = await Completion.ConfigureAwait(false);
+                
+                cancellationToken.ThrowIfCancellationRequested();
+
+                return graceful;
             }
         }
 
@@ -228,16 +310,33 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public void Start()
         {
+            TrySyncStart(shouldThrow: false);
+        }
+
+        /// <summary>
+        /// Потокобезопасно запускает сервер. Только первый поток получит True.
+        /// </summary>
+        private bool TrySyncStart(bool shouldThrow)
+        {
+            bool success;
             lock (StartLock)
             {
-                InnerStart();
+                success = InnerTryStart(shouldThrow);
             }
+
+            if (success)
+            {
+                _applicationStarted.Cancel();
+            }
+
+            return success;
         }
 
         /// <summary>
         /// Предотвращает повторный запуск сервера.
         /// </summary>
-        private void InnerStart()
+        /// <exception cref="InvalidOperationException"/>
+        private bool InnerTryStart(bool shouldThrow)
         {
             Debug.Assert(Monitor.IsEntered(StartLock));
 
@@ -254,8 +353,24 @@ namespace DanilovSoft.vRPC
 
                     // Начать принимать подключения.
                     _wsServ.StartAccept();
+
+                    // Сервер запущен.
+                    return true;
+                }
+                else
+                {
+                    if (shouldThrow)
+                        throw new InvalidOperationException("A server is already running");
                 }
             }
+            else
+            {
+                if (shouldThrow)
+                    throw new StopRequiredException(_stopRequired);
+            }
+
+            // Сервер уже запущен или находится в остановленном состоянии.
+            return false;
         }
 
         private void Listener_OnConnected(object sender, DanilovSoft.WebSockets.ClientConnectedEventArgs e)

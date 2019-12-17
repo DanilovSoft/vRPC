@@ -268,7 +268,7 @@ namespace DanilovSoft.vRPC
             if (firstTime)
             {
                 // Подождать грациозную остановку.
-                await Task.WhenAny(Completion, Task.Delay(stopRequired.Timeout)).ConfigureAwait(false);
+                await Task.WhenAny(Completion, Task.Delay(stopRequired.DisconnectTimeout)).ConfigureAwait(false);
 
                 // Не бросает исключения.
                 AtomicDispose(CloseReason.FromException(new StopRequiredException(stopRequired)));
@@ -276,7 +276,7 @@ namespace DanilovSoft.vRPC
                 CloseReason closeReason = Completion.Result;
 
                 // Передать результат другим потокам которые вызовут Stop.
-                return stopRequired.SetTaskAndReturn(closeReason);
+                return stopRequired.SetTaskResult(closeReason);
             }
             else
             {

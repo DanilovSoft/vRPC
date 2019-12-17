@@ -11,10 +11,9 @@ namespace DanilovSoft.vRPC
     {
         public StopRequired StopRequiredState { get; }
 
-        internal StopRequiredException(StopRequired stopRequired) : base(CreateMessage(stopRequired))
+        public StopRequiredException()
         {
-            Debug.Assert(stopRequired != null);
-            StopRequiredState = stopRequired;
+
         }
 
         public StopRequiredException(string message) : base(message)
@@ -22,22 +21,24 @@ namespace DanilovSoft.vRPC
 
         }
 
+        internal StopRequiredException(StopRequired stopRequired) : base(CreateMessage(stopRequired))
+        {
+            Debug.Assert(stopRequired != null);
+            StopRequiredState = stopRequired;
+        }
+
         private static string CreateMessage(StopRequired stopRequired)
         {
             if (!string.IsNullOrEmpty(stopRequired.CloseDescription))
             {
                 return $"Использовать этот экземпляр больше нельзя — был вызван " +
-                    $"Stop (таймаут: {stopRequired.Timeout}) со следующим объяснением причины: '{stopRequired.CloseDescription}'.";
+                    $"Stop (DisconnectTimeout: {stopRequired.DisconnectTimeout}) со следующим объяснением причины: '{stopRequired.CloseDescription}'.";
             }
             else
             {
                 return $"Использовать этот экземпляр больше нельзя — был вызван " +
-                    $"Stop (таймаут: {stopRequired.Timeout}) без дополнительного объяснения причины.";
+                    $"Stop (DisconnectTimeout: {stopRequired.DisconnectTimeout}) без дополнительного объяснения причины.";
             }
-        }
-
-        public StopRequiredException()
-        {
         }
 
         public StopRequiredException(string message, Exception innerException) : base(message, innerException)

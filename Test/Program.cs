@@ -2,35 +2,30 @@
 using DanilovSoft.WebSockets;
 using System;
 using System.IO;
+using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Test
 {
     class Program
     {
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
-            var ws = new ClientWebSocket();
-            await ws.ConnectAsync(new Uri("ws://echo.websocket.org"), default);
+            Test();
 
-            var buff2 = new byte[] { 1, 2 };
-            await ws.SendAsync(buff2, System.Net.WebSockets.WebSocketMessageType.Binary, true, default);
-
-            var buf = new byte[0];
-            var res = await ws.ReceiveAsync(buf, default);
-
-            var mem = new MemoryStream(FromHex("082e10151843"));
-            var header = ProtoBuf.Serializer.Deserialize<HeaderDto>(mem);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            Thread.Sleep(-1);
         }
 
-        public static byte[] FromHex(string hex)
+        static void Test()
         {
-            var result = new byte[hex.Length / 2];
-            for (var i = 0; i < result.Length; i++)
-            {
-                result[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
-            }
-            return result;
+            var cts = new CancellationTokenSource(10000);
+            var server = new RpcListener(IPAddress.Any, 1234);
+            var task = server.RunAsync(TimeSpan.FromSeconds(3), null, cts.Token);
+            server = null;
         }
     }
 }

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    [DebuggerDisplay("{Timeout}, {CloseDescription}")]
+    [DebuggerDisplay("{DisconnectTimeout}, {CloseDescription}")]
     public sealed class StopRequired
     {
         private readonly TaskCompletionSource<CloseReason> _tcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -17,20 +17,20 @@ namespace DanilovSoft.vRPC
         internal Task<CloseReason> Task => _tcs.Task;
         /// <summary>
         /// Максимальное время ожидания остановки сервиса указанное пользователем 
-        /// после которого соединение закрывается принудительно.
+        /// после которого все соединения закрываются принудительно.
         /// </summary>
-        public TimeSpan Timeout { get; }
+        public TimeSpan DisconnectTimeout { get; }
 
-        public StopRequired(TimeSpan timeout, string closeDescription)
+        public StopRequired(TimeSpan disconnectTimeout, string closeDescription)
         {
-            Timeout = timeout;
+            DisconnectTimeout = disconnectTimeout;
             CloseDescription = closeDescription;
         }
 
         /// <summary>
         /// Возвращает переданное значение.
         /// </summary>
-        internal CloseReason SetTaskAndReturn(CloseReason closeReason)
+        internal CloseReason SetTaskResult(CloseReason closeReason)
         {
             _tcs.TrySetResult(closeReason);
             return closeReason;

@@ -11,10 +11,12 @@ namespace Client.Controllers
     public class HomeController : ClientController
     {
         private readonly ILogger<HomeController> _logger;
+        private readonly IHostApplicationLifetime _lifetime;
 
-        public HomeController(ILogger<HomeController> logger)
+        public HomeController(ILogger<HomeController> logger, IHostApplicationLifetime lifetime)
         {
             _logger = logger;
+            _lifetime = lifetime;
         }
 
         public async Task<string> SayHello(string s)
