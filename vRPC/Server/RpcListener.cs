@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -17,14 +18,17 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Triggered when the application host has fully started.
         /// </summary>
+        [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
         private readonly CancellationTokenSource _applicationStarted = new CancellationTokenSource();
         /// <summary>
         /// Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
         /// </summary>
+        [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
         private readonly CancellationTokenSource _applicationStopping = new CancellationTokenSource();
         /// <summary>
         /// Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
         /// </summary>
+        [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
         private readonly CancellationTokenSource _applicationStopped = new CancellationTokenSource();
 
         public CancellationToken ApplicationStarted => _applicationStarted.Token;

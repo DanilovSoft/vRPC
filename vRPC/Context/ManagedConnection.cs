@@ -17,6 +17,7 @@ using System.Runtime.InteropServices;
 using System.Buffers;
 using Ms = System.Net.WebSockets;
 using DanilovSoft.vRPC.Resources;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DanilovSoft.vRPC
 {
@@ -38,7 +39,7 @@ namespace DanilovSoft.vRPC
         /// Для <see cref="Task"/> <see cref="Completion"/>.
         /// </summary>
         private readonly TaskCompletionSource<CloseReason> _completionTcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
-        // Не требует вызывать Dispose если гарантированно будет вызван Cancel.
+        [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         /// <summary>
         /// Срабатывает когда соединение переходит в закрытое состояние.

@@ -23,6 +23,7 @@
 
   <PropertyGroup>
     <NoWarn>1701;1702;1573;1591</NoWarn>
+    <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -30,6 +31,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DanilovSoft.WebSocket" Version="2.0.2" />
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -40,10 +42,6 @@
     <PackageReference Include="protobuf-net" Version="2.4.4" />
     <PackageReference Include="System.Memory" Version="4.5.3" />
     <PackageReference Include="System.Threading.Channels" Version="4.6.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSockets.csproj" />
   </ItemGroup>
 
   <ItemGroup>
