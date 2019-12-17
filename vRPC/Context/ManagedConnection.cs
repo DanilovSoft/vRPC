@@ -26,11 +26,6 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public abstract class ManagedConnection : IDisposable, IGetProxy
     {
-        ///// <summary>
-        ///// Максимальный размер фрейма который может передавать протокол. Сообщение может быть фрагментированно фреймами размером не больше этого значения.
-        ///// </summary>
-        //private const int WebSocketMaxFrameSize = 8192;
-        //private const string ProtocolHeaderErrorMessage = "Произошла ошибка десериализации заголовка от удалённой стороны.";
         /// <summary>
         /// Содержит имена методов прокси интерфейса без постфикса Async.
         /// </summary>
@@ -43,6 +38,12 @@ namespace DanilovSoft.vRPC
         /// Для <see cref="Task"/> <see cref="Completion"/>.
         /// </summary>
         private readonly TaskCompletionSource<CloseReason> _completionTcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
+        // Не требует вызывать Dispose если гарантированно будет вызван Cancel.
+        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        /// <summary>
+        /// Срабатывает когда соединение переходит в закрытое состояние.
+        /// </summary>
+        public CancellationToken CompletionToken => _cts.Token;
         /// <summary>
         /// Причина закрытия соединения. Это свойство возвращает <see cref="Completion"/>.
         /// </summary>
@@ -50,7 +51,6 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Возвращает <see cref="Task"/> который завершается когда 
         /// соединение переходит в закрытое состояние.
-        /// Не мутабельное свойство.
         /// Возвращает <see cref="DisconnectReason"/>.
         /// Не бросает исключения.
         /// </summary>
@@ -1691,7 +1691,25 @@ namespace DanilovSoft.vRPC
                 disconnected?.Invoke(this, new SocketDisconnectedEventArgs(possibleReason));
 
                 // Установить Task Completion.
-                _completionTcs.TrySetResult(possibleReason);
+                SetCompletion(possibleReason);
+            }
+        }
+
+        private void SetCompletion(CloseReason closeReason)
+        {
+            // Установить Task Completion.
+            if(_completionTcs.TrySetResult(closeReason))
+            {
+                try
+                {
+                    _cts.Cancel(false);
+                }
+                catch (AggregateException ex)
+                // Нужна защита от пользовательских ошибок.
+                {
+                    // Нужно проглотить исключение потому что его некому обработать.
+                    Debug.Fail("Exception occurred on " + nameof(CompletionToken) + ".Cancel(false)", ex.ToString());
+                }
             }
         }
 

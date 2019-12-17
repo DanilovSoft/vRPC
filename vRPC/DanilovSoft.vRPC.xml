@@ -45,7 +45,7 @@
             Используется для синхронизации установки соединения.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RpcClient.ServerAddress">
+        <member name="F:DanilovSoft.vRPC.RpcClient._invokeActions">
             <summary>
             Адрес для подключения к серверу.
             </summary>
@@ -283,6 +283,11 @@
             Для <see cref="T:System.Threading.Tasks.Task"/> <see cref="P:DanilovSoft.vRPC.ManagedConnection.Completion"/>.
             </summary>
         </member>
+        <member name="P:DanilovSoft.vRPC.ManagedConnection.CompletionToken">
+            <summary>
+            Срабатывает когда соединение переходит в закрытое состояние.
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.ManagedConnection.DisconnectReason">
             <summary>
             Причина закрытия соединения. Это свойство возвращает <see cref="P:DanilovSoft.vRPC.ManagedConnection.Completion"/>.
@@ -292,7 +297,6 @@
             <summary>
             Возвращает <see cref="T:System.Threading.Tasks.Task"/> который завершается когда 
             соединение переходит в закрытое состояние.
-            Не мутабельное свойство.
             Возвращает <see cref="P:DanilovSoft.vRPC.ManagedConnection.DisconnectReason"/>.
             Не бросает исключения.
             </summary>

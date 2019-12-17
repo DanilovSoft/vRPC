@@ -23,10 +23,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Адрес для подключения к серверу.
         /// </summary>
-        public Uri ServerAddress { get; private set; }
         private readonly InvokeActionsDictionary _invokeActions;
         private readonly ProxyCache _proxyCache = new ProxyCache();
         private readonly ServiceCollection _serviceCollection = new ServiceCollection();
+        public Uri ServerAddress { get; private set; }
         /// <summary>
         /// <see langword="volatile"/>.
         /// </summary>
