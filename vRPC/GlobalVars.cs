@@ -1,36 +1,22 @@
-﻿using System;
+﻿using Microsoft.IO;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 
 namespace DanilovSoft.vRPC
 {
     internal static class GlobalVars
     {
         public static readonly Action DummyAction = delegate { throw new Exception(nameof(RequestAwaiter)); };
+        private static RecyclableMemoryStreamManager _memoryManager;
+        public static RecyclableMemoryStreamManager RecyclableMemory => LazyInitializer.EnsureInitialized(ref _memoryManager, () => new RecyclableMemoryStreamManager());
 
-        //public static Dictionary<string, Type> FindAllControllers(Assembly assembly)
-        //{
-        //    var controllers = new Dictionary<string, Type>(StringComparer.InvariantCultureIgnoreCase);
-        //    Type[] types = assembly.GetExportedTypes();
-
-        //    foreach (Type controllerType in types)
-        //    {
-        //        if (controllerType.IsSubclassOf(typeof(Controller)))
-        //        {
-        //            int ind = controllerType.Name.IndexOf("Controller", StringComparison.Ordinal);
-        //            if (ind != -1)
-        //            {
-        //                // Имя без учета окончания 'Controller'.
-        //                controllers.Add(controllerType.Name.Substring(0, ind), controllerType);
-        //            }
-        //            else
-        //            {
-        //                throw new InvalidOperationException($"Контроллер типа {controllerType.FullName} должен заканчиваться словом 'Controller'.");
-        //            }
-        //        }
-        //    }
-        //    return controllers;
-        //}
+        public static void Initialize(RecyclableMemoryStreamManager memoryManager)
+        {
+            if (Interlocked.CompareExchange(ref _memoryManager, memoryManager, null) != null)
+                throw new InvalidOperationException("MemoryManager уже инициализирован");
+        }
 
         public static Dictionary<string, Type> FindAllControllers(Assembly assembly)
         {

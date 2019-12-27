@@ -7,7 +7,7 @@ using System.Text;
 namespace DanilovSoft.vRPC
 {
     /// <summary>
-    /// Содержит <see cref="MemoryPoolStream"/> в который сериализуется 
+    /// Содержит <see cref="MemoryStream"/> в который сериализуется 
     /// сообщение и заголовок для отправки удалённой стороне.
     /// Необходимо обязательно выполнить Dispose.
     /// </summary>
@@ -33,7 +33,7 @@ namespace DanilovSoft.vRPC
         /// Заголовок располагается в конце этого стрима, так как мы не можем сформировать заголовок 
         /// до сериализации тела сообщения.
         /// </summary>
-        public MemoryPoolStream MemPoolStream { get; }
+        public MemoryStream MemPoolStream { get; }
         /// <summary>
         /// Запрос или ответ на запрос.
         /// </summary>
@@ -50,7 +50,7 @@ namespace DanilovSoft.vRPC
         public int HeaderSize { get; set; }
 
         /// <summary>
-        /// Содержит <see cref="MemoryPoolStream"/> в который сериализуется сообщение и заголовок.
+        /// Содержит <see cref="MemoryStream"/> в который сериализуется сообщение и заголовок.
         /// Необходимо обязательно выполнить Dispose.
         /// </summary>
         public SerializedMessageToSend(IMessage messageToSend)
@@ -58,11 +58,11 @@ namespace DanilovSoft.vRPC
             MessageToSend = messageToSend;
 
             // Арендуем заранее под максимальный размер хэдера.
-            MemPoolStream = new MemoryPoolStream(32);
+            MemPoolStream = GlobalVars.RecyclableMemory.GetStream("SerializedMessageToSend", 32);
         }
 
         /// <summary>
-        /// Возвращает арендрванную память обратно в пул.
+        /// Возвращает арендованную память обратно в пул.
         /// </summary>
         public void Dispose()
         {

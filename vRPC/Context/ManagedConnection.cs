@@ -1198,7 +1198,7 @@ namespace DanilovSoft.vRPC
 
                         LogSend(serializedMessage);
 
-                        byte[] streamBuffer = serializedMessage.MemPoolStream.DangerousGetBuffer();
+                        byte[] streamBuffer = serializedMessage.MemPoolStream.GetBuffer();
 
                         // Размер сообщения без заголовка.
                         int messageSize = (int)serializedMessage.MemPoolStream.Length - serializedMessage.HeaderSize;
@@ -1275,7 +1275,7 @@ namespace DanilovSoft.vRPC
         [Conditional("LOG_RPC")]
         private static void LogSend(SerializedMessageToSend serializedMessage)
         {
-            byte[] streamBuffer = serializedMessage.MemPoolStream.DangerousGetBuffer();
+            byte[] streamBuffer = serializedMessage.MemPoolStream.GetBuffer();
 
             // Размер сообщения без заголовка.
             int contentSize = (int)serializedMessage.MemPoolStream.Length - serializedMessage.HeaderSize;

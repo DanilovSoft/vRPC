@@ -1,5 +1,6 @@
 ﻿using DanilovSoft.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IO;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -20,6 +21,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
         private readonly CancellationTokenSource _applicationStarted = new CancellationTokenSource();
+
         /// <summary>
         /// Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
         /// </summary>
