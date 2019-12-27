@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Client
 {
     [ControllerContract("Home")]
-    public interface IServerHomeController
+    internal interface IServerHomeController
     {
         void DummyCall(int n);
         Task DummyCallAsync(int n);

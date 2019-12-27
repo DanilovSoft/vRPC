@@ -905,22 +905,6 @@
             Десериализует json запрос.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
-            <summary>
-            Существует только для Net Framework.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
-            <summary>
-            Перегрузка для Net Framework.
-            Attempts to add the specified key and value to the dictionary.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
-            <summary>
-            Перегрузка для Net Framework.
-            </summary>
-        </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
             <summary>
             Содержит прокси созданные из интерфейсов.

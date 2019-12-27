@@ -43,6 +43,7 @@ namespace DynamicMethodsLib
             if(proxyParentClassType.IsSealed)
                 throw new InvalidOperationException($"Родительский класс {proxyParentClassType.FullName} не должен быть запечатанным.");
 
+            // Динамическая сборка в которой будут жить классы реализующие пользовательские интерфейсы.
             string assemblyName = typeof(TIface).Name + "_" + Guid.NewGuid().ToString();
             AssemblyBuilder assemblyBuilder = DefineDynamicAssembly(assemblyName);
             ModuleBuilder moduleBuilder = DefineDynamicModule(assemblyBuilder);
