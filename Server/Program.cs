@@ -8,12 +8,14 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC;
+using Microsoft.IO;
 
 namespace Server
 {
     public class Program
     {
         private const int Port = 65125;
+        private static readonly RecyclableMemoryStreamManager _memoryManager = new RecyclableMemoryStreamManager();
         private static readonly object _conLock = new object();
         private static long _connections;
         public static long ReqCount;
@@ -24,6 +26,7 @@ namespace Server
             Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
             Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
 
+            RpcInitializer.Initialize(_memoryManager);
             using (var listener = new RpcListener(IPAddress.Any, Port))
             {
                 listener.ConfigureService(ioc =>

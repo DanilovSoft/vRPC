@@ -583,7 +583,7 @@
         </member>
         <member name="T:DanilovSoft.vRPC.SerializedMessageToSend">
             <summary>
-            Содержит <see cref="T:System.IO.MemoryPoolStream"/> в который сериализуется 
+            Содержит <see cref="T:System.IO.MemoryStream"/> в который сериализуется 
             сообщение и заголовок для отправки удалённой стороне.
             Необходимо обязательно выполнить Dispose.
             </summary>
@@ -613,13 +613,13 @@
         </member>
         <member name="M:DanilovSoft.vRPC.SerializedMessageToSend.#ctor(DanilovSoft.vRPC.IMessage)">
             <summary>
-            Содержит <see cref="T:System.IO.MemoryPoolStream"/> в который сериализуется сообщение и заголовок.
+            Содержит <see cref="T:System.IO.MemoryStream"/> в который сериализуется сообщение и заголовок.
             Необходимо обязательно выполнить Dispose.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.SerializedMessageToSend.Dispose">
             <summary>
-            Возвращает арендрванную память обратно в пул.
+            Возвращает арендованную память обратно в пул.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.ServerSideConnection">
@@ -1687,44 +1687,6 @@
             <summary>
             Помещает целочисленное значение <paramref name="n"/> в стек вычислений как <see langword="int32"/>.
             </summary>
-        </member>
-        <member name="F:System.IO.MemoryPoolStream._bufferPosition">
-            <summary>
-            Должен совпадать с _position после операции чтения или записи.
-            </summary>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.#ctor(System.Int32,System.Boolean)">
-            <param name="capacity">Начальный размер буфера.</param>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.DangerousGetBuffer">
-            <summary>
-            Возвращает массив байт, из которого был создан этот поток.
-            Не используйте этот массив после любых операций с потоком.
-            </summary>
-            <returns></returns>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.SetLength(System.Int64,System.Boolean)">
-            <summary>
-            
-            </summary>
-            <param name="value"></param>
-            <param name="clear">При увеличении размера стрима позволяет указать 
-            требуется ли очистить буфер начиная с текущей позиции до конца стрима. 
-            Значение по умолчанию — <see langword="true"/>.</param>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.ReadByte">
-            <summary>
-            Возвращает -1 если достигнут конец потока.
-            </summary>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.ReDim(System.Int32)">
-            <summary>
-            Увеличивает размер буфера сохраняя данные.
-            </summary>
-            <param name="newSize">Необходимый размер буфера. Новый буфер может быть больше указанного размера.</param>
-        </member>
-        <member name="M:System.IO.MemoryPoolStream.ThrowIfDisposed">
-            <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:System.Threading.ChannelLock.LockAsync">
             <summary>
