@@ -10,22 +10,39 @@ namespace Test
 {
     class Program
     {
-        static void Main(string[] args)
+        class FileDescription
         {
-            Test();
+            public string FileName { get; set; }
+        }
 
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            Thread.Sleep(-1);
+
+        interface ITest
+        {
+            //StreamCall CompressFile(FileDescription fileDescription);
+        }
+
+        static async Task Main(string[] args)
+        {
+            using (var client = new RpcClient(new Uri($"ws://127.0.0.1:1234")))
+            {
+                var test = client.GetProxy<ITest>();
+
+                //using (var call = test.CompressFile(new FileDescription { FileName = "test.jpg" }))
+                //{
+                //    await call.RequestStream.WriteAsync(123);
+                //    await call.RequestStream.CompleteAsync();
+
+                //    await foreach (int resp in call.ResponseAsync)
+                //    {
+
+                //    }
+                //}
+            }
         }
 
         static void Test()
         {
-            var cts = new CancellationTokenSource(10000);
-            var server = new RpcListener(IPAddress.Any, 1234);
-            var task = server.RunAsync(TimeSpan.FromSeconds(3), null, cts.Token);
-            server = null;
+            
         }
     }
 }

@@ -30,11 +30,6 @@
             Возвращаемый тип метода должен быть void или Task или ValueTask.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ClientConnections.SyncObj">
-            <summary>
-            Модификация коллекции <see cref="F:DanilovSoft.vRPC.RpcListener._connections"/> допускается с захватом этой блокировки.
-            </summary>
-        </member>
         <member name="T:DanilovSoft.vRPC.RpcClient">
             <summary>
             Контекст клиентского соединения.
@@ -198,58 +193,6 @@
             <summary>
             Произошел запрос на остановку сервиса – подключать данный экземпляр больше нельзя.
             Причину остановки можно узнать через свойство <see cref="P:DanilovSoft.vRPC.RpcClient.StopRequiredState"/>.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.CloseReason.NoConnectionError">
-            <summary>
-            "Соединение не установлено."
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.CloseReason.NoConnectionGracifully">
-            <summary>
-            "Соединение не установлено."
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.CloseReason.Gracifully">
-            <summary>
-            Если разъединение завершилось грациозно — <see langword="true"/>.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.CloseReason.Error">
-            <summary>
-            Может быть <see langword="null"/> если разъединение завершилось грациозно.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.CloseReason.CloseDescription">
-            <summary>
-            Сообщение от удалённой стороны указывающее причину разъединения.
-            Если текст совпадает с переданным в метод Stop то разъединение произошло по вашей инициативе.
-            Может быть <see langword="null"/>.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.CloseReason.AdditionalDescription">
-            <summary>
-            Может быть <see langword="null"/>. Не зависит от <see cref="P:DanilovSoft.vRPC.CloseReason.Gracifully"/>.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.CloseReason.StopRequest">
-            <summary>
-            Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.ConnectState.NotConnected">
-            <summary>
-            Не удалось установить соединение.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.ConnectState.Connected">
-            <summary>
-            Соединение успешно установлено.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.ConnectState.StopRequired">
-            <summary>
-            Во время подключения произошел запрос на остановку сервиса – подключать данный экземпляр больше нельзя.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.IMessage.IsRequest">
@@ -643,21 +586,6 @@
             </summary>
             <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
         </member>
-        <member name="T:DanilovSoft.vRPC.ControllerAction">
-            <summary>
-            Содержит исчерпывающую информацию о методе контроллера.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.ControllerAction.ProducesEncoding">
-            <summary>
-            Формат возвращаемых данных.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.ControllerAction.ControllerType">
-            <summary>
-            Контроллер для активации через IoC.
-            </summary>
-        </member>
         <member name="P:DanilovSoft.vRPC.ClientController.Context">
             <summary>
             Контекст подключения на стороне клиента.
@@ -753,13 +681,6 @@
             Unprocessable Entity.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.DynamicAwaiter.WaitAsync(System.Object)">
-            <summary>
-            Асинхронно ожидает завершение задачи если <paramref name="controllerResult"/> является <see cref="T:System.Threading.Tasks.Task"/>'ом.
-            </summary>
-            <param name="controllerResult"><see cref="T:System.Threading.Tasks.Task"/> или любой объект.</param>
-            <returns></returns>
-        </member>
         <member name="P:DanilovSoft.vRPC.ClientConnectedEventArgs.Connection">
             <summary>
             Подключенный к серверу клиент.
@@ -784,84 +705,6 @@
         <member name="T:DanilovSoft.vRPC.ConnectionClosedException">
             <summary>
             Исключение которое происходит при грациозном закрытии соединения одной из сторон.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectJson(System.IO.Stream,System.Object)">
-            <summary>
-            Сериализует объект в JSON.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectJson``1(System.IO.Stream,``0)">
-            <summary>
-            Сериализует объект в JSON.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeJson``1(System.ReadOnlySpan{System.Byte})">
-            <summary>
-            Десериализует Json.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeJson(System.ReadOnlySpan{System.Byte},System.Type)">
-            <summary>
-            Десериализует Json.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeJson(System.ReadOnlyMemory{System.Byte},System.Type)">
-            <summary>
-            Десериализует Json.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeJson``1(System.ReadOnlyMemory{System.Byte})">
-            <summary>
-            Десериализует Json.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ReadAsString(System.IO.Stream)">
-            <summary>
-            Читает строку в формате Utf-8.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ReadAsString(System.Memory{System.Byte})">
-            <summary>
-            Читает строку в формате Utf-8.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ReadAsString(System.ReadOnlyMemory{System.Byte})">
-            <summary>
-            Читает строку в формате Utf-8.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.WriteStringBinary(System.IO.Stream,System.String)">
-            <summary>
-            Записывает строку в формате Utf-8.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.IsAsyncMethod(System.Reflection.MethodInfo)">
-            <summary>
-            Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="T:System.Threading.Tasks.Task"/> (<see cref="T:System.Threading.Tasks.Task`1"/>)
-            или <see cref="T:System.Threading.Tasks.ValueTask"/> (<see cref="T:System.Threading.Tasks.ValueTask`1"/>).
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetNameTrimAsync(System.Reflection.MethodInfo)">
-            <summary>
-            Нормализует имя функции если она является Task-Async.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ToException(DanilovSoft.WebSockets.ReceiveResult)">
-            <summary>
-            
-            </summary>
-            <exception cref="T:System.IO.IOException"/>
-            <exception cref="T:System.Net.Sockets.SocketException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetMethodReturnType(System.Reflection.MethodInfo)">
-            <summary>
-            Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetMessageFromCloseFrame(System.Nullable{System.Net.WebSockets.WebSocketCloseStatus},System.String)">
-            <summary>
-            Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.IHostApplicationLifetime.ApplicationStarted">
@@ -895,76 +738,20 @@
             Прозрачный прокси к удалённой стороне.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.InvokeActionsDictionary._actionsDict">
+        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
             <summary>
-            Словарь используемый только для чтения.
+            Существует только для Net Framework.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.JsonRequestParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
             <summary>
-            Десериализует json запрос.
+            Перегрузка для Net Framework.
+            Attempts to add the specified key and value to the dictionary.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
             <summary>
-            Содержит прокси созданные из интерфейсов.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.ProxyCache._instanceDict">
-            <summary>
-            Содержит прокси созданные из интерфейсов.
-            </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.RequestAwaiter">
-            <summary>
-            Атомарный <see langword="await"/>'ер. Связывает запрос с его результатом.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RequestAwaiter._isCompleted">
-            <summary>
-            Флаг используется как fast-path.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestAwaiter.TrySetException(System.Exception)">
-            <summary>
-            Передает ожидающему потоку исключение как результат запроса.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestAwaiter.TrySetResult(System.Object)">
-            <summary>
-            Передает результат ожидающему потоку.
-            </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.RequestQueue">
-            <summary>
-            Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
-            Имеет лимит в 65'535 запросов.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RequestQueue._spinWait">
-            <summary>
-            Не является потокобезопасным.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestQueue.#ctor">
-            <summary>
-            Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestQueue.AddRequest(DanilovSoft.vRPC.RequestToSend,System.Int32@)">
-            <summary>
-            Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
-            </summary>
-            <exception cref="T:System.Exception">Происходит если уже происходил обрыв соединения.</exception>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestQueue.TryRemove(System.Int32,DanilovSoft.vRPC.RequestAwaiter@)">
-            <summary>
-            Потокобезопасно удаляет запрос из словаря.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestQueue.PropagateExceptionAndLockup(System.Exception)">
-            <summary>
-            Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет провоцировать это исключение.
+            Перегрузка для Net Framework.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.RequestToInvoke">
@@ -1065,6 +852,370 @@
         <member name="P:DanilovSoft.vRPC.Resources.SR.TextMessageTypeNotSupported">
             <summary>
               Ищет локализованную строку, похожую на WebSocket messages type should be Binary but we&apos;ve got Text.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStarted">
+            <summary>
+            Triggered when the application host has fully started.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStopping">
+            <summary>
+            Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStopped">
+            <summary>
+            Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener.InvokeActions">
+            <summary>
+            Словарь используемый только для чтения, поэтому потокобезопасен.
+            Хранит все доступные контроллеры. Не учитывает регистр.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._connections">
+            <summary>
+            Доступ через блокировку SyncObj.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcListener.StartLock">
+            <summary>
+            Для доступа к <see cref="F:DanilovSoft.vRPC.RpcListener._stopRequired"/> и <see cref="F:DanilovSoft.vRPC.RpcListener._started"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcListener.Completion">
+            <summary>
+            <see cref="T:System.Threading.Tasks.Task"/> который завершается когда все 
+            соединения перешли в закрытое состояние и сервис полностью остановлен.
+            Не бросает исключения.
+            Возвращает <see langword="true"/> если остановка прошла грациозно.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._started">
+            <summary>
+            Единожны меняет состояние на <see langword="true"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcListener.ServiceProvider">
+            <summary>
+            Может быть <see langword="null"/> если не выполнен ConfigureService и сервис ещё не запущен.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcListener._stopRequired">
+            <summary>
+            Не позволяет подключаться новым клиентам. Единожны меняет состояние в момент остановки сервиса.
+            Также предотвращает повторный запуск сервиса.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.ConfigureService(System.Action{Microsoft.Extensions.DependencyInjection.ServiceCollection})">
+            <summary>
+            Позволяет настроить IoC контейнер.
+            Выполняется единожды при инициализации подключения.
+            </summary>
+            <param name="configure"></param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.Stop(System.TimeSpan,System.String)">
+            <summary>
+            Выполняет грациозную остановку сервиса. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
+            Потокобезопасно.
+            </summary>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.BeginStop(System.TimeSpan,System.String)">
+            <summary>
+            Начинает остановку сервиса. Не блокирует поток.
+            Не бросает исключения.
+            Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
+            </summary>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
+            Может быть <see langword="null"/>.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.StopAsync(System.TimeSpan,System.String)">
+            <summary>
+            Останавливает сервис и ожидает до полной остановки.
+            Не бросает исключения.
+            Эквивалентно <see cref="M:DanilovSoft.vRPC.RpcListener.BeginStop(System.TimeSpan,System.String)"/> + <see langword="await"/> <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
+            </summary>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
+            Может быть <see langword="null"/>.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.InnerBeginStop(System.TimeSpan,System.String)">
+            <summary>
+            Начинает остановку сервера и взводит <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/> не дольше чем указано в <paramref name="disconnectTimeout"/>.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.RunAsync">
+            <summary>
+            Начинает приём подключений и обработку запросов до полной остановки методом Stop.
+            Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
+            Повторный вызов не допускается.
+            Потокобезопасно.
+            </summary>
+            <exception cref="T:System.InvalidOperationException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.RunAsync(System.TimeSpan,System.String,System.Threading.CancellationToken)">
+            <summary>
+            Начинает приём подключений и обработку запросов до полной остановки методом Stop
+            или с помощью токена отмены.
+            Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
+            Повторный вызов не допускается.
+            Потокобезопасно.
+            </summary>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов когда произойдёт остановка сервиса.</param>
+            <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
+            Может быть <see langword="null"/>.</param>
+            <param name="cancellationToken">Токен служащий для остановки сервиса.</param>
+            <exception cref="T:System.InvalidOperationException"/>
+            <exception cref="T:System.OperationCanceledException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.InnerRunAsync(System.TimeSpan,System.String,System.Threading.CancellationToken)">
+            <exception cref="T:System.OperationCanceledException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.Start">
+            <summary>
+            Начинает приём новых подключений.
+            Повторный вызов спровоцирует исключение.
+            Потокобезопасно.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.TrySyncStart(System.Boolean)">
+            <summary>
+            Потокобезопасно запускает сервер. Только первый поток получит True.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.InnerTryStart(System.Boolean)">
+            <summary>
+            Предотвращает повторный запуск сервера.
+            </summary>
+            <exception cref="T:System.InvalidOperationException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.GetConnections">
+            <summary>
+            Возвращает копию коллекции подключенных клиентов.
+            Потокобезопасно.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.GetConnectionsExcept(DanilovSoft.vRPC.ServerSideConnection)">
+            <summary>
+            Возвращает копию коллекции подключенных клиентов кроме <paramref name="exceptCon"/>.
+            Потокобезопасно.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ClientConnections.SyncObj">
+            <summary>
+            Модификация коллекции <see cref="F:DanilovSoft.vRPC.RpcListener._connections"/> допускается с захватом этой блокировки.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.CloseReason.NoConnectionError">
+            <summary>
+            "Соединение не установлено."
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.CloseReason.NoConnectionGracifully">
+            <summary>
+            "Соединение не установлено."
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.CloseReason.Gracifully">
+            <summary>
+            Если разъединение завершилось грациозно — <see langword="true"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.CloseReason.Error">
+            <summary>
+            Может быть <see langword="null"/> если разъединение завершилось грациозно.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.CloseReason.CloseDescription">
+            <summary>
+            Сообщение от удалённой стороны указывающее причину разъединения.
+            Если текст совпадает с переданным в метод Stop то разъединение произошло по вашей инициативе.
+            Может быть <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.CloseReason.AdditionalDescription">
+            <summary>
+            Может быть <see langword="null"/>. Не зависит от <see cref="P:DanilovSoft.vRPC.CloseReason.Gracifully"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.CloseReason.StopRequest">
+            <summary>
+            Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ConnectState.NotConnected">
+            <summary>
+            Не удалось установить соединение.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ConnectState.Connected">
+            <summary>
+            Соединение успешно установлено.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ConnectState.StopRequired">
+            <summary>
+            Во время подключения произошел запрос на остановку сервиса – подключать данный экземпляр больше нельзя.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.ControllerAction">
+            <summary>
+            Содержит исчерпывающую информацию о методе контроллера.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ControllerAction.ProducesEncoding">
+            <summary>
+            Формат возвращаемых данных.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ControllerAction.ControllerType">
+            <summary>
+            Контроллер для активации через IoC.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.DynamicAwaiter.WaitAsync(System.Object)">
+            <summary>
+            Асинхронно ожидает завершение задачи если <paramref name="controllerResult"/> является <see cref="T:System.Threading.Tasks.Task"/>'ом.
+            </summary>
+            <param name="controllerResult"><see cref="T:System.Threading.Tasks.Task"/> или любой объект.</param>
+            <returns></returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectJson(System.IO.Stream,System.Object)">
+            <summary>
+            Сериализует объект в JSON.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectJson``1(System.IO.Stream,``0)">
+            <summary>
+            Сериализует объект в JSON.
+            em.ReadOnlyMemory{System.Byte})">
+            <summary>
+            Десериализует Json.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ReadAsString(System.IO.Stream)">
+            <summary>
+            Читает строку в формате Utf-8.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ReadAsString(System.Memory{System.Byte})">
+            <summary>
+            Читает строку в формате Utf-8.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ReadAsString(System.ReadOnlyMemory{System.Byte})">
+            <summary>
+            Читает строку в формате Utf-8.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.WriteStringBinary(System.IO.Stream,System.String)">
+            <summary>
+            Записывает строку в формате Utf-8.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.IsAsyncMethod(System.Reflection.MethodInfo)">
+            <summary>
+            Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="T:System.Threading.Tasks.Task"/> (<see cref="T:System.Threading.Tasks.Task`1"/>)
+            или <see cref="T:System.Threading.Tasks.ValueTask"/> (<see cref="T:System.Threading.Tasks.ValueTask`1"/>).
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetNameTrimAsync(System.Reflection.MethodInfo)">
+            <summary>
+            Нормализует имя функции если она является Task-Async.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ToException(DanilovSoft.WebSockets.ReceiveResult)">
+            <summary>
+            
+            </summary>
+            <exception cref="T:System.IO.IOException"/>
+            <exception cref="T:System.Net.Sockets.SocketException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetMethodReturnType(System.Reflection.MethodInfo)">
+            <summary>
+            Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetMessageFromCloseFrame(System.Nullable{System.Net.WebSockets.WebSocketCloseStatus},System.String)">
+            <summary>
+            Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.InvokeActionsDictionary._actionsDict">
+            <summary>
+            Словарь используемый только для чтения.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.JsonRequestParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.IActionResult@)">
+            <summary>
+            Десериализует json запрос.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
+            <summary>
+            Содержит прокси созданные из интерфейсов.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ProxyCache._instanceDict">
+            <summary>
+            Содержит прокси созданные из интерфейсов.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RequestAwaiter">
+            <summary>
+            Атомарный <see langword="await"/>'ер. Связывает запрос с его результатом.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RequestAwaiter._isCompleted">
+            <summary>
+            Флаг используется как fast-path.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestAwaiter.TrySetException(System.Exception)">
+            <summary>
+            Передает ожидающему потоку исключение как результат запроса.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestAwaiter.TrySetResult(System.Object)">
+            <summary>
+            Передает результат ожидающему потоку.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RequestQueue">
+            <summary>
+            Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
+            Имеет лимит в 65'535 запросов.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RequestQueue._spinWait">
+            <summary>
+            Не является потокобезопасным.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestQueue.#ctor">
+            <summary>
+            Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestQueue.AddRequest(DanilovSoft.vRPC.RequestToSend,System.Int32@)">
+            <summary>
+            Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
+            </summary>
+            <exception cref="T:System.Exception">Происходит если уже происходил обрыв соединения.</exception>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestQueue.TryRemove(System.Int32,DanilovSoft.vRPC.RequestAwaiter@)">
+            <summary>
+            Потокобезопасно удаляет запрос из словаря.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestQueue.PropagateExceptionAndLockup(System.Exception)">
+            <summary>
+            Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет провоцировать это исключение.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.RijndaelEnhanced">
@@ -1467,158 +1618,6 @@
             The main entry point for the application.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStarted">
-            <summary>
-            Triggered when the application host has fully started.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStopping">
-            <summary>
-            Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStopped">
-            <summary>
-            Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener.InvokeActions">
-            <summary>
-            Словарь используемый только для чтения, поэтому потокобезопасен.
-            Хранит все доступные контроллеры. Не учитывает регистр.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener._connections">
-            <summary>
-            Доступ через блокировку SyncObj.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.RpcListener.StartLock">
-            <summary>
-            Для доступа к <see cref="F:DanilovSoft.vRPC.RpcListener._stopRequired"/> и <see cref="F:DanilovSoft.vRPC.RpcListener._started"/>.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.RpcListener.Completion">
-            <summary>
-            <see cref="T:System.Threading.Tasks.Task"/> который завершается когда все 
-            соединения перешли в закрытое состояние и сервис полностью остановлен.
-            Не бросает исключения.
-            Возвращает <see langword="true"/> если остановка прошла грациозно.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener._started">
-            <summary>
-            Единожны меняет состояние на <see langword="true"/>.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.RpcListener.ServiceProvider">
-            <summary>
-            Может быть <see langword="null"/> если не выполнен ConfigureService и сервис ещё не запущен.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener._stopRequired">
-            <summary>
-            Не позволяет подключаться новым клиентам. Единожны меняет состояние в момент остановки сервиса.
-            Также предотвращает повторный запуск сервиса.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.ConfigureService(System.Action{Microsoft.Extensions.DependencyInjection.ServiceCollection})">
-            <summary>
-            Позволяет настроить IoC контейнер.
-            Выполняется единожды при инициализации подключения.
-            </summary>
-            <param name="configure"></param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.Stop(System.TimeSpan,System.String)">
-            <summary>
-            Выполняет грациозную остановку сервиса. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
-            Потокобезопасно.
-            </summary>
-            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
-            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.BeginStop(System.TimeSpan,System.String)">
-            <summary>
-            Начинает остановку сервиса. Не блокирует поток.
-            Не бросает исключения.
-            Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
-            </summary>
-            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
-            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
-            Может быть <see langword="null"/>.</param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.StopAsync(System.TimeSpan,System.String)">
-            <summary>
-            Останавливает сервис и ожидает до полной остановки.
-            Не бросает исключения.
-            Эквивалентно <see cref="M:DanilovSoft.vRPC.RpcListener.BeginStop(System.TimeSpan,System.String)"/> + <see langword="await"/> <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
-            </summary>
-            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
-            <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
-            Может быть <see langword="null"/>.</param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.InnerBeginStop(System.TimeSpan,System.String)">
-            <summary>
-            Начинает остановку сервера и взводит <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/> не дольше чем указано в <paramref name="disconnectTimeout"/>.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.RunAsync">
-            <summary>
-            Начинает приём подключений и обработку запросов до полной остановки методом Stop.
-            Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
-            Повторный вызов не допускается.
-            Потокобезопасно.
-            </summary>
-            <exception cref="T:System.InvalidOperationException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.RunAsync(System.TimeSpan,System.String,System.Threading.CancellationToken)">
-            <summary>
-            Начинает приём подключений и обработку запросов до полной остановки методом Stop
-            или с помощью токена отмены.
-            Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
-            Повторный вызов не допускается.
-            Потокобезопасно.
-            </summary>
-            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов когда произойдёт остановка сервиса.</param>
-            <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
-            Может быть <see langword="null"/>.</param>
-            <param name="cancellationToken">Токен служащий для остановки сервиса.</param>
-            <exception cref="T:System.InvalidOperationException"/>
-            <exception cref="T:System.OperationCanceledException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.InnerRunAsync(System.TimeSpan,System.String,System.Threading.CancellationToken)">
-            <exception cref="T:System.OperationCanceledException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.Start">
-            <summary>
-            Начинает приём новых подключений.
-            Повторный вызов спровоцирует исключение.
-            Потокобезопасно.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.TrySyncStart(System.Boolean)">
-            <summary>
-            Потокобезопасно запускает сервер. Только первый поток получит True.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.InnerTryStart(System.Boolean)">
-            <summary>
-            Предотвращает повторный запуск сервера.
-            </summary>
-            <exception cref="T:System.InvalidOperationException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.GetConnections">
-            <summary>
-            Возвращает копию коллекции подключенных клиентов.
-            Потокобезопасно.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.GetConnectionsExcept(DanilovSoft.vRPC.ServerSideConnection)">
-            <summary>
-            Возвращает копию коллекции подключенных клиентов кроме <paramref name="exceptCon"/>.
-            Потокобезопасно.
-            </summary>
-        </member>
         <member name="P:DanilovSoft.vRPC.StopRequired.CloseDescription">
             <summary>
             Причина остановки сервиса указанная пользователем. Может быть <see langword="null"/>.
@@ -1657,6 +1656,11 @@
             Возвращает копию своей коллекции.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.Warmup.DoWarmup">
+            <summary>
+            Выполняет AOT(Ahead-Of-Time) оптимизацию.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.TaskConverter.ConvertTask(System.Threading.Tasks.Task{System.Object},System.Type,System.Type)">
             <summary>
             Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object&gt;"/> в <see cref="T:System.Threading.Tasks.Task`1"/> или в <see cref="T:System.Threading.Tasks.ValueTask`1"/>.
@@ -1666,11 +1670,6 @@
         <member name="M:DanilovSoft.vRPC.TaskConverter.DelegateFactory(System.Type,System.Type)">
             <summary>
             Создаёт делегат к нужному конвертеру. Не бросает исключения.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.Warmup.DoWarmup">
-            <summary>
-            Выполняет AOT(Ahead-Of-Time) оптимизацию.
             </summary>
         </member>
         <member name="M:DynamicMethodsLib.ILGeneratorExtensions.PushInstance(System.Reflection.Emit.ILGenerator,System.Type)">

@@ -1,13 +1,15 @@
-﻿using DanilovSoft.vRPC;
+﻿using Client.DTO;
+using DanilovSoft.vRPC;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Client
 {
     [ControllerContract("Home")]
-    internal interface IServerHomeController
+    public interface IServerHomeController
     {
         void DummyCall(int n);
         Task DummyCallAsync(int n);
@@ -21,5 +23,7 @@ namespace Client
 
         DateTime Test(TestDto testDto);
         Task<string> TestAsync();
+
+        //StreamCall SendFile(FileDescription fileDescription);
     }
 }
