@@ -27,17 +27,11 @@ namespace Server.Controllers
         public void DummyCall(int n)
         {
             Interlocked.Increment(ref Program.ReqCount);
-            //return DateTime.Now.ToString();
         }
 
         public string Test()
         {
             return DateTime.Now.ToString();
-        }
-
-        public void NotifyTest()
-        {
-            //await _proxy.NotifyAsync();
         }
     }
 }

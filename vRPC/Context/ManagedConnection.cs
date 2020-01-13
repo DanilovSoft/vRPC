@@ -697,7 +697,7 @@ namespace DanilovSoft.vRPC
                 {
                     //Debug.WriteLine($"Received Header: {header}");
 
-                    using (var sharedMemHandler = MemoryPool<byte>.Shared.Rent(header.ContentLength))
+                    using (var contentMemHandler = MemoryPool<byte>.Shared.Rent(header.ContentLength))
                     {
                         Memory<byte> contentMem = null;
 
@@ -705,7 +705,7 @@ namespace DanilovSoft.vRPC
                         // Есть дополнительный фрейм с телом сообщения.
                         {
                             // Можно не очищать – буффер будет перезаписан.
-                            contentMem = sharedMemHandler.Memory.Slice(0, header.ContentLength);
+                            contentMem = contentMemHandler.Memory.Slice(0, header.ContentLength);
 
                             bufferOffset = 0;
 
