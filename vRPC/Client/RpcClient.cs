@@ -99,8 +99,8 @@ namespace DanilovSoft.vRPC
         /// Конструктор клиента.
         /// </summary>
         /// <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
-        /// <param name="uri">Адрес сервера.</param>
-        private RpcClient(Assembly controllersAssembly, Uri uri)
+        /// <param name="serverAddress">Адрес сервера.</param>
+        private RpcClient(Assembly controllersAssembly, Uri serverAddress)
         {
             Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
 
@@ -109,7 +109,7 @@ namespace DanilovSoft.vRPC
 
             // Словарь с методами контроллеров.
             _invokeActions = new InvokeActionsDictionary(controllerTypes);
-            ServerAddress = uri;
+            ServerAddress = serverAddress;
             _connectLock = new ChannelLock();
 
             InnerConfigureIoC(controllerTypes.Values);
