@@ -61,13 +61,13 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Подключенный TCP сокет.
         /// </summary>
-        private readonly ManagedWebSocket _socket;
+        private readonly ManagedWebSocket _ws;
         /// <summary>
         /// Коллекция запросов ожидающие ответ от удалённой стороны.
         /// </summary>
         private readonly RequestQueue _pendingRequests;
-        public EndPoint LocalEndPoint => _socket.LocalEndPoint;
-        public EndPoint RemoteEndPoint => _socket.RemoteEndPoint;
+        public EndPoint LocalEndPoint => _ws.LocalEndPoint;
+        public EndPoint RemoteEndPoint => _ws.RemoteEndPoint;
         /// <summary>
         /// Отправка сообщения <see cref="SerializedMessageToSend"/> должна выполняться только через этот канал.
         /// </summary>
@@ -167,7 +167,7 @@ namespace DanilovSoft.vRPC
         {
             IsServer = isServer;
 
-            _socket = clientConnection;
+            _ws = clientConnection;
             _pendingRequests = new RequestQueue();
 
             // IoC готов к работе.
@@ -185,7 +185,7 @@ namespace DanilovSoft.vRPC
 
             // Не может сработать сразу потому что пока не запущен 
             // поток чтения или отправки – некому спровоцировать событие.
-            _socket.Disconnecting += WebSocket_Disconnected;
+            _ws.Disconnecting += WebSocket_Disconnected;
         }
 
         /// <summary>
@@ -254,7 +254,7 @@ namespace DanilovSoft.vRPC
                     {
                         // Можно безопасно остановить сокет.
                         // Не бросает исключения.
-                        SendCloseAsync(stopRequired.CloseDescription).GetAwaiter();
+                        _ = SendCloseAsync(stopRequired.CloseDescription);
                     }
                     // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
                     // Это будет соглашением о необходимости остановки.
@@ -292,7 +292,7 @@ namespace DanilovSoft.vRPC
         private void CloseReceived()
         {
             // Был получен Close. Это значит что веб сокет уже закрыт и нам остаётся только закрыть сервис.
-            AtomicDispose(CloseReason.FromCloseFrame(_socket.CloseStatus, _socket.CloseStatusDescription, null, _stopRequired));
+            AtomicDispose(CloseReason.FromCloseFrame(_ws.CloseStatus, _ws.CloseStatusDescription, null, _stopRequired));
         }
 
         /// <summary>
@@ -303,11 +303,12 @@ namespace DanilovSoft.vRPC
         {
             // Эту функцию вызывает тот поток который поймал флаг о необходимости завершения сервиса.
 
+            // TODO: bug - нельзя делать Close одновременно с Send операцией.
             try
             {
                 // Отправить Close с ожиданием ответного Close.
                 // Может бросить исключение если сокет уже в статусе Close.
-                await _socket.CloseAsync(Ms.WebSocketCloseStatus.NormalClosure, closeDescription, CancellationToken.None).ConfigureAwait(false);
+                await _ws.CloseAsync(Ms.WebSocketCloseStatus.NormalClosure, closeDescription, CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -621,7 +622,7 @@ namespace DanilovSoft.vRPC
                     try
                     {
                         // Читаем фрейм веб-сокета.
-                        webSocketMessage = await _socket.ReceiveExAsync(headerBuffer.AsMemory(bufferOffset), CancellationToken.None).ConfigureAwait(false);
+                        webSocketMessage = await _ws.ReceiveExAsync(headerBuffer.AsMemory(bufferOffset), CancellationToken.None).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     // Обрыв соединения.
@@ -668,11 +669,11 @@ namespace DanilovSoft.vRPC
                 else
                 // Получен Close.
                 {
-                    if(_socket.State == Ms.WebSocketState.CloseReceived)
+                    if(_ws.State == Ms.WebSocketState.CloseReceived)
                     {
                         try
                         {
-                            await _socket.CloseOutputAsync(_socket.CloseStatus.Value, _socket.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
+                            await _ws.CloseOutputAsync(_ws.CloseStatus.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         // Обрыв соединения.
@@ -739,7 +740,7 @@ namespace DanilovSoft.vRPC
                                 try
                                 {
                                     // Читаем фрейм веб-сокета.
-                                    webSocketMessage = await _socket.ReceiveExAsync(contentBuffer, CancellationToken.None).ConfigureAwait(false);
+                                    webSocketMessage = await _ws.ReceiveExAsync(contentBuffer, CancellationToken.None).ConfigureAwait(false);
                                 }
                                 catch (Exception ex)
                                 // Обрыв соединения.
@@ -769,11 +770,11 @@ namespace DanilovSoft.vRPC
                                 else
                                 // Другая сторона закрыла соединение.
                                 {
-                                    if (_socket.State == Ms.WebSocketState.CloseReceived)
+                                    if (_ws.State == Ms.WebSocketState.CloseReceived)
                                     {
                                         try
                                         {
-                                            await _socket.CloseOutputAsync(_socket.CloseStatus.Value, _socket.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
+                                            await _ws.CloseOutputAsync(_ws.CloseStatus.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
                                         }
                                         catch (Exception ex)
                                         // Обрыв соединения.
@@ -996,7 +997,7 @@ namespace DanilovSoft.vRPC
             {
                 // Отключаемся от сокета с небольшим таймаутом.
                 using (var cts = new CancellationTokenSource(2000))
-                    await _socket.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError, closeDescription, cts.Token).ConfigureAwait(false);
+                    await _ws.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError, closeDescription, cts.Token).ConfigureAwait(false);
             }
             catch (Exception ex)
             // Злой обрыв соединения.
@@ -1208,7 +1209,7 @@ namespace DanilovSoft.vRPC
                         try
                         {
                             // Заголовок лежит в конце стрима.
-                            await _socket.SendAsync(streamBuffer.AsMemory(messageSize, serializedMessage.HeaderSize),
+                            await _ws.SendAsync(streamBuffer.AsMemory(messageSize, serializedMessage.HeaderSize),
                                 Ms.WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
                         }
                         catch (Exception ex)
@@ -1228,7 +1229,7 @@ namespace DanilovSoft.vRPC
 
                             try
                             {
-                                await _socket.SendAsync(streamBuffer.AsMemory(0, messageSize),
+                                await _ws.SendAsync(streamBuffer.AsMemory(0, messageSize),
                                     Ms.WebSocketMessageType.Binary, true, CancellationToken.None).ConfigureAwait(false);
                             }
                             catch (Exception ex)
@@ -1669,7 +1670,7 @@ namespace DanilovSoft.vRPC
                 _pendingRequests.PropagateExceptionAndLockup(possibleReason.ToException());
 
                 // Закрыть соединение.
-                _socket.Dispose();
+                _ws.Dispose();
 
                 // Синхронизироваться с подписчиками на событие Disconnected.
                 EventHandler<SocketDisconnectedEventArgs> disconnected;
