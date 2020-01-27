@@ -97,7 +97,7 @@
             Конструктор клиента.
             </summary>
             <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
-            <param name="uri">Адрес сервера.</param>
+            <param name="serverAddress">Адрес сервера.</param>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.ConfigureService(System.Action{Microsoft.Extensions.DependencyInjection.ServiceCollection})">
             <summary>
@@ -244,7 +244,7 @@
             Не бросает исключения.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ManagedConnection._socket">
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._ws">
             <summary>
             Подключенный TCP сокет.
             </summary>
@@ -378,6 +378,11 @@
             <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.FinishSenderAsync">
+            <summary>
+            Гарантирует что ничего больше не будет отправлено через веб-сокет. Не бросает исключения.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.CloseAndDisposeAsync(System.Exception,System.String)">
             <summary>
             Отправляет Close и выполняет Dispose.
@@ -413,7 +418,7 @@
             Не бросает исключения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SenderLoop">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.LoopSendAsync">
             <summary>
             Принимает заказы на отправку и отправляет в сокет. Запускается из конструктора. Не бросает исключения.
             </summary>
@@ -736,22 +741,6 @@
         <member name="P:DanilovSoft.vRPC.ProxyFactory`1.Proxy">
             <summary>
             Прозрачный прокси к удалённой стороне.
-            </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
-            <summary>
-            Существует только для Net Framework.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
-            <summary>
-            Перегрузка для Net Framework.
-            Attempts to add the specified key and value to the dictionary.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
-            <summary>
-            Перегрузка для Net Framework.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.RequestToInvoke">
@@ -1093,7 +1082,24 @@
         <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectJson``1(System.IO.Stream,``0)">
             <summary>
             Сериализует объект в JSON.
-            em.ReadOnlyMemory{System.Byte})">
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeJson``1(System.ReadOnlySpan{System.Byte})">
+            <summary>
+            Десериализует Json.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeJson(System.ReadOnlySpan{System.Byte},System.Type)">
+            <summary>
+            Десериализует Json.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeJson(System.ReadOnlyMemory{System.Byte},System.Type)">
+            <summary>
+            Десериализует Json.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.DeserializeJson``1(System.ReadOnlyMemory{System.Byte})">
             <summary>
             Десериализует Json.
             </summary>
@@ -1678,23 +1684,6 @@
             </summary>
         </member>
         <member name="M:DynamicMethodsLib.ILGeneratorExtensions.Emit_Ldarg(System.Reflection.Emit.ILGenerator,System.Int32)">
-            <summary>
-            Загружает аргумент с индексом <paramref name="argIndex"/> в стек вычислений.
-            </summary>
-        </member>
-        <member name="M:DynamicMethodsLib.ILGeneratorExtensions.Emit_Ldc_I4(System.Reflection.Emit.ILGenerator,System.Int32)">
-            <summary>
-            Помещает целочисленное значение <paramref name="n"/> в стек вычислений как <see langword="int32"/>.
-            </summary>
-        </member>
-        <member name="M:System.Threading.ChannelLock.LockAsync">
-            <summary>
-            Не бросает исключения.
-            </summary>
-        </member>
-    </members>
-</doc>
-em.Reflection.Emit.ILGenerator,System.Int32)">
             <summary>
             Загружает аргумент с индексом <paramref name="argIndex"/> в стек вычислений.
             </summary>

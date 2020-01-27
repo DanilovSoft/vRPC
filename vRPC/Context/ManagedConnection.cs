@@ -143,6 +143,7 @@ namespace DanilovSoft.vRPC
         /// После разъединения текущий экземпляр не может быть переподключен.
         /// </summary>
         public bool IsConnected => _isConnected;
+        private Task _loopSender;
 
         // static ctor.
         static ManagedConnection()
@@ -193,17 +194,14 @@ namespace DanilovSoft.vRPC
         /// </summary>
         internal void InitStartThreads()
         {
+            // Не бросает исключения.
+            _loopSender = LoopSendAsync();
+
             // Запустить цикл отправки сообщений.
-            ThreadPool.UnsafeQueueUserWorkItem(SenderLoopStart, this); // Без замыкания.
+            //ThreadPool.UnsafeQueueUserWorkItem(SenderLoopStart, this); // Без замыкания.
 
             // Запустить цикл приёма сообщений.
             ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this); // Без замыкания.
-        }
-
-        private static void SenderLoopStart(object state)
-        {
-            // Не бросает исключения.
-            ((ManagedConnection)state).SenderLoop();
         }
 
         private static void ReceiveLoopStart(object state)
@@ -303,7 +301,8 @@ namespace DanilovSoft.vRPC
         {
             // Эту функцию вызывает тот поток который поймал флаг о необходимости завершения сервиса.
 
-            // TODO: bug - нельзя делать Close одновременно с Send операцией.
+            // Нельзя делать Close одновременно с Send операцией.
+            await FinishSenderAsync().ConfigureAwait(false);
             try
             {
                 // Отправить Close с ожиданием ответного Close.
@@ -671,6 +670,7 @@ namespace DanilovSoft.vRPC
                 {
                     if(_ws.State == Ms.WebSocketState.CloseReceived)
                     {
+                        await FinishSenderAsync().ConfigureAwait(false);
                         try
                         {
                             await _ws.CloseOutputAsync(_ws.CloseStatus.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
@@ -772,6 +772,7 @@ namespace DanilovSoft.vRPC
                                 {
                                     if (_ws.State == Ms.WebSocketState.CloseReceived)
                                     {
+                                        await FinishSenderAsync().ConfigureAwait(false);
                                         try
                                         {
                                             await _ws.CloseOutputAsync(_ws.CloseStatus.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
@@ -985,6 +986,21 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
+        /// Гарантирует что ничего больше не будет отправлено через веб-сокет. Не бросает исключения.
+        /// </summary>
+        private Task FinishSenderAsync()
+        {
+            _sendChannel.Writer.TryComplete();
+            Task senderTask = Volatile.Read(ref _loopSender);
+            if(senderTask != null)
+            {
+                if (!senderTask.IsCompleted)
+                    return senderTask;
+            }
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
         /// Отправляет Close и выполняет Dispose.
         /// </summary>
         /// <param name="protocolErrorException">Распространяет исключение ожидаюшим потокам.</param>
@@ -993,6 +1009,7 @@ namespace DanilovSoft.vRPC
             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
             _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
 
+            await FinishSenderAsync().ConfigureAwait(false);
             try
             {
                 // Отключаемся от сокета с небольшим таймаутом.
@@ -1167,7 +1184,7 @@ namespace DanilovSoft.vRPC
         /// Принимает заказы на отправку и отправляет в сокет. Запускается из конструктора. Не бросает исключения.
         /// </summary>
         /// <returns></returns>
-        private async void SenderLoop() // Точка входа нового потока.
+        private async Task LoopSendAsync() // Точка входа нового потока.
         {
             while (!IsDisposed)
             {
@@ -1265,7 +1282,7 @@ namespace DanilovSoft.vRPC
                     }
                 }
                 else
-                // Dispose закрыл канал.
+                // Другой поток закрыл канал.
                 {
                     // Завершить поток.
                     return;
