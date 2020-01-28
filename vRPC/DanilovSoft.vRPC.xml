@@ -1703,3 +1703,20 @@
         </member>
     </members>
 </doc>
+em.Reflection.Emit.ILGenerator,System.Int32)">
+            <summary>
+            Загружает аргумент с индексом <paramref name="argIndex"/> в стек вычислений.
+            </summary>
+        </member>
+        <member name="M:DynamicMethodsLib.ILGeneratorExtensions.Emit_Ldc_I4(System.Reflection.Emit.ILGenerator,System.Int32)">
+            <summary>
+            Помещает целочисленное значение <paramref name="n"/> в стек вычислений как <see langword="int32"/>.
+            </summary>
+        </member>
+        <member name="M:System.Threading.ChannelLock.LockAsync">
+            <summary>
+            Не бросает исключения.
+            </summary>
+        </member>
+    </members>
+</doc>
