@@ -17,6 +17,7 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{{State}\}")]
     public sealed class RpcClient : IDisposable, IGetProxy
     {
+        private static readonly Task<CloseReason> NoConnectionCompletion = Task.FromResult(CloseReason.NoConnectionError);
         /// <summary>
         /// Используется для синхронизации установки соединения.
         /// </summary>
@@ -42,7 +43,7 @@ namespace DanilovSoft.vRPC
         /// Завершается если подключение разорвано или не установлено.
         /// Не бросает исключения.
         /// </summary>
-        public Task<CloseReason> Completion => _connection?.Completion ?? Task.FromResult(CloseReason.NoConnectionError);
+        public Task<CloseReason> Completion => _connection?.Completion ?? NoConnectionCompletion;
         public RpcState State
         {
             get
