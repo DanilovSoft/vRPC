@@ -311,7 +311,7 @@
             Потокобезопасно.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.CloseReceived">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.DisposeOnCloseReceived">
             <summary>
             Устанавливает причину закрытия соединения для текущего экземпляра и закрывает соединение.
             Не бросает исключения.
@@ -380,7 +380,10 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.FinishSenderAsync">
             <summary>
-            Гарантирует что ничего больше не будет отправлено через веб-сокет. Не бросает исключения.
+            Гарантирует что ничего больше не будет отправлено через веб-сокет. 
+            Дожидается завершения отправляющего потока.
+            Не бросает исключения.
+            Атомарно возвращает true означающее что поток должен выполнить Close.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.CloseAndDisposeAsync(System.Exception,System.String)">

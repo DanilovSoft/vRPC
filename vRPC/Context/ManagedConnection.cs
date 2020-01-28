@@ -266,8 +266,13 @@ namespace DanilovSoft.vRPC
 
             if (firstTime)
             {
+                var timeoutTask = Task.Delay(stopRequired.DisconnectTimeout);
+
                 // Подождать грациозную остановку.
-                await Task.WhenAny(Completion, Task.Delay(stopRequired.DisconnectTimeout)).ConfigureAwait(false);
+                if (await Task.WhenAny(Completion, timeoutTask).ConfigureAwait(false) == timeoutTask)
+                {
+                    Debug.WriteLine($"Достигнут таймаут {(int)stopRequired.DisconnectTimeout.TotalSeconds} сек. на грациозную остановку.");
+                }
 
                 // Не бросает исключения.
                 AtomicDispose(CloseReason.FromException(new StopRequiredException(stopRequired)));
@@ -287,7 +292,7 @@ namespace DanilovSoft.vRPC
         /// Устанавливает причину закрытия соединения для текущего экземпляра и закрывает соединение.
         /// Не бросает исключения.
         /// </summary>
-        private void CloseReceived()
+        private void DisposeOnCloseReceived()
         {
             // Был получен Close. Это значит что веб сокет уже закрыт и нам остаётся только закрыть сервис.
             AtomicDispose(CloseReason.FromCloseFrame(_ws.CloseStatus, _ws.CloseStatusDescription, null, _stopRequired));
@@ -302,20 +307,22 @@ namespace DanilovSoft.vRPC
             // Эту функцию вызывает тот поток который поймал флаг о необходимости завершения сервиса.
 
             // Нельзя делать Close одновременно с Send операцией.
-            await FinishSenderAsync().ConfigureAwait(false);
-            try
+            if (await FinishSenderAsync().ConfigureAwait(false))
             {
-                // Отправить Close с ожиданием ответного Close.
-                // Может бросить исключение если сокет уже в статусе Close.
-                await _ws.CloseAsync(Ms.WebSocketCloseStatus.NormalClosure, closeDescription, CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                // Оповестить об обрыве.
-                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                try
+                {
+                    // Отправить Close с ожиданием ответного Close.
+                    // Может бросить исключение если сокет уже в статусе Close.
+                    await _ws.CloseAsync(Ms.WebSocketCloseStatus.NormalClosure, closeDescription, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    // Оповестить об обрыве.
+                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
-                // Завершить поток.
-                return;
+                    // Завершить поток.
+                    return;
+                }
             }
 
             // Благодаря событию WebSocket.Disconnect у нас гарантированно вызовется AtomicDispose.
@@ -670,23 +677,25 @@ namespace DanilovSoft.vRPC
                 {
                     if(_ws.State == Ms.WebSocketState.CloseReceived)
                     {
-                        await FinishSenderAsync().ConfigureAwait(false);
-                        try
+                        if (await FinishSenderAsync().ConfigureAwait(false))
                         {
-                            await _ws.CloseOutputAsync(_ws.CloseStatus.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        // Обрыв соединения.
-                        {
-                            // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                            try
+                            {
+                                await _ws.CloseOutputAsync(_ws.CloseStatus.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            // Обрыв соединения.
+                            {
+                                // Оповестить об обрыве.
+                                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
-                            // Завершить поток.
-                            return;
+                                // Завершить поток.
+                                return;
+                            }
                         }
                     }
 
-                    CloseReceived();
+                    DisposeOnCloseReceived();
 
                     // Завершить поток.
                     return;
@@ -772,23 +781,25 @@ namespace DanilovSoft.vRPC
                                 {
                                     if (_ws.State == Ms.WebSocketState.CloseReceived)
                                     {
-                                        await FinishSenderAsync().ConfigureAwait(false);
-                                        try
+                                        if (await FinishSenderAsync().ConfigureAwait(false))
                                         {
-                                            await _ws.CloseOutputAsync(_ws.CloseStatus.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
-                                        }
-                                        catch (Exception ex)
-                                        // Обрыв соединения.
-                                        {
-                                            // Оповестить об обрыве.
-                                            AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                                            try
+                                            {
+                                                await _ws.CloseOutputAsync(_ws.CloseStatus.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
+                                            }
+                                            catch (Exception ex)
+                                            // Обрыв соединения.
+                                            {
+                                                // Оповестить об обрыве.
+                                                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
-                                            // Завершить поток.
-                                            return;
+                                                // Завершить поток.
+                                                return;
+                                            }
                                         }
                                     }
 
-                                    CloseReceived();
+                                    DisposeOnCloseReceived();
 
                                     // Завершить поток.
                                     return;
@@ -986,18 +997,20 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Гарантирует что ничего больше не будет отправлено через веб-сокет. Не бросает исключения.
+        /// Гарантирует что ничего больше не будет отправлено через веб-сокет. 
+        /// Дожидается завершения отправляющего потока.
+        /// Не бросает исключения.
+        /// Атомарно возвращает true означающее что поток должен выполнить Close.
         /// </summary>
-        private Task FinishSenderAsync()
+        private async Task<bool> FinishSenderAsync()
         {
-            _sendChannel.Writer.TryComplete();
+            bool completed = _sendChannel.Writer.TryComplete();
             Task senderTask = Volatile.Read(ref _loopSender);
             if(senderTask != null)
             {
-                if (!senderTask.IsCompleted)
-                    return senderTask;
+                await senderTask.ConfigureAwait(false);
             }
-            return Task.CompletedTask;
+            return completed;
         }
 
         /// <summary>
@@ -1009,21 +1022,25 @@ namespace DanilovSoft.vRPC
             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
             _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
 
-            await FinishSenderAsync().ConfigureAwait(false);
-            try
+            if (await FinishSenderAsync().ConfigureAwait(false))
             {
-                // Отключаемся от сокета с небольшим таймаутом.
-                using (var cts = new CancellationTokenSource(2000))
-                    await _ws.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError, closeDescription, cts.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            // Злой обрыв соединения.
-            {
-                // Оповестить об обрыве.
-                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                try
+                {
+                    // Отключаемся от сокета с небольшим таймаутом.
+                    using (var cts = new CancellationTokenSource(1_000))
+                    {
+                        await _ws.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError, closeDescription, cts.Token).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex)
+                // Злой обрыв соединения.
+                {
+                    // Оповестить об обрыве.
+                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
 
-                // Завершить поток.
-                return;
+                    // Завершить поток.
+                    return;
+                }
             }
 
             // Оповестить об обрыве.
