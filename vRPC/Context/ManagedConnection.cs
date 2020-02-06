@@ -36,7 +36,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private readonly InvokeActionsDictionary _invokeActions;
         /// <summary>
-        /// Для <see cref="Task"/> <see cref="Completion"/>.
+        /// Для Completion.
         /// </summary>
         private readonly TaskCompletionSource<CloseReason> _completionTcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
         [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
@@ -53,6 +53,7 @@ namespace DanilovSoft.vRPC
         /// Возвращает <see cref="Task"/> который завершается когда 
         /// соединение переходит в закрытое состояние.
         /// Возвращает <see cref="DisconnectReason"/>.
+        /// Не мутабельное свойство.
         /// Не бросает исключения.
         /// </summary>
         public Task<CloseReason> Completion => _completionTcs.Task;
@@ -86,7 +87,7 @@ namespace DanilovSoft.vRPC
         /// Используется для проверки возможности начать новый запрос.
         /// Использовать через блокировку <see cref="StopRequiredLock"/>.
         /// </summary>
-        private volatile StopRequired _stopRequired;
+        private volatile ShutdownRequest _stopRequired;
         /// <summary>
         /// Предотвращает повторный вызов Stop.
         /// </summary>
@@ -234,7 +235,7 @@ namespace DanilovSoft.vRPC
         /// Не бросает исключения.
         /// Потокобезопасно.
         /// </summary>
-        internal async Task<CloseReason> StopAsync(StopRequired stopRequired)
+        internal async Task<CloseReason> ShutdownAsync(ShutdownRequest stopRequired)
         {
             bool firstTime;
             lock (StopRequiredLock)
@@ -252,7 +253,7 @@ namespace DanilovSoft.vRPC
                     {
                         // Можно безопасно остановить сокет.
                         // Не бросает исключения.
-                        _ = SendCloseAsync(stopRequired.CloseDescription);
+                        _ = CloseAsync(stopRequired.CloseDescription);
                     }
                     // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
                     // Это будет соглашением о необходимости остановки.
@@ -266,21 +267,23 @@ namespace DanilovSoft.vRPC
 
             if (firstTime)
             {
-                var timeoutTask = Task.Delay(stopRequired.DisconnectTimeout);
+                var timeoutTask = Task.Delay(stopRequired.ShutdownTimeout);
 
                 // Подождать грациозную остановку.
-                if (await Task.WhenAny(Completion, timeoutTask).ConfigureAwait(false) == timeoutTask)
+                if (await Task.WhenAny(_completionTcs.Task, timeoutTask).ConfigureAwait(false) == timeoutTask)
                 {
-                    Debug.WriteLine($"Достигнут таймаут {(int)stopRequired.DisconnectTimeout.TotalSeconds} сек. на грациозную остановку.");
+                    Debug.WriteLine($"Достигнут таймаут {(int)stopRequired.ShutdownTimeout.TotalSeconds} сек. на грациозную остановку.");
                 }
 
                 // Не бросает исключения.
                 AtomicDispose(CloseReason.FromException(new StopRequiredException(stopRequired)));
 
-                CloseReason closeReason = Completion.Result;
+                CloseReason closeReason = _completionTcs.Task.Result;
 
-                // Передать результат другим потокам которые вызовут Stop.
-                return stopRequired.SetTaskResult(closeReason);
+                // Передать результат другим потокам которые вызовут Shutdown.
+                stopRequired.SetTaskResult(closeReason);
+
+                return closeReason;
             }
             else
             {
@@ -302,9 +305,10 @@ namespace DanilovSoft.vRPC
         /// Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
         /// Не бросает исключения.
         /// </summary>
-        private async Task SendCloseAsync(string closeDescription)
+        private async Task CloseAsync(string closeDescription)
         {
             // Эту функцию вызывает тот поток который поймал флаг о необходимости завершения сервиса.
+            // Благодаря событию WebSocket.Disconnect у нас гарантированно вызовется AtomicDispose.
 
             // Нельзя делать Close одновременно с Send операцией.
             if (await FinishSenderAsync().ConfigureAwait(false))
@@ -324,8 +328,6 @@ namespace DanilovSoft.vRPC
                     return;
                 }
             }
-
-            // Благодаря событию WebSocket.Disconnect у нас гарантированно вызовется AtomicDispose.
         }
 
         /// <summary>
@@ -336,7 +338,7 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(_stopRequired != null);
 
-            return SendCloseAsync(_stopRequired.CloseDescription);
+            return CloseAsync(_stopRequired.CloseDescription);
         }
 
         /// <summary>

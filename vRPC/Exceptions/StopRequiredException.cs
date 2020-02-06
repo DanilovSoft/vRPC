@@ -9,40 +9,32 @@ namespace DanilovSoft.vRPC
     [Serializable]
     public sealed class StopRequiredException : Exception
     {
-        public StopRequired StopRequiredState { get; }
+        public ShutdownRequest StopRequiredState { get; }
 
-        public StopRequiredException()
-        {
+        public StopRequiredException() { }
 
-        }
+        public StopRequiredException(string message) : base(message) { }
 
-        public StopRequiredException(string message) : base(message)
-        {
+        public StopRequiredException(string message, Exception innerException) : base(message, innerException) { }
 
-        }
-
-        internal StopRequiredException(StopRequired stopRequired) : base(CreateMessage(stopRequired))
+        internal StopRequiredException(ShutdownRequest stopRequired) : base(CreateExceptionMessage(stopRequired))
         {
             Debug.Assert(stopRequired != null);
             StopRequiredState = stopRequired;
         }
 
-        private static string CreateMessage(StopRequired stopRequired)
+        private static string CreateExceptionMessage(ShutdownRequest stopRequired)
         {
             if (!string.IsNullOrEmpty(stopRequired.CloseDescription))
             {
                 return $"Использовать этот экземпляр больше нельзя — был вызван " +
-                    $"Stop (DisconnectTimeout: {stopRequired.DisconnectTimeout}) со следующим объяснением причины: '{stopRequired.CloseDescription}'.";
+                    $"Shutdown (DisconnectTimeout: {stopRequired.ShutdownTimeout}) со следующим объяснением причины: '{stopRequired.CloseDescription}'.";
             }
             else
             {
                 return $"Использовать этот экземпляр больше нельзя — был вызван " +
-                    $"Stop (DisconnectTimeout: {stopRequired.DisconnectTimeout}) без дополнительного объяснения причины.";
+                    $"Shutdown (DisconnectTimeout: {stopRequired.ShutdownTimeout}) без дополнительного объяснения причины.";
             }
-        }
-
-        public StopRequiredException(string message, Exception innerException) : base(message, innerException)
-        {
         }
 
 #pragma warning disable CA1801

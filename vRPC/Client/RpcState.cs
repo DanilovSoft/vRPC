@@ -12,6 +12,6 @@ namespace DanilovSoft.vRPC
         /// Произошел запрос на остановку сервиса – подключать данный экземпляр больше нельзя.
         /// Причину остановки можно узнать через свойство <see cref="RpcClient.StopRequiredState"/>.
         /// </summary>
-        StopRequired,
+        ShutdownRequest,
     }
 }

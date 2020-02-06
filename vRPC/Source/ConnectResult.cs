@@ -4,16 +4,22 @@ using System.Net.Sockets;
 
 namespace DanilovSoft.vRPC
 {
+    [DebuggerDisplay(@"\{{State}\}")]
     public readonly struct ConnectResult : IEquatable<ConnectResult>
     {
-        public ConnectState State { get; }
+        public ConnectionState State { get; }
         public SocketError? SocketError { get; }
+        /// <summary>
+        /// Не Null если State = <see cref="ConnectionState.ShutdownRequest"/>.
+        /// </summary>
+        public ShutdownRequest ShutdownRequest { get; }
 
         [DebuggerStepThrough]
-        internal ConnectResult(ConnectState connectState, SocketError? socketError)
+        internal ConnectResult(ConnectionState connectState, SocketError? socketError, ShutdownRequest shutdownRequest)
         {
             State = connectState;
             SocketError = socketError;
+            ShutdownRequest = shutdownRequest;
         }
 
         public bool Equals(ConnectResult other)

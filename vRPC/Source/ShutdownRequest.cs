@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    [DebuggerDisplay("{DisconnectTimeout}, {CloseDescription}")]
-    public sealed class StopRequired
+    [DebuggerDisplay("{ShutdownTimeout}, {CloseDescription}")]
+    public sealed class ShutdownRequest
     {
         private readonly TaskCompletionSource<CloseReason> _tcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
         /// <summary>
@@ -19,21 +19,17 @@ namespace DanilovSoft.vRPC
         /// Максимальное время ожидания остановки сервиса указанное пользователем 
         /// после которого все соединения закрываются принудительно.
         /// </summary>
-        public TimeSpan DisconnectTimeout { get; }
+        public TimeSpan ShutdownTimeout { get; }
 
-        public StopRequired(TimeSpan disconnectTimeout, string closeDescription)
+        public ShutdownRequest(TimeSpan disconnectTimeout, string closeDescription)
         {
-            DisconnectTimeout = disconnectTimeout;
+            ShutdownTimeout = disconnectTimeout;
             CloseDescription = closeDescription;
         }
 
-        /// <summary>
-        /// Возвращает переданное значение.
-        /// </summary>
-        internal CloseReason SetTaskResult(CloseReason closeReason)
+        internal void SetTaskResult(CloseReason closeReason)
         {
             _tcs.TrySetResult(closeReason);
-            return closeReason;
         }
     }
 }

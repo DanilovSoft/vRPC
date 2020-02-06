@@ -12,12 +12,6 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// "Соединение не установлено."
         /// </summary>
-        internal static readonly CloseReason NoConnectionError = FromException(
-            new ConnectionClosedException("Соединение не установлено."), null);
-
-        /// <summary>
-        /// "Соединение не установлено."
-        /// </summary>
         internal static readonly CloseReason NoConnectionGracifully = new CloseReason(null,null, null, "Соединение не установлено.", null);
 
         /// <summary>
@@ -42,7 +36,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
         /// </summary>
-        public StopRequired StopRequest { get; }
+        public ShutdownRequest StopRequest { get; }
 
         [DebuggerStepThrough]
         internal static CloseReason FromException(StopRequiredException stopRequiredException)
@@ -51,19 +45,19 @@ namespace DanilovSoft.vRPC
         }
 
         [DebuggerStepThrough]
-        internal static CloseReason FromException(Exception ex, StopRequired stopRequired, string additionalDescription = null)
+        internal static CloseReason FromException(Exception ex, ShutdownRequest stopRequired, string additionalDescription = null)
         {
             return new CloseReason(ex, null, null, additionalDescription, stopRequired);
         }
 
         [DebuggerStepThrough]
-        internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription, StopRequired stopRequired)
+        internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription, ShutdownRequest stopRequired)
         {
             return new CloseReason(null, closeStatus, closeDescription, additionalDescription, stopRequired);
         }
 
         [DebuggerStepThrough]
-        private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription, StopRequired stopRequired)
+        private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription, ShutdownRequest stopRequired)
         {
             Error = error;
             CloseDescription = closeDescription;
