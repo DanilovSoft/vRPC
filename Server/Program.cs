@@ -48,7 +48,7 @@ namespace Server
                     {
                         Console.WriteLine("Stopping...");
                     }
-                    listener.BeginStop(TimeSpan.FromSeconds(3), "Пользователь нажал Ctrl+C");
+                    listener.BeginShutdown(TimeSpan.FromSeconds(3), "Пользователь нажал Ctrl+C");
                 };
 
                 listener.ClientConnected += Listener_ClientConnected;
@@ -95,6 +95,8 @@ namespace Server
 
         private static void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
         {
+            e.Connection.Listener.Stop
+
             //var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
             Interlocked.Increment(ref _connections);

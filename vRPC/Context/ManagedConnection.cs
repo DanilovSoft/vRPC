@@ -228,14 +228,35 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
+        /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="disconnectTimeout"/>.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        public CloseReason Shutdown(TimeSpan disconnectTimeout, string closeDescription = null)
+        {
+            return InnerShutdownAsync(new ShutdownRequest(disconnectTimeout, closeDescription)).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="disconnectTimeout"/>.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+        /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        public Task<CloseReason> ShutdownAsync(TimeSpan disconnectTimeout, string closeDescription = null)
+        {
+            return InnerShutdownAsync(new ShutdownRequest(disconnectTimeout, closeDescription));
+        }
+
+        /// <summary>
         /// Запрещает отправку новых запросов; Ожидает когда завершатся текущие запросы 
         /// и отправляет удалённой стороне сообщение о закрытии соединения с ожиданием подтверджения.
-        /// Затем выполняет Dispose, взводит <see cref="Completion"/> и 
-        /// возвращает <see langword="true"/> если остановка завершилась раньше таймаута.
+        /// Затем выполняет Dispose и взводит <see cref="Completion"/>.
         /// Не бросает исключения.
         /// Потокобезопасно.
         /// </summary>
-        internal async Task<CloseReason> ShutdownAsync(ShutdownRequest stopRequired)
+        internal async Task<CloseReason> InnerShutdownAsync(ShutdownRequest stopRequired)
         {
             bool firstTime;
             lock (StopRequiredLock)

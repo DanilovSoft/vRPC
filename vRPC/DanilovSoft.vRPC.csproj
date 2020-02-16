@@ -12,7 +12,7 @@
     <Authors>Vitalii Danilov</Authors>
     <PackageId>DanilovSoft.vRPC</PackageId>
     <Product>DanilovSoft.vRPC</Product>
-    <Version>1.5.4</Version>
+    <Version>1.6.0</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -49,9 +49,9 @@
     <PackageReference Include="System.Threading.Channels" Version="4.7.0" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!--<ItemGroup>
     <ProjectReference Include="..\..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSockets.csproj" />
-  </ItemGroup>
+  </ItemGroup>-->
 
   <ItemGroup>
     <Compile Update="Resources\SR.Designer.cs">

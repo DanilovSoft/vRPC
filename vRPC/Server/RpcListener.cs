@@ -151,9 +151,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public bool Stop(TimeSpan disconnectTimeout, string closeDescription = null)
+        public bool Shutdown(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            return StopAsync(disconnectTimeout, closeDescription).GetAwaiter().GetResult();
+            return ShutdownAsync(disconnectTimeout, closeDescription).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -164,29 +164,29 @@ namespace DanilovSoft.vRPC
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
         /// Может быть <see langword="null"/>.</param>
-        public void BeginStop(TimeSpan disconnectTimeout, string closeDescription = null)
+        public void BeginShutdown(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            InnerBeginStop(disconnectTimeout, closeDescription);
+            InnerBeginShutdown(disconnectTimeout, closeDescription);
         }
 
         /// <summary>
         /// Останавливает сервис и ожидает до полной остановки.
         /// Не бросает исключения.
-        /// Эквивалентно <see cref="BeginStop(TimeSpan, string)"/> + <see langword="await"/> <see cref="Completion"/>.
+        /// Эквивалентно <see cref="BeginShutdown(TimeSpan, string)"/> + <see langword="await"/> <see cref="Completion"/>.
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
         /// Может быть <see langword="null"/>.</param>
-        public Task<bool> StopAsync(TimeSpan disconnectTimeout, string closeDescription = null)
+        public Task<bool> ShutdownAsync(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            InnerBeginStop(disconnectTimeout, closeDescription);
+            InnerBeginShutdown(disconnectTimeout, closeDescription);
             return Completion;
         }
 
         /// <summary>
         /// Начинает остановку сервера и взводит <see cref="Completion"/> не дольше чем указано в <paramref name="disconnectTimeout"/>.
         /// </summary>
-        private async void InnerBeginStop(TimeSpan disconnectTimeout, string closeDescription)
+        private async void InnerBeginShutdown(TimeSpan disconnectTimeout, string closeDescription)
         {
             ShutdownRequest stopRequired;
             lock (StartLock)
@@ -240,7 +240,7 @@ namespace DanilovSoft.vRPC
 
                     // Прекращаем принимать запросы.
                     // Не бросает исключений.
-                    cliConStopTasks[i] = clientConnection.ShutdownAsync(stopRequired);
+                    cliConStopTasks[i] = clientConnection.InnerShutdownAsync(stopRequired);
                 }
 
                 CloseReason[] allConnTask = await Task.WhenAll(cliConStopTasks).ConfigureAwait(false);
@@ -299,7 +299,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="OperationCanceledException"/>
         private async Task<bool> InnerRunAsync(TimeSpan disconnectTimeout, string closeDescription, CancellationToken cancellationToken)
         {
-            using (cancellationToken.Register(s => BeginStop(disconnectTimeout, closeDescription), false))
+            using (cancellationToken.Register(s => BeginShutdown(disconnectTimeout, closeDescription), false))
             {
                 bool graceful = await Completion.ConfigureAwait(false);
                 

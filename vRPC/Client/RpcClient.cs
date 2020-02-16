@@ -217,7 +217,6 @@ namespace DanilovSoft.vRPC
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         public CloseReason Shutdown(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            ThrowIfDisposed();
             return ShutdownAsync(disconnectTimeout, closeDescription).GetAwaiter().GetResult();
         }
 
@@ -230,7 +229,6 @@ namespace DanilovSoft.vRPC
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         public void BeginShutdown(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            ThrowIfDisposed();
             _ = PrivateShutdownAsync(disconnectTimeout, closeDescription);
         }
 
@@ -242,7 +240,6 @@ namespace DanilovSoft.vRPC
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         public Task<CloseReason> ShutdownAsync(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            ThrowIfDisposed();
             return PrivateShutdownAsync(disconnectTimeout, closeDescription);
         }
 
@@ -283,7 +280,7 @@ namespace DanilovSoft.vRPC
                 if (connection != null)
                 // Существует живое соединение.
                 {
-                    closeReason = await connection.ShutdownAsync(stopRequired).ConfigureAwait(false);
+                    closeReason = await connection.InnerShutdownAsync(stopRequired).ConfigureAwait(false);
                 }
                 else
                 // Соединения не существует и новые создаваться не смогут.
@@ -523,7 +520,7 @@ namespace DanilovSoft.vRPC
                                 using (connection)
                                 {
                                     // Мы обязаны закрыть это соединение.
-                                    await connection.ShutdownAsync(stopRequired).ConfigureAwait(false);
+                                    await connection.InnerShutdownAsync(stopRequired).ConfigureAwait(false);
                                 }
 
                                 return new InnerConnectionResult(receiveResult.SocketError, stopRequired, null);
