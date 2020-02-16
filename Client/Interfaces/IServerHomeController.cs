@@ -22,7 +22,8 @@ namespace Client
         void NotifyTest();
 
         DateTime Test(TestDto testDto);
-        Task<string> TestAsync();
+        //[Notification]
+        Task TestAsync();
 
         //StreamCall SendFile(FileDescription fileDescription);
     }

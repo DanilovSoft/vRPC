@@ -60,7 +60,7 @@ namespace Client
 
                     Interlocked.Increment(ref activeThreads);
 
-                    using (var client = new RpcClient(new Uri($"ws://{ipAddress}:{Port}"), false))
+                    using (var client = new RpcClient(new Uri($"ws://{ipAddress}:{Port}"), true))
                     {
                         Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client);
 
@@ -74,7 +74,7 @@ namespace Client
                         });
 
                         var homeController = client.GetProxy<IServerHomeController>();
-                        homeController.DummyCall(0);
+                        //homeController.DummyCall(0);
 
                         while (true)
                         {
@@ -85,15 +85,14 @@ namespace Client
                             if (conResult.State == ConnectionState.ShutdownRequest)
                                 break;
 
-                            //var shutdownResult = client.Shutdown(TimeSpan.FromSeconds(2));
-                            //client.Dispose();
-                            //client.Connect();
+                            homeController.TestAsync().GetAwaiter().GetResult();
+
 
                             while (true)
                             {
                                 try
                                 {
-                                    string s = homeController.TestAsync().GetAwaiter().GetResult();
+                                    //string s = homeController.TestAsync().GetAwaiter().GetResult();
                                 }
                                 catch (StopRequiredException)
                                 {

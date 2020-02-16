@@ -29,9 +29,24 @@ namespace Server.Controllers
             Interlocked.Increment(ref Program.ReqCount);
         }
 
-        public string Test()
+        public async void Test()
         {
-            return DateTime.Now.ToString();
+            var cr = await Context.ShutdownAsync(TimeSpan.FromSeconds(100), "test");
+
+            //return DateTime.Now.ToString();
+        }
+
+        private async void PrivateTest()
+        {
+            try
+            {
+                var cr = await Context.ShutdownAsync(TimeSpan.FromSeconds(100), "test");
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
         }
     }
 }

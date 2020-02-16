@@ -20,7 +20,7 @@ namespace Server
         private static long _connections;
         public static long ReqCount;
 
-        static void Main()
+        static async Task Main()
         {
             Console.Title = "Сервер";
             Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
@@ -56,24 +56,25 @@ namespace Server
 
                 //var lt = listener.ServiceProvider.GetRequiredService<IHostApplicationLifetime>();
 
-                listener.Start();
+                await listener.RunAsync();
+                //listener.Start();
 
-                Console.Clear();
-                long prev = 0;
-                var sw = Stopwatch.StartNew();
-                while (!listener.Completion.IsCompleted)
-                {
-                    Thread.Sleep(1000);
-                    long elapsedMs = sw.ElapsedMilliseconds;
-                    long rCount = Interlocked.Read(ref ReqCount);
-                    ulong reqPerSecond = unchecked((ulong)(rCount - prev));
-                    prev = rCount;
-                    sw.Restart();
+                //Console.Clear();
+                //long prev = 0;
+                //var sw = Stopwatch.StartNew();
+                //while (!listener.Completion.IsCompleted)
+                //{
+                //    Thread.Sleep(1000);
+                //    long elapsedMs = sw.ElapsedMilliseconds;
+                //    long rCount = Interlocked.Read(ref ReqCount);
+                //    ulong reqPerSecond = unchecked((ulong)(rCount - prev));
+                //    prev = rCount;
+                //    sw.Restart();
 
-                    var reqPerSec = (int)Math.Round(reqPerSecond * 1000d / elapsedMs);
-                    ToConsole(Interlocked.Read(ref _connections), reqPerSec, ReqCount);
-                }
-                ToConsole(0, 0, 0);
+                //    var reqPerSec = (int)Math.Round(reqPerSecond * 1000d / elapsedMs);
+                //    ToConsole(Interlocked.Read(ref _connections), reqPerSec, ReqCount);
+                //}
+                //ToConsole(0, 0, 0);
             }
         }
 
@@ -95,7 +96,7 @@ namespace Server
 
         private static void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
         {
-            e.Connection.Listener.Stop
+            //var cr = e.Connection.Shutdown(TimeSpan.FromSeconds(3), "test");
 
             //var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();
 

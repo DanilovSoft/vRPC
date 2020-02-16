@@ -9,7 +9,7 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay("{ShutdownTimeout}, {CloseDescription}")]
     public sealed class ShutdownRequest
     {
-        private readonly TaskCompletionSource<CloseReason> _tcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<CloseReason> _tcs;
         /// <summary>
         /// Причина остановки сервиса указанная пользователем. Может быть <see langword="null"/>.
         /// </summary>
@@ -23,6 +23,7 @@ namespace DanilovSoft.vRPC
 
         public ShutdownRequest(TimeSpan disconnectTimeout, string closeDescription)
         {
+            _tcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
             ShutdownTimeout = disconnectTimeout;
             CloseDescription = closeDescription;
         }

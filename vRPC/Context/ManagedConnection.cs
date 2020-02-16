@@ -274,7 +274,7 @@ namespace DanilovSoft.vRPC
                     {
                         // Можно безопасно остановить сокет.
                         // Не бросает исключения.
-                        _ = CloseAsync(stopRequired.CloseDescription);
+                        PrivateBeginClose(stopRequired.CloseDescription);
                     }
                     // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
                     // Это будет соглашением о необходимости остановки.
@@ -326,13 +326,14 @@ namespace DanilovSoft.vRPC
         /// Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
         /// Не бросает исключения.
         /// </summary>
-        private async Task CloseAsync(string closeDescription)
+        private async void PrivateBeginClose(string closeDescription)
         {
             // Эту функцию вызывает тот поток который поймал флаг о необходимости завершения сервиса.
             // Благодаря событию WebSocket.Disconnect у нас гарантированно вызовется AtomicDispose.
 
             // Нельзя делать Close одновременно с Send операцией.
             if (await FinishSenderAsync().ConfigureAwait(false))
+            // Send больше никто не сделает.
             {
                 try
                 {
@@ -355,11 +356,11 @@ namespace DanilovSoft.vRPC
         /// Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
         /// Не бросает исключения.
         /// </summary>
-        private Task SendCloseBeforeStopAsync()
+        private void BeginSendCloseBeforeShutdown()
         {
             Debug.Assert(_stopRequired != null);
 
-            return CloseAsync(_stopRequired.CloseDescription);
+            PrivateBeginClose(_stopRequired.CloseDescription);
         }
 
         /// <summary>
@@ -996,7 +997,7 @@ namespace DanilovSoft.vRPC
                                 // Пользователь запросил остановку сервиса.
                                 {
                                     // Не бросает исключения.
-                                    await SendCloseBeforeStopAsync().ConfigureAwait(false);
+                                    BeginSendCloseBeforeShutdown();
 
                                     // Завершить поток.
                                     return;
@@ -1029,7 +1030,8 @@ namespace DanilovSoft.vRPC
         {
             bool completed = _sendChannel.Writer.TryComplete();
             Task senderTask = Volatile.Read(ref _loopSender);
-            if(senderTask != null)
+            if (senderTask != null)
+            // Подождать завершение Send потока.
             {
                 await senderTask.ConfigureAwait(false);
             }
@@ -1313,7 +1315,7 @@ namespace DanilovSoft.vRPC
                             // Пользователь запросил остановку сервиса.
                             {
                                 // Не бросает исключения.
-                                await SendCloseBeforeStopAsync().ConfigureAwait(false);
+                                BeginSendCloseBeforeShutdown();
 
                                 // Завершить поток.
                                 return;
