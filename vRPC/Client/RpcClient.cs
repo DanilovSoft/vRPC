@@ -25,8 +25,9 @@ namespace DanilovSoft.vRPC
         /// Адрес для подключения к серверу.
         /// </summary>
         private readonly InvokeActionsDictionary _invokeActions;
-        private readonly ProxyCache _proxyCache = new ProxyCache();
+        private readonly ProxyCache _proxyCache;
         private readonly ServiceCollection _serviceCollection = new ServiceCollection();
+        private readonly bool _allowReconnect;
         public Uri ServerAddress { get; private set; }
         /// <summary>
         /// <see langword="volatile"/>.
@@ -39,16 +40,16 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private volatile ClientSideConnection _connection;
         /// <summary>
-        /// Завершается если подключение разорвано или не установлено.
+        /// Завершается если подключение разорвано.
         /// Не бросает исключения.
         /// </summary>
-        public Task<CloseReason> Completion => _connection?.Completion ?? Task.FromResult(CloseReason.NoConnectionError);
+        public Task<CloseReason> Completion { get; private set; }
         public RpcState State
         {
             get
             {
-                if (_stopRequired != null)
-                    return RpcState.StopRequired;
+                if (_shutdownRequest != null)
+                    return RpcState.ShutdownRequest;
 
                 return _connection != null ? RpcState.Open : RpcState.Closed;
             }
@@ -56,15 +57,15 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// volatile требуется лишь для публичного доступа.
         /// </summary>
-        private volatile StopRequired _stopRequired;
+        private volatile ShutdownRequest _shutdownRequest;
         /// <summary>
         /// Если был начат запрос на остновку, то это свойство будет содержать переданную причину остановки.
         /// Является <see langword="volatile"/>.
         /// </summary>
-        public StopRequired StopRequiredState => _stopRequired;
+        public ShutdownRequest StopRequiredState => _shutdownRequest;
         private bool _disposed;
         /// <summary>
-        /// Для доступа к <see cref="_disposed"/> и <see cref="_stopRequired"/>.
+        /// Для доступа к <see cref="_disposed"/> и <see cref="_shutdownRequest"/>.
         /// </summary>
         private object StateLock => _proxyCache;
         /// <summary>
@@ -82,25 +83,31 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт контекст клиентского соединения.
         /// </summary>
-        public RpcClient(Uri serverAddress) : this(Assembly.GetCallingAssembly(), serverAddress)
+        /// <param name="allowReconnect">Разрешено ли интерфейсам самостоятельно устанавливать и повторно переподключаться к серверу.</param>
+        public RpcClient(Uri serverAddress, bool allowReconnect = true) 
+            : this(Assembly.GetCallingAssembly(), serverAddress, allowReconnect)
         {
 
         }
 
+        // ctor.
         /// <summary>
         /// Создаёт контекст клиентского соединения.
         /// </summary>
-        public RpcClient(string host, int port, bool ssl = false) : this(Assembly.GetCallingAssembly(), new Uri($"{(ssl ? "wss" : "ws")}://{host}:{port}"))
+        /// <param name="allowReconnect">Разрешено ли интерфейсам самостоятельно устанавливать и повторно переподключаться к серверу.</param>
+        public RpcClient(string host, int port, bool ssl = false, bool allowReconnect = true) 
+            : this(Assembly.GetCallingAssembly(), new Uri($"{(ssl ? "wss" : "ws")}://{host}:{port}"), allowReconnect)
         {
             
         }
 
+        // ctor.
         /// <summary>
         /// Конструктор клиента.
         /// </summary>
         /// <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
         /// <param name="serverAddress">Адрес сервера.</param>
-        private RpcClient(Assembly controllersAssembly, Uri serverAddress)
+        private RpcClient(Assembly controllersAssembly, Uri serverAddress, bool allowReconnect)
         {
             Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
 
@@ -111,6 +118,8 @@ namespace DanilovSoft.vRPC
             _invokeActions = new InvokeActionsDictionary(controllerTypes);
             ServerAddress = serverAddress;
             _connectLock = new ChannelLock();
+            _allowReconnect = allowReconnect;
+            _proxyCache = new ProxyCache();
 
             InnerConfigureIoC(controllerTypes.Values);
         }
@@ -170,38 +179,24 @@ namespace DanilovSoft.vRPC
         public Task<ConnectResult> ConnectAsync()
         {
             ThrowIfDisposed();
+            ThrowIfWasShutdown();
 
-            ValueTask<ConnectionResult> t = ConnectIfNeededAsync();
+            ValueTask<InnerConnectionResult> t = ConnectOrGetConnectionAsync();
             if(t.IsCompletedSuccessfully)
             {
-                ConnectionResult conRes = t.Result;
-                return Task.FromResult(Result(conRes));
+                InnerConnectionResult conRes = t.Result;
+                return Task.FromResult(conRes.ToConnectResult());
             }
             else
             {
                 return WaitForConnectAsync(t);
             }
 
-            static async Task<ConnectResult> WaitForConnectAsync(ValueTask<ConnectionResult> t)
+            // Локальная.
+            static async Task<ConnectResult> WaitForConnectAsync(ValueTask<InnerConnectionResult> t)
             {
-                ConnectionResult conRes = await t.ConfigureAwait(false);
-                return Result(conRes);
-            }
-
-            static ConnectResult Result(in ConnectionResult conRes)
-            {
-                if (conRes.Connection != null)
-                {
-                    return new ConnectResult(ConnectState.Connected, conRes.SocketError);
-                }
-                else if (conRes.SocketError != null)
-                {
-                    return new ConnectResult(ConnectState.NotConnected, conRes.SocketError);
-                }
-                else
-                {
-                    return new ConnectResult(ConnectState.StopRequired, conRes.SocketError);
-                }
+                InnerConnectionResult conRes = await t.ConfigureAwait(false);
+                return conRes.ToConnectResult();
             }
         }
 
@@ -211,7 +206,7 @@ namespace DanilovSoft.vRPC
         /// <typeparam name="T">Интерфейс.</typeparam>
         public T GetProxy<T>()
         {
-            return _proxyCache.GetProxy<T>(ContextCallback);
+            return _proxyCache.GetProxy<T>(GetConnectionForInterfaceCallback);
         }
 
         /// <summary>
@@ -220,9 +215,10 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public CloseReason Stop(TimeSpan disconnectTimeout, string closeDescription = null)
+        public CloseReason Shutdown(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            return StopAsync(disconnectTimeout, closeDescription).GetAwaiter().GetResult();
+            ThrowIfDisposed();
+            return ShutdownAsync(disconnectTimeout, closeDescription).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -232,9 +228,10 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public void BeginStop(TimeSpan disconnectTimeout, string closeDescription = null)
+        public void BeginShutdown(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            _ = PrivateStopAsync(disconnectTimeout, closeDescription);
+            ThrowIfDisposed();
+            _ = PrivateShutdownAsync(disconnectTimeout, closeDescription);
         }
 
         /// <summary>
@@ -243,23 +240,26 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public Task<CloseReason> StopAsync(TimeSpan disconnectTimeout, string closeDescription = null)
+        public Task<CloseReason> ShutdownAsync(TimeSpan disconnectTimeout, string closeDescription = null)
         {
-            return PrivateStopAsync(disconnectTimeout, closeDescription);
+            ThrowIfDisposed();
+            return PrivateShutdownAsync(disconnectTimeout, closeDescription);
         }
 
-        private async Task<CloseReason> PrivateStopAsync(TimeSpan disconnectTimeout, string closeDescription)
+        private async Task<CloseReason> PrivateShutdownAsync(TimeSpan disconnectTimeout, string closeDescription)
         {
             bool created;
-            StopRequired stopRequired;
+            ShutdownRequest stopRequired;
             ClientSideConnection connection;
             lock (StateLock)
             {
-                stopRequired = _stopRequired;
+                stopRequired = _shutdownRequest;
                 if (stopRequired == null)
                 {
-                    stopRequired = new StopRequired(disconnectTimeout, closeDescription);
-                    _stopRequired = stopRequired;
+                    stopRequired = new ShutdownRequest(disconnectTimeout, closeDescription);
+
+                    // Волатильно взводим флаг о необходимости остановки.
+                    _shutdownRequest = stopRequired;
                     created = true;
 
                     // Прервать установку подключения если она выполняется.
@@ -283,13 +283,15 @@ namespace DanilovSoft.vRPC
                 if (connection != null)
                 // Существует живое соединение.
                 {
-                    closeReason = await connection.StopAsync(stopRequired).ConfigureAwait(false);
+                    closeReason = await connection.ShutdownAsync(stopRequired).ConfigureAwait(false);
                 }
                 else
                 // Соединения не существует и новые создаваться не смогут.
                 {
-                    // Передать результат другим потокам которые повторно вызовут Stop.
-                    closeReason = stopRequired.SetTaskResult(CloseReason.NoConnectionGracifully);
+                    closeReason = CloseReason.NoConnectionGracifully;
+
+                    // Передать результат другим потокам которые повторно вызовут Shutdown.
+                    stopRequired.SetTaskResult(closeReason);
                 }
             }
             else
@@ -305,66 +307,52 @@ namespace DanilovSoft.vRPC
         /// Возвращает существующее подключение или создаёт новое, когда 
         /// происходит вызов метода интерфеса.
         /// </summary>
-        private ValueTask<ManagedConnection> ContextCallback()
+        private ValueTask<ManagedConnection> GetConnectionForInterfaceCallback()
         {
-            // volatile копия.
-            StopRequired stopRequired = _stopRequired;
+            // Копия volatile.
+            ClientSideConnection connection = _connection;
 
-            if (stopRequired == null)
+            if (connection != null)
+            // Есть живое соединение.
             {
-                // Копия volatile.
-                ClientSideConnection connection = _connection;
-
-                if (connection != null)
-                // Есть живое соединение.
+                return new ValueTask<ManagedConnection>(connection);
+            }
+            else
+            // Нужно установить подключение.
+            {
+                if (_allowReconnect)
                 {
-                    return new ValueTask<ManagedConnection>(connection);
-                }
-                else
-                // Нужно установить подключение.
-                {
-                    ValueTask<ConnectionResult> t = ConnectIfNeededAsync();
-                    if (t.IsCompleted)
+                    if (!TryGetShutdownException(out ValueTask<ManagedConnection> shutdownException))
                     {
-                        ConnectionResult connectionResult = t.Result;
-
-                        if (connectionResult.Connection != null)
+                        ValueTask<InnerConnectionResult> t = ConnectOrGetConnectionAsync();
+                        if (t.IsCompletedSuccessfully)
                         {
-                            return new ValueTask<ManagedConnection>(connectionResult.Connection);
-                        }
-                        else if (connectionResult.SocketError != null)
-                        {
-                            return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(connectionResult.SocketError.Value.ToException()));
+                            InnerConnectionResult connectionResult = t.Result; // Взять успешный результат.
+                            return connectionResult.ToManagedConnectionTask();
                         }
                         else
                         {
-                            return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new StopRequiredException(connectionResult.StopRequired)));
+                            return WaitForConnectionAsync(t);
                         }
                     }
                     else
+                    // Уже был вызван Shutdown.
                     {
-                        return WaitForConnectIfNeededAsync(t);
+                        return shutdownException;
                     }
                 }
+                else
+                {
+                    return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new ConnectionClosedException("Соединение не установлено.")));
+                }
             }
-            else
-            // Был запрос на остановку.
+
+            // Локальная.
+            static async ValueTask<ManagedConnection> WaitForConnectionAsync(ValueTask<InnerConnectionResult> t)
             {
-                return new ValueTask<ManagedConnection>(
-                   Task.FromException<ManagedConnection>(new StopRequiredException(stopRequired)));
+                InnerConnectionResult connectionResult = await t.ConfigureAwait(false);
+                return connectionResult.ToManagedConnection();
             }
-        }
-
-        private static async ValueTask<ManagedConnection> WaitForConnectIfNeededAsync(ValueTask<ConnectionResult> t)
-        {
-            ConnectionResult connectionResult = await t.ConfigureAwait(false);
-
-            if (connectionResult.Connection != null)
-                return connectionResult.Connection;
-            else if (connectionResult.SocketError != null)
-                throw connectionResult.SocketError.Value.ToException();
-            else
-                throw new StopRequiredException(connectionResult.StopRequired);
         }
 
         /// <summary>
@@ -379,7 +367,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Выполнить подключение сокета если еще не подключен.
         /// </summary>
-        private ValueTask<ConnectionResult> ConnectIfNeededAsync()
+        private ValueTask<InnerConnectionResult> ConnectOrGetConnectionAsync()
         {
             // Копия volatile.
             ClientSideConnection connection = _connection;
@@ -387,7 +375,7 @@ namespace DanilovSoft.vRPC
             if (connection != null)
             // Есть живое соединение.
             {
-                return new ValueTask<ConnectionResult>(new ConnectionResult(null, null, connection));
+                return new ValueTask<InnerConnectionResult>(new InnerConnectionResult(null, null, connection));
             }
             else
             // Подключение отсутствует.
@@ -406,7 +394,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private async ValueTask<ConnectionResult> WaitForLockAndConnectAsync(ValueTask<ChannelLock.Releaser> t)
+        private async ValueTask<InnerConnectionResult> WaitForLockAndConnectAsync(ValueTask<ChannelLock.Releaser> t)
         {
             ChannelLock.Releaser releaser = await t.ConfigureAwait(false);
             return await LockAquiredConnectAsync(releaser).ConfigureAwait(false);
@@ -414,7 +402,7 @@ namespace DanilovSoft.vRPC
 
         /// <exception cref="StopRequiredException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private async ValueTask<ConnectionResult> LockAquiredConnectAsync(ChannelLock.Releaser conLock)
+        private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(ChannelLock.Releaser conLock)
         {
             using (conLock)
             {
@@ -428,10 +416,10 @@ namespace DanilovSoft.vRPC
                     {
                         if (!_disposed)
                         {
-                            if (_stopRequired != null)
+                            if (_shutdownRequest != null)
                             {
                                 // Нельзя создавать новое подключение если был вызван Stop.
-                                return new ConnectionResult(null, _stopRequired, null);
+                                return new InnerConnectionResult(null, _shutdownRequest, null);
                             }
                             else
                             {
@@ -474,10 +462,10 @@ namespace DanilovSoft.vRPC
                             {
                                 if (!_disposed)
                                 {
-                                    if (_stopRequired != null)
+                                    if (_shutdownRequest != null)
                                     {
                                         // Нельзя создавать новое подключение если был вызван Stop.
-                                        return new ConnectionResult(null, _stopRequired, null);
+                                        return new InnerConnectionResult(null, _shutdownRequest, null);
                                     }
                                 }
                                 else
@@ -491,7 +479,7 @@ namespace DanilovSoft.vRPC
                         if (receiveResult.IsReceivedSuccessfully)
                         // Соединение успешно установлено.
                         {
-                            StopRequired stopRequired = null;
+                            ShutdownRequest stopRequired = null;
                             lock (StateLock)
                             {
                                 if (!_disposed)
@@ -502,10 +490,13 @@ namespace DanilovSoft.vRPC
                                     ws = null;
 
                                     // Скопировать пока мы в блокировке.
-                                    stopRequired = _stopRequired;
+                                    stopRequired = _shutdownRequest;
 
                                     if (stopRequired == null)
                                     {
+                                        // Скопируем таск соединения.
+                                        Completion = connection.Completion;
+
                                         // Косвенно устанавливает флаг IsConnected.
                                         _connection = connection;
                                     }
@@ -522,7 +513,7 @@ namespace DanilovSoft.vRPC
                             {
                                 connection.InitStartThreads();
                                 connection.Disconnected += OnDisconnected;
-                                return new ConnectionResult(receiveResult.SocketError, null, connection);
+                                return new InnerConnectionResult(receiveResult.SocketError, null, connection);
                             }
                             else
                             // Был запрос на остановку сервиса. 
@@ -532,16 +523,16 @@ namespace DanilovSoft.vRPC
                                 using (connection)
                                 {
                                     // Мы обязаны закрыть это соединение.
-                                    await connection.StopAsync(stopRequired).ConfigureAwait(false);
+                                    await connection.ShutdownAsync(stopRequired).ConfigureAwait(false);
                                 }
 
-                                return new ConnectionResult(receiveResult.SocketError, stopRequired, null);
+                                return new InnerConnectionResult(receiveResult.SocketError, stopRequired, null);
                             }
                         }
                         else
                         // Подключение не удалось.
                         {
-                            return new ConnectionResult(receiveResult.SocketError, null, null);
+                            return new InnerConnectionResult(receiveResult.SocketError, null, null);
                         }
                     }
                     finally
@@ -550,7 +541,7 @@ namespace DanilovSoft.vRPC
                     }
                 }
                 else
-                    return new ConnectionResult(SocketError.Success, null, connection);
+                    return new InnerConnectionResult(SocketError.Success, null, connection);
             }
         }
 
@@ -577,6 +568,46 @@ namespace DanilovSoft.vRPC
                 return;
 
             throw new ObjectDisposedException(GetType().FullName);
+        }
+
+        /// <summary>
+        /// Проверяет установку волатильного свойства <see cref="_shutdownRequest"/>.
+        /// </summary>
+        private void ThrowIfWasShutdown()
+        {
+            // volatile копия.
+            ShutdownRequest stopRequired = _shutdownRequest;
+
+            if (stopRequired == null)
+            {
+                return;
+            }
+            else
+            // В этом экземпляре уже был запрос на остановку.
+            {
+                throw new StopRequiredException(stopRequired);
+            }
+        }
+
+        /// <summary>
+        /// Проверяет установку волатильного свойства <see cref="_shutdownRequest"/>.
+        /// </summary>
+        private bool TryGetShutdownException<T>(out ValueTask<T> exceptionTask)
+        {
+            // volatile копия.
+            ShutdownRequest stopRequired = _shutdownRequest;
+
+            if (stopRequired == null)
+            {
+                exceptionTask = default;
+                return false;
+            }
+            else
+            // В этом экземпляре уже был запрос на остановку.
+            {
+                exceptionTask = new ValueTask<T>(Task.FromException<T>(new StopRequiredException(stopRequired)));
+                return true;
+            }
         }
 
         public void Dispose()

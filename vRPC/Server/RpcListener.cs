@@ -82,7 +82,7 @@ namespace DanilovSoft.vRPC
         /// Не позволяет подключаться новым клиентам. Единожны меняет состояние в момент остановки сервиса.
         /// Также предотвращает повторный запуск сервиса.
         /// </summary>
-        private volatile StopRequired _stopRequired;
+        private volatile ShutdownRequest _stopRequired;
         public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
         public TimeSpan ClientReceiveTimeout { get => _wsServ.ClientReceiveTimeout; set => _wsServ.ClientReceiveTimeout = value; }
 
@@ -188,7 +188,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private async void InnerBeginStop(TimeSpan disconnectTimeout, string closeDescription)
         {
-            StopRequired stopRequired;
+            ShutdownRequest stopRequired;
             lock (StartLock)
             {
                 // Копия volatile.
@@ -196,7 +196,7 @@ namespace DanilovSoft.vRPC
 
                 if (stopRequired == null)
                 {
-                    stopRequired = new StopRequired(disconnectTimeout, closeDescription);
+                    stopRequired = new ShutdownRequest(disconnectTimeout, closeDescription);
 
                     // Это volatile свойство нужно установить перед 
                     // остановкой WebSocketServer, оно не допустит новые соединения.
@@ -240,7 +240,7 @@ namespace DanilovSoft.vRPC
 
                     // Прекращаем принимать запросы.
                     // Не бросает исключений.
-                    cliConStopTasks[i] = clientConnection.StopAsync(stopRequired);
+                    cliConStopTasks[i] = clientConnection.ShutdownAsync(stopRequired);
                 }
 
                 CloseReason[] allConnTask = await Task.WhenAll(cliConStopTasks).ConfigureAwait(false);

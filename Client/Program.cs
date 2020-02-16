@@ -60,7 +60,7 @@ namespace Client
 
                     Interlocked.Increment(ref activeThreads);
 
-                    using (var client = new RpcClient(new Uri($"ws://{ipAddress}:{Port}")))
+                    using (var client = new RpcClient(new Uri($"ws://{ipAddress}:{Port}"), false))
                     {
                         Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client);
 
@@ -74,14 +74,20 @@ namespace Client
                         });
 
                         var homeController = client.GetProxy<IServerHomeController>();
+                        homeController.DummyCall(0);
 
                         while (true)
                         {
-                            while (client.Connect().State == ConnectState.NotConnected)
+                            ConnectResult conResult;
+                            while ((conResult = client.Connect()).State == ConnectionState.SocketError)
                                 Thread.Sleep(new Random().Next(2000, 3000));
 
-                            if (client.State == RpcState.StopRequired)
+                            if (conResult.State == ConnectionState.ShutdownRequest)
                                 break;
+
+                            //var shutdownResult = client.Shutdown(TimeSpan.FromSeconds(2));
+                            //client.Dispose();
+                            //client.Connect();
 
                             while (true)
                             {
@@ -153,7 +159,7 @@ namespace Client
                     Console.WriteLine("Stopping...");
                 }
             }
-            var reason = client.Stop(TimeSpan.FromSeconds(100), "Был нажат Ctrl+C");
+            client.Shutdown(TimeSpan.FromSeconds(100), "Был нажат Ctrl+C");
         }
     }
 }

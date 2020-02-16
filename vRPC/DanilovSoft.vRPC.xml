@@ -57,11 +57,11 @@
         </member>
         <member name="P:DanilovSoft.vRPC.RpcClient.Completion">
             <summary>
-            Завершается если подключение разорвано или не установлено.
+            Завершается если подключение разорвано.
             Не бросает исключения.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.RpcClient._stopRequired">
+        <member name="F:DanilovSoft.vRPC.RpcClient._shutdownRequest">
             <summary>
             volatile требуется лишь для публичного доступа.
             </summary>
@@ -74,7 +74,7 @@
         </member>
         <member name="P:DanilovSoft.vRPC.RpcClient.StateLock">
             <summary>
-            Для доступа к <see cref="F:DanilovSoft.vRPC.RpcClient._disposed"/> и <see cref="F:DanilovSoft.vRPC.RpcClient._stopRequired"/>.
+            Для доступа к <see cref="F:DanilovSoft.vRPC.RpcClient._disposed"/> и <see cref="F:DanilovSoft.vRPC.RpcClient._shutdownRequest"/>.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.RpcClient._connectingWs">
@@ -82,17 +82,19 @@
             Используется только что-бы аварийно прервать подключение через Dispose.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Uri)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Uri,System.Boolean)">
             <summary>
             Создаёт контекст клиентского соединения.
             </summary>
+            <param name="allowReconnect">Разрешено ли интерфейсам самостоятельно устанавливать и повторно переподключаться к серверу.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.String,System.Int32,System.Boolean)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.String,System.Int32,System.Boolean,System.Boolean)">
             <summary>
             Создаёт контекст клиентского соединения.
             </summary>
+            <param name="allowReconnect">Разрешено ли интерфейсам самостоятельно устанавливать и повторно переподключаться к серверу.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Reflection.Assembly,System.Uri)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Reflection.Assembly,System.Uri,System.Boolean)">
             <summary>
             Конструктор клиента.
             </summary>
@@ -136,7 +138,7 @@
             </summary>
             <typeparam name="T">Интерфейс.</typeparam>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.Stop(System.TimeSpan,System.String)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.Shutdown(System.TimeSpan,System.String)">
             <summary>
             Выполняет грациозную остановку. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
             Потокобезопасно.
@@ -144,7 +146,7 @@
             <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.BeginStop(System.TimeSpan,System.String)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.BeginShutdown(System.TimeSpan,System.String)">
             <summary>
             Начинает грациозную остановку. Не блокирует поток.
             Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcClient.Completion"/>.
@@ -153,7 +155,7 @@
             <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.StopAsync(System.TimeSpan,System.String)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.ShutdownAsync(System.TimeSpan,System.String)">
             <summary>
             Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="disconnectTimeout"/>.
             Потокобезопасно.
@@ -161,7 +163,7 @@
             <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.ContextCallback">
+        <member name="M:DanilovSoft.vRPC.RpcClient.GetConnectionForInterfaceCallback">
             <summary>
             Возвращает существующее подключение или создаёт новое, когда 
             происходит вызов метода интерфеса.
@@ -172,7 +174,7 @@
             Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectIfNeededAsync">
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectOrGetConnectionAsync">
             <summary>
             Выполнить подключение сокета если еще не подключен.
             </summary>
@@ -189,7 +191,17 @@
         <member name="M:DanilovSoft.vRPC.RpcClient.ThrowIfDisposed">
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="F:DanilovSoft.vRPC.RpcState.StopRequired">
+        <member name="M:DanilovSoft.vRPC.RpcClient.ThrowIfWasShutdown">
+            <summary>
+            Проверяет установку волатильного свойства <see cref="F:DanilovSoft.vRPC.RpcClient._shutdownRequest"/>.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.TryGetShutdownException``1(System.Threading.Tasks.ValueTask{``0}@)">
+            <summary>
+            Проверяет установку волатильного свойства <see cref="F:DanilovSoft.vRPC.RpcClient._shutdownRequest"/>.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcState.ShutdownRequest">
             <summary>
             Произошел запрос на остановку сервиса – подключать данный экземпляр больше нельзя.
             Причину остановки можно узнать через свойство <see cref="P:DanilovSoft.vRPC.RpcClient.StopRequiredState"/>.
@@ -223,7 +235,7 @@
         </member>
         <member name="F:DanilovSoft.vRPC.ManagedConnection._completionTcs">
             <summary>
-            Для <see cref="T:System.Threading.Tasks.Task"/> <see cref="P:DanilovSoft.vRPC.ManagedConnection.Completion"/>.
+            Для Completion.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.ManagedConnection.CompletionToken">
@@ -241,6 +253,7 @@
             Возвращает <see cref="T:System.Threading.Tasks.Task"/> который завершается когда 
             соединение переходит в закрытое состояние.
             Возвращает <see cref="P:DanilovSoft.vRPC.ManagedConnection.DisconnectReason"/>.
+            Не мутабельное свойство.
             Не бросает исключения.
             </summary>
         </member>
@@ -301,7 +314,7 @@
             Запускает бесконечный цикл обработки запросов.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.StopAsync(DanilovSoft.vRPC.StopRequired)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ShutdownAsync(DanilovSoft.vRPC.ShutdownRequest)">
             <summary>
             Запрещает отправку новых запросов; Ожидает когда завершатся текущие запросы 
             и отправляет удалённой стороне сообщение о закрытии соединения с ожиданием подтверджения.
@@ -311,13 +324,13 @@
             Потокобезопасно.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.CloseReceived">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.DisposeOnCloseReceived">
             <summary>
             Устанавливает причину закрытия соединения для текущего экземпляра и закрывает соединение.
             Не бросает исключения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendCloseAsync(System.String)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.CloseAsync(System.String)">
             <summary>
             Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
             Не бросает исключения.
@@ -378,6 +391,14 @@
             <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.FinishSenderAsync">
+            <summary>
+            Гарантирует что ничего больше не будет отправлено через веб-сокет. 
+            Дожидается завершения отправляющего потока.
+            Не бросает исключения.
+            Атомарно возвращает true означающее что поток должен выполнить Close.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.CloseAndDisposeAsync(System.Exception,System.String)">
             <summary>
             Отправляет Close и выполняет Dispose.
@@ -413,7 +434,7 @@
             Не бросает исключения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SenderLoop">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.LoopSendAsync">
             <summary>
             Принимает заказы на отправку и отправляет в сокет. Запускается из конструктора. Не бросает исключения.
             </summary>
@@ -1007,11 +1028,6 @@
             Модификация коллекции <see cref="F:DanilovSoft.vRPC.RpcListener._connections"/> допускается с захватом этой блокировки.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.CloseReason.NoConnectionError">
-            <summary>
-            "Соединение не установлено."
-            </summary>
-        </member>
         <member name="F:DanilovSoft.vRPC.CloseReason.NoConnectionGracifully">
             <summary>
             "Соединение не установлено."
@@ -1044,19 +1060,24 @@
             Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ConnectState.NotConnected">
-            <summary>
-            Не удалось установить соединение.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.ConnectState.Connected">
+        <member name="F:DanilovSoft.vRPC.ConnectionState.Connected">
             <summary>
             Соединение успешно установлено.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ConnectState.StopRequired">
+        <member name="F:DanilovSoft.vRPC.ConnectionState.SocketError">
             <summary>
-            Во время подключения произошел запрос на остановку сервиса – подключать данный экземпляр больше нельзя.
+            Не удалось установить соединение.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ConnectionState.ShutdownRequest">
+            <summary>
+            Во время подключения произошел запрос на остановку сервиса – использовать данный экземпляр больше нельзя.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ConnectResult.ShutdownRequest">
+            <summary>
+            Не Null если State = <see cref="F:DanilovSoft.vRPC.ConnectionState.ShutdownRequest"/>.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.ControllerAction">
@@ -1631,20 +1652,15 @@
             The main entry point for the application.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.StopRequired.CloseDescription">
+        <member name="P:DanilovSoft.vRPC.ShutdownRequest.CloseDescription">
             <summary>
             Причина остановки сервиса указанная пользователем. Может быть <see langword="null"/>.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.StopRequired.DisconnectTimeout">
+        <member name="P:DanilovSoft.vRPC.ShutdownRequest.ShutdownTimeout">
             <summary>
             Максимальное время ожидания остановки сервиса указанное пользователем 
             после которого все соединения закрываются принудительно.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.StopRequired.SetTaskResult(DanilovSoft.vRPC.CloseReason)">
-            <summary>
-            Возвращает переданное значение.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.UserConnectionCollection">
