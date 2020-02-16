@@ -341,6 +341,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Предотвращает повторный запуск сервера.
         /// </summary>
+        /// <exception cref="WasShutdownException"/>
         /// <exception cref="InvalidOperationException"/>
         private bool InnerTryStart(bool shouldThrow)
         {
@@ -372,7 +373,7 @@ namespace DanilovSoft.vRPC
             else
             {
                 if (shouldThrow)
-                    throw new StopRequiredException(_stopRequired);
+                    throw new WasShutdownException(_stopRequired);
             }
 
             // Сервер уже запущен или находится в остановленном состоянии.

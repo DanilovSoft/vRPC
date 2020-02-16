@@ -163,6 +163,7 @@ namespace DanilovSoft.vRPC
         /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
         /// Потокобезопасно.
         /// </summary>
+        /// <exception cref="WasShutdownException"/>
         /// <exception cref="HttpHandshakeException"/>
         /// <exception cref="ObjectDisposedException"/>
         public ConnectResult Connect()
@@ -174,6 +175,7 @@ namespace DanilovSoft.vRPC
         /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
         /// Потокобезопасно.
         /// </summary>
+        /// <exception cref="WasShutdownException"/>
         /// <exception cref="HttpHandshakeException"/>
         /// <exception cref="ObjectDisposedException"/>
         public Task<ConnectResult> ConnectAsync()
@@ -304,6 +306,7 @@ namespace DanilovSoft.vRPC
         /// Возвращает существующее подключение или создаёт новое, когда 
         /// происходит вызов метода интерфеса.
         /// </summary>
+        /// <exception cref="WasShutdownException"/>
         private ValueTask<ManagedConnection> GetConnectionForInterfaceCallback()
         {
             // Копия volatile.
@@ -397,7 +400,7 @@ namespace DanilovSoft.vRPC
             return await LockAquiredConnectAsync(releaser).ConfigureAwait(false);
         }
 
-        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(ChannelLock.Releaser conLock)
         {
@@ -570,19 +573,20 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Проверяет установку волатильного свойства <see cref="_shutdownRequest"/>.
         /// </summary>
+        /// <exception cref="WasShutdownException"/>
         private void ThrowIfWasShutdown()
         {
             // volatile копия.
-            ShutdownRequest stopRequired = _shutdownRequest;
+            ShutdownRequest shutdownRequired = _shutdownRequest;
 
-            if (stopRequired == null)
+            if (shutdownRequired == null)
             {
                 return;
             }
             else
             // В этом экземпляре уже был запрос на остановку.
             {
-                throw new StopRequiredException(stopRequired);
+                throw new WasShutdownException(shutdownRequired);
             }
         }
 
@@ -602,7 +606,7 @@ namespace DanilovSoft.vRPC
             else
             // В этом экземпляре уже был запрос на остановку.
             {
-                exceptionTask = new ValueTask<T>(Task.FromException<T>(new StopRequiredException(stopRequired)));
+                exceptionTask = new ValueTask<T>(Task.FromException<T>(new WasShutdownException(stopRequired)));
                 return true;
             }
         }

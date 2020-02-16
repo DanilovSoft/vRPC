@@ -29,6 +29,10 @@ namespace DanilovSoft.vRPC
             ShutdownRequest = stopRequired;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <exception cref="WasShutdownException"/>
         public ManagedConnection ToManagedConnection()
         {
             if (Connection != null)
@@ -45,10 +49,11 @@ namespace DanilovSoft.vRPC
             // Пользователь запросил остановку.
             {
                 Debug.Assert(ShutdownRequest != null);
-                throw new StopRequiredException(ShutdownRequest);
+                throw new WasShutdownException(ShutdownRequest);
             }
         }
 
+        /// <exception cref="WasShutdownException"/>
         public ValueTask<ManagedConnection> ToManagedConnectionTask()
         {
             if (Connection != null)
@@ -65,7 +70,7 @@ namespace DanilovSoft.vRPC
             // Пользователь запросил остановку.
             {
                 Debug.Assert(ShutdownRequest != null);
-                return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new StopRequiredException(ShutdownRequest)));
+                return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new WasShutdownException(ShutdownRequest)));
             }
         }
     }

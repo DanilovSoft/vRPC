@@ -94,7 +94,7 @@ namespace Client
                                 {
                                     //string s = homeController.TestAsync().GetAwaiter().GetResult();
                                 }
-                                catch (StopRequiredException)
+                                catch (WasShutdownException)
                                 {
                                     break;
                                 }

@@ -6,18 +6,21 @@ using System.Text;
 
 namespace DanilovSoft.vRPC
 {
+    /// <summary>
+    /// Происходит при обращении к выключенному экземпляру или находящемуся в процессе отключения по запросу пользователя.
+    /// </summary>
     [Serializable]
-    public sealed class StopRequiredException : Exception
+    public sealed class WasShutdownException : Exception
     {
         public ShutdownRequest StopRequiredState { get; }
 
-        public StopRequiredException() { }
+        public WasShutdownException() { }
 
-        public StopRequiredException(string message) : base(message) { }
+        public WasShutdownException(string message) : base(message) { }
 
-        public StopRequiredException(string message, Exception innerException) : base(message, innerException) { }
+        public WasShutdownException(string message, Exception innerException) : base(message, innerException) { }
 
-        internal StopRequiredException(ShutdownRequest stopRequired) : base(CreateExceptionMessage(stopRequired))
+        internal WasShutdownException(ShutdownRequest stopRequired) : base(CreateExceptionMessage(stopRequired))
         {
             Debug.Assert(stopRequired != null);
             StopRequiredState = stopRequired;
@@ -38,7 +41,7 @@ namespace DanilovSoft.vRPC
         }
 
 #pragma warning disable CA1801
-        private StopRequiredException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        private WasShutdownException(SerializationInfo serializationInfo, StreamingContext streamingContext)
         {
             
         }

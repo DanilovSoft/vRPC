@@ -121,6 +121,7 @@
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
             Потокобезопасно.
             </summary>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:DanilovSoft.WebSockets.HttpHandshakeException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
@@ -129,6 +130,7 @@
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
             Потокобезопасно.
             </summary>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:DanilovSoft.WebSockets.HttpHandshakeException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
@@ -168,6 +170,7 @@
             Возвращает существующее подключение или создаёт новое, когда 
             происходит вызов метода интерфеса.
             </summary>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.OnDisconnected(System.Object,DanilovSoft.vRPC.SocketDisconnectedEventArgs)">
             <summary>
@@ -180,7 +183,7 @@
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.LockAquiredConnectAsync(System.Threading.ChannelLock.Releaser)">
-            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.InnerConfigureIoC(System.Collections.Generic.IEnumerable{System.Type})">
@@ -195,6 +198,7 @@
             <summary>
             Проверяет установку волатильного свойства <see cref="F:DanilovSoft.vRPC.RpcClient._shutdownRequest"/>.
             </summary>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.TryGetShutdownException``1(System.Threading.Tasks.ValueTask{``0}@)">
             <summary>
@@ -361,7 +365,7 @@
             <summary>
             Происходит при обращении к проксирующему интерфейсу.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.OnClientProxyCallStatic(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},System.Reflection.MethodInfo,System.Object[],System.String)">
@@ -374,7 +378,7 @@
             Ожидает завершение подключения к серверу и передаёт сообщение в очередь на отправку.
             Может бросить исключение.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertRequestTask(DanilovSoft.vRPC.RequestToSend,System.Threading.Tasks.Task{System.Object})">
@@ -396,14 +400,14 @@
             <summary>
             Происходит при обращении к проксирующему интерфейсу. Отправляет запрос-уведомление.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndGetResult(DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestToSend)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.FinishSenderAsync">
@@ -509,12 +513,12 @@
             </summary>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ThrowIfStopRequired">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ThrowIfShutdownRequired">
             <summary>
             Не позволять начинать новый запрос если происходит остановка.
             AggressiveInlining.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.StopRequiredException"/>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.AtomicDispose(DanilovSoft.vRPC.CloseReason)">
             <summary>
@@ -743,6 +747,11 @@
             Исключение которое происходит при грациозном закрытии соединения одной из сторон.
             </summary>
         </member>
+        <member name="T:DanilovSoft.vRPC.WasShutdownException">
+            <summary>
+            Происходит при обращении к выключенному экземпляру или находящемуся в процессе отключения по запросу пользователя.
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.IHostApplicationLifetime.ApplicationStarted">
             <summary>
             Triggered when the application host has fully started.
@@ -772,22 +781,6 @@
         <member name="P:DanilovSoft.vRPC.ProxyFactory`1.Proxy">
             <summary>
             Прозрачный прокси к удалённой стороне.
-            </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
-            <summary>
-            Существует только для Net Framework.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
-            <summary>
-            Перегрузка для Net Framework.
-            Attempts to add the specified key and value to the dictionary.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
-            <summary>
-            Перегрузка для Net Framework.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.RequestToInvoke">
@@ -1028,6 +1021,7 @@
             <summary>
             Предотвращает повторный запуск сервера.
             </summary>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.InvalidOperationException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.GetConnections">
@@ -1198,6 +1192,15 @@
             <summary>
             Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
             </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.InnerConnectionResult.ToManagedConnection">
+            <summary>
+            
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.InnerConnectionResult.ToManagedConnectionTask">
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
         </member>
         <member name="F:DanilovSoft.vRPC.InvokeActionsDictionary._actionsDict">
             <summary>

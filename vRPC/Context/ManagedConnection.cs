@@ -297,7 +297,7 @@ namespace DanilovSoft.vRPC
                 }
 
                 // Не бросает исключения.
-                AtomicDispose(CloseReason.FromException(new StopRequiredException(stopRequired)));
+                AtomicDispose(CloseReason.FromException(new WasShutdownException(stopRequired)));
 
                 CloseReason closeReason = _completionTcs.Task.Result;
 
@@ -366,7 +366,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
-        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         internal object OnServerProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
@@ -460,7 +460,7 @@ namespace DanilovSoft.vRPC
         /// Ожидает завершение подключения к серверу и передаёт сообщение в очередь на отправку.
         /// Может бросить исключение.
         /// </summary>
-        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         private static Task SendNotificationAsync(ValueTask<ManagedConnection> connectingTask, SerializedMessageToSend serializedMessage)
         {
@@ -580,12 +580,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос-уведомление.
         /// </summary>
-        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         internal void SendNotification(SerializedMessageToSend serializedMessage)
         {
             ThrowIfDisposed();
-            ThrowIfStopRequired();
+            ThrowIfShutdownRequired();
 
             // Планируем отправку запроса.
             QueueSendMessage(serializedMessage);
@@ -594,14 +594,14 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
         /// </summary>
-        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         private Task<object> SendRequestAndGetResult(SerializedMessageToSend serializedMessage, RequestToSend requestMessage)
         {
             try
             {
                 ThrowIfDisposed();
-                ThrowIfStopRequired();
+                ThrowIfShutdownRequired();
 
                 // Добавить запрос в словарь для дальнейшей связки с ответом.
                 RequestAwaiter tcs = _pendingRequests.AddRequest(requestMessage, out int uid);
@@ -1700,15 +1700,15 @@ namespace DanilovSoft.vRPC
         /// Не позволять начинать новый запрос если происходит остановка.
         /// AggressiveInlining.
         /// </summary>
-        /// <exception cref="StopRequiredException"/>
+        /// <exception cref="WasShutdownException"/>
         [DebuggerStepThrough]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ThrowIfStopRequired()
+        private void ThrowIfShutdownRequired()
         {
             if (_stopRequired == null)
                 return;
 
-            throw new StopRequiredException(_stopRequired);
+            throw new WasShutdownException(_stopRequired);
         }
 
         /// <summary>
