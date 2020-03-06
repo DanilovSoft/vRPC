@@ -6,6 +6,6 @@ namespace DanilovSoft.vRPC
 {
     internal interface IGetProxy
     {
-        T GetProxy<T>();
+        T GetProxy<T>() where T : class;
     }
 }

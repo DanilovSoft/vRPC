@@ -13,16 +13,9 @@ namespace DanilovSoft.vRPC
         /// Словарь используемый только для чтения.
         /// </summary>
         private readonly Dictionary<string, ControllerAction> _actionsDict;
-        ///// <summary>
-        ///// Словарь используемый только для чтения.
-        ///// Хранит все доступные контроллеры.
-        ///// </summary>
-        //public Dictionary<string, Type> Controllers { get; }
 
         public InvokeActionsDictionary(Dictionary<string, Type> controllers)
         {
-            //Controllers = controllers;
-
             // Методы типа "home/hello" без учета регистра.
             _actionsDict = new Dictionary<string, ControllerAction>(StringComparer.OrdinalIgnoreCase);
 
@@ -31,7 +24,7 @@ namespace DanilovSoft.vRPC
                 MethodInfo[] methods = controller.Value.GetMethods(BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.Instance);
                 foreach (MethodInfo method in methods)
                 {
-                    string actionFullName = $"{controller.Key}/{method.Name}";
+                    string actionFullName = $"{controller.Key}{GlobalVars.ControllerNameSplitter}{method.Name}";
                     _actionsDict.Add(actionFullName, new ControllerAction(controller.Value, method));
                 }
             }

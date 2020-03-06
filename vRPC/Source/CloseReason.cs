@@ -6,7 +6,7 @@ using System.Text;
 
 namespace DanilovSoft.vRPC
 {
-    [DebuggerDisplay(@"\{Gracifully = {Gracifully}\}")]
+    //[DebuggerDisplay(@"\{{ToString(),nq}\}")] // Пусть отображается ToString()
     public sealed class CloseReason
     {
         /// <summary>
@@ -15,17 +15,17 @@ namespace DanilovSoft.vRPC
         internal static readonly CloseReason NoConnectionGracifully = new CloseReason(null,null, null, "Соединение не установлено.", null);
 
         /// <summary>
-        /// Если разъединение завершилось грациозно — <see langword="true"/>.
+        /// Является <see langword="true"/> если разъединение завершилось грациозно.
         /// </summary>
-        public bool Gracifully => Error == null;
+        public bool Gracifully => ConnectionError == null;
         /// <summary>
-        /// Может быть <see langword="null"/> если разъединение завершилось грациозно.
+        /// Является <see langword="null"/> если разъединение завершилось грациозно
+        /// и не является <see langword="null"/> когда разъединение завершилось не грациозно.
         /// </summary>
-        public Exception Error { get; }
+        public Exception ConnectionError { get; }
         /// <summary>
-        /// Сообщение от удалённой стороны указывающее причину разъединения.
-        /// Если текст совпадает с переданным в метод Stop то разъединение произошло по вашей инициативе.
-        /// Может быть <see langword="null"/>.
+        /// Сообщение от удалённой стороны указывающее причину разъединения (может быть <see langword="null"/>).
+        /// Если текст совпадает с переданным в метод Shutdown то разъединение произошло по вашей инициативе.
         /// </summary>
         public string CloseDescription { get; }
         /// <summary>
@@ -36,7 +36,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
         /// </summary>
-        public ShutdownRequest StopRequest { get; }
+        public ShutdownRequest ShutdownRequest { get; }
 
         [DebuggerStepThrough]
         internal static CloseReason FromException(WasShutdownException stopRequiredException)
@@ -59,11 +59,11 @@ namespace DanilovSoft.vRPC
         [DebuggerStepThrough]
         private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription, ShutdownRequest stopRequired)
         {
-            Error = error;
+            ConnectionError = error;
             CloseDescription = closeDescription;
             CloseStatus = closeStatus;
             AdditionalDescription = additionalDescription;
-            StopRequest = stopRequired;
+            ShutdownRequest = stopRequired;
         }
 
         public override string ToString()
@@ -81,7 +81,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                return $"Соединение оборвано: {AdditionalDescription ?? Error.Message}";
+                return $"Соединение оборвано: {AdditionalDescription ?? ConnectionError.Message}";
             }
         }
     }

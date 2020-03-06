@@ -1,0 +1,6 @@
+
++ Сделать ToString для CloseReason
+
+- Добавить сообщение о [AllowAnonimouse]
+
+Встроить авторизацию

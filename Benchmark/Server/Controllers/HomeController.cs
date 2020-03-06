@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC;
 using System.Diagnostics;
+using DanilovSoft.vRPC.Decorator;
 
 namespace Server.Controllers
 {
@@ -31,9 +32,8 @@ namespace Server.Controllers
 
         public async void Test()
         {
-            var cr = await Context.ShutdownAsync(TimeSpan.FromSeconds(100), "test");
-
-            //return DateTime.Now.ToString();
+            var proxy = Context.GetProxy<ITest>(out ServerInterfaceProxy decorator);
+            proxy.Bla();
         }
 
         private async void PrivateTest()
@@ -48,5 +48,20 @@ namespace Server.Controllers
                 throw;
             }
         }
+    }
+
+    public interface Controller
+    {
+        void Bla();
+    }
+
+    public interface I
+    {
+        void Bla();
+    }
+
+    public interface ITest
+    {
+        void Bla();
     }
 }

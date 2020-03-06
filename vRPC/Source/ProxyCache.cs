@@ -19,37 +19,44 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private readonly Dictionary<Type, object> _instanceDict = new Dictionary<Type, object>();
 
-        public T GetProxy<T>(ManagedConnection connection)
+        public ProxyCache()
         {
-            return GetProxy<T, ServerInterfaceProxy>((controllerName, p) => 
-            {
-                p.Initialize(controllerName, connection);
-            });
+
         }
 
-        public T GetProxy<T>(Func<ValueTask<ManagedConnection>> contextCallback)
+        private static void InitializePropxy(string controllerName, ServerInterfaceProxy p, ManagedConnection connection)
         {
-            return GetProxy<T, ClientInterfaceProxy>((controllerName, p) => 
-            {
-                p.Initialize(controllerName, contextCallback);
-            });
+            p.InitializeClone(controllerName, connection);
         }
 
-        private T GetProxy<T, TProxy>(Action<string, TProxy> initializeCopy) where TProxy : class, IInterfaceProxy
+        private static void InitializeAsyncPropxy(string controllerName, ClientInterfaceProxy p, RpcClient rpcClient)
+        {
+            p.InitializeClone(rpcClient, controllerName);
+        }
+
+        internal T GetProxy<T>(ManagedConnection connection) where T : class
+        {
+            return GetProxy<T, ServerInterfaceProxy, ManagedConnection>(InitializePropxy, connection);
+        }
+
+        internal T GetProxy<T>(RpcClient rpcClient) where T : class
+        {
+            return GetProxy<T, ClientInterfaceProxy, RpcClient>(InitializeAsyncPropxy, rpcClient);
+        }
+
+        private T GetProxy<T, TProxy, TCon>(Action<string, TProxy, TCon> initializeCopy, TCon con) where TProxy : class, IInterfaceProxy where T : class
         {
             Type interfaceType = typeof(T);
             lock (_instanceDict)
             {
                 if (_instanceDict.TryGetValue(interfaceType, out object proxy))
                 {
-                    return (T)proxy;
+                    return proxy as T;
                 }
                 else
                 {
-                    var attrib = typeof(T).GetCustomAttribute<ControllerContractAttribute>(inherit: false);
-                    if (attrib == null)
-                        throw new ArgumentNullException($"Укажите имя контроллера или пометьте интерфейс {typeof(T).FullName} атрибутом \"{nameof(ControllerContractAttribute)}\".");
-
+                    string controllerName = GetControllerNameFromInterface(interfaceType);
+                    
                     IInterfaceProxy p;
                     TProxy createdStatic;
                     lock (_staticDict) // Нужна блокировка на статический словарь.
@@ -68,18 +75,80 @@ namespace DanilovSoft.vRPC
                     if (createdStatic == null)
                     {
                         var clone = p.Clone<TProxy>(); // Клонирование можно выполнять одновременно разными потоками.
-                        initializeCopy(attrib.ControllerName, clone);
+                        initializeCopy(controllerName, clone, con);
                         p = clone;
                     }
                     else
                     {
-                        initializeCopy(attrib.ControllerName, createdStatic);
+                        initializeCopy(controllerName, createdStatic, con);
                         p = createdStatic;
                     }
 
                     _instanceDict.Add(interfaceType, p);
-                    return (T)p;
+                    return p as T;
                 }
+            }
+        }
+
+        private static string GetControllerNameFromInterface(Type interfaceType)
+        {
+            string controllerName;
+            var attrib = interfaceType.GetCustomAttribute<ControllerContractAttribute>(inherit: false);
+            if (attrib != null)
+            {
+                controllerName = attrib.ControllerName;
+            }
+            else
+            {
+                controllerName = ControllerNameFromTypeName(interfaceType);
+            }
+            return controllerName;
+        }
+
+        private static string ControllerNameFromTypeName(Type interfaceType)
+        {
+#if NETSTANDARD2_0
+            bool startsWithI = interfaceType.Name.StartsWith("I", StringComparison.Ordinal);
+#else
+            bool startsWithI = interfaceType.Name.StartsWith('I');
+#endif
+
+            // Нужно игнорировать окончание 'Controller'
+            int controllerWordIndex = interfaceType.Name.LastIndexOf("Controller", StringComparison.OrdinalIgnoreCase);
+
+            string controllerName;
+            if (controllerWordIndex != -1)
+            // Оканчивается на 'Controller'.
+            {
+                if (startsWithI)
+                {
+                    controllerName = interfaceType.Name.Substring(1, controllerWordIndex - 1);
+                }
+                else
+                {
+                    controllerName = interfaceType.Name.Substring(0, controllerWordIndex);
+                }
+            }
+            else
+            // Не оканчивается на 'Controller'.
+            {
+                if (startsWithI)
+                {
+                    controllerName = interfaceType.Name.Substring(1);
+                }
+                else
+                {
+                    controllerName = interfaceType.Name;
+                }
+            }
+
+            if (controllerName.Length > 0)
+            {
+                return controllerName;
+            }
+            else
+            {
+                throw new VRpcException($"Пометьте интерфейс {interfaceType.FullName} атрибутом [ControllerContract] или задайте другое имя.");
             }
         }
     }

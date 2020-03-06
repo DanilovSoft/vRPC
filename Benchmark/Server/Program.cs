@@ -96,6 +96,7 @@ namespace Server
 
         private static void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
         {
+            //var p = e.Connection.Listener.ServiceProvider.GetRequiredService<Program>();
             //var cr = e.Connection.Shutdown(TimeSpan.FromSeconds(3), "test");
 
             //var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();

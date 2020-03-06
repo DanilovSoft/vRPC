@@ -1,4 +1,5 @@
-﻿using DanilovSoft.WebSockets;
+﻿using DanilovSoft.vRPC.Decorator;
+using DanilovSoft.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IO;
 using System;
@@ -204,11 +205,25 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
+        /// Полученный прокси можно привести к типу <see cref="ClientInterfaceProxy"/> 
+        /// что-бы получить дополнительные сведения.
         /// </summary>
         /// <typeparam name="T">Интерфейс.</typeparam>
-        public T GetProxy<T>()
+        public T GetProxy<T>() where T : class
         {
-            return _proxyCache.GetProxy<T>(GetConnectionForInterfaceCallback);
+            return _proxyCache.GetProxy<T>(this);
+        }
+
+        /// <summary>
+        /// Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
+        /// </summary>
+        /// <typeparam name="T">Интерфейс.</typeparam>
+        /// <param name="decorator">Декоратор интерфейса который содержит дополнительные сведения.</param>
+        public T GetProxy<T>(out ClientInterfaceProxy decorator) where T : class
+        {
+            var p = _proxyCache.GetProxy<T>(this);
+            decorator = p as ClientInterfaceProxy;
+            return p;
         }
 
         /// <summary>
@@ -307,7 +322,7 @@ namespace DanilovSoft.vRPC
         /// происходит вызов метода интерфеса.
         /// </summary>
         /// <exception cref="WasShutdownException"/>
-        private ValueTask<ManagedConnection> GetConnectionForInterfaceCallback()
+        internal ValueTask<ManagedConnection> GetConnectionForInterfaceCallback()
         {
             // Копия volatile.
             ClientSideConnection connection = _connection;

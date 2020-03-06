@@ -1,4 +1,5 @@
-﻿using DanilovSoft.WebSockets;
+﻿using DanilovSoft.vRPC.Decorator;
+using DanilovSoft.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Diagnostics;
@@ -34,15 +35,28 @@ namespace DanilovSoft.vRPC
         {
             Listener = listener;
 
-            //_jwt = new RijndaelEnhanced(PassPhrase, InitVector);
+            //var _jwt = new RijndaelEnhanced(PassPhrase, InitVector);
+        }
+
+        /// <summary>
+        /// Создает прокси к методам удалённой стороны на основе интерфейса.
+        /// Полученный прокси можно привести к типу <see cref="ServerInterfaceProxy"/> 
+        /// что-бы получить дополнительные сведения.
+        /// </summary>
+        public T GetProxy<T>() where T : class
+        {
+            return _proxyCache.GetProxy<T>(this);
         }
 
         /// <summary>
         /// Создает прокси к методам удалённой стороны на основе интерфейса.
         /// </summary>
-        public T GetProxy<T>()
+        /// <param name="decorator">Декоратор интерфейса который содержит дополнительные сведения.</param>
+        public T GetProxy<T>(out ServerInterfaceProxy decorator) where T : class
         {
-            return _proxyCache.GetProxy<T>(this);
+            var p = _proxyCache.GetProxy<T>(this);
+            decorator = p as ServerInterfaceProxy;
+            return p;
         }
 
         ///// <summary>

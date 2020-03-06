@@ -85,14 +85,11 @@ namespace Client
                             if (conResult.State == ConnectionState.ShutdownRequest)
                                 break;
 
-                            homeController.TestAsync().GetAwaiter().GetResult();
-
-
                             while (true)
                             {
                                 try
                                 {
-                                    //string s = homeController.TestAsync().GetAwaiter().GetResult();
+                                    homeController.TestAsync().GetAwaiter().GetResult();
                                 }
                                 catch (WasShutdownException)
                                 {

@@ -37,6 +37,11 @@ namespace DanilovSoft.vRPC
             }
             return false;
         }
+
+        //public static bool StartsWith(this string str, char value)
+        //{
+
+        //}
     }
 }
 #endif

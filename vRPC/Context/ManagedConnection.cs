@@ -1775,9 +1775,9 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        T IGetProxy.GetProxy<T>() => InnerGetProxy<T>();
+        T IGetProxy.GetProxy<T>() where T : class => InnerGetProxy<T>();
 
-        private protected abstract T InnerGetProxy<T>();
+        private protected abstract T InnerGetProxy<T>() where T : class;
 
         protected virtual void DisposeManaged()
         {

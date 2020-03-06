@@ -36,8 +36,17 @@ namespace DanilovSoft.vRPC
                                     actionName = reader.GetString();
                                     if (!invokeActions.TryGetAction(actionName, out action))
                                     {
-                                        error = new NotFoundResult($"Unable to find requested action \"{actionName}\".");
-                                        return null;
+                                        int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter);
+                                        if (controllerIndex > 0)
+                                        {
+                                            error = new NotFoundResult($"Unable to find requested action \"{actionName}\".");
+                                            return null;
+                                        }
+                                        else
+                                        {
+                                            error = new NotFoundResult($"Controller name not specified in request \"{actionName}\".");
+                                            return null;
+                                        }
                                     }
                                     else
                                     {

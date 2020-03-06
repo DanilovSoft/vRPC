@@ -338,7 +338,7 @@ namespace DanilovSoft.vRPC
 
         public static Exception ToException(this CloseReason closeReason)
         {
-            if(closeReason.Error == null)
+            if(closeReason.ConnectionError == null)
             // Закрытие было грациозное но нам всёравно нужно исключение.
             {
                 if(closeReason.CloseStatus == WebSocketCloseStatus.NormalClosure)
@@ -352,7 +352,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                return closeReason.Error;
+                return closeReason.ConnectionError;
             }
         }
 

@@ -37,7 +37,9 @@ namespace DynamicMethodsLib
         {
             var ifaceType = typeof(TIface);
             if (!ifaceType.IsPublic)
-                throw new InvalidOperationException($"Интерфейс {ifaceType.FullName} должен быть публичным.");
+            {
+                throw new InvalidOperationException($"Интерфейс {ifaceType.FullName} должен быть публичным и должен быть видимым для других сборок.");
+            }
 
             var proxyParentClassType = typeof(TParent);
             if(proxyParentClassType.IsSealed)

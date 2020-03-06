@@ -762,7 +762,7 @@
         public static void Main()
         {
             string plainText = "Проверка!";    // original plaintext
-            string passPhrase = "Pas5pr@se Pas5pr@se Pas5pr@se Pas5pr@se Pas5pr@se";        // can be any string
+            string passPhrase = "Pas5pr@sePas5pr@sePas5pr@sePas5pr@sePas5pr@se";        // can be any string
             string initVector = "@1B2c3D4e5F6g7H8"; // must be 16 bytes
 
             // Before encrypting data, we will append plain text to a random

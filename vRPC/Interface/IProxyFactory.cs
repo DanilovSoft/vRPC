@@ -1,5 +1,7 @@
-﻿using System;
+﻿using DanilovSoft.vRPC.Decorator;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace DanilovSoft.vRPC
@@ -11,23 +13,29 @@ namespace DanilovSoft.vRPC
     public interface IProxy<T>
     {
         /// <summary>
-        /// Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
+        /// Прокси из интерфейса.
         /// </summary>
         T Proxy { get; }
+        /// <summary>
+        /// Имя удалённого контроллера с которым связан прокси.
+        /// </summary>
+        string RemoteControllerName { get; }
     }
 
-#pragma warning disable CA1812
-    internal sealed class ProxyFactory<T> : IProxy<T>
+    // Это единственная имплементация для IProxy<T>.
+    [DebuggerDisplay("{Proxy}")]
+    internal sealed class ProxyFactory<T> : IProxy<T> where T : class
     {
         /// <summary>
         /// Прозрачный прокси к удалённой стороне.
         /// </summary>
         public T Proxy { get; }
+        public string RemoteControllerName => ((IInterfaceDecorator)Proxy).ControllerName;
 
+        // Вызывается через рефлексию.
         public ProxyFactory(GetProxyScope getProxyScope)
         {
             Proxy = getProxyScope.GetProxy.GetProxy<T>();
         }
     }
-#pragma warning restore CA1812
 }
