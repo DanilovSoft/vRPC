@@ -59,44 +59,46 @@ namespace DanilovSoft.vRPC
             return p;
         }
 
-        ///// <summary>
-        ///// Производит авторизацию текущего подключения.
-        ///// </summary>
-        ///// <param name="userId"></param>
-        ///// <exception cref="BadRequestException"/>
-        //public BearerToken Authorize(int userId)
-        //{
-        //    // Функцию могут вызвать из нескольких потоков.
-        //    lock (_syncObj)
-        //    {
-        //        InnerAuthorize(userId);
+        /// <summary>
+        /// Производит аутентификацию текущего подключения.
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <exception cref="BadRequestException"/>
+        internal BearerToken Authenticate()
+        {
+            throw new NotImplementedException();
 
-        //        var tokenValidity = TimeSpan.FromDays(2);
-        //        var serverBearer = new ServerBearerToken
-        //        {
-        //            UserId = userId,
-        //            Validity = DateTime.Now + tokenValidity,
-        //        };
+            //// Функцию могут вызвать из нескольких потоков.
+            //lock (_syncObj)
+            //{
+            //    InnerAuthorize(userId);
 
-        //        byte[] serialized;
-        //        using (var mem = new MemoryPoolStream(capacity: 18))
-        //        {
-        //            ProtoBuf.Serializer.Serialize(mem, serverBearer);
-        //            serialized = mem.ToArray();
-        //        }
+            //    var tokenValidity = TimeSpan.FromDays(2);
+            //    var serverBearer = new ServerBearerToken
+            //    {
+            //        UserId = userId,
+            //        Validity = DateTime.Now + tokenValidity,
+            //    };
 
-        //        // Закриптовать в бинарник идентификатор пользователя.
-        //        byte[] encryptedToken = _jwt.EncryptToBytes(serialized);
+            //    byte[] serialized;
+            //    using (var mem = new MemoryPoolStream(capacity: 18))
+            //    {
+            //        ProtoBuf.Serializer.Serialize(mem, serverBearer);
+            //        serialized = mem.ToArray();
+            //    }
 
-        //        var token = new BearerToken
-        //        {
-        //            Key = encryptedToken,
-        //            ExpiresAt = tokenValidity
-        //        };
+            //    // Закриптовать в бинарник идентификатор пользователя.
+            //    byte[] encryptedToken = _jwt.EncryptToBytes(serialized);
 
-        //        return token;
-        //    }
-        //}
+            //    var token = new BearerToken
+            //    {
+            //        Key = encryptedToken,
+            //        ExpiresAt = tokenValidity
+            //    };
+
+            //    return token;
+            //}
+        }
 
         ///// <summary>
         ///// Производит авторизацию текущего подключения по токену.

@@ -1,22 +1,15 @@
 ﻿using DanilovSoft.vRPC;
-using DanilovSoft.WebSockets;
 using System;
-using System.IO;
-using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Security.Cryptography;
+using System.Collections.Generic;
+using System.Text;
+using Xunit;
 
-namespace Test
+namespace XUnitTest
 {
-    class Program
+    public class JwtTest
     {
-        static void Main(string[] args)
-        {
-            TestJwt();
-        }
-
-        public static void TestJwt()
+        [Fact]
+        public void TestJwt()
         {
             string plainText = "Проверка!";    // original plaintext
             string passPhrase = "Pas5pr@sePas5pr@sePas5pr@sePas5pr@sePas5pr@se";        // can be any string
@@ -25,19 +18,21 @@ namespace Test
             // Before encrypting data, we will append plain text to a random
             // salt value, which will be between 4 and 8 bytes long (implicitly
             // used defaults).
-            using (var rijndaelKey = new RijndaelEnhanced(passPhrase, initVector, 8, 16, 256, "qwertyuiqwertyuiqwertyui", 1000))
+            using (var rijndaelKey = new RijndaelEnhanced(passPhrase, initVector))
             {
+                Console.WriteLine($"Plaintext   : {plainText}");
+
                 // Encrypt the same plain text data 10 time (using the same key,
                 // initialization vector, etc) and see the resulting cipher text;
                 // encrypted values will be different.
                 for (int i = 0; i < 10; i++)
                 {
                     string cipherText = rijndaelKey.Encrypt(plainText);
-                    string decriptedText = rijndaelKey.Decrypt(cipherText);
+                    Console.WriteLine($"Encrypted #{i}: {cipherText}");
 
-                    using (var rijndaelKey2 = new RijndaelEnhanced(passPhrase, initVector, 8, 16, 256, "qwertyuiqwertyuiqwertyui", 1000))
+                    using (var rijndaelKey2 = new RijndaelEnhanced("Pas5pr@se", "@1B2c3D4e5F6g7H8"))
                     {
-                        string decr = rijndaelKey2.Decrypt(cipherText);
+                        byte[] decr = rijndaelKey2.DecryptToBytes(cipherText);
                     }
                 }
 

@@ -38,7 +38,7 @@
     /// decryption operation. To correct the problem, re-initialize the class
     /// instance when a cryptographic exception occurs.
     /// </remarks>
-    public sealed class RijndaelEnhanced : IDisposable
+    internal sealed class RijndaelEnhanced : IDisposable
     {
         #region Private members
 
@@ -49,25 +49,25 @@
         // 1 byte to store its length. 
         private const int MAX_ALLOWED_SALT_LEN = 255;
 
-        // Do not allow salt to be smaller than 4 bytes, because we use the first
-        // 4 bytes of salt to store its length. 
-        private const int MIN_ALLOWED_SALT_LEN = 4;
+        // Do not allow salt to be smaller than 8 bytes, because we use the first
+        // 8 bytes of salt to store its length. 
+        private const int MIN_ALLOWED_SALT_LEN = 8;
 
-        // Random salt value will be between 4 and 8 bytes long.
+        // Random salt value will be between 8 and 16 bytes long.
         private const int DEFAULT_MIN_SALT_LEN = MIN_ALLOWED_SALT_LEN;
-        private const int DEFAULT_MAX_SALT_LEN = 8;
+        private const int DEFAULT_MAX_SALT_LEN = 16;
 
         // If hashing algorithm is not specified, use SHA-1.
         //private static readonly HashAlgorithmName DEFAULT_HASH_ALGORITHM = HashAlgorithmName.SHA256;
 
         // Use these members to save min and max salt lengths.
-        private readonly int minSaltLen = -1;
-        private readonly int maxSaltLen = -1;
+        private readonly int _minSaltLen = -1;
+        private readonly int _maxSaltLen = -1;
 
         // These members will be used to perform encryption and decryption.
         private readonly ICryptoTransform _encryptor;
         private readonly ICryptoTransform _decryptor;
-        private readonly object _obj = new object();
+        //private readonly object _obj = new object();
         private bool _disposed;
         #endregion
 
@@ -142,7 +142,7 @@
         /// <param name="minSaltLen">
         /// Min size (in bytes) of randomly generated salt which will be added at
         /// the beginning of plain text before encryption is performed. When this
-        /// value is less than 4, the default min value will be used (currently 4
+        /// value is less than 8, the default min value will be used (currently 8
         /// bytes).
         /// </param>
         public RijndaelEnhanced(string passPhrase,
@@ -175,7 +175,7 @@
         /// <param name="minSaltLen">
         /// Min size (in bytes) of randomly generated salt which will be added at
         /// the beginning of plain text before encryption is performed. When this
-        /// value is less than 4, the default min value will be used (currently 4
+        /// value is less than 8, the default min value will be used (currently 8
         /// bytes).
         /// </param>
         /// <param name="maxSaltLen">
@@ -217,7 +217,7 @@
         /// <param name="minSaltLen">
         /// Min size (in bytes) of randomly generated salt which will be added at
         /// the beginning of plain text before encryption is performed. When this
-        /// value is less than 4, the default min value will be used (currently 4
+        /// value is less than 8, the default min value will be used (currently 8
         /// bytes).
         /// </param>
         /// <param name="maxSaltLen">
@@ -262,7 +262,7 @@
         /// <param name="minSaltLen">
         /// Min size (in bytes) of randomly generated salt which will be added at
         /// the beginning of plain text before encryption is performed. When this
-        /// value is less than 4, the default min value will be used (currently 4
+        /// value is less than 8, the default min value will be used (currently 8
         /// bytes).
         /// </param>
         /// <param name="maxSaltLen">
@@ -314,7 +314,7 @@
         /// <param name="minSaltLen">
         /// Min size (in bytes) of randomly generated salt which will be added at
         /// the beginning of plain text before encryption is performed. When this
-        /// value is less than 4, the default min value will be used (currently 4
+        /// value is less than 8, the default min value will be used (currently 8
         /// bytes).
         /// </param>
         /// <param name="maxSaltLen">
@@ -348,19 +348,22 @@
         {
             // Save min salt length; set it to default if invalid value is passed.
             if (minSaltLen < MIN_ALLOWED_SALT_LEN)
-                this.minSaltLen = DEFAULT_MIN_SALT_LEN;
+                _minSaltLen = DEFAULT_MIN_SALT_LEN;
             else
-                this.minSaltLen = minSaltLen;
+                _minSaltLen = minSaltLen;
 
             // Save max salt length; set it to default if invalid value is passed.
             if (maxSaltLen < 0 || maxSaltLen > MAX_ALLOWED_SALT_LEN)
-                this.maxSaltLen = DEFAULT_MAX_SALT_LEN;
+                _maxSaltLen = DEFAULT_MAX_SALT_LEN;
             else
-                this.maxSaltLen = maxSaltLen;
+                _maxSaltLen = maxSaltLen;
 
             // Set the size of cryptographic key.
             if (keySize <= 0)
                 keySize = DEFAULT_KEY_SIZE;
+
+            if (keySize % 8 != 0)
+                throw new ArgumentOutOfRangeException(nameof(keySize), "Размер ключа должен быть кратен 8");
 
             // Initialization vector converted to a byte array.
             byte[] initVectorBytes;
@@ -385,24 +388,23 @@
             byte[] keyBytes;
 
 #if NETSTANDARD2_0
+
+            // Фреймворк ниже NET 4.7.2 работает только с хешем SHA-1.
+
             using (var password = new PasswordDeriveBytes(passPhrase,
                                         saltValueBytes,
                                         HashAlgorithmName.SHA256.Name,
                                         passwordIterations))
             {
-                // Convert key to a byte array adjusting the size from bits to bytes.
 #pragma warning disable CA5373 // Не используйте устаревшую функцию формирования ключа.
+                // Convert key to a byte array adjusting the size from bits to bytes.
                 keyBytes = password.GetBytes(keySize / 8);
 #pragma warning restore CA5373 // Не используйте устаревшую функцию формирования ключа.
             }
 
 #else
-
             // Generate password, which will be used to derive the key.
-            using (var password = new Rfc2898DeriveBytes(passPhrase,
-                                        saltValueBytes,
-                                        passwordIterations,
-                                        HashAlgorithmName.SHA256))
+            using (var password = new Rfc2898DeriveBytes(passPhrase, saltValueBytes, passwordIterations, HashAlgorithmName.SHA256))
             {
                 // Convert key to a byte array adjusting the size from bits to bytes.
                 keyBytes = password.GetBytes(keySize / 8);
@@ -490,8 +492,10 @@
             using (var memoryStream = new MemoryStream(32))
             {
                 byte[] cipherTextBytes;
+
                 // Let's make cryptographic operations thread-safe.
-                lock (_obj)
+                // Обращение к _encryptor не должно происходить одновременно.
+                lock (_encryptor)
                 {
                     // To perform encryption, we must use the Write mode.
                     using (var cryptoStream = new CryptoStream(memoryStream, _encryptor, CryptoStreamMode.Write))
@@ -586,7 +590,7 @@
                 decryptedBytes = new byte[cipherTextBytes.Length];
 
                 // Let's make cryptographic operations thread-safe.
-                lock (_obj)
+                lock (_decryptor)
                 {
                     // To perform decryption, we must use the Read mode.
                     using (var cryptoStream = new CryptoStream(memoryStream, _decryptor, CryptoStreamMode.Read))
@@ -599,7 +603,7 @@
 
             // If we are using salt, get its length from the first 4 bytes of plain
             // text data.
-            if (maxSaltLen > 0 && maxSaltLen >= minSaltLen)
+            if (_maxSaltLen > 0 && _maxSaltLen >= _minSaltLen)
             {
                 saltLen = (decryptedBytes[0] & 0x03) |
                             (decryptedBytes[1] & 0x0c) |
@@ -636,20 +640,34 @@
             // The max salt value of 0 (zero) indicates that we should not use 
             // salt. Also do not use salt if the max salt value is smaller than
             // the min value.
-            if (maxSaltLen == 0 || maxSaltLen < minSaltLen)
+            if (_maxSaltLen == 0 || _maxSaltLen < _minSaltLen)
                 return plainTextBytes;
 
             // Generate the salt.
-            byte[] saltBytes = GenerateSalt();
+            int saltLen = GetSaltLength();
 
             // Allocate array which will hold salt and plain text bytes.
-            byte[] plainTextBytesWithSalt = new byte[plainTextBytes.Length + saltBytes.Length];
+            byte[] plainTextBytesWithSalt = new byte[plainTextBytes.Length + saltLen];
+
+#if NETSTANDARD2_0
+            byte[] saltBytes = new byte[saltLen];
+            saltBytes = GenerateSalt();
+
             // First, copy salt bytes.
-            Array.Copy(saltBytes, plainTextBytesWithSalt, saltBytes.Length);
+            saltBytes.AsSpan().CopyTo(plainTextBytesWithSalt);
 
             // Append plain text bytes to the salt value.
-            Array.Copy(plainTextBytes, 0, plainTextBytesWithSalt, saltBytes.Length, plainTextBytes.Length);
+            plainTextBytes.CopyTo(plainTextBytesWithSalt.AsSpan(saltBytes.Length));
+#else
+            Span<byte> saltBytes = stackalloc byte[saltLen];
+            GenerateSalt(saltBytes);
 
+            // First, copy salt bytes.
+            saltBytes.CopyTo(plainTextBytesWithSalt);
+
+            // Append plain text bytes to the salt value.
+            plainTextBytes.CopyTo(plainTextBytesWithSalt.AsSpan(saltBytes.Length));
+#endif
             return plainTextBytesWithSalt;
         }
 
@@ -668,14 +686,7 @@
         private byte[] GenerateSalt()
         {
             // We don't have the length, yet.
-            int saltLen;
-
-            // If min and max salt values are the same, it should not be random.
-            if (minSaltLen == maxSaltLen)
-                saltLen = minSaltLen;
-            // Use random number generator to calculate salt length.
-            else
-                saltLen = GenerateRandomNumber(minSaltLen, maxSaltLen);
+            int saltLen = GetSaltLength();
 
             // Allocate byte array to hold our salt.
             byte[] salt = new byte[saltLen];
@@ -685,15 +696,67 @@
             {
                 rng.GetNonZeroBytes(salt);
             }
+
+            // Split salt length (always one byte) into four two-bit pieces and
+            // store these pieces in the first four bytes of the salt array.
+            SplitSalt(salt);
             
+            return salt;
+        }
+
+        private static void SplitSalt(Span<byte> salt)
+        {
+            int saltLen = salt.Length;
+
             // Split salt length (always one byte) into four two-bit pieces and
             // store these pieces in the first four bytes of the salt array.
             salt[0] = (byte)((salt[0] & 0xfc) | (saltLen & 0x03));
             salt[1] = (byte)((salt[1] & 0xf3) | (saltLen & 0x0c));
             salt[2] = (byte)((salt[2] & 0xcf) | (saltLen & 0x30));
             salt[3] = (byte)((salt[3] & 0x3f) | (saltLen & 0xc0));
+        }
 
-            return salt;
+#if !NETSTANDARD2_0
+        /// <summary>
+        /// Generates an array holding cryptographically strong bytes.
+        /// </summary>
+        /// <remarks>
+        /// Salt size will be defined at random or exactly as specified by the
+        /// minSlatLen and maxSaltLen parameters passed to the object constructor.
+        /// The first four bytes of the salt array will contain the salt length
+        /// split into four two-bit pieces.
+        /// </remarks>
+        private static void GenerateSalt(Span<byte> salt)
+        {
+            // Populate salt with cryptographically strong bytes.
+            using (var rng = new RNGCryptoServiceProvider())
+            {
+                rng.GetNonZeroBytes(salt);
+            }
+
+            int saltLen = salt.Length;
+
+            SplitSalt(salt);
+        }
+#endif
+
+        private int GetSaltLength()
+        {
+            // We don't have the length, yet.
+            int saltLen;
+
+            // If min and max salt values are the same, it should not be random.
+            if (_minSaltLen == _maxSaltLen)
+            {
+                saltLen = _minSaltLen;
+            }
+            // Use random number generator to calculate salt length.
+            else
+            {
+                saltLen = GenerateRandomNumber(_minSaltLen, _maxSaltLen);
+            }
+
+            return saltLen;
         }
 
         /// <summary>
@@ -715,8 +778,13 @@
         /// </remarks>
         private static int GenerateRandomNumber(int minValue, int maxValue)
         {
+#if NETSTANDARD2_0
             // We will make up an integer seed from 4 bytes of this array.
             byte[] randomBytes = new byte[4];
+#else
+            // We will make up an integer seed from 4 bytes of this array.
+            Span<byte> randomBytes = stackalloc byte[4];
+#endif
 
             // Generate 4 random bytes.
             using (var rng = new RNGCryptoServiceProvider())
@@ -782,7 +850,7 @@
 
                     using (var rijndaelKey2 = new RijndaelEnhanced("Pas5pr@se", "@1B2c3D4e5F6g7H8"))
                     {
-                        var decr = rijndaelKey2.DecryptToBytes(cipherText);
+                        byte[] decr = rijndaelKey2.DecryptToBytes(cipherText);
                     }
                 }
 

@@ -637,6 +637,13 @@
             </summary>
             <param name="decorator">Декоратор интерфейса который содержит дополнительные сведения.</param>
         </member>
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.Authenticate">
+            <summary>
+            Производит аутентификацию текущего подключения.
+            </summary>
+            <param name="userId"></param>
+            <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
+        </member>
         <member name="M:DanilovSoft.vRPC.ServerSideConnection.InvokeMethodPermissionCheck(System.Reflection.MethodInfo,System.Type,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Проверяет доступность запрашиваемого метода пользователем.
@@ -1075,6 +1082,16 @@
             Потокобезопасно.
             </summary>
         </member>
+        <member name="P:DanilovSoft.vRPC.BearerToken.Key">
+            <summary>
+            Зашифрованное тело токена.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.BearerToken.ExpiresAt">
+            <summary>
+            Время актуальности токена.
+            </summary>
+        </member>
         <member name="F:DanilovSoft.vRPC.ClientConnections.SyncObj">
             <summary>
             Модификация коллекции <see cref="F:DanilovSoft.vRPC.RpcListener._connections"/> допускается с захватом этой блокировки.
@@ -1394,7 +1411,7 @@
             <param name="minSaltLen">
             Min size (in bytes) of randomly generated salt which will be added at
             the beginning of plain text before encryption is performed. When this
-            value is less than 4, the default min value will be used (currently 4
+            value is less than 8, the default min value will be used (currently 8
             bytes).
             </param>
         </member>
@@ -1422,7 +1439,7 @@
             <param name="minSaltLen">
             Min size (in bytes) of randomly generated salt which will be added at
             the beginning of plain text before encryption is performed. When this
-            value is less than 4, the default min value will be used (currently 4
+            value is less than 8, the default min value will be used (currently 8
             bytes).
             </param>
             <param name="maxSaltLen">
@@ -1458,7 +1475,7 @@
             <param name="minSaltLen">
             Min size (in bytes) of randomly generated salt which will be added at
             the beginning of plain text before encryption is performed. When this
-            value is less than 4, the default min value will be used (currently 4
+            value is less than 8, the default min value will be used (currently 8
             bytes).
             </param>
             <param name="maxSaltLen">
@@ -1496,7 +1513,7 @@
             <param name="minSaltLen">
             Min size (in bytes) of randomly generated salt which will be added at
             the beginning of plain text before encryption is performed. When this
-            value is less than 4, the default min value will be used (currently 4
+            value is less than 8, the default min value will be used (currently 8
             bytes).
             </param>
             <param name="maxSaltLen">
@@ -1539,7 +1556,7 @@
             <param name="minSaltLen">
             Min size (in bytes) of randomly generated salt which will be added at
             the beginning of plain text before encryption is performed. When this
-            value is less than 4, the default min value will be used (currently 4
+            value is less than 8, the default min value will be used (currently 8
             bytes).
             </param>
             <param name="maxSaltLen">

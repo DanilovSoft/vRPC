@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// "Соединение не установлено."
         /// </summary>
-        internal static readonly CloseReason NoConnectionGracifully = new CloseReason(null,null, null, "Соединение не установлено.", null);
+        internal static readonly CloseReason NoConnectionGracifully = new CloseReason(null, null, null, "Соединение не установлено.", null);
 
         /// <summary>
         /// Является <see langword="true"/> если разъединение завершилось грациозно.
