@@ -36,6 +36,7 @@ namespace DanilovSoft.vRPC
         private ApplicationBuilder _appBuilder;
         public ServiceProvider ServiceProvider { get; private set; }
         private Action<ApplicationBuilder> _configureApp;
+
         /// <summary>
         /// Устанавливается в блокировке <see cref="StateLock"/>.
         /// </summary>
@@ -204,6 +205,24 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
+        /// Выполняет аутентификацию соединения.
+        /// </summary>
+        /// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+        public void Authenticate(AccessToken accessToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Выполняет аутентификацию соединения.
+        /// </summary>
+        /// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+        public Task AuthenticateAsync(AccessToken accessToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
         /// Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
         /// Полученный прокси можно привести к типу <see cref="ClientInterfaceProxy"/> 
         /// что-бы получить дополнительные сведения.
@@ -224,6 +243,14 @@ namespace DanilovSoft.vRPC
             var p = _proxyCache.GetProxy<T>(this);
             decorator = p as ClientInterfaceProxy;
             return p;
+        }
+
+        internal object OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
+        {
+            // Начать соединение или взять существующее.
+            ValueTask<ManagedConnection> contextTask = GetConnectionForInterfaceCallback();
+
+            return ManagedConnection.OnClientProxyCallStatic(contextTask, targetMethod, args, controllerName);
         }
 
         /// <summary>

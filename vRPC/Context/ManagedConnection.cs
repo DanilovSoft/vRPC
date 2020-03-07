@@ -30,7 +30,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Содержит имена методов прокси интерфейса без постфикса Async.
         /// </summary>
-        private protected abstract IConcurrentDictionary<MethodInfo, RequestToSend> InterfaceMethods { get; }
+        private protected abstract IConcurrentDictionary<MethodInfo, ReusableRequestToSend> InterfaceMethods { get; }
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
@@ -368,10 +368,10 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal object OnServerProxyCall(MethodInfo targetMethod, object[] args, string controllerName)
+        internal object OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
-            RequestToSend requestToSend = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestToSend(tm, cn), controllerName);
+            ReusableRequestToSend requestToSend = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new ReusableRequestToSend(tm, cn), controllerName);
 
             // Сериализуем запрос в память.
             SerializedMessageToSend serMsg = SerializeRequest(requestToSend, args);
@@ -392,67 +392,67 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
+        /// Возвращает Task или готовый результат если был вызван синхронный метод.
         /// </summary>
         internal static object OnClientProxyCallStatic(ValueTask<ManagedConnection> contextTask, MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
-            RequestToSend requestToSend = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new RequestToSend(mi, cn), controllerName);
+            ReusableRequestToSend requestToSend = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new ReusableRequestToSend(mi, cn), controllerName);
 
             // Сериализуем запрос в память. Лучше выполнить до подключения.
             SerializedMessageToSend serMsg = SerializeRequest(requestToSend, args);
-
+            object activeCall;
             try
             {
-                if (!requestToSend.Notification)
-                {
-                    // Отправляем запрос.
-                    Task<object> taskObject = SendRequestWithResultAsync(contextTask, serMsg, requestToSend);
-
-                    // Может бросить исключение.
-                    object convertedResult = ConvertRequestTask(requestToSend, taskObject);
-
-                    // Предотвратить Dispose.
-                    serMsg = null;
-
-                    // Результатом может быть не завершённый Task.
-                    return convertedResult;
-                }
-                else
-                {
-                    // Может бросить исключение.
-                    // Добавляет сообщение в очередь на отправку.
-                    Task connectionTask = SendNotificationAsync(contextTask, serMsg);
-
-                    if (requestToSend.IsAsync)
-                    // Возвращаемый тип функции интерфейса — Task или ValueTask.
-                    {
-                        // Предотвратить Dispose.
-                        serMsg = null;
-
-                        // Сконвертировать в ValueTask если такой тип у интерфейса.
-                        // Не бросает исключения.
-                        object convertedTask = ConvertNotificationTask(requestToSend, connectionTask);
-
-                        // Результатом может быть не завершённый Task.
-                        return convertedTask;
-                    }
-                    else
-                    // Была вызвана синхронная функция.
-                    {
-                        // Результатом может быть исключение.
-                        connectionTask.GetAwaiter().GetResult();
-
-                        // Предотвратить Dispose.
-                        serMsg = null;
-
-                        // Возвращаемый тип интерфейсы — void.
-                        return null;
-                    }
-                }
+                activeCall = OnClientProxyCallStatic(contextTask, requestToSend, serMsg);
+                serMsg = null; // Предотвратить Dispose.
             }
             finally
             {
-                serMsg?.Dispose();
+                if(serMsg != null)
+                    serMsg.Dispose();
+            }
+            return activeCall;
+        }
+
+        private static object OnClientProxyCallStatic(ValueTask<ManagedConnection> contextTask, ReusableRequestToSend requestToSend, SerializedMessageToSend serMsg)
+        {
+            if (!requestToSend.Notification)
+            {
+                // Отправляем запрос.
+                Task<object> taskObject = SendRequestWithResultAsync(contextTask, serMsg, requestToSend);
+
+                // Может бросить исключение.
+                object convertedResult = ConvertRequestTask(requestToSend, taskObject);
+
+                // Результатом может быть не завершённый Task.
+                return convertedResult;
+            }
+            else
+            {
+                // Может бросить исключение.
+                // Добавляет сообщение в очередь на отправку.
+                Task connectionTask = SendNotificationAsync(contextTask, serMsg);
+
+                if (requestToSend.IsAsync)
+                // Возвращаемый тип функции интерфейса — Task или ValueTask.
+                {
+                    // Сконвертировать в ValueTask если такой тип у интерфейса.
+                    // Не бросает исключения.
+                    object convertedTask = ConvertNotificationTask(requestToSend, connectionTask);
+
+                    // Результатом может быть не завершённый Task.
+                    return convertedTask;
+                }
+                else
+                // Была вызвана синхронная функция.
+                {
+                    // Результатом может быть исключение.
+                    connectionTask.GetAwaiter().GetResult();
+
+                    // Возвращаемый тип интерфейсы — void.
+                    return null;
+                }
             }
         }
 
@@ -491,7 +491,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static Task<object> SendRequestWithResultAsync(ValueTask<ManagedConnection> contextTask, SerializedMessageToSend serializedMessage, RequestToSend requestMessage)
+        private static Task<object> SendRequestWithResultAsync(ValueTask<ManagedConnection> contextTask, SerializedMessageToSend serializedMessage, ReusableRequestToSend requestMessage)
         {
             if(contextTask.IsCompleted)
             {
@@ -506,7 +506,7 @@ namespace DanilovSoft.vRPC
                 return WaitForConnectAndSendRequest(contextTask, serializedMessage, requestMessage);
             }
 
-            static async Task<object> WaitForConnectAndSendRequest(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage, RequestToSend requestMessage)
+            static async Task<object> WaitForConnectAndSendRequest(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage, ReusableRequestToSend requestMessage)
             {
                 ManagedConnection connection = await t.ConfigureAwait(false);
                 
@@ -519,7 +519,7 @@ namespace DanilovSoft.vRPC
         /// Преобразует <see cref="Task"/><see langword="&lt;object&gt;"/> в <see cref="Task{T}"/> или возвращает TResult
         /// если метод интерфейса является синхронной функцией.
         /// </summary>
-        private static object ConvertRequestTask(RequestToSend requestToSend, Task<object> taskObject)
+        private static object ConvertRequestTask(ReusableRequestToSend requestToSend, Task<object> taskObject)
         {
             if (requestToSend.IsAsync)
             // Возвращаемый тип функции интерфейса — Task.
@@ -562,7 +562,7 @@ namespace DanilovSoft.vRPC
         /// <param name="requestToSend"></param>
         /// <param name="taskObject">Задача с возвращаемым типом <see langword="void"/>.</param>
         /// <returns></returns>
-        private static object ConvertNotificationTask(RequestToSend requestToSend, Task taskObject)
+        private static object ConvertNotificationTask(ReusableRequestToSend requestToSend, Task taskObject)
         {
             if (requestToSend.MethodInfo.ReturnType != typeof(ValueTask))
             // Возвращаемый тип интерфейса – Task.
@@ -596,7 +596,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private Task<object> SendRequestAndGetResult(SerializedMessageToSend serializedMessage, RequestToSend requestMessage)
+        private Task<object> SendRequestAndGetResult(SerializedMessageToSend serializedMessage, ReusableRequestToSend requestMessage)
         {
             try
             {
@@ -1100,7 +1100,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
-        private static SerializedMessageToSend SerializeRequest(RequestToSend requestToSend, object[] args)
+        private static SerializedMessageToSend SerializeRequest(ReusableRequestToSend requestToSend, object[] args)
         {
             var serializedMessage = new SerializedMessageToSend(requestToSend);
             try
@@ -1123,6 +1123,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private static SerializedMessageToSend SerializeResponse(ResponseMessage responseToSend)
         {
+            SerializedMessageToSend refCopy;
             var serMsg = new SerializedMessageToSend(responseToSend);
             try
             {
@@ -1147,13 +1148,16 @@ namespace DanilovSoft.vRPC
                         serMsg.ContentEncoding = responseToSend.ReceivedRequest.ActionToInvoke.ProducesEncoding;
                     }
                 }
+
+                refCopy = serMsg;
+                serMsg = null; // Предотвратить Dispose.
             }
-            catch
+            finally
             {
-                serMsg.Dispose();
-                throw;
+                if(serMsg != null)
+                    serMsg.Dispose();
             }
-            return serMsg;
+            return refCopy;
         }
 
         /// <summary>

@@ -34,7 +34,7 @@ namespace DanilovSoft.vRPC
         /// Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
         /// </summary>
         /// <exception cref="Exception">Происходит если уже происходил обрыв соединения.</exception>
-        public RequestAwaiter AddRequest(RequestToSend requestToSend, out int uid)
+        public RequestAwaiter AddRequest(ReusableRequestToSend requestToSend, out int uid)
         {
             var tcs = new RequestAwaiter(requestToSend);
 

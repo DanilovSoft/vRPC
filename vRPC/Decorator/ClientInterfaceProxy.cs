@@ -2,15 +2,16 @@
 using System;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC.Decorator
 {
+    // Тип должен быть публичным и не запечатанным.
     /// <summary>
     /// От этого класса наследуются динамические типы и пользовательские интерфейсы. 
-    /// Поэтому должен быть публичным и не запечатанным.
     /// </summary>
-    [DebuggerDisplay(@"\{Proxy for remote calling controller {ControllerName}, {_rpcClient}\}")]
+    [DebuggerDisplay(@"\{Proxy to remote controller {ControllerName}, ConnectionState = {_rpcClient}\}")]
     public class ClientInterfaceProxy : IInterfaceProxy, IInterfaceDecorator
     {
         private string _controllerName;
@@ -18,9 +19,10 @@ namespace DanilovSoft.vRPC.Decorator
         public string ControllerName => _controllerName;
         public RpcClient Client => _rpcClient;
 
+        // Вызывается через рефлексию.
         public ClientInterfaceProxy()
         {
-            
+            // Этот конструктор является базовым для динамически созданного наследника.
         }
 
         internal void InitializeClone(RpcClient rpcClient, string controllerName)
@@ -37,10 +39,7 @@ namespace DanilovSoft.vRPC.Decorator
         // Вызывается через рефлексию.
         protected object Invoke(MethodInfo targetMethod, object[] args)
         {
-            // Начать соединение или взять существующее.
-            ValueTask<ManagedConnection> contextTask = _rpcClient.GetConnectionForInterfaceCallback(); // _getConnectionCallback();
-
-            return ManagedConnection.OnClientProxyCallStatic(contextTask, targetMethod, args, _controllerName);
+            return _rpcClient.OnInterfaceMethodCall(targetMethod, args, _controllerName);
         }
     }
 }

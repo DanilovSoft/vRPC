@@ -18,26 +18,23 @@ namespace XUnitTest
             // Before encrypting data, we will append plain text to a random
             // salt value, which will be between 4 and 8 bytes long (implicitly
             // used defaults).
-            using (var rijndaelKey = new RijndaelEnhanced(passPhrase, initVector))
+            using (var rijndaelKey = new RijndaelEnhanced(passPhrase, initVector, 8, 16, 256, "qwertyuiqwertyuiqwertyui", 1000))
             {
-                Console.WriteLine($"Plaintext   : {plainText}");
-
                 // Encrypt the same plain text data 10 time (using the same key,
                 // initialization vector, etc) and see the resulting cipher text;
                 // encrypted values will be different.
                 for (int i = 0; i < 10; i++)
                 {
                     string cipherText = rijndaelKey.Encrypt(plainText);
-                    Console.WriteLine($"Encrypted #{i}: {cipherText}");
+                    string decripted = rijndaelKey.Decrypt(cipherText);
+                    Assert.Equal(plainText, decripted);
 
-                    using (var rijndaelKey2 = new RijndaelEnhanced("Pas5pr@se", "@1B2c3D4e5F6g7H8"))
+                    using (var rijndaelKey2 = new RijndaelEnhanced(passPhrase, initVector, 8, 16, 256, "qwertyuiqwertyuiqwertyui", 1000))
                     {
-                        byte[] decr = rijndaelKey2.DecryptToBytes(cipherText);
+                        string decripted2 = rijndaelKey2.Decrypt(cipherText);
+                        Assert.Equal(plainText, decripted2);
                     }
                 }
-
-                // Make sure we got decryption working correctly.
-                Console.WriteLine($"\nDecrypted   : {plainText}");
             }
         }
     }

@@ -1,6 +1,7 @@
 ﻿using DanilovSoft.vRPC;
 using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Text;
 
 namespace Server
@@ -13,13 +14,33 @@ namespace Server
 
         }
 
-       
-        public string Login(string name, string password)
+        [ProducesProtoBuf]
+        public BearerToken GetToken(string userName, string password)
         {
-            BearerToken bearerToken = Authenticate();
-            return "";
-            //bearerToken.Key
-            //return accessToken;
+            // создаем один claim
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimsIdentity.DefaultNameClaimType, userName)
+            };
+            
+            // Аутентифицированный пользователь с именем.
+            var idIdentity = new ClaimsIdentity(claims, "AccessToken");
+
+            // Аутентифицированный пользователь и его клеймы (роли и тп.)
+            var user = new ClaimsPrincipal(idIdentity);
+
+            var token = CreateAccessToken(user);
+            return token;
+        }
+
+        //public void Login(AccessToken accessToken)
+        //{
+            
+        //}
+
+        public void Logout()
+        {
+            SignOut();
         }
     }
 }

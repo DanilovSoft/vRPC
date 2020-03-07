@@ -18,6 +18,7 @@
     // Copyright (C) 2003 Obviex(TM). All rights reserved.
     //
     using System;
+    using System.Diagnostics;
     using System.Globalization;
     using System.IO;
     using System.Security.Cryptography;
@@ -489,16 +490,28 @@
         /// <returns>
         /// Cipher text formatted as a byte array.
         /// </returns>
-        public byte[] EncryptToBytes(byte[] plainTextBytes)
+        public byte[] EncryptToBytes(Span<byte> plainTextBytes)
         {
-            if (plainTextBytes == null)
-                throw new ArgumentNullException(nameof(plainTextBytes));
+            Span<byte> plainTextBytesWithSalt;
+            if (_maxSaltLen > 0 && _maxSaltLen >= _minSaltLen)
+            // Нужно добавить соль.
+            {
+                // Generate the salt.
+                int saltLen = GetNextSaltLength();
 
-            // Add salt at the beginning of the plain text bytes (if needed).
-            byte[] plainTextBytesWithSalt = AddSalt(plainTextBytes);
+                // Allocate array which will hold salt and plain text bytes.
+                plainTextBytesWithSalt = new byte[plainTextBytes.Length + saltLen];
+
+                // Add salt at the beginning of the plain text bytes (if needed).
+                AddSalt(plainTextBytes, plainTextBytesWithSalt, saltLen);
+            }
+            else
+            {
+                plainTextBytesWithSalt = plainTextBytes;
+            }
 
             // Encryption will be performed using memory stream.
-            using (var memoryStream = new MemoryStream(32))
+            using (var memoryStream = GlobalVars.RecyclableMemory.GetStream("tmp-encrypt", 32))
             {
                 byte[] cipherTextBytes;
 
@@ -509,8 +522,13 @@
                     // To perform encryption, we must use the Write mode.
                     using (var cryptoStream = new CryptoStream(memoryStream, _encryptor, CryptoStreamMode.Write))
                     {
+#if NETSTANDARD2_0
                         // Start encrypting data.
-                        cryptoStream.Write(plainTextBytesWithSalt, 0, plainTextBytesWithSalt.Length);
+                        cryptoStream.Write(plainTextBytesWithSalt.ToArray(), 0, plainTextBytesWithSalt.Length);
+#else
+                        // Start encrypting data.
+                        cryptoStream.Write(plainTextBytesWithSalt);
+#endif
 
                         // Finish the encryption operation.
                         cryptoStream.FlushFinalBlock();
@@ -644,19 +662,10 @@
         /// modified array containing a randomly generated salt added at the 
         /// beginning of the plain text bytes. 
         /// </returns>
-        private byte[] AddSalt(byte[] plainTextBytes)
+        private void AddSalt(Span<byte> plainTextBytes, Span<byte> plainTextBytesWithSalt, int saltLen)
         {
-            // The max salt value of 0 (zero) indicates that we should not use 
-            // salt. Also do not use salt if the max salt value is smaller than
-            // the min value.
-            if (_maxSaltLen == 0 || _maxSaltLen < _minSaltLen)
-                return plainTextBytes;
-
-            // Generate the salt.
-            int saltLen = GetNextSaltLength();
-
-            // Allocate array which will hold salt and plain text bytes.
-            byte[] plainTextBytesWithSalt = new byte[plainTextBytes.Length + saltLen];
+            Debug.Assert(_maxSaltLen > 0);
+            Debug.Assert(_maxSaltLen >= _minSaltLen);
 
 #if NETSTANDARD2_0
             byte[] saltBytes = new byte[saltLen];
@@ -666,7 +675,7 @@
             saltBytes.AsSpan().CopyTo(plainTextBytesWithSalt);
 
             // Append plain text bytes to the salt value.
-            plainTextBytes.CopyTo(plainTextBytesWithSalt.AsSpan(saltBytes.Length));
+            plainTextBytes.CopyTo(plainTextBytesWithSalt.Slice(saltBytes.Length));
 #else
             Span<byte> saltBytes = stackalloc byte[saltLen];
             GenerateSalt(saltBytes);
@@ -675,9 +684,8 @@
             saltBytes.CopyTo(plainTextBytesWithSalt);
 
             // Append plain text bytes to the salt value.
-            plainTextBytes.CopyTo(plainTextBytesWithSalt.AsSpan(saltBytes.Length));
+            plainTextBytes.CopyTo(plainTextBytesWithSalt.Slice(saltBytes.Length));
 #endif
-            return plainTextBytesWithSalt;
         }
 
         /// <summary>
@@ -692,7 +700,7 @@
         /// The first four bytes of the salt array will contain the salt length
         /// split into four two-bit pieces.
         /// </remarks>
-        private byte[] GenerateSalt(int saltLen)
+        private static byte[] GenerateSalt(int saltLen)
         {
             // Allocate byte array to hold our salt.
             byte[] salt = new byte[saltLen];

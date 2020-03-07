@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
     /// Не подлежит сериализации.
     /// </summary>
     [DebuggerDisplay(@"\{Request = {ActionName}\}")]
-    internal sealed class RequestToSend : IMessage
+    internal sealed class ReusableRequestToSend : IMessage
     {
         public MethodInfo MethodInfo { get; }
         /// <summary>
@@ -42,7 +42,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="interfaceMethod"></param>
         /// <param name="controllerName"></param>
-        public RequestToSend(MethodInfo interfaceMethod, string controllerName)
+        public ReusableRequestToSend(MethodInfo interfaceMethod, string controllerName)
         {
             MethodInfo = interfaceMethod;
 

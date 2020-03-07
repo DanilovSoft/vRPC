@@ -10,14 +10,16 @@ namespace Client
         {
             var client = new RpcClient("localhost", 1234, false, false);
             client.Connect();
-            var account = client.GetProxy<IAccountController>();
-            string accessToken = account.Login("user", "p@$$word");
-            //client.Logout();
+            var account = client.GetProxy<IAccountController>(out var decorator);
+            BearerToken accessToken = account.GetToken("user", "p@$$word");
+            client.Authenticate(accessToken.AccessToken);
+            //account.Logout();
         }
     }
 
     public interface IAccountController
     {
-        string Login(string name, string password);
+        BearerToken GetToken(string name, string password);
+        void Logout();
     }
 }

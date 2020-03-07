@@ -8,7 +8,7 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Ответ на запрос для передачи удаленной стороне. Не подлежит сериализации.
     /// </summary>
-    [DebuggerDisplay(@"\{Result: {Result}\}")]
+    [DebuggerDisplay(@"\{Result: {ActionResult}\}")]
     internal sealed class ResponseMessage : IMessage
     {
         /// <summary>

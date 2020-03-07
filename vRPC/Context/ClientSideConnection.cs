@@ -12,9 +12,9 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public sealed class ClientSideConnection : ManagedConnection
     {
-        internal static readonly LockedDictionary<MethodInfo, RequestToSend> InterfaceMethodsInfo = new LockedDictionary<MethodInfo, RequestToSend>();
+        internal static readonly LockedDictionary<MethodInfo, ReusableRequestToSend> InterfaceMethodsInfo = new LockedDictionary<MethodInfo, ReusableRequestToSend>();
         private readonly RpcClient _client;
-        private protected override IConcurrentDictionary<MethodInfo, RequestToSend> InterfaceMethods => InterfaceMethodsInfo;
+        private protected override IConcurrentDictionary<MethodInfo, ReusableRequestToSend> InterfaceMethods => InterfaceMethodsInfo;
 
         // ctor.
         internal ClientSideConnection(RpcClient client, ClientWebSocket ws, ServiceProvider serviceProvider, InvokeActionsDictionary controllers)

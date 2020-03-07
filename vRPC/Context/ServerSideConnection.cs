@@ -2,10 +2,14 @@
 using DanilovSoft.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Security.Claims;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
@@ -16,12 +20,17 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public sealed class ServerSideConnection : ManagedConnection, IGetProxy
     {
-        //private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
-        //private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
+        private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
+        private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
+        private const string Salt = "M6PgwzAnHy02Jv8z5FPIoOn5NeJP7bx7";
+
         internal static readonly ServerConcurrentDictionary<MethodInfo, string> ProxyMethodName = new ServerConcurrentDictionary<MethodInfo, string>();
-        private static readonly ServerConcurrentDictionary<MethodInfo, RequestToSend> _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestToSend>();
+        private static readonly ServerConcurrentDictionary<MethodInfo, ReusableRequestToSend> _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, ReusableRequestToSend>();
         private readonly ProxyCache _proxyCache = new ProxyCache();
-        private protected override IConcurrentDictionary<MethodInfo, RequestToSend> InterfaceMethods => _interfaceMethodsInfo;
+        private readonly RijndaelEnhanced _jwt;
+        private object _userLock => _jwt;
+        internal ClaimsPrincipal User { get; private set; }
+        private protected override IConcurrentDictionary<MethodInfo, ReusableRequestToSend> InterfaceMethods => _interfaceMethodsInfo;
 
         /// <summary>
         /// Сервер который принял текущее соединение.
@@ -35,7 +44,15 @@ namespace DanilovSoft.vRPC
         {
             Listener = listener;
 
-            //var _jwt = new RijndaelEnhanced(PassPhrase, InitVector);
+            _jwt = new RijndaelEnhanced(PassPhrase, InitVector, 8, 16, 256, Salt, 1000);
+
+            // Изначальный не авторизованный пользователь.
+            User = CreateUnauthorizedUser();
+        }
+
+        private ClaimsPrincipal CreateUnauthorizedUser()
+        {
+            return new ClaimsPrincipal(new ClaimsIdentity());
         }
 
         /// <summary>
@@ -59,45 +76,114 @@ namespace DanilovSoft.vRPC
             return p;
         }
 
+        internal BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal)
+        {
+            byte[] encryptedToken;
+            using (var stream = GlobalVars.RecyclableMemory.GetStream("claims-principal", 32))
+            {
+                using (var bwriter = new BinaryWriter(stream, Encoding.UTF8, true))
+                {
+                    claimsPrincipal.WriteTo(bwriter);
+                }
+                byte[] serializedClaims = stream.ToArray();
+
+                var tokenValidity = TimeSpan.FromDays(2);
+                DateTime validity = DateTime.Now + tokenValidity;
+                var serverBearer = new ServerAccessToken(serializedClaims, validity);
+
+                using (var mem = GlobalVars.RecyclableMemory.GetStream())
+                {
+                    ProtoBuf.Serializer.Serialize(mem, serverBearer);
+                    byte[] serializedTmpBuf = mem.GetBuffer();
+
+                    // Закриптовать.
+                    encryptedToken = _jwt.EncryptToBytes(serializedTmpBuf.AsSpan(0, (int)mem.Length));
+                }
+
+                var token = new BearerToken(encryptedToken, validity);
+
+                //lock (_userLock)
+                //{
+                //    User = claimsPrincipal;
+                //}
+
+                return token;
+            }
+        }
+
         /// <summary>
         /// Производит аутентификацию текущего подключения.
         /// </summary>
-        /// <param name="userId"></param>
         /// <exception cref="BadRequestException"/>
-        internal BearerToken Authenticate()
+        internal void SignIn(AccessToken accessToken)
         {
-            throw new NotImplementedException();
+            // Расшифрованный токен полученный от пользователя.
+            byte[] decripted;
 
-            //// Функцию могут вызвать из нескольких потоков.
-            //lock (_syncObj)
-            //{
-            //    InnerAuthorize(userId);
+            try
+            {
+                // Расшифровать токен.
+                decripted = _jwt.DecryptToBytes(accessToken);
+            }
+            catch (Exception ex)
+            {
+                // Токен не валиден.
+                throw new BadRequestException("Токен не валиден", ex);
+            }
 
-            //    var tokenValidity = TimeSpan.FromDays(2);
-            //    var serverBearer = new ServerBearerToken
-            //    {
-            //        UserId = userId,
-            //        Validity = DateTime.Now + tokenValidity,
-            //    };
+            ServerAccessToken bearerToken;
+            try
+            {
+                using (var mem = new MemoryStream(decripted, 0, decripted.Length, false, true))
+                {
+                    bearerToken = ProtoBuf.Serializer.Deserialize<ServerAccessToken>(mem);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Токен не валиден.
+                throw new BadRequestException("Токен не валиден", ex);
+            }
+            
+            Debug.Assert(bearerToken.ClaimsPrincipal != null);
 
-            //    byte[] serialized;
-            //    using (var mem = new MemoryPoolStream(capacity: 18))
-            //    {
-            //        ProtoBuf.Serializer.Serialize(mem, serverBearer);
-            //        serialized = mem.ToArray();
-            //    }
+            if (DateTime.Now < bearerToken.Validity)
+            // Токен валиден.
+            {
+                // Безусловная авторизация.
 
-            //    // Закриптовать в бинарник идентификатор пользователя.
-            //    byte[] encryptedToken = _jwt.EncryptToBytes(serialized);
+                try
+                {
+                    using (var mem = new MemoryStream(bearerToken.ClaimsPrincipal, 0, bearerToken.ClaimsPrincipal.Length, false, true))
+                    {
+                        using (var breader = new BinaryReader(mem, Encoding.UTF8, true))
+                        {
+                            var user = new ClaimsPrincipal(breader);
+                            lock (_userLock)
+                            {
+                                User = user;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Токен не валиден.
+                    throw new BadRequestException("Токен не валиден", ex);
+                }
+            }
+            else
+            {
+                throw new BadRequestException("Токен истёк");
+            }
+        }
 
-            //    var token = new BearerToken
-            //    {
-            //        Key = encryptedToken,
-            //        ExpiresAt = tokenValidity
-            //    };
-
-            //    return token;
-            //}
+        internal void SignOut()
+        {
+            lock (_userLock)
+            {
+                User = CreateUnauthorizedUser();
+            }
         }
 
         ///// <summary>
@@ -149,28 +235,28 @@ namespace DanilovSoft.vRPC
         //    return false;
         //}
 
-        ///// <summary>
-        ///// Потокобезопасно производит авторизацию текущего соединения.
-        ///// </summary>
-        ///// <param name="userId">Идентификатор пользователя который будет пазначен текущему контексту.</param>
-        //private void InnerAuthorize(int userId)
-        //{
-        //    // Функцию могут вызвать из нескольких потоков.
-        //    lock (_syncObj)
-        //    {
-        //        if (!IsAuthorized)
-        //        {
-        //            // Авторизуем контекст пользователя.
-        //            UserId = userId;
-        //            IsAuthorized = true;
+        /// <summary>
+        /// Потокобезопасно производит авторизацию текущего соединения.
+        /// </summary>
+        /// <param name="userId">Идентификатор пользователя который будет пазначен текущему контексту.</param>
+        private void InnerAuthorize(string name)
+        {
+            // Функцию могут вызвать из нескольких потоков.
+            //lock (_syncObj)
+            //{
+            //    if (!IsAuthorized)
+            //    {
+            //        // Авторизуем контекст пользователя.
+            //        UserId = userId;
+            //        IsAuthorized = true;
 
-        //            // Добавляем соединение в словарь.
-        //            UserConnections = AddConnection(userId);
-        //        }
-        //        else
-        //            throw new BadRequestException($"You are already authorized as 'UserId: {UserId}'", StatusCode.BadRequest);
-        //    }
-        //}
+            //        // Добавляем соединение в словарь.
+            //        UserConnections = AddConnection(userId);
+            //    }
+            //    else
+            //        throw new BadRequestException($"You are already authorized as 'UserId: {UserId}'", StatusCode.BadRequest);
+            //}
+        }
 
         ///// <summary>
         ///// Потокобезопасно добавляет текущее соединение в словарь или создаёт новый словарь.

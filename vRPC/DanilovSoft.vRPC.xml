@@ -134,6 +134,18 @@
             <exception cref="T:DanilovSoft.WebSockets.HttpHandshakeException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.Authenticate(DanilovSoft.vRPC.AccessToken)">
+            <summary>
+            Выполняет аутентификацию соединения.
+            </summary>
+            <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.AuthenticateAsync(DanilovSoft.vRPC.AccessToken)">
+            <summary>
+            Выполняет аутентификацию соединения.
+            </summary>
+            <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+        </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.GetProxy``1">
             <summary>
             Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
@@ -370,7 +382,7 @@
             Не бросает исключения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.OnServerProxyCall(System.Reflection.MethodInfo,System.Object[],System.String)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.OnInterfaceMethodCall(System.Reflection.MethodInfo,System.Object[],System.String)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу.
             </summary>
@@ -380,6 +392,7 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.OnClientProxyCallStatic(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},System.Reflection.MethodInfo,System.Object[],System.String)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу.
+            Возвращает Task или готовый результат если был вызван синхронный метод.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},DanilovSoft.vRPC.SerializedMessageToSend)">
@@ -390,13 +403,13 @@
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertRequestTask(DanilovSoft.vRPC.RequestToSend,System.Threading.Tasks.Task{System.Object})">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertRequestTask(DanilovSoft.vRPC.ReusableRequestToSend,System.Threading.Tasks.Task{System.Object})">
             <summary>
             Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object&gt;"/> в <see cref="T:System.Threading.Tasks.Task`1"/> или возвращает TResult
             если метод интерфейса является синхронной функцией.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertNotificationTask(DanilovSoft.vRPC.RequestToSend,System.Threading.Tasks.Task)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertNotificationTask(DanilovSoft.vRPC.ReusableRequestToSend,System.Threading.Tasks.Task)">
             <summary>
             Конвертирует Task в ValueTask если этого требует интерфейс.
             Не бросает исключения.
@@ -412,7 +425,7 @@
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndGetResult(DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndGetResult(DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.ReusableRequestToSend)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
             </summary>
@@ -441,7 +454,7 @@
             </summary>
             <param name="responseToSend"></param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeRequest(DanilovSoft.vRPC.RequestToSend,System.Object[])">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeRequest(DanilovSoft.vRPC.ReusableRequestToSend,System.Object[])">
             <summary>
             Сериализует сообщение в память. Может бросить исключение сериализации.
             </summary>
@@ -637,12 +650,17 @@
             </summary>
             <param name="decorator">Декоратор интерфейса который содержит дополнительные сведения.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ServerSideConnection.Authenticate">
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.SignIn(DanilovSoft.vRPC.AccessToken)">
             <summary>
             Производит аутентификацию текущего подключения.
             </summary>
-            <param name="userId"></param>
             <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.InnerAuthorize(System.String)">
+            <summary>
+            Потокобезопасно производит авторизацию текущего соединения.
+            </summary>
+            <param name="userId">Идентификатор пользователя который будет пазначен текущему контексту.</param>
         </member>
         <member name="M:DanilovSoft.vRPC.ServerSideConnection.InvokeMethodPermissionCheck(System.Reflection.MethodInfo,System.Type,DanilovSoft.vRPC.IActionResult@)">
             <summary>
@@ -663,13 +681,11 @@
         <member name="T:DanilovSoft.vRPC.Decorator.ClientInterfaceProxy">
             <summary>
             От этого класса наследуются динамические типы и пользовательские интерфейсы. 
-            Поэтому должен быть публичным и не запечатанным.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.Decorator.ServerInterfaceProxy">
             <summary>
             От этого класса наследуются динамические типы и пользовательские интерфейсы.
-            Поэтому должен быть публичным и не запечатанным.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.HeaderDto">
@@ -813,6 +829,22 @@
             Прозрачный прокси к удалённой стороне.
             </summary>
         </member>
+        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
+            <summary>
+            Существует только для Net Framework.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
+            <summary>
+            Перегрузка для Net Framework.
+            Attempts to add the specified key and value to the dictionary.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
+            <summary>
+            Перегрузка для Net Framework.
+            </summary>
+        </member>
         <member name="T:DanilovSoft.vRPC.RequestToInvoke">
             <summary>
             Содержит запрос полученный от удалённой стороны.
@@ -828,43 +860,43 @@
             Аргументы вызываемого метода.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.RequestToSend">
+        <member name="T:DanilovSoft.vRPC.ReusableRequestToSend">
             <summary>
             Запрос для передачи удаленной стороне.
             Создаётся при вызове метода через интерфейс.
             Не подлежит сериализации.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RequestToSend.IncapsulatedReturnType">
+        <member name="P:DanilovSoft.vRPC.ReusableRequestToSend.IncapsulatedReturnType">
             <summary>
             Инкапсулированный в Task тип результата функции.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RequestToSend.Notification">
+        <member name="P:DanilovSoft.vRPC.ReusableRequestToSend.Notification">
             <summary>
             True если метод интерфейса был помечен атрибутом <see cref="T:DanilovSoft.vRPC.NotificationAttribute"/> 
             и соответственно не возвращает результат.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RequestToSend.IsAsync">
+        <member name="P:DanilovSoft.vRPC.ReusableRequestToSend.IsAsync">
             <summary>
             Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="T:System.Threading.Tasks.Task"/> (<see cref="T:System.Threading.Tasks.Task`1"/>)
             или <see cref="T:System.Threading.Tasks.ValueTask"/> (<see cref="T:System.Threading.Tasks.ValueTask`1"/>).
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RequestToSend.ActionName">
+        <member name="P:DanilovSoft.vRPC.ReusableRequestToSend.ActionName">
             <summary>
             Имя метода например 'Home/Hello' без постфиксов 'Async'.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestToSend.#ctor(System.Reflection.MethodInfo,System.String)">
+        <member name="M:DanilovSoft.vRPC.ReusableRequestToSend.#ctor(System.Reflection.MethodInfo,System.String)">
             <summary>
             ctor.
             </summary>
             <param name="interfaceMethod"></param>
             <param name="controllerName"></param>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestToSend.GetMethodReturnType(System.Reflection.MethodInfo)">
+        <member name="M:DanilovSoft.vRPC.ReusableRequestToSend.GetMethodReturnType(System.Reflection.MethodInfo)">
             <summary>
             Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
             </summary>
@@ -1066,7 +1098,7 @@
             Потокобезопасно.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.BearerToken.Key">
+        <member name="P:DanilovSoft.vRPC.BearerToken.AccessToken">
             <summary>
             Зашифрованное тело токена.
             </summary>
@@ -1298,7 +1330,7 @@
             Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestQueue.AddRequest(DanilovSoft.vRPC.RequestToSend,System.Int32@)">
+        <member name="M:DanilovSoft.vRPC.RequestQueue.AddRequest(DanilovSoft.vRPC.ReusableRequestToSend,System.Int32@)">
             <summary>
             Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
             </summary>
@@ -1598,7 +1630,7 @@
             Cipher text formatted as a byte array.
             </returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.EncryptToBytes(System.Byte[])">
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.EncryptToBytes(System.Span{System.Byte})">
             <summary>
             Encrypts a byte array generating a byte array of cipher text.
             </summary>
@@ -1656,7 +1688,7 @@
             Byte array containing decrypted value.
             </returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.AddSalt(System.Byte[])">
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.AddSalt(System.Span{System.Byte},System.Span{System.Byte},System.Int32)">
             <summary>
             Adds an array of randomly generated bytes at the beginning of the
             array holding original plain text value.
@@ -1677,17 +1709,6 @@
             <returns>
             Array of randomly generated bytes.
             </returns>
-            <remarks>
-            Salt size will be defined at random or exactly as specified by the
-            minSlatLen and maxSaltLen parameters passed to the object constructor.
-            The first four bytes of the salt array will contain the salt length
-            split into four two-bit pieces.
-            </remarks>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.GenerateSalt(System.Span{System.Byte})">
-            <summary>
-            Generates an array holding cryptographically strong bytes.
-            </summary>
             <remarks>
             Salt size will be defined at random or exactly as specified by the
             minSlatLen and maxSaltLen parameters passed to the object constructor.

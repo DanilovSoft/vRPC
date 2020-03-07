@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Security.Claims;
 
 namespace DanilovSoft.vRPC
 {
@@ -8,18 +10,24 @@ namespace DanilovSoft.vRPC
         /// Контекст подключения на стороне сервера.
         /// </summary>
         public ServerSideConnection Context { get; internal set; }
+        public ClaimsPrincipal User => Context.User;
 
-        ///// <summary>
-        ///// Шорткат для Context.UserId.Value.
-        ///// </summary>
-        //public int UserId => Context.UserId.Value;
-
-        // ctor.
+        // Должен быть пустой конструктор для наследников.
         public ServerController()
         {
 
         }
 
-        public BearerToken Authenticate() => Context.Authenticate();
+        //public void SignIn(AccessToken accessToken) => Context.SignIn(accessToken);
+
+        public BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal)
+        {
+            if (claimsPrincipal == null)
+                throw new ArgumentNullException(nameof(claimsPrincipal));
+
+            return Context.CreateAccessToken(claimsPrincipal);
+        }
+
+        public void SignOut() => Context.SignOut();
     }
 }
