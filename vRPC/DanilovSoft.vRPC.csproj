@@ -34,6 +34,8 @@
     <Compile Remove="MemoryPoolStream.cs" />
   </ItemGroup>
 
+  <!--<DefineConstants Condition=" '$(TargetFrameworkVersion)' != 'v4.0' ">NOT_RUNNING_ON_4</DefineConstants>-->
+
   <ItemGroup>
     <PackageReference Include="DanilovSoft.WebSocket" Version="2.0.3" />
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8">

@@ -391,16 +391,25 @@
 
             // Фреймворк ниже NET 4.7.2 работает только с хешем SHA-1.
 
-            using (var password = new PasswordDeriveBytes(passPhrase,
-                                        saltValueBytes,
-                                        HashAlgorithmName.SHA256.Name,
-                                        passwordIterations))
+            // Generate password, which will be used to derive the key.
+#pragma warning disable CA5379 // Не используйте слабый алгоритм функции формирования ключа.
+            using (var password = new Rfc2898DeriveBytes(passPhrase, saltValueBytes, passwordIterations))
+#pragma warning restore CA5379 // Не используйте слабый алгоритм функции формирования ключа.
             {
-#pragma warning disable CA5373 // Не используйте устаревшую функцию формирования ключа.
                 // Convert key to a byte array adjusting the size from bits to bytes.
                 keyBytes = password.GetBytes(keySize / 8);
-#pragma warning restore CA5373 // Не используйте устаревшую функцию формирования ключа.
             }
+
+//            using (var password = new PasswordDeriveBytes(passPhrase,
+//                                        saltValueBytes,
+//                                        HashAlgorithmName.SHA256.Name,
+//                                        passwordIterations))
+//            {
+//#pragma warning disable CA5373 // Не используйте устаревшую функцию формирования ключа.
+//                // Convert key to a byte array adjusting the size from bits to bytes.
+//                keyBytes = password.GetBytes(keySize / 8);
+//#pragma warning restore CA5373 // Не используйте устаревшую функцию формирования ключа.
+//            }
 
 #else
             // Generate password, which will be used to derive the key.
@@ -644,14 +653,14 @@
                 return plainTextBytes;
 
             // Generate the salt.
-            int saltLen = GetSaltLength();
+            int saltLen = GetNextSaltLength();
 
             // Allocate array which will hold salt and plain text bytes.
             byte[] plainTextBytesWithSalt = new byte[plainTextBytes.Length + saltLen];
 
 #if NETSTANDARD2_0
             byte[] saltBytes = new byte[saltLen];
-            saltBytes = GenerateSalt();
+            saltBytes = GenerateSalt(saltLen);
 
             // First, copy salt bytes.
             saltBytes.AsSpan().CopyTo(plainTextBytesWithSalt);
@@ -683,11 +692,8 @@
         /// The first four bytes of the salt array will contain the salt length
         /// split into four two-bit pieces.
         /// </remarks>
-        private byte[] GenerateSalt()
+        private byte[] GenerateSalt(int saltLen)
         {
-            // We don't have the length, yet.
-            int saltLen = GetSaltLength();
-
             // Allocate byte array to hold our salt.
             byte[] salt = new byte[saltLen];
 
@@ -740,7 +746,7 @@
         }
 #endif
 
-        private int GetSaltLength()
+        private int GetNextSaltLength()
         {
             // We don't have the length, yet.
             int saltLen;
