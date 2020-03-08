@@ -250,15 +250,24 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="Task"/> (<see cref="Task{TResult}"/>)
-        /// или <see cref="ValueTask"/> (<see cref="ValueTask{TResult}"/>).
+        /// Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="Task"/> или <see cref="Task{TResult}"/>
+        /// или <see cref="ValueTask"/> или <see cref="ValueTask{TResult}"/>.
         /// </summary>
         public static bool IsAsyncMethod(this MethodInfo methodInfo)
         {
+            return IsAsyncReturnType(methodInfo.ReturnType);
+        }
+
+        /// <summary>
+        /// Возвращает <see langword="true"/> если тип является <see cref="Task"/> или <see cref="Task{T}"/>
+        /// или <see cref="ValueTask"/> или <see cref="ValueTask{TResult}"/>.
+        /// </summary>
+        public static bool IsAsyncReturnType(this Type returnType)
+        {
             if (
-                typeof(Task).IsAssignableFrom(methodInfo.ReturnType) // Task и Task<T>
-                || methodInfo.ReturnType == typeof(ValueTask)
-                || (methodInfo.ReturnType.IsGenericType && methodInfo.ReturnType.GetGenericTypeDefinition() == typeof(ValueTask<>)))
+                typeof(Task).IsAssignableFrom(returnType) // Task и Task<T>
+                || returnType == typeof(ValueTask)
+                || (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>)))
             {
                 return true;
             }
@@ -343,7 +352,7 @@ namespace DanilovSoft.vRPC
             {
                 if(closeReason.CloseStatus == WebSocketCloseStatus.NormalClosure)
                 {
-                    return new ConnectionClosedException(closeReason.CloseDescription);
+                    return new ConnectionClosedException(closeReason.CloseDescription ?? ConnectionClosedException.ConnectionClosedNormallyMessage);
                 }
                 else
                 {
@@ -357,7 +366,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
+        /// Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения. Пустую строку не возвращает.
         /// </summary>
         private static string GetMessageFromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription)
         {
@@ -379,7 +388,7 @@ namespace DanilovSoft.vRPC
             }
 
             if (exceptionMessage == null)
-                exceptionMessage = "Удалённая сторона закрыла соединение без объяснения причины.";
+                exceptionMessage = ConnectionClosedException.ConnectionClosedNormallyMessage;
 
             return exceptionMessage;
         }

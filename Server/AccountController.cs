@@ -40,7 +40,7 @@ namespace Server
 
         public void Logout()
         {
-            SignOut();
+            this.SignOut();
         }
     }
 }

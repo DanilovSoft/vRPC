@@ -19,6 +19,11 @@
             Код ошибки 50, аналогично 500.
             </summary>
         </member>
+        <member name="T:DanilovSoft.vRPC.OkResult">
+            <summary>
+            Пустой результат с кодом Ok.
+            </summary>
+        </member>
         <member name="T:DanilovSoft.vRPC.ControllerContractAttribute">
             <summary>
             Указывает имя контроллера к которому будут осуществляться вызовы через помеченный интерфейс.
@@ -28,6 +33,16 @@
             <summary>
             Метод помеченный атрибутом Notification не ожидает результата.
             Возвращаемый тип метода должен быть void или Task или ValueTask.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.BearerToken.AccessToken">
+            <summary>
+            Зашифрованное тело токена.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.BearerToken.ExpiresAt">
+            <summary>
+            Время актуальности токена.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.RpcClient">
@@ -43,6 +58,11 @@
         <member name="F:DanilovSoft.vRPC.RpcClient._invokeActions">
             <summary>
             Адрес для подключения к серверу.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._authenticationLock">
+            <summary>
+            Для доступа к свойству <see cref="F:DanilovSoft.vRPC.RpcClient._IsAuthenticated"/>.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.RpcClient._appBuilder">
@@ -80,6 +100,11 @@
         <member name="F:DanilovSoft.vRPC.RpcClient._connectingWs">
             <summary>
             Используется только что-бы аварийно прервать подключение через Dispose.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.RpcClient._IsAuthenticated">
+            <summary>
+            Запись только через блокировку <see cref="F:DanilovSoft.vRPC.RpcClient._authenticationLock"/>.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.#ctor(System.Uri,System.Boolean)">
@@ -134,11 +159,17 @@
             <exception cref="T:DanilovSoft.WebSockets.HttpHandshakeException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.Authenticate(DanilovSoft.vRPC.AccessToken)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.SignIn(DanilovSoft.vRPC.AccessToken)">
             <summary>
             Выполняет аутентификацию соединения.
             </summary>
             <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.SignOut">
+            <summary>
+            
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.ConnectionClosedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.AuthenticateAsync(DanilovSoft.vRPC.AccessToken)">
             <summary>
@@ -148,18 +179,17 @@
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.GetProxy``1">
             <summary>
-            Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
-            Полученный прокси можно привести к типу <see cref="T:DanilovSoft.vRPC.Decorator.ClientInterfaceProxy"/> 
-            что-бы получить дополнительные сведения.
+            Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
+            Полученный экземпляр можно привести к типу <see cref="T:DanilovSoft.vRPC.Decorator.ClientInterfaceProxy"/>.
+            Метод является шорткатом для <see cref="M:DanilovSoft.vRPC.RpcClient.GetProxyDecorator``1"/>
             </summary>
             <typeparam name="T">Интерфейс.</typeparam>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.GetProxy``1(DanilovSoft.vRPC.Decorator.ClientInterfaceProxy@)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.GetProxyDecorator``1">
             <summary>
-            Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
+            Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
             </summary>
             <typeparam name="T">Интерфейс.</typeparam>
-            <param name="decorator">Декоратор интерфейса который содержит дополнительные сведения.</param>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.Shutdown(System.TimeSpan,System.String)">
             <summary>
@@ -232,13 +262,55 @@
             Причину остановки можно узнать через свойство <see cref="P:DanilovSoft.vRPC.RpcClient.StopRequiredState"/>.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.IMessage.IsRequest">
+        <member name="T:DanilovSoft.vRPC.BinaryMessageToSend">
+            <summary>
+            Является запросом или ответом на запрос.
+            Содержит <see cref="T:System.IO.MemoryStream"/> в который сериализуется 
+            сообщение и заголовок для отправки удалённой стороне.
+            Необходимо обязательно выполнить Dispose.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.BinaryMessageToSend.MemPoolStream">
+            <summary>
+            Содержит сериализованное сообщение типа <see cref="T:DanilovSoft.vRPC.RequestMessageDto"/> или любой 
+            другой тип если это ответ на запрос.
+            Заголовок располагается в конце этого стрима, так как мы не можем сформировать заголовок 
+            до сериализации тела сообщения.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.BinaryMessageToSend.MessageToSend">
+            <summary>
+            Запрос или ответ на запрос.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.BinaryMessageToSend.Uid">
+            <summary>
+            Уникальный идентификатор который будет отправлен удалённой стороне.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.BinaryMessageToSend.HeaderSize">
+            <summary>
+            Размер хэдера располагающийся в конце стрима.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.BinaryMessageToSend.#ctor(DanilovSoft.vRPC.IMessageMeta)">
+            <summary>
+            Содержит <see cref="T:System.IO.MemoryStream"/> в который сериализуется сообщение и заголовок.
+            Необходимо обязательно выполнить Dispose.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.BinaryMessageToSend.Dispose">
+            <summary>
+            Возвращает арендованную память обратно в пул.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.IMessageMeta.IsRequest">
             <summary>
             True если сообщение является запросом, иначе 
             сообщение это результат запроса.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.IMessage.IsNotificationRequest">
+        <member name="P:DanilovSoft.vRPC.IMessageMeta.IsNotificationRequest">
             <summary>
             Может быть True если IsRequest тоже является True.
             </summary>
@@ -294,7 +366,7 @@
         </member>
         <member name="F:DanilovSoft.vRPC.ManagedConnection._sendChannel">
             <summary>
-            Отправка сообщения <see cref="T:DanilovSoft.vRPC.SerializedMessageToSend"/> должна выполняться только через этот канал.
+            Отправка сообщения <see cref="T:DanilovSoft.vRPC.BinaryMessageToSend"/> должна выполняться только через этот канал.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.ManagedConnection._stopRequired">
@@ -395,37 +467,57 @@
             Возвращает Task или готовый результат если был вызван синхронный метод.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},DanilovSoft.vRPC.SerializedMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ExecuteRequest(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
+            <summary>
+            Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndWaitResult(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
+            <summary>
+            Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotification(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
+            <summary>
+            Отправляет запрос как уведомление. Результатом может быть Null или Task или ValueTask.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ManagedConnection},DanilovSoft.vRPC.BinaryMessageToSend)">
             <summary>
             Ожидает завершение подключения к серверу и передаёт сообщение в очередь на отправку.
             Может бросить исключение.
+            Чаще всего возвращает <see cref="P:System.Threading.Tasks.Task.CompletedTask"/>.
             </summary>
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertRequestTask(DanilovSoft.vRPC.ReusableRequestToSend,System.Threading.Tasks.Task{System.Object})">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertNotificationTask(System.Threading.Tasks.Task,DanilovSoft.vRPC.RequestMeta)">
             <summary>
-            Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object&gt;"/> в <see cref="T:System.Threading.Tasks.Task`1"/> или возвращает TResult
+            Может вернуть Null или Task или ValueTask.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertRequestTask(DanilovSoft.vRPC.RequestMeta,System.Threading.Tasks.Task{System.Object})">
+            <summary>
+            Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object&gt;"/> в <see cref="T:System.Threading.Tasks.Task"/>&lt;T&gt; или возвращает TResult
             если метод интерфейса является синхронной функцией.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertNotificationTask(DanilovSoft.vRPC.ReusableRequestToSend,System.Threading.Tasks.Task)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.EncapsulateValueTask(System.Threading.Tasks.Task,System.Type)">
             <summary>
-            Конвертирует Task в ValueTask если этого требует интерфейс.
+            Возвращает Task или ValueTask для соответствия типу <paramref name="returnType"/>.
             Не бросает исключения.
             </summary>
-            <param name="requestToSend"></param>
-            <param name="taskObject">Задача с возвращаемым типом <see langword="void"/>.</param>
-            <returns></returns>
+            <param name="voidTask">Такс без результата (<see langword="void"/>).</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotification(DanilovSoft.vRPC.SerializedMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.PostNotification(DanilovSoft.vRPC.BinaryMessageToSend)">
             <summary>
-            Происходит при обращении к проксирующему интерфейсу. Отправляет запрос-уведомление.
+            Происходит при обращении к проксирующему интерфейсу. 
+            Добавляет запрос-уведомление в очередь на отправку (выполнит отправку текущим потоком если очередь пуста).
             </summary>
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndGetResult(DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.ReusableRequestToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndGetResult(DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
             </summary>
@@ -454,22 +546,17 @@
             </summary>
             <param name="responseToSend"></param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeRequest(DanilovSoft.vRPC.ReusableRequestToSend,System.Object[])">
-            <summary>
-            Сериализует сообщение в память. Может бросить исключение сериализации.
-            </summary>
-        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
             Сериализует сообщение в память. Может бросить исключение сериализации.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.AppendHeader(DanilovSoft.vRPC.SerializedMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.AppendHeader(DanilovSoft.vRPC.BinaryMessageToSend)">
             <summary>
             Сериализует хэдер в стрим сообщения. Не бросает исключения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendMessage(DanilovSoft.vRPC.SerializedMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendMessage(DanilovSoft.vRPC.BinaryMessageToSend)">
             <summary>
             Добавляет хэдер и передает на отправку другому потоку.
             Не бросает исключения.
@@ -586,50 +673,19 @@
             <param name="receivedRequest"></param>
             <param name="rawResult"></param>
         </member>
-        <member name="T:DanilovSoft.vRPC.SerializedMessageToSend">
-            <summary>
-            Содержит <see cref="T:System.IO.MemoryStream"/> в который сериализуется 
-            сообщение и заголовок для отправки удалённой стороне.
-            Необходимо обязательно выполнить Dispose.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.MemPoolStream">
-            <summary>
-            Содержит сериализованное сообщение типа <see cref="T:DanilovSoft.vRPC.RequestMessageDto"/> или любой 
-            другой тип если это ответ на запрос.
-            Заголовок располагается в конце этого стрима, так как мы не можем сформировать заголовок 
-            до сериализации тела сообщения.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.MessageToSend">
-            <summary>
-            Запрос или ответ на запрос.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.Uid">
-            <summary>
-            Уникальный идентификатор который будет отправлен удалённой стороне.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.HeaderSize">
-            <summary>
-            Размер хэдера располагающийся в конце стрима.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.SerializedMessageToSend.#ctor(DanilovSoft.vRPC.IMessage)">
-            <summary>
-            Содержит <see cref="T:System.IO.MemoryStream"/> в который сериализуется сообщение и заголовок.
-            Необходимо обязательно выполнить Dispose.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.SerializedMessageToSend.Dispose">
-            <summary>
-            Возвращает арендованную память обратно в пул.
-            </summary>
-        </member>
         <member name="T:DanilovSoft.vRPC.ServerSideConnection">
             <summary>
             Подключенный к серверу клиент.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ServerSideConnection.UserLock">
+            <summary>
+            Установка свойства User только через эту блокировку.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ServerSideConnection.User">
+            <summary>
+            Установка свойства User только через блокировку <see cref="P:DanilovSoft.vRPC.ServerSideConnection.UserLock"/>.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.ServerSideConnection.Listener">
@@ -639,22 +695,22 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ServerSideConnection.GetProxy``1">
             <summary>
-            Создает прокси к методам удалённой стороны на основе интерфейса.
-            Полученный прокси можно привести к типу <see cref="T:DanilovSoft.vRPC.Decorator.ServerInterfaceProxy"/> 
-            что-бы получить дополнительные сведения.
+            Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
+            Полученный экземпляр можно привести к типу <see cref="T:DanilovSoft.vRPC.Decorator.ServerInterfaceProxy"/>.
+            Метод является шорткатом для <see cref="M:DanilovSoft.vRPC.ServerSideConnection.GetProxyDecorator``1"/>
             </summary>
+            <typeparam name="T">Интерфейс.</typeparam>
         </member>
-        <member name="M:DanilovSoft.vRPC.ServerSideConnection.GetProxy``1(DanilovSoft.vRPC.Decorator.ServerInterfaceProxy@)">
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.GetProxyDecorator``1">
             <summary>
-            Создает прокси к методам удалённой стороны на основе интерфейса.
+            Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
             </summary>
-            <param name="decorator">Декоратор интерфейса который содержит дополнительные сведения.</param>
+            <typeparam name="T">Интерфейс.</typeparam>
         </member>
         <member name="M:DanilovSoft.vRPC.ServerSideConnection.SignIn(DanilovSoft.vRPC.AccessToken)">
             <summary>
             Производит аутентификацию текущего подключения.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ServerSideConnection.InnerAuthorize(System.String)">
             <summary>
@@ -680,12 +736,22 @@
         </member>
         <member name="T:DanilovSoft.vRPC.Decorator.ClientInterfaceProxy">
             <summary>
-            От этого класса наследуются динамические типы и пользовательские интерфейсы. 
+            Этот клас наследует пользовательские интерфейсы.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.Decorator.ClientInterfaceProxy`1">
+            <summary>
+            Этот клас наследует пользовательские интерфейсы.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.Decorator.ServerInterfaceProxy">
             <summary>
-            От этого класса наследуются динамические типы и пользовательские интерфейсы.
+            Этот клас наследует пользовательские интерфейсы.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.Decorator.ServerInterfaceProxy`1">
+            <summary>
+            Этот клас наследует пользовательские интерфейсы.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.HeaderDto">
@@ -829,20 +895,49 @@
             Прозрачный прокси к удалённой стороне.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
+        <member name="T:DanilovSoft.vRPC.RequestMeta">
             <summary>
-            Существует только для Net Framework.
+            Описывает метод который требуется вызвать на удалённой стороне.
+            Не подлежит сериализации.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.TryAdd``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1)">
+        <member name="P:DanilovSoft.vRPC.RequestMeta.IncapsulatedReturnType">
             <summary>
-            Перегрузка для Net Framework.
-            Attempts to add the specified key and value to the dictionary.
+            Инкапсулированный в Task тип результата функции.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.CompatibilityExtensionMethods.Remove``2(System.Collections.Generic.Dictionary{``0,``1},``0,``1@)">
+        <member name="P:DanilovSoft.vRPC.RequestMeta.IsNotificationRequest">
             <summary>
-            Перегрузка для Net Framework.
+            True если метод интерфейса был помечен атрибутом <see cref="T:DanilovSoft.vRPC.NotificationAttribute"/> 
+            и соответственно не возвращает результат.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestMeta.IsAsync">
+            <summary>
+            Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="T:System.Threading.Tasks.Task"/> (<see cref="T:System.Threading.Tasks.Task`1"/>)
+            или <see cref="T:System.Threading.Tasks.ValueTask"/> (<see cref="T:System.Threading.Tasks.ValueTask`1"/>).
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestMeta.ActionName">
+            <summary>
+            Имя метода например 'Home/Hello' без постфикса 'Async'.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestMeta.#ctor(System.Reflection.MethodInfo,System.String)">
+            <summary>
+            ctor.
+            </summary>
+            <param name="interfaceMethod"></param>
+            <param name="controllerName"></param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestMeta.GetMethodReturnType(System.Type)">
+            <summary>
+            Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestMeta.SerializeRequest(System.Object[])">
+            <summary>
+            Сериализует сообщение в память. Может бросить исключение сериализации.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.RequestToInvoke">
@@ -858,47 +953,6 @@
         <member name="P:DanilovSoft.vRPC.RequestToInvoke.Args">
             <summary>
             Аргументы вызываемого метода.
-            </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.ReusableRequestToSend">
-            <summary>
-            Запрос для передачи удаленной стороне.
-            Создаётся при вызове метода через интерфейс.
-            Не подлежит сериализации.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.ReusableRequestToSend.IncapsulatedReturnType">
-            <summary>
-            Инкапсулированный в Task тип результата функции.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.ReusableRequestToSend.Notification">
-            <summary>
-            True если метод интерфейса был помечен атрибутом <see cref="T:DanilovSoft.vRPC.NotificationAttribute"/> 
-            и соответственно не возвращает результат.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.ReusableRequestToSend.IsAsync">
-            <summary>
-            Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="T:System.Threading.Tasks.Task"/> (<see cref="T:System.Threading.Tasks.Task`1"/>)
-            или <see cref="T:System.Threading.Tasks.ValueTask"/> (<see cref="T:System.Threading.Tasks.ValueTask`1"/>).
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.ReusableRequestToSend.ActionName">
-            <summary>
-            Имя метода например 'Home/Hello' без постфиксов 'Async'.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ReusableRequestToSend.#ctor(System.Reflection.MethodInfo,System.String)">
-            <summary>
-            ctor.
-            </summary>
-            <param name="interfaceMethod"></param>
-            <param name="controllerName"></param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ReusableRequestToSend.GetMethodReturnType(System.Reflection.MethodInfo)">
-            <summary>
-            Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.Resources.SR2.GetString(System.String,System.Object)">
@@ -1020,6 +1074,14 @@
             Начинает остановку сервиса. Не блокирует поток.
             Не бросает исключения.
             Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
+            </summary>param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.BeginShutdown(System.TimeSpan,System.String)">
+            <summary>
+            Начинает остановку сервиса. Не блокирует поток.
+            Не бросает исключения.
+            Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
             </summary>
             <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
@@ -1058,18 +1120,7 @@
             Потокобезопасно.
             </summary>
             <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов когда произойдёт остановка сервиса.</param>
-            <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
-            Может быть <see langword="null"/>.</param>
-            <param name="cancellationToken">Токен служащий для остановки сервиса.</param>
-            <exception cref="T:System.InvalidOperationException"/>
-            <exception cref="T:System.OperationCanceledException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.InnerRunAsync(System.TimeSpan,System.String,System.Threading.CancellationToken)">
-            <exception cref="T:System.OperationCanceledException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.Start">
-            <summary>
-            Начинает приём новых подключений.
+            <para         Начинает приём новых подключений.
             Повторный вызов спровоцирует исключение.
             Потокобезопасно.
             </summary>
@@ -1096,16 +1147,6 @@
             <summary>
             Возвращает копию коллекции подключенных клиентов кроме <paramref name="exceptCon"/>.
             Потокобезопасно.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.BearerToken.AccessToken">
-            <summary>
-            Зашифрованное тело токена.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.BearerToken.ExpiresAt">
-            <summary>
-            Время актуальности токена.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.ClientConnections.SyncObj">
@@ -1239,8 +1280,14 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ExtensionMethods.IsAsyncMethod(System.Reflection.MethodInfo)">
             <summary>
-            Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="T:System.Threading.Tasks.Task"/> (<see cref="T:System.Threading.Tasks.Task`1"/>)
-            или <see cref="T:System.Threading.Tasks.ValueTask"/> (<see cref="T:System.Threading.Tasks.ValueTask`1"/>).
+            Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="T:System.Threading.Tasks.Task"/> или <see cref="T:System.Threading.Tasks.Task`1"/>
+            или <see cref="T:System.Threading.Tasks.ValueTask"/> или <see cref="T:System.Threading.Tasks.ValueTask`1"/>.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.IsAsyncReturnType(System.Type)">
+            <summary>
+            Возвращает <see langword="true"/> если тип является <see cref="T:System.Threading.Tasks.Task"/> или <see cref="T:System.Threading.Tasks.Task`1"/>
+            или <see cref="T:System.Threading.Tasks.ValueTask"/> или <see cref="T:System.Threading.Tasks.ValueTask`1"/>.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetNameTrimAsync(System.Reflection.MethodInfo)">
@@ -1262,7 +1309,7 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetMessageFromCloseFrame(System.Nullable{System.Net.WebSockets.WebSocketCloseStatus},System.String)">
             <summary>
-            Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения.
+            Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения. Пустую строку не возвращает.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.InnerConnectionResult.ToManagedConnection">
@@ -1330,7 +1377,7 @@
             Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestQueue.AddRequest(DanilovSoft.vRPC.ReusableRequestToSend,System.Int32@)">
+        <member name="M:DanilovSoft.vRPC.RequestQueue.AddRequest(DanilovSoft.vRPC.RequestMeta,System.Int32@)">
             <summary>
             Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
             </summary>
@@ -1716,6 +1763,17 @@
             split into four two-bit pieces.
             </remarks>
         </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.GenerateSalt(System.Span{System.Byte})">
+            <summary>
+            Generates an array holding cryptographically strong bytes.
+            </summary>
+            <remarks>
+            Salt size will be defined at random or exactly as specified by the
+            minSlatLen and maxSaltLen parameters passed to the object constructor.
+            The first four bytes of the salt array will contain the salt length
+            split into four two-bit pieces.
+            </remarks>
+        </member>
         <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.GenerateRandomNumber(System.Int32,System.Int32)">
             <summary>
             Generates random integer.
@@ -1809,6 +1867,24 @@
             <summary>
             Помещает целочисленное значение <paramref name="n"/> в стек вычислений как <see langword="int32"/>.
             </summary>
+        </member>
+        <member name="M:DynamicMethodsLib.ProxyBuilder`1.CreateProxy``1(`0,System.Object)">
+            <summary>
+            
+            </summary>
+            <typeparam name="TIface"></typeparam>
+            <param name="source"></param>
+            <param name="instance">Параметр который будет передан в конструктор <typeparamref name="TClass"/></param>
+            <returns></returns>
+        </member>
+        <member name="M:System.Threading.ChannelLock.LockAsync">
+            <summary>
+            Не бросает исключения.
+            </summary>
+        </member>
+    </members>
+</doc>
+ns>
         </member>
         <member name="M:System.Threading.ChannelLock.LockAsync">
             <summary>

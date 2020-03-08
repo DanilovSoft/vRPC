@@ -1,7 +1,8 @@
 ﻿namespace DanilovSoft.vRPC.Decorator
 {
-    public interface IInterfaceDecorator
+    public interface IInterfaceDecorator<out TIface> where TIface : class
     {
+        TIface Proxy { get; }
         string ControllerName { get; }
     }
 }

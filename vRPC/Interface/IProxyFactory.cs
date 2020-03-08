@@ -30,7 +30,7 @@ namespace DanilovSoft.vRPC
         /// Прозрачный прокси к удалённой стороне.
         /// </summary>
         public T Proxy { get; }
-        public string RemoteControllerName => ((IInterfaceDecorator)Proxy).ControllerName;
+        public string RemoteControllerName => ((IInterfaceDecorator<T>)Proxy).ControllerName;
 
         // Вызывается через рефлексию.
         public ProxyFactory(GetProxyScope getProxyScope)

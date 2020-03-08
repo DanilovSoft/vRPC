@@ -10,18 +10,18 @@ namespace DanilovSoft.vRPC
     [Serializable]
     public sealed class ConnectionClosedException : Exception
     {
-        internal const string DefaultMessage = "Произошло грациозное разъединение без указания причины.";
+        // "Удалённая сторона закрыла соединение без объяснения причины."
+        internal const string ConnectionClosedNormallyMessage = "Произошло грациозное разъединение без указания причины.";
+        internal const string ConnectionClosedMessage = "Соединение не установлено.";
 
-        public string CloseDescription { get; }
-
-        public ConnectionClosedException()
+        public ConnectionClosedException() : base(ConnectionClosedMessage)
         {
             
         }
 
-        internal ConnectionClosedException(string сloseDescription) : base(сloseDescription ?? DefaultMessage)
+        internal ConnectionClosedException(string сloseDescription) : base(сloseDescription)
         {
-            CloseDescription = сloseDescription;
+            
         }
 
         public ConnectionClosedException(string message, Exception innerException) : base(message, innerException)

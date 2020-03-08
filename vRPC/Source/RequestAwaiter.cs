@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{Request = {Request.ActionName}\}")]
     internal sealed class RequestAwaiter : INotifyCompletion
     {
-        public ReusableRequestToSend Request { get; }
+        public RequestMeta Request { get; }
         /// <summary>
         /// Флаг используется как fast-path.
         /// </summary>
@@ -24,7 +24,7 @@ namespace DanilovSoft.vRPC
         private Action _continuationAtomic;
 
         // ctor.
-        public RequestAwaiter(ReusableRequestToSend requestToSend)
+        public RequestAwaiter(RequestMeta requestToSend)
         {
             Request = requestToSend;
         }

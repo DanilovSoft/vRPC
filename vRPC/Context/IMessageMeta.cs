@@ -1,7 +1,7 @@
 ﻿
 namespace DanilovSoft.vRPC
 {
-    internal interface IMessage
+    internal interface IMessageMeta
     {
         /// <summary>
         /// True если сообщение является запросом, иначе 

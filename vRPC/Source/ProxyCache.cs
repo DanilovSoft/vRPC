@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC.Decorator;
+using System.Diagnostics;
 
 namespace DanilovSoft.vRPC
 {
@@ -17,48 +18,52 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Содержит прокси созданные из интерфейсов.
         /// </summary>
-        private readonly Dictionary<Type, object> _instanceDict = new Dictionary<Type, object>();
+        private readonly Dictionary<Type, IInterfaceProxy> _instanceDict = new Dictionary<Type, IInterfaceProxy>();
 
         public ProxyCache()
         {
 
         }
 
-        private static void InitializePropxy(string controllerName, ServerInterfaceProxy p, ManagedConnection connection)
+        [DebuggerStepThrough]
+        private static void InitializePropxy<T>(string controllerName, ServerInterfaceProxy<T> p, ManagedConnection connection) where T : class
         {
             p.InitializeClone(controllerName, connection);
         }
 
-        private static void InitializeAsyncPropxy(string controllerName, ClientInterfaceProxy p, RpcClient rpcClient)
+        [DebuggerStepThrough]
+        private static void InitializeAsyncPropxy<T>(string controllerName, ClientInterfaceProxy<T> p, RpcClient rpcClient) where T : class
         {
             p.InitializeClone(rpcClient, controllerName);
         }
 
-        internal T GetProxy<T>(ManagedConnection connection) where T : class
+        internal ServerInterfaceProxy<TIface> GetProxyDecorator<TIface>(ManagedConnection connection) where TIface : class
         {
-            return GetProxy<T, ServerInterfaceProxy, ManagedConnection>(InitializePropxy, connection);
+            return GetProxy<TIface, ServerInterfaceProxy<TIface>, ManagedConnection>(InitializePropxy, connection);
         }
 
-        internal T GetProxy<T>(RpcClient rpcClient) where T : class
+        internal ClientInterfaceProxy<TIface> GetProxyDecorator<TIface>(RpcClient rpcClient) where TIface : class
         {
-            return GetProxy<T, ClientInterfaceProxy, RpcClient>(InitializeAsyncPropxy, rpcClient);
+            return GetProxy<TIface, ClientInterfaceProxy<TIface>, RpcClient>(InitializeAsyncPropxy, rpcClient);
         }
 
-        private T GetProxy<T, TProxy, TCon>(Action<string, TProxy, TCon> initializeCopy, TCon con) where TProxy : class, IInterfaceProxy where T : class
+        private TClass GetProxy<TIface, TClass, TArg1>(Action<string, TClass, TArg1> initializeClone, TArg1 arg1) 
+            where TClass : class, IInterfaceDecorator<TIface>, IInterfaceProxy where TIface : class
         {
-            Type interfaceType = typeof(T);
+            Type interfaceType = typeof(TIface);
+            Type classType = typeof(TClass);
             lock (_instanceDict)
             {
-                if (_instanceDict.TryGetValue(interfaceType, out object proxy))
+                if (_instanceDict.TryGetValue(classType, out IInterfaceProxy proxy))
                 {
-                    return proxy as T;
+                    return proxy as TClass;
                 }
                 else
                 {
                     string controllerName = GetControllerNameFromInterface(interfaceType);
                     
                     IInterfaceProxy p;
-                    TProxy createdStatic;
+                    TClass createdStatic;
                     lock (_staticDict) // Нужна блокировка на статический словарь.
                     {
                         if (_staticDict.TryGetValue(interfaceType, out p))
@@ -67,25 +72,26 @@ namespace DanilovSoft.vRPC
                         }
                         else
                         {
-                            createdStatic = ProxyBuilder<TProxy>.CreateProxy<T>(instance: null);
+                            createdStatic = ProxyBuilder<TClass>.CreateProxy<TIface>(instance: null);
                             _staticDict.Add(interfaceType, createdStatic);
                         }
                     }
 
                     if (createdStatic == null)
                     {
-                        var clone = p.Clone<TProxy>(); // Клонирование можно выполнять одновременно разными потоками.
-                        initializeCopy(controllerName, clone, con);
+                        // Клонирование можно выполнять одновременно разными потоками.
+                        var clone = p.Clone<TClass>();
+                        initializeClone(controllerName, clone, arg1);
                         p = clone;
                     }
                     else
                     {
-                        initializeCopy(controllerName, createdStatic, con);
+                        initializeClone(controllerName, createdStatic, arg1);
                         p = createdStatic;
                     }
 
-                    _instanceDict.Add(interfaceType, p);
-                    return p as T;
+                    _instanceDict.Add(classType, p);
+                    return p as TClass;
                 }
             }
         }

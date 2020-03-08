@@ -30,7 +30,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Содержит имена методов прокси интерфейса без постфикса Async.
         /// </summary>
-        private protected abstract IConcurrentDictionary<MethodInfo, ReusableRequestToSend> InterfaceMethods { get; }
+        private protected abstract IConcurrentDictionary<MethodInfo, RequestMeta> InterfaceMethods { get; }
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
@@ -70,9 +70,9 @@ namespace DanilovSoft.vRPC
         public EndPoint LocalEndPoint => _ws.LocalEndPoint;
         public EndPoint RemoteEndPoint => _ws.RemoteEndPoint;
         /// <summary>
-        /// Отправка сообщения <see cref="SerializedMessageToSend"/> должна выполняться только через этот канал.
+        /// Отправка сообщения <see cref="BinaryMessageToSend"/> должна выполняться только через этот канал.
         /// </summary>
-        private readonly Channel<SerializedMessageToSend> _sendChannel;
+        private readonly Channel<BinaryMessageToSend> _sendChannel;
         private int _disposed;
         private bool IsDisposed
         {
@@ -165,7 +165,7 @@ namespace DanilovSoft.vRPC
         }
 
         // ctor.
-        internal ManagedConnection(ManagedWebSocket clientConnection, bool isServer, ServiceProvider serviceProvider, InvokeActionsDictionary controllers)
+        internal ManagedConnection(ManagedWebSocket clientConnection, bool isServer, ServiceProvider serviceProvider, InvokeActionsDictionary actions)
         {
             IsServer = isServer;
 
@@ -176,9 +176,9 @@ namespace DanilovSoft.vRPC
             ServiceProvider = serviceProvider;
 
             // Копируем список контроллеров сервера.
-            _invokeActions = controllers;
+            _invokeActions = actions;
 
-            _sendChannel = Channel.CreateUnbounded<SerializedMessageToSend>(new UnboundedChannelOptions
+            _sendChannel = Channel.CreateUnbounded<BinaryMessageToSend>(new UnboundedChannelOptions
             {
                 AllowSynchronousContinuations = true, // Внимательнее с этим параметром!
                 SingleReader = true,
@@ -371,12 +371,12 @@ namespace DanilovSoft.vRPC
         internal object OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
-            ReusableRequestToSend requestToSend = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new ReusableRequestToSend(tm, cn), controllerName);
+            RequestMeta requestToSend = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestMeta(tm, cn), controllerName);
 
             // Сериализуем запрос в память.
-            SerializedMessageToSend serMsg = SerializeRequest(requestToSend, args);
+            BinaryMessageToSend serMsg = requestToSend.SerializeRequest(args);
 
-            if (!requestToSend.Notification)
+            if (!requestToSend.IsNotificationRequest)
             {
                 // Отправляем запрос.
                 Task<object> taskObject = SendRequestAndGetResult(serMsg, requestToSend);
@@ -385,7 +385,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                SendNotification(serMsg);
+                PostNotification(serMsg);
                 return Task.CompletedTask;
             }
         }
@@ -397,80 +397,87 @@ namespace DanilovSoft.vRPC
         internal static object OnClientProxyCallStatic(ValueTask<ManagedConnection> contextTask, MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
-            ReusableRequestToSend requestToSend = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new ReusableRequestToSend(mi, cn), controllerName);
+            RequestMeta requestMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new RequestMeta(mi, cn), controllerName);
 
             // Сериализуем запрос в память. Лучше выполнить до подключения.
-            SerializedMessageToSend serMsg = SerializeRequest(requestToSend, args);
-            object activeCall;
+            BinaryMessageToSend serMsg = requestMeta.SerializeRequest(args);
             try
             {
-                activeCall = OnClientProxyCallStatic(contextTask, requestToSend, serMsg);
+                var activeCall = ExecuteRequest(contextTask, serMsg, requestMeta);
                 serMsg = null; // Предотвратить Dispose.
+                return activeCall;
             }
             finally
             {
-                if(serMsg != null)
-                    serMsg.Dispose();
+                serMsg?.Dispose();
             }
-            return activeCall;
         }
 
-        private static object OnClientProxyCallStatic(ValueTask<ManagedConnection> contextTask, ReusableRequestToSend requestToSend, SerializedMessageToSend serMsg)
+        /// <summary>
+        /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
+        /// </summary>
+        internal static object ExecuteRequest(ValueTask<ManagedConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
         {
-            if (!requestToSend.Notification)
+            if (!requestMeta.IsNotificationRequest)
+            // Запрос должен получить ответ.
             {
-                // Отправляем запрос.
-                Task<object> taskObject = SendRequestWithResultAsync(contextTask, serMsg, requestToSend);
-
-                // Может бросить исключение.
-                object convertedResult = ConvertRequestTask(requestToSend, taskObject);
-
-                // Результатом может быть не завершённый Task.
-                return convertedResult;
+                return SendRequestAndWaitResult(connectionTask, binaryRequest, requestMeta);
             }
             else
+            // Отправляем запрос как уведомление.
             {
-                // Может бросить исключение.
-                // Добавляет сообщение в очередь на отправку.
-                Task connectionTask = SendNotificationAsync(contextTask, serMsg);
-
-                if (requestToSend.IsAsync)
-                // Возвращаемый тип функции интерфейса — Task или ValueTask.
-                {
-                    // Сконвертировать в ValueTask если такой тип у интерфейса.
-                    // Не бросает исключения.
-                    object convertedTask = ConvertNotificationTask(requestToSend, connectionTask);
-
-                    // Результатом может быть не завершённый Task.
-                    return convertedTask;
-                }
-                else
-                // Была вызвана синхронная функция.
-                {
-                    // Результатом может быть исключение.
-                    connectionTask.GetAwaiter().GetResult();
-
-                    // Возвращаемый тип интерфейсы — void.
-                    return null;
-                }
+                return SendNotification(connectionTask, binaryRequest, requestMeta);
             }
+        }
+
+        /// <summary>
+        /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
+        /// </summary>
+        internal static object SendRequestAndWaitResult(ValueTask<ManagedConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        {
+            Debug.Assert(!requestMeta.IsNotificationRequest);
+
+            // Отправляем запрос.
+            Task<object> taskObject = SendRequestWithResultAsync(connectionTask, binaryRequest, requestMeta);
+
+            // Конвертируем в Task<T>. Может бросить исключение.
+            object convertedResult = ConvertRequestTask(requestMeta, taskObject);
+
+            // Результатом может быть не завершённый Task.
+            return convertedResult;
+        }
+
+        /// <summary>
+        /// Отправляет запрос как уведомление. Результатом может быть Null или Task или ValueTask.
+        /// </summary>
+        internal static object SendNotification(ValueTask<ManagedConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        {
+            Debug.Assert(requestMeta.IsNotificationRequest);
+
+            // Может бросить исключение.
+            // Добавляет сообщение в очередь на отправку.
+            Task sendNotificationTask = SendNotificationAsync(connectionTask, binaryRequest);
+
+            // Конвертируем Task в ValueTask если это требует интерфейс.
+            return ConvertNotificationTask(sendNotificationTask, requestMeta);
         }
 
         /// <summary>
         /// Ожидает завершение подключения к серверу и передаёт сообщение в очередь на отправку.
         /// Может бросить исключение.
+        /// Чаще всего возвращает <see cref="Task.CompletedTask"/>.
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private static Task SendNotificationAsync(ValueTask<ManagedConnection> connectingTask, SerializedMessageToSend serializedMessage)
+        private static Task SendNotificationAsync(ValueTask<ManagedConnection> connectingTask, BinaryMessageToSend serializedMessage)
         {
             if (connectingTask.IsCompleted)
             {
                 // Может бросить исключение.
                 ManagedConnection connection = connectingTask.Result;
                 
-                // Отправляет уведомление.
-                connection.SendNotification(serializedMessage);
+                // Отправляет уведомление через очередь.
+                connection.PostNotification(serializedMessage);
 
                 // Нотификации не возвращают результат.
                 return Task.CompletedTask;
@@ -482,16 +489,16 @@ namespace DanilovSoft.vRPC
             }
 
             // Локальная функция.
-            static async Task WaitForConnectAndSendNotification(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage)
+            static async Task WaitForConnectAndSendNotification(ValueTask<ManagedConnection> t, BinaryMessageToSend serializedMessage)
             {
                 ManagedConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                connection.SendNotification(serializedMessage);
+                connection.PostNotification(serializedMessage);
             }
         }
 
-        private static Task<object> SendRequestWithResultAsync(ValueTask<ManagedConnection> contextTask, SerializedMessageToSend serializedMessage, ReusableRequestToSend requestMessage)
+        private static Task<object> SendRequestWithResultAsync(ValueTask<ManagedConnection> contextTask, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
         {
             if(contextTask.IsCompleted)
             {
@@ -499,41 +506,67 @@ namespace DanilovSoft.vRPC
                 ManagedConnection connection = contextTask.Result;
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendRequestAndGetResult(serializedMessage, requestMessage);
+                return connection.SendRequestAndGetResult(serializedMessage, requestMetadata);
             }
             else
             {
-                return WaitForConnectAndSendRequest(contextTask, serializedMessage, requestMessage);
+                return WaitForConnectAndSendRequest(contextTask, serializedMessage, requestMetadata);
             }
 
-            static async Task<object> WaitForConnectAndSendRequest(ValueTask<ManagedConnection> t, SerializedMessageToSend serializedMessage, ReusableRequestToSend requestMessage)
+            static async Task<object> WaitForConnectAndSendRequest(ValueTask<ManagedConnection> t, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
             {
                 ManagedConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return await connection.SendRequestAndGetResult(serializedMessage, requestMessage).ConfigureAwait(false);
+                return await connection.SendRequestAndGetResult(serializedMessage, requestMetadata).ConfigureAwait(false);
             }
         }
 
         /// <summary>
-        /// Преобразует <see cref="Task"/><see langword="&lt;object&gt;"/> в <see cref="Task{T}"/> или возвращает TResult
+        /// Может вернуть Null или Task или ValueTask.
+        /// </summary>
+        private static object ConvertNotificationTask(Task sendNotificationTask, RequestMeta requestActionMeta)
+        {
+            if (requestActionMeta.IsAsync)
+            // Возвращаемый тип функции интерфейса — Task или ValueTask.
+            {
+                // Сконвертировать в ValueTask если такой тип у интерфейса.
+                // Не бросает исключения.
+                object convertedTask = EncapsulateValueTask(sendNotificationTask, requestActionMeta.ReturnType);
+
+                // Результатом может быть не завершённый Task (или ValueTask).
+                return convertedTask;
+            }
+            else
+            // Была вызвана синхронная функция.
+            {
+                // Результатом может быть исключение.
+                sendNotificationTask.GetAwaiter().GetResult();
+
+                // У уведомлений нет результата.
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Преобразует <see cref="Task"/><see langword="&lt;object&gt;"/> в <see cref="Task"/>&lt;T&gt; или возвращает TResult
         /// если метод интерфейса является синхронной функцией.
         /// </summary>
-        private static object ConvertRequestTask(ReusableRequestToSend requestToSend, Task<object> taskObject)
+        private static object ConvertRequestTask(RequestMeta requestToSend, Task<object> taskObject)
         {
             if (requestToSend.IsAsync)
             // Возвращаемый тип функции интерфейса — Task.
             {
-                if (requestToSend.MethodInfo.ReturnType.IsGenericType)
+                if (requestToSend.ReturnType.IsGenericType)
                 // У задачи есть результат.
                 {
                     // Task<object> должен быть преобразован в Task<T>.
                     // Не бросает исключения.
-                    return TaskConverter.ConvertTask(taskObject, requestToSend.IncapsulatedReturnType, requestToSend.MethodInfo.ReturnType);
+                    return TaskConverter.ConvertTask(taskObject, requestToSend.IncapsulatedReturnType, requestToSend.ReturnType);
                 }
                 else
                 {
-                    if (requestToSend.MethodInfo.ReturnType != typeof(ValueTask))
+                    if (requestToSend.ReturnType != typeof(ValueTask))
                     // Возвращаемый тип интерфейса – Task.
                     {
                         // Можно вернуть как Task<object>.
@@ -556,33 +589,32 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Конвертирует Task в ValueTask если этого требует интерфейс.
+        /// Возвращает Task или ValueTask для соответствия типу <paramref name="returnType"/>.
         /// Не бросает исключения.
         /// </summary>
-        /// <param name="requestToSend"></param>
-        /// <param name="taskObject">Задача с возвращаемым типом <see langword="void"/>.</param>
-        /// <returns></returns>
-        private static object ConvertNotificationTask(ReusableRequestToSend requestToSend, Task taskObject)
+        /// <param name="voidTask">Такс без результата (<see langword="void"/>).</param>
+        private static object EncapsulateValueTask(Task voidTask, Type returnType)
         {
-            if (requestToSend.MethodInfo.ReturnType != typeof(ValueTask))
+            if (returnType != typeof(ValueTask))
             // Возвращаемый тип интерфейса – Task.
             {
                 // Конвертировать не нужно.
-                return taskObject;
+                return voidTask;
             }
             else
             // Возвращаемый тип интерфейса – ValueTask.
             {
-                return new ValueTask(taskObject);
+                return new ValueTask(voidTask);
             }
         }
 
         /// <summary>
-        /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос-уведомление.
+        /// Происходит при обращении к проксирующему интерфейсу. 
+        /// Добавляет запрос-уведомление в очередь на отправку (выполнит отправку текущим потоком если очередь пуста).
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal void SendNotification(SerializedMessageToSend serializedMessage)
+        internal void PostNotification(BinaryMessageToSend serializedMessage)
         {
             ThrowIfDisposed();
             ThrowIfShutdownRequired();
@@ -596,7 +628,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private Task<object> SendRequestAndGetResult(SerializedMessageToSend serializedMessage, ReusableRequestToSend requestMessage)
+        private Task<object> SendRequestAndGetResult(BinaryMessageToSend serializedMessage, RequestMeta requestMessage)
         {
             try
             {
@@ -1091,40 +1123,21 @@ namespace DanilovSoft.vRPC
             var tuple = (Tuple<ManagedConnection, ResponseMessage>)state;
 
             // Сериализуем.
-            SerializedMessageToSend serializedMessage = SerializeResponse(tuple.Item2);
+            BinaryMessageToSend serializedMessage = SerializeResponse(tuple.Item2);
             
             // Ставим в очередь.
             tuple.Item1.QueueSendMessage(serializedMessage);
         }
 
-        /// <summary>
-        /// Сериализует сообщение в память. Может бросить исключение сериализации.
-        /// </summary>
-        private static SerializedMessageToSend SerializeRequest(ReusableRequestToSend requestToSend, object[] args)
-        {
-            var serializedMessage = new SerializedMessageToSend(requestToSend);
-            try
-            {
-                var request = new RequestMessageDto(requestToSend.ActionName, args);
-                ExtensionMethods.SerializeObjectJson(serializedMessage.MemPoolStream, request);
-
-                var ret = serializedMessage;
-                serializedMessage = null;
-                return ret;
-            }
-            finally
-            {
-                serializedMessage?.Dispose();
-            }
-        }
+        
 
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
-        private static SerializedMessageToSend SerializeResponse(ResponseMessage responseToSend)
+        private static BinaryMessageToSend SerializeResponse(ResponseMessage responseToSend)
         {
-            SerializedMessageToSend refCopy;
-            var serMsg = new SerializedMessageToSend(responseToSend);
+            BinaryMessageToSend refCopy;
+            var serMsg = new BinaryMessageToSend(responseToSend);
             try
             {
                 if (responseToSend.ActionResult is IActionResult actionResult)
@@ -1163,7 +1176,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Сериализует хэдер в стрим сообщения. Не бросает исключения.
         /// </summary>
-        private static void AppendHeader(SerializedMessageToSend messageToSend)
+        private static void AppendHeader(BinaryMessageToSend messageToSend)
         {
             HeaderDto header = CreateHeader(messageToSend);
 
@@ -1174,7 +1187,7 @@ namespace DanilovSoft.vRPC
             messageToSend.HeaderSize = headerSize;
         }
 
-        private static HeaderDto CreateHeader(SerializedMessageToSend messageToSend)
+        private static HeaderDto CreateHeader(BinaryMessageToSend messageToSend)
         {
             Debug.Assert(messageToSend != null);
 
@@ -1196,7 +1209,7 @@ namespace DanilovSoft.vRPC
         /// Добавляет хэдер и передает на отправку другому потоку.
         /// Не бросает исключения.
         /// </summary>
-        private void QueueSendMessage(SerializedMessageToSend messageToSend)
+        private void QueueSendMessage(BinaryMessageToSend messageToSend)
         {
             Debug.Assert(messageToSend != null);
 
@@ -1238,7 +1251,7 @@ namespace DanilovSoft.vRPC
                 if (await _sendChannel.Reader.WaitToReadAsync().ConfigureAwait(false))
                 {
                     // Всегда true — у нас только один читатель.
-                    _sendChannel.Reader.TryRead(out SerializedMessageToSend serializedMessage);
+                    _sendChannel.Reader.TryRead(out BinaryMessageToSend serializedMessage);
 
                     Debug.Assert(serializedMessage != null);
 
@@ -1337,7 +1350,7 @@ namespace DanilovSoft.vRPC
         }
 
         [Conditional("LOG_RPC")]
-        private static void LogSend(SerializedMessageToSend serializedMessage)
+        private static void LogSend(BinaryMessageToSend serializedMessage)
         {
             byte[] streamBuffer = serializedMessage.MemPoolStream.GetBuffer();
 
@@ -1586,7 +1599,7 @@ namespace DanilovSoft.vRPC
         private void SerializeAndSendResponse(ResponseMessage responseMessage, RequestToInvoke requestContext)
         {
             // Не бросает исключения.
-            SerializedMessageToSend responseToSend = SerializeResponse(responseMessage, requestContext);
+            BinaryMessageToSend responseToSend = SerializeResponse(responseMessage, requestContext);
 
             // Не бросает исключения.
             QueueSendMessage(responseToSend);
@@ -1625,7 +1638,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static SerializedMessageToSend SerializeResponse(ResponseMessage response, RequestToInvoke requestContext)
+        private static BinaryMessageToSend SerializeResponse(ResponseMessage response, RequestToInvoke requestContext)
         {
             if (response == null)
             // Запрашиваемая функция выполнена успешно.

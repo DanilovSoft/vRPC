@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DanilovSoft.vRPC.Controllers;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -17,7 +18,11 @@ namespace DanilovSoft.vRPC
         public InvokeActionsDictionary(Dictionary<string, Type> controllers)
         {
             // Методы типа "home/hello" без учета регистра.
-            _actionsDict = new Dictionary<string, ControllerAction>(StringComparer.OrdinalIgnoreCase);
+            _actionsDict = new Dictionary<string, ControllerAction>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "/SignIn", new ControllerAction(typeof(AccountController), AccountController.SignInMethod) },
+                { "/SignOut", new ControllerAction(typeof(AccountController), AccountController.SignInMethod) }
+            };
 
             foreach (KeyValuePair<string, Type> controller in controllers)
             {

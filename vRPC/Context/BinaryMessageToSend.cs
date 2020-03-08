@@ -7,13 +7,15 @@ using System.Text;
 namespace DanilovSoft.vRPC
 {
     /// <summary>
+    /// Является запросом или ответом на запрос.
     /// Содержит <see cref="MemoryStream"/> в который сериализуется 
     /// сообщение и заголовок для отправки удалённой стороне.
     /// Необходимо обязательно выполнить Dispose.
     /// </summary>
-    internal sealed class SerializedMessageToSend : IDisposable
+    internal sealed class BinaryMessageToSend : IDisposable
     {
 #if DEBUG
+        // Что-бы видеть контент в режиме отладки.
         private string DebugJson => GetDebugJson();
         private string GetDebugJson()
         {
@@ -37,7 +39,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Запрос или ответ на запрос.
         /// </summary>
-        public IMessage MessageToSend { get; }
+        public IMessageMeta MessageToSend { get; }
         /// <summary>
         /// Уникальный идентификатор который будет отправлен удалённой стороне.
         /// </summary>
@@ -53,7 +55,7 @@ namespace DanilovSoft.vRPC
         /// Содержит <see cref="MemoryStream"/> в который сериализуется сообщение и заголовок.
         /// Необходимо обязательно выполнить Dispose.
         /// </summary>
-        public SerializedMessageToSend(IMessage messageToSend)
+        public BinaryMessageToSend(IMessageMeta messageToSend)
         {
             MessageToSend = messageToSend;
 

@@ -25,12 +25,18 @@ namespace DanilovSoft.vRPC
         private const string Salt = "M6PgwzAnHy02Jv8z5FPIoOn5NeJP7bx7";
 
         internal static readonly ServerConcurrentDictionary<MethodInfo, string> ProxyMethodName = new ServerConcurrentDictionary<MethodInfo, string>();
-        private static readonly ServerConcurrentDictionary<MethodInfo, ReusableRequestToSend> _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, ReusableRequestToSend>();
+        private static readonly ServerConcurrentDictionary<MethodInfo, RequestMeta> _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestMeta>();
         private readonly ProxyCache _proxyCache = new ProxyCache();
         private readonly RijndaelEnhanced _jwt;
-        private object _userLock => _jwt;
+        /// <summary>
+        /// Установка свойства User только через эту блокировку.
+        /// </summary>
+        private object UserLock => _jwt;
+        /// <summary>
+        /// Установка свойства User только через блокировку <see cref="UserLock"/>.
+        /// </summary>
         internal ClaimsPrincipal User { get; private set; }
-        private protected override IConcurrentDictionary<MethodInfo, ReusableRequestToSend> InterfaceMethods => _interfaceMethodsInfo;
+        private protected override IConcurrentDictionary<MethodInfo, RequestMeta> InterfaceMethods => _interfaceMethodsInfo;
 
         /// <summary>
         /// Сервер который принял текущее соединение.
@@ -46,34 +52,34 @@ namespace DanilovSoft.vRPC
 
             _jwt = new RijndaelEnhanced(PassPhrase, InitVector, 8, 16, 256, Salt, 1000);
 
+            // TODO нужно инжектить юзера.
             // Изначальный не авторизованный пользователь.
             User = CreateUnauthorizedUser();
         }
 
-        private ClaimsPrincipal CreateUnauthorizedUser()
+        private static ClaimsPrincipal CreateUnauthorizedUser()
         {
             return new ClaimsPrincipal(new ClaimsIdentity());
         }
 
         /// <summary>
-        /// Создает прокси к методам удалённой стороны на основе интерфейса.
-        /// Полученный прокси можно привести к типу <see cref="ServerInterfaceProxy"/> 
-        /// что-бы получить дополнительные сведения.
+        /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
+        /// Полученный экземпляр можно привести к типу <see cref="ServerInterfaceProxy"/>.
+        /// Метод является шорткатом для <see cref="GetProxyDecorator"/>
         /// </summary>
+        /// <typeparam name="T">Интерфейс.</typeparam>
         public T GetProxy<T>() where T : class
         {
-            return _proxyCache.GetProxy<T>(this);
+            return GetProxyDecorator<T>().Proxy;
         }
 
         /// <summary>
-        /// Создает прокси к методам удалённой стороны на основе интерфейса.
+        /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
         /// </summary>
-        /// <param name="decorator">Декоратор интерфейса который содержит дополнительные сведения.</param>
-        public T GetProxy<T>(out ServerInterfaceProxy decorator) where T : class
+        /// <typeparam name="T">Интерфейс.</typeparam>
+        public ServerInterfaceProxy<T> GetProxyDecorator<T>() where T : class
         {
-            var p = _proxyCache.GetProxy<T>(this);
-            decorator = p as ServerInterfaceProxy;
-            return p;
+            return _proxyCache.GetProxyDecorator<T>(this);
         }
 
         internal BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal)
@@ -101,12 +107,6 @@ namespace DanilovSoft.vRPC
                 }
 
                 var token = new BearerToken(encryptedToken, validity);
-
-                //lock (_userLock)
-                //{
-                //    User = claimsPrincipal;
-                //}
-
                 return token;
             }
         }
@@ -114,8 +114,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Производит аутентификацию текущего подключения.
         /// </summary>
-        /// <exception cref="BadRequestException"/>
-        internal void SignIn(AccessToken accessToken)
+        internal IActionResult SignIn(AccessToken accessToken)
         {
             // Расшифрованный токен полученный от пользователя.
             byte[] decripted;
@@ -125,10 +124,9 @@ namespace DanilovSoft.vRPC
                 // Расшифровать токен.
                 decripted = _jwt.DecryptToBytes(accessToken);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                // Токен не валиден.
-                throw new BadRequestException("Токен не валиден", ex);
+                return new BadRequestResult("Токен не валиден");
             }
 
             ServerAccessToken bearerToken;
@@ -139,14 +137,14 @@ namespace DanilovSoft.vRPC
                     bearerToken = ProtoBuf.Serializer.Deserialize<ServerAccessToken>(mem);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                // Токен не валиден.
-                throw new BadRequestException("Токен не валиден", ex);
+                return new BadRequestResult("Токен не валиден");
             }
             
             Debug.Assert(bearerToken.ClaimsPrincipal != null);
 
+            ClaimsPrincipal user;
             if (DateTime.Now < bearerToken.Validity)
             // Токен валиден.
             {
@@ -158,135 +156,37 @@ namespace DanilovSoft.vRPC
                     {
                         using (var breader = new BinaryReader(mem, Encoding.UTF8, true))
                         {
-                            var user = new ClaimsPrincipal(breader);
-                            lock (_userLock)
-                            {
-                                User = user;
-                            }
+                            user = new ClaimsPrincipal(breader);
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    // Токен не валиден.
-                    throw new BadRequestException("Токен не валиден", ex);
+                    return new BadRequestResult("Токен не валиден");
                 }
             }
             else
             {
-                throw new BadRequestException("Токен истёк");
+                return new BadRequestResult("Токен истёк");
             }
+
+            lock (UserLock)
+            {
+                User = user;
+            }
+
+            Listener.OnConnectionAuthenticated(this, user);
+            return new OkResult();
         }
 
         internal void SignOut()
         {
-            lock (_userLock)
+            // TODO через инъекцию.
+            lock (UserLock)
             {
                 User = CreateUnauthorizedUser();
             }
         }
-
-        ///// <summary>
-        ///// Производит авторизацию текущего подключения по токену.
-        ///// </summary>
-        ///// <param name="userId"></param>
-        ///// <exception cref="BadRequestException"/>
-        //public bool AuthorizeToken(byte[] encriptedToken)
-        //{
-        //    // Расшифрованный токен полученный от пользователя.
-        //    byte[] decripted;
-
-        //    try
-        //    {
-        //        // Расшифровать токен.
-        //        decripted = _jwt.DecryptToBytes(encriptedToken);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Debug.WriteLine(ex);
-
-        //        // Токен не валиден.
-        //        return false;
-        //    }
-
-        //    ServerBearerToken bearerToken;
-        //    try
-        //    {
-        //        using (var mem = new MemoryStream(decripted))
-        //            bearerToken = ProtoBuf.Serializer.Deserialize<ServerBearerToken>(mem);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Debug.WriteLine(ex);
-
-        //        // Токен не валиден.
-        //        return false;
-        //    }
-
-        //    if (DateTime.Now < bearerToken.Validity)
-        //    // Токен валиден.
-        //    {
-        //        // Безусловная авторизация.
-        //        InnerAuthorize(bearerToken.UserId);
-        //        return true;
-        //    }
-
-        //    // Токен не валиден.
-        //    return false;
-        //}
-
-        /// <summary>
-        /// Потокобезопасно производит авторизацию текущего соединения.
-        /// </summary>
-        /// <param name="userId">Идентификатор пользователя который будет пазначен текущему контексту.</param>
-        private void InnerAuthorize(string name)
-        {
-            // Функцию могут вызвать из нескольких потоков.
-            //lock (_syncObj)
-            //{
-            //    if (!IsAuthorized)
-            //    {
-            //        // Авторизуем контекст пользователя.
-            //        UserId = userId;
-            //        IsAuthorized = true;
-
-            //        // Добавляем соединение в словарь.
-            //        UserConnections = AddConnection(userId);
-            //    }
-            //    else
-            //        throw new BadRequestException($"You are already authorized as 'UserId: {UserId}'", StatusCode.BadRequest);
-            //}
-        }
-
-        ///// <summary>
-        ///// Потокобезопасно добавляет текущее соединение в словарь или создаёт новый словарь.
-        ///// </summary>
-        //private UserConnections AddConnection(int userId)
-        //{
-        //    do
-        //    {
-        //        // Берем существующую структуру или создаем новую.
-        //        UserConnections userConnections = Listener.Connections.GetOrAdd(userId, uid => new UserConnections(uid));
-
-        //        // Может случиться так что мы взяли существующую коллекцию но её удаляют из словаря в текущий момент.
-        //        lock (userConnections.SyncRoot) // Захватить эксклюзивный доступ.
-        //        {
-        //            // Если коллекцию еще не удалили из словаря то можем безопасно добавить в неё соединение.
-        //            if (!userConnections.IsDestroyed)
-        //            {
-        //                userConnections.Add(this);
-        //                return userConnections;
-        //            }
-        //        }
-        //    } while (true);
-        //}
-
-        //protected override void BeforeInvokePrepareController(Controller controller)
-        //{
-        //    var serverController = (ServerController)controller;
-        //    serverController.Context = this;
-        //    //serverController.Listener = Listener;
-        //}
 
         public ServerSideConnection[] GetConnectionsExceptSelf()
         {
@@ -328,9 +228,6 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private protected override T InnerGetProxy<T>()
-        {
-            return GetProxy<T>();
-        }
+        private protected override T InnerGetProxy<T>() => GetProxy<T>();
     }
 }

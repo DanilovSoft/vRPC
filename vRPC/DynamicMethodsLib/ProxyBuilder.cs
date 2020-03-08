@@ -8,10 +8,10 @@ using System.Reflection.Emit;
 
 namespace DynamicMethodsLib
 {
-    internal static class ProxyBuilder<TParent>
+    internal static class ProxyBuilder<TClass>
     {
         private const BindingFlags _visibilityFlags = BindingFlags.Public | BindingFlags.Instance;
-        private static readonly MethodInfo _invokeMethod = typeof(TParent).GetMethod("Invoke",
+        private static readonly MethodInfo _invokeMethod = typeof(TClass).GetMethod("Invoke",
                 BindingFlags.NonPublic | BindingFlags.Instance,
                 null,
                 new[] { typeof(MethodInfo), typeof(object[]) },
@@ -19,7 +19,7 @@ namespace DynamicMethodsLib
 
         static ProxyBuilder()
         {
-            Debug.Assert(_invokeMethod != null, $"У типа {typeof(TParent).FullName} должен быть метод Invoke(MethodInfo m, object[] args)");
+            Debug.Assert(_invokeMethod != null, $"У типа {typeof(TClass).FullName} должен быть метод Invoke(MethodInfo m, object[] args)");
         }
 
         private static AssemblyBuilder DefineDynamicAssembly(string name)
@@ -33,27 +33,37 @@ namespace DynamicMethodsLib
             return assembly.DefineDynamicModule("Module");
         }
 
-        public static TParent CreateProxy<TIface>(TParent source = default, object instance = null)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="TIface"></typeparam>
+        /// <param name="source"></param>
+        /// <param name="instance">Параметр который будет передан в конструктор <typeparamref name="TClass"/></param>
+        /// <returns></returns>
+        public static TClass CreateProxy<TIface>(TClass source = default, object instance = null)
         {
             var ifaceType = typeof(TIface);
             if (!ifaceType.IsPublic)
             {
                 throw new InvalidOperationException($"Интерфейс {ifaceType.FullName} должен быть публичным и должен быть видимым для других сборок.");
             }
+            Debug.Assert(ifaceType.IsInterface, "Ожидался интерфейс");
 
-            var proxyParentClassType = typeof(TParent);
+            var proxyParentClassType = typeof(TClass);
             if(proxyParentClassType.IsSealed)
                 throw new InvalidOperationException($"Родительский класс {proxyParentClassType.FullName} не должен быть запечатанным.");
 
+            //var genericProxyParentClass = proxyParentClassType.MakeGenericType(typeof(TIface));
+
             // Динамическая сборка в которой будут жить классы реализующие пользовательские интерфейсы.
-            string assemblyName = typeof(TIface).Name + "_" + Guid.NewGuid().ToString();
+            string assemblyName = ifaceType.Name + "_" + Guid.NewGuid().ToString();
             AssemblyBuilder assemblyBuilder = DefineDynamicAssembly(assemblyName);
             ModuleBuilder moduleBuilder = DefineDynamicModule(assemblyBuilder);
-            string className = proxyParentClassType.Name + "_" + typeof(TIface).Name;
-            TypeBuilder classType = moduleBuilder.DefineType(className, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class, parent: proxyParentClassType);
-            var fieldsList = new List<string>();
+            string className = proxyParentClassType.Name + "_" + ifaceType.Name;
+            TypeBuilder classType = moduleBuilder.DefineType(className, 
+                TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class, parent: proxyParentClassType);            
 
-            classType.AddInterfaceImplementation(typeof(TIface));
+            classType.AddInterfaceImplementation(ifaceType);
 
             if (instance != null)
             // В конструктор должен передаваться инстанс.
@@ -103,10 +113,11 @@ namespace DynamicMethodsLib
 
             int methodCount = 0;
             var methodsDict = new Dictionary<int, MethodInfo>();
-            MethodInfo[] methods = typeof(TIface).GetMethods();
+            MethodInfo[] methods = ifaceType.GetMethods();
             var fields = new List<FieldMethodInfo>(methods.Length);
 
-            foreach (PropertyInfo v in typeof(TIface).GetProperties())
+            var fieldsList = new List<string>();
+            foreach (PropertyInfo v in ifaceType.GetProperties())
             {
                 fieldsList.Add(v.Name);
 
@@ -166,7 +177,7 @@ namespace DynamicMethodsLib
                 }
             }
 
-            foreach (MethodInfo method in typeof(TIface).GetMethods())
+            foreach (MethodInfo method in ifaceType.GetMethods())
             {
                 //    const MethodAttributes ExplicitImplementation =
                 //MethodAttributes.Private |
@@ -204,14 +215,14 @@ namespace DynamicMethodsLib
             TypeInfo ti = classType.CreateTypeInfo();
             //Type dynamicType = classType.CreateType();
 
-            TParent proxy;
+            TClass proxy;
             if (instance != null)
             {
-                proxy = (TParent)Activator.CreateInstance(ti, args: instance);
+                proxy = (TClass)Activator.CreateInstance(ti, args: instance);
             }
             else
             {
-                proxy = (TParent)Activator.CreateInstance(ti);
+                proxy = (TClass)Activator.CreateInstance(ti);
             }
 
             foreach (var item in fields)
@@ -386,7 +397,7 @@ namespace DynamicMethodsLib
             il.Emit(OpCodes.Ret);
         }
 
-        private static K CopyValues<K>(TParent source, K destination)
+        private static K CopyValues<K>(TClass source, K destination)
         {
             foreach (PropertyInfo property in source.GetType().GetProperties(_visibilityFlags))
             {

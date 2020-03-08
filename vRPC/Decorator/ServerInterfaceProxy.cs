@@ -7,17 +7,23 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC.Decorator
 {
+    /// <summary>
+    /// Этот клас наследует пользовательские интерфейсы.
+    /// </summary>
+    public abstract class ServerInterfaceProxy
+    {
+        public string ControllerName { get; protected set; }
+        public ManagedConnection Connection { get; protected set; }
+    }
+
     // Тип должен быть публичным и не запечатанным.
     /// <summary>
-    /// От этого класса наследуются динамические типы и пользовательские интерфейсы.
+    /// Этот клас наследует пользовательские интерфейсы.
     /// </summary>
-    [DebuggerDisplay(@"\{Proxy to remote controller {ControllerName}, {_connection}\}")]
-    public class ServerInterfaceProxy : IInterfaceDecorator, IInterfaceProxy
+    [DebuggerDisplay(@"\{Proxy to remote controller {ControllerName}, {Connection}\}")]
+    public class ServerInterfaceProxy<TIface> : ServerInterfaceProxy, IInterfaceProxy, IInterfaceDecorator<TIface> where TIface : class
     {
-        private ManagedConnection _connection;
-        private string _controllerName;
-        public string ControllerName => _controllerName;
-        public ManagedConnection Connection => _connection;
+        public TIface Proxy { get; private set; }
 
         // Вызывается через рефлексию.
         public ServerInterfaceProxy()
@@ -27,19 +33,20 @@ namespace DanilovSoft.vRPC.Decorator
 
         internal void InitializeClone(string controllerName, ManagedConnection connection)
         {
-            _controllerName = controllerName;
-            _connection = connection;
+            Proxy = this as TIface;
+            ControllerName = controllerName;
+            Connection = connection;
         }
 
         T IInterfaceProxy.Clone<T>()
         {
-            return (T)MemberwiseClone();
+            return MemberwiseClone() as T;
         }
 
         // Вызывается через рефлексию.
         protected object Invoke(MethodInfo targetMethod, object[] args)
         {
-            return _connection.OnInterfaceMethodCall(targetMethod, args, _controllerName);
+            return Connection.OnInterfaceMethodCall(targetMethod, args, ControllerName);
         }
     }
 }

@@ -16,6 +16,7 @@ namespace DanilovSoft.vRPC
     {
         [ProtoMember(1, IsRequired = true)]
         private readonly byte[] _rawToken;
+        public int Length => _rawToken.Length;
 
         // Для десериализации через ISerializable.
         private AccessToken(SerializationInfo info, StreamingContext _)

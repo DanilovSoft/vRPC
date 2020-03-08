@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 
 namespace DanilovSoft.vRPC
@@ -18,8 +19,6 @@ namespace DanilovSoft.vRPC
 
         }
 
-        //public void SignIn(AccessToken accessToken) => Context.SignIn(accessToken);
-
         public BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal)
         {
             if (claimsPrincipal == null)
@@ -30,4 +29,13 @@ namespace DanilovSoft.vRPC
 
         public void SignOut() => Context.SignOut();
     }
+
+    //public static class ControllerExtensions
+    //{
+    //    [SuppressMessage("Design", "CA1062:Проверить аргументы или открытые методы", Justification = "<Ожидание>")]
+    //    public static void SignOut(this ServerController controller)
+    //    {
+    //        controller.Context.SignOut();
+    //    }
+    //}
 }

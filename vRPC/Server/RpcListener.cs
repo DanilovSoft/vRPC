@@ -9,6 +9,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -77,6 +78,7 @@ namespace DanilovSoft.vRPC
         public ServiceProvider ServiceProvider => _serviceProvider;
         public event EventHandler<ClientConnectedEventArgs> ClientConnected;
         public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
+        public event EventHandler<ClientAuthenticatedEventArgs> ClientAuthenticated;
         private Action<ServiceProvider> _configureApp;
         /// <summary>
         /// Не позволяет подключаться новым клиентам. Единожны меняет состояние в момент остановки сервиса.
@@ -109,6 +111,9 @@ namespace DanilovSoft.vRPC
 
             // Найти все методы в контроллерах.
             InvokeActions = new InvokeActionsDictionary(controllerTypes);
+
+            // Добавим скрытый контроллер для авторизации.
+            _serviceCollection.AddScoped(typeof(Controllers.AccountController));
 
             // Добавить контроллеры в IoC.
             foreach (Type controllerType in controllerTypes.Values)
@@ -143,6 +148,13 @@ namespace DanilovSoft.vRPC
         public void Configure(Action<ServiceProvider> configureApp)
         {
             _configureApp = configureApp;
+        }
+
+        internal void OnConnectionAuthenticated(ServerSideConnection connection, ClaimsPrincipal user)
+        {
+            Debug.Assert(user.Identity.IsAuthenticated);
+
+            ClientAuthenticated?.Invoke(this, new ClientAuthenticatedEventArgs(connection, user));
         }
 
         /// <summary>

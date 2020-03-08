@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
+
     /// <summary>
     /// Контекст клиентского соединения.
     /// </summary>
@@ -29,6 +30,10 @@ namespace DanilovSoft.vRPC
         private readonly ProxyCache _proxyCache;
         private readonly ServiceCollection _serviceCollection = new ServiceCollection();
         private readonly bool _allowReconnect;
+        /// <summary>
+        /// Для доступа к свойству <see cref="_IsAuthenticated"/>.
+        /// </summary>
+        private readonly object _authenticationLock = new object();
         public Uri ServerAddress { get; private set; }
         /// <summary>
         /// <see langword="volatile"/>.
@@ -74,6 +79,11 @@ namespace DanilovSoft.vRPC
         /// Используется только что-бы аварийно прервать подключение через Dispose.
         /// </summary>
         private ClientWebSocket _connectingWs;
+        /// <summary>
+        /// Запись только через блокировку <see cref="_authenticationLock"/>.
+        /// </summary>
+        private volatile bool _IsAuthenticated;
+        public bool IsAuthenticated => _IsAuthenticated;
 
         // ctor.
         static RpcClient()
@@ -208,9 +218,76 @@ namespace DanilovSoft.vRPC
         /// Выполняет аутентификацию соединения.
         /// </summary>
         /// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
-        public void Authenticate(AccessToken accessToken)
+        public void SignIn(AccessToken accessToken)
         {
-            throw new NotImplementedException();
+            // Начать соединение или взять существующее.
+            ValueTask<ManagedConnection> connectionTask = GetConnectionForInterfaceCallback();
+
+            // Создаём запрос для отправки.
+            var meta = new RequestMeta("", "SignIn", typeof(void), false);
+            BinaryMessageToSend binaryRequest = meta.SerializeRequest(new object[] { accessToken });
+
+            try
+            {
+                var obj = ManagedConnection.SendRequestAndWaitResult(connectionTask, binaryRequest, meta);
+                binaryRequest = null;
+                Debug.Assert(obj == null);
+            }
+            finally
+            {
+                binaryRequest?.Dispose();
+            }
+
+            // TODO Нужно синхронизироваться с другим методом AuthenticateAsync и Logout.
+            lock (_authenticationLock)
+            {
+                _IsAuthenticated = true;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <exception cref="ConnectionClosedException"/>
+        public void SignOut()
+        {
+            // Создаём запрос для отправки.
+            var meta = new RequestMeta("", "SignOut", typeof(void), false);
+            BinaryMessageToSend binaryRequest = meta.SerializeRequest(Array.Empty<object>());
+
+            // Копия volatile.
+            ClientSideConnection connection = _connection;
+
+            if (connection != null)
+            // Есть живое соединение.
+            {
+                try
+                {
+                    var obj = ManagedConnection.SendRequestAndWaitResult(new ValueTask<ManagedConnection>(result: connection), binaryRequest, meta);
+                    binaryRequest = null;
+                    Debug.Assert(obj == null);
+                }
+                finally
+                {
+                    binaryRequest?.Dispose();
+                }
+
+                // TODO Нужно синхронизироваться с другим методом AuthenticateAsync и Logout.
+                lock (_authenticationLock)
+                {
+                    _IsAuthenticated = false;
+                }
+            }
+            else
+            // Соединение закрыто.
+            {
+                // В таком случае мы тоже больше не можем считаться авторизованными. 
+                lock (_authenticationLock)
+                {
+                    _IsAuthenticated = false;
+                }
+                throw new ConnectionClosedException();
+            }
         }
 
         /// <summary>
@@ -223,26 +300,24 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
-        /// Полученный прокси можно привести к типу <see cref="ClientInterfaceProxy"/> 
-        /// что-бы получить дополнительные сведения.
+        /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
+        /// Полученный экземпляр можно привести к типу <see cref="ClientInterfaceProxy"/>.
+        /// Метод является шорткатом для <see cref="GetProxyDecorator"/>
         /// </summary>
         /// <typeparam name="T">Интерфейс.</typeparam>
         public T GetProxy<T>() where T : class
         {
-            return _proxyCache.GetProxy<T>(this);
+            return GetProxyDecorator<T>().Proxy;
         }
 
         /// <summary>
-        /// Создаёт прокси из интерфейса. Повторное обращение вернет экземпляр из кэша.
+        /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
         /// </summary>
         /// <typeparam name="T">Интерфейс.</typeparam>
-        /// <param name="decorator">Декоратор интерфейса который содержит дополнительные сведения.</param>
-        public T GetProxy<T>(out ClientInterfaceProxy decorator) where T : class
+        public ClientInterfaceProxy<T> GetProxyDecorator<T>() where T : class
         {
-            var p = _proxyCache.GetProxy<T>(this);
-            decorator = p as ClientInterfaceProxy;
-            return p;
+            var decorator = _proxyCache.GetProxyDecorator<T>(this);
+            return decorator;
         }
 
         internal object OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
@@ -385,7 +460,7 @@ namespace DanilovSoft.vRPC
                 }
                 else
                 {
-                    return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new ConnectionClosedException("Соединение не установлено.")));
+                    return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new ConnectionClosedException()));
                 }
             }
 
