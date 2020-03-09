@@ -13,15 +13,15 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Словарь используемый только для чтения.
         /// </summary>
-        private readonly Dictionary<string, ControllerAction> _actionsDict;
+        private readonly Dictionary<string, ControllerActionMeta> _actionsDict;
 
         public InvokeActionsDictionary(Dictionary<string, Type> controllers)
         {
             // Методы типа "home/hello" без учета регистра.
-            _actionsDict = new Dictionary<string, ControllerAction>(StringComparer.OrdinalIgnoreCase)
+            _actionsDict = new Dictionary<string, ControllerActionMeta>(StringComparer.OrdinalIgnoreCase)
             {
-                { "/SignIn", new ControllerAction(typeof(AccountController), AccountController.SignInMethod) },
-                { "/SignOut", new ControllerAction(typeof(AccountController), AccountController.SignInMethod) }
+                { "/SignIn", new ControllerActionMeta("SignIn", typeof(AccountController), AccountController.SignInMethod) },
+                { "/SignOut", new ControllerActionMeta("SignOut", typeof(AccountController), AccountController.SignOutMethod) }
             };
 
             foreach (KeyValuePair<string, Type> controller in controllers)
@@ -30,13 +30,13 @@ namespace DanilovSoft.vRPC
                 foreach (MethodInfo method in methods)
                 {
                     string actionFullName = $"{controller.Key}{GlobalVars.ControllerNameSplitter}{method.Name}";
-                    _actionsDict.Add(actionFullName, new ControllerAction(controller.Value, method));
+                    _actionsDict.Add(actionFullName, new ControllerActionMeta(actionFullName, controller.Value, method));
                 }
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetAction(string actionFullName, out ControllerAction value)
+        public bool TryGetAction(string actionFullName, out ControllerActionMeta value)
         {
             return _actionsDict.TryGetValue(actionFullName, out value);
         }

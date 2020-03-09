@@ -10,6 +10,7 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Описывает метод который требуется вызвать на удалённой стороне.
     /// Не подлежит сериализации.
+    /// Потокобезопасен.
     /// </summary>
     [DebuggerDisplay(@"\{Request = {ActionName}\}")]
     internal sealed class RequestMeta : IMessageMeta
@@ -64,6 +65,7 @@ namespace DanilovSoft.vRPC
             {
                 ValidateNotification(returnType, methodName);
             }
+
             IncapsulatedReturnType = GetMethodReturnType(returnType);
             ActionName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{methodName}";
             IsAsync = returnType.IsAsyncReturnType();

@@ -28,11 +28,5 @@ namespace DanilovSoft.vRPC.Controllers
         {
             return Context.SignIn(accessToken);
         }
-
-        //public IActionResult SignOut()
-        //{
-        //    Context.SignOut();
-        //    return Ok();
-        //}
     }
 }

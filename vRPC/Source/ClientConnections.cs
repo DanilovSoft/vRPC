@@ -13,13 +13,13 @@ namespace DanilovSoft.vRPC
         /// Модификация коллекции <see cref="RpcListener._connections"/> допускается с захватом этой блокировки.
         /// </summary>
         public readonly object SyncObj = new object();
-        private readonly List<ServerSideConnection> _list = new List<ServerSideConnection>();
+        private readonly List<ServerSideConnection> _list;
         public int Count => _list.Count;
         public bool IsReadOnly => false;
 
         public ClientConnections()
         {
-           
+            _list = new List<ServerSideConnection>();
         }
 
         public ServerSideConnection this[int index]

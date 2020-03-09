@@ -11,7 +11,7 @@ namespace XUnitTest
         {
             var rpc = new RpcClient("127.0.0.1", 1234);
 
-            rpc.GetProxy<IHomeController>(out var decorator);
+            var decorator = rpc.GetProxyDecorator<IHomeController>();
             Assert.Equal("Home", decorator.ControllerName);
 
             try

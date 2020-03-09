@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
 
 namespace DanilovSoft.vRPC
 {
@@ -29,13 +30,14 @@ namespace DanilovSoft.vRPC
         }
 #endif
 
+        private MemoryStream _memPoolStream;
         /// <summary>
         /// Содержит сериализованное сообщение типа <see cref="RequestMessageDto"/> или любой 
         /// другой тип если это ответ на запрос.
         /// Заголовок располагается в конце этого стрима, так как мы не можем сформировать заголовок 
         /// до сериализации тела сообщения.
         /// </summary>
-        public MemoryStream MemPoolStream { get; }
+        public MemoryStream MemPoolStream => _memPoolStream;
         /// <summary>
         /// Запрос или ответ на запрос.
         /// </summary>
@@ -60,7 +62,7 @@ namespace DanilovSoft.vRPC
             MessageToSend = messageToSend;
 
             // Арендуем заранее под максимальный размер хэдера.
-            MemPoolStream = GlobalVars.RecyclableMemory.GetStream("SerializedMessageToSend", 32);
+            _memPoolStream = GlobalVars.RecyclableMemory.GetStream("SerializedMessageToSend", 32);
         }
 
         /// <summary>
@@ -68,7 +70,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public void Dispose()
         {
-            MemPoolStream.Dispose();
+            var stream = Interlocked.Exchange(ref _memPoolStream, null);
+            Debug.Assert(stream != null, "Другой поток уже выполнил Dispose — это не страшно но такого не должно случаться");
+            stream?.Dispose();
         }
     }
 }

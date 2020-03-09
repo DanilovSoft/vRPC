@@ -79,6 +79,7 @@ namespace DanilovSoft.vRPC
         public event EventHandler<ClientConnectedEventArgs> ClientConnected;
         public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
         public event EventHandler<ClientAuthenticatedEventArgs> ClientAuthenticated;
+        public event EventHandler<ClientSignedOutEventArgs> ClientSignedOut;
         private Action<ServiceProvider> _configureApp;
         /// <summary>
         /// Не позволяет подключаться новым клиентам. Единожны меняет состояние в момент остановки сервиса.
@@ -155,6 +156,13 @@ namespace DanilovSoft.vRPC
             Debug.Assert(user.Identity.IsAuthenticated);
 
             ClientAuthenticated?.Invoke(this, new ClientAuthenticatedEventArgs(connection, user));
+        }
+
+        internal void OnUserSignedOut(ServerSideConnection connection, ClaimsPrincipal user)
+        {
+            Debug.Assert(user.Identity.IsAuthenticated);
+
+            ClientSignedOut?.Invoke(this, new ClientSignedOutEventArgs(connection, user));
         }
 
         /// <summary>

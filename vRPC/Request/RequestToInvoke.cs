@@ -22,14 +22,14 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Запрашиваемый метод контроллера.
         /// </summary>
-        public ControllerAction ActionToInvoke { get; }
+        public ControllerActionMeta ActionToInvoke { get; }
 
         /// <summary>
         /// Аргументы вызываемого метода.
         /// </summary>
         public object[] Args { get; }
 
-        public RequestToInvoke(int? uid, ControllerAction invokeAction, object[] args)
+        public RequestToInvoke(int? uid, ControllerActionMeta invokeAction, object[] args)
         {
             Uid = uid;
             ActionToInvoke = invokeAction;

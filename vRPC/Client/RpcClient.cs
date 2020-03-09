@@ -29,11 +29,7 @@ namespace DanilovSoft.vRPC
         private readonly InvokeActionsDictionary _invokeActions;
         private readonly ProxyCache _proxyCache;
         private readonly ServiceCollection _serviceCollection = new ServiceCollection();
-        private readonly bool _allowReconnect;
-        /// <summary>
-        /// Для доступа к свойству <see cref="_IsAuthenticated"/>.
-        /// </summary>
-        private readonly object _authenticationLock = new object();
+        private bool IsAutoConnectAllowed { get; }
         public Uri ServerAddress { get; private set; }
         /// <summary>
         /// <see langword="volatile"/>.
@@ -80,10 +76,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private ClientWebSocket _connectingWs;
         /// <summary>
-        /// Запись только через блокировку <see cref="_authenticationLock"/>.
+        /// True если соединение прошло аутентификацию на сервере.
         /// </summary>
-        private volatile bool _IsAuthenticated;
-        public bool IsAuthenticated => _IsAuthenticated;
+        public bool IsAuthenticated => _connection?.IsAuthenticated ?? false;
 
         // ctor.
         static RpcClient()
@@ -95,9 +90,9 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт контекст клиентского соединения.
         /// </summary>
-        /// <param name="allowReconnect">Разрешено ли интерфейсам самостоятельно устанавливать и повторно переподключаться к серверу.</param>
-        public RpcClient(Uri serverAddress, bool allowReconnect = true) 
-            : this(Assembly.GetCallingAssembly(), serverAddress, allowReconnect)
+        /// <param name="allowAutoConnect">Разрешено ли интерфейсам самостоятельно устанавливать и повторно переподключаться к серверу.</param>
+        public RpcClient(Uri serverAddress, bool allowAutoConnect = true) 
+            : this(Assembly.GetCallingAssembly(), serverAddress, allowAutoConnect)
         {
 
         }
@@ -119,7 +114,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
         /// <param name="serverAddress">Адрес сервера.</param>
-        private RpcClient(Assembly controllersAssembly, Uri serverAddress, bool allowReconnect)
+        private RpcClient(Assembly controllersAssembly, Uri serverAddress, bool allowAutoConnect)
         {
             Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
 
@@ -130,7 +125,7 @@ namespace DanilovSoft.vRPC
             _invokeActions = new InvokeActionsDictionary(controllerTypes);
             ServerAddress = serverAddress;
             _connectLock = new ChannelLock();
-            _allowReconnect = allowReconnect;
+            IsAutoConnectAllowed = allowAutoConnect;
             _proxyCache = new ProxyCache();
 
             InnerConfigureIoC(controllerTypes.Values);
@@ -195,7 +190,7 @@ namespace DanilovSoft.vRPC
             ThrowIfDisposed();
             ThrowIfWasShutdown();
 
-            ValueTask<InnerConnectionResult> t = ConnectOrGetConnectionAsync();
+            ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync();
             if(t.IsCompletedSuccessfully)
             {
                 InnerConnectionResult conRes = t.Result;
@@ -215,78 +210,97 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Выполняет аутентификацию соединения.
+        /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="HttpHandshakeException"/>
+        /// <exception cref="ObjectDisposedException"/>
+        public ConnectResult Connect(AccessToken accessToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="HttpHandshakeException"/>
+        /// <exception cref="ObjectDisposedException"/>
+        public Task<ConnectResult> ConnectAsync(AccessToken accessToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Выполняет аутентификацию текущего соединения.
         /// </summary>
         /// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+        /// <exception cref="ConnectionNotOpenException"/>
         public void SignIn(AccessToken accessToken)
         {
+            SignInAsync(accessToken).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Выполняет аутентификацию текущего соединения.
+        /// </summary>
+        /// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+        /// <exception cref="ConnectionNotOpenException"/>
+        public Task SignInAsync(AccessToken accessToken)
+        {
+            accessToken.ValidateAccessToken(nameof(accessToken));
+            ThrowIfDisposed();
+            ThrowIfWasShutdown();
+
             // Начать соединение или взять существующее.
-            ValueTask<ManagedConnection> connectionTask = GetConnectionForInterfaceCallback();
+            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection();
 
-            // Создаём запрос для отправки.
-            var meta = new RequestMeta("", "SignIn", typeof(void), false);
-            BinaryMessageToSend binaryRequest = meta.SerializeRequest(new object[] { accessToken });
-
-            try
+            if (connectionTask.IsCompleted)
             {
-                var obj = ManagedConnection.SendRequestAndWaitResult(connectionTask, binaryRequest, meta);
-                binaryRequest = null;
-                Debug.Assert(obj == null);
+                // Может бросить исключение.
+                ClientSideConnection connection = connectionTask.Result;
+
+                return connection.SignInAsync(accessToken);
             }
-            finally
+            else
             {
-                binaryRequest?.Dispose();
+                return WaitConnection(connectionTask, accessToken);
             }
 
-            // TODO Нужно синхронизироваться с другим методом AuthenticateAsync и Logout.
-            lock (_authenticationLock)
+            static async Task WaitConnection(ValueTask<ClientSideConnection> t, AccessToken accessToken)
             {
-                _IsAuthenticated = true;
+                ClientSideConnection connection = await t.ConfigureAwait(false);
+                await connection.SignInAsync(accessToken).ConfigureAwait(false);
             }
         }
 
         /// <summary>
         /// 
         /// </summary>
-        /// <exception cref="ConnectionClosedException"/>
+        /// <exception cref="ConnectionNotOpenException"/>
         public void SignOut()
         {
-            // Создаём запрос для отправки.
-            var meta = new RequestMeta("", "SignOut", typeof(void), false);
-            BinaryMessageToSend binaryRequest = meta.SerializeRequest(Array.Empty<object>());
+            SignOutAsync().GetAwaiter().GetResult();
+        }
+
+        public Task SignOutAsync()
+        {
+            ThrowIfDisposed();
+            ThrowIfWasShutdown();
 
             // Копия volatile.
             ClientSideConnection connection = _connection;
 
             if (connection != null)
-            // Есть живое соединение.
             {
-                try
-                {
-                    var obj = ManagedConnection.SendRequestAndWaitResult(new ValueTask<ManagedConnection>(result: connection), binaryRequest, meta);
-                    binaryRequest = null;
-                    Debug.Assert(obj == null);
-                }
-                finally
-                {
-                    binaryRequest?.Dispose();
-                }
-
-                // TODO Нужно синхронизироваться с другим методом AuthenticateAsync и Logout.
-                lock (_authenticationLock)
-                {
-                    _IsAuthenticated = false;
-                }
+                return connection.SignOutAsync();  
             }
             else
-            // Соединение закрыто.
+            // Соединение закрыто и технически можно считать что операция выполнена успешно.
             {
-                // В таком случае мы тоже больше не можем считаться авторизованными. 
-                lock (_authenticationLock)
-                {
-                    _IsAuthenticated = false;
-                }
-                throw new ConnectionClosedException();
+                return Task.CompletedTask;
             }
         }
 
@@ -323,9 +337,9 @@ namespace DanilovSoft.vRPC
         internal object OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Начать соединение или взять существующее.
-            ValueTask<ManagedConnection> contextTask = GetConnectionForInterfaceCallback();
+            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection();
 
-            return ManagedConnection.OnClientProxyCallStatic(contextTask, targetMethod, args, controllerName);
+            return ManagedConnection.OnClientProxyCallStatic(connectionTask, targetMethod, args, controllerName);
         }
 
         /// <summary>
@@ -420,11 +434,11 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Возвращает существующее подключение или создаёт новое, когда 
-        /// происходит вызов метода интерфеса.
+        /// Возвращает существующее подключение или создаёт новое если это разрешает свойство <see cref="IsAutoConnectAllowed"/>.
         /// </summary>
         /// <exception cref="WasShutdownException"/>
-        internal ValueTask<ManagedConnection> GetConnectionForInterfaceCallback()
+        /// <exception cref="ConnectionNotOpenException"/>
+        internal ValueTask<ClientSideConnection> GetOrOpenConnection()
         {
             // Копия volatile.
             ClientSideConnection connection = _connection;
@@ -432,16 +446,16 @@ namespace DanilovSoft.vRPC
             if (connection != null)
             // Есть живое соединение.
             {
-                return new ValueTask<ManagedConnection>(connection);
+                return new ValueTask<ClientSideConnection>(connection);
             }
             else
             // Нужно установить подключение.
             {
-                if (_allowReconnect)
+                if (IsAutoConnectAllowed)
                 {
-                    if (!TryGetShutdownException(out ValueTask<ManagedConnection> shutdownException))
+                    if (!TryGetShutdownException(out ValueTask<ClientSideConnection> shutdownException))
                     {
-                        ValueTask<InnerConnectionResult> t = ConnectOrGetConnectionAsync();
+                        ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync();
                         if (t.IsCompletedSuccessfully)
                         {
                             InnerConnectionResult connectionResult = t.Result; // Взять успешный результат.
@@ -460,12 +474,12 @@ namespace DanilovSoft.vRPC
                 }
                 else
                 {
-                    return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new ConnectionClosedException()));
+                    return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(new ConnectionNotOpenException()));
                 }
             }
 
             // Локальная.
-            static async ValueTask<ManagedConnection> WaitForConnectionAsync(ValueTask<InnerConnectionResult> t)
+            static async ValueTask<ClientSideConnection> WaitForConnectionAsync(ValueTask<InnerConnectionResult> t)
             {
                 InnerConnectionResult connectionResult = await t.ConfigureAwait(false);
                 return connectionResult.ToManagedConnection();
@@ -484,7 +498,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Выполнить подключение сокета если еще не подключен.
         /// </summary>
-        private ValueTask<InnerConnectionResult> ConnectOrGetConnectionAsync()
+        private ValueTask<InnerConnectionResult> ConnectOrGetExistedConnectionAsync()
         {
             // Копия volatile.
             ClientSideConnection connection = _connection;

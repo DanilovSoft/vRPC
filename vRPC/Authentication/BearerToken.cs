@@ -11,13 +11,28 @@ using System.Text.Json.Serialization;
 
 namespace DanilovSoft.vRPC
 {
-    //[JsonObject]
+    [Serializable]
     [ProtoContract]
-    [DebuggerDisplay(@"\{TimeLeft = {TimeLeft,nq}\}")]
-    public readonly struct BearerToken
+    [DebuggerDisplay(@"\{{TimeLeft,nq}\}")]
+    public readonly struct BearerToken : IEquatable<BearerToken>, ISerializable
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private string TimeLeft => (ExpiresAt - DateTime.Now).ToString(@"dd\.hh\:mm\:ss", CultureInfo.InvariantCulture);
+        private string TimeLeft
+        {
+            get
+            {
+                var timeLeft = ExpiresAt - DateTime.Now;
+                string format = timeLeft.ToString((timeLeft < TimeSpan.Zero ? "\\-" : "") + "dd\\.hh\\:mm\\:ss", CultureInfo.InvariantCulture);
+                if (timeLeft > TimeSpan.Zero)
+                {
+                    return "TimeLeft: " + format;
+                }
+                else
+                {
+                    return "Expired: " + format;
+                }
+            }
+        }
 
         /// <summary>
         /// Зашифрованное тело токена.
@@ -33,10 +48,49 @@ namespace DanilovSoft.vRPC
         [ProtoMember(2, IsRequired = true, DataFormat = DataFormat.WellKnown)]
         public DateTime ExpiresAt { get; }
 
-        internal BearerToken(byte[] accessToken, DateTime expiresAt)
+        private BearerToken(SerializationInfo info, StreamingContext _)
+        {
+            ExpiresAt = default;
+            AccessToken = default;
+        }
+
+        public BearerToken(AccessToken accessToken, DateTime expiresAt)
         {
             AccessToken = accessToken;
             ExpiresAt = expiresAt;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is BearerToken other)
+                return Equals(other: other);
+
+            return false;
+        }
+
+        public bool Equals(BearerToken other)
+        {
+            return ExpiresAt == other.ExpiresAt && AccessToken == other.AccessToken;
+        }
+
+        public override int GetHashCode()
+        {
+            return (ExpiresAt, AccessToken).GetHashCode();
+        }
+
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static bool operator ==(BearerToken left, BearerToken right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(BearerToken left, BearerToken right)
+        {
+            return !(left == right);
         }
     }
 }

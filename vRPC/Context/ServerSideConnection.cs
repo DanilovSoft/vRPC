@@ -28,14 +28,11 @@ namespace DanilovSoft.vRPC
         private static readonly ServerConcurrentDictionary<MethodInfo, RequestMeta> _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestMeta>();
         private readonly ProxyCache _proxyCache = new ProxyCache();
         private readonly RijndaelEnhanced _jwt;
+        private volatile ClaimsPrincipal _user;
         /// <summary>
-        /// Установка свойства User только через эту блокировку.
+        /// Пользователь ассоциированный с текущим соединением.
         /// </summary>
-        private object UserLock => _jwt;
-        /// <summary>
-        /// Установка свойства User только через блокировку <see cref="UserLock"/>.
-        /// </summary>
-        internal ClaimsPrincipal User { get; private set; }
+        public ClaimsPrincipal User => _user;
         private protected override IConcurrentDictionary<MethodInfo, RequestMeta> InterfaceMethods => _interfaceMethodsInfo;
 
         /// <summary>
@@ -52,9 +49,8 @@ namespace DanilovSoft.vRPC
 
             _jwt = new RijndaelEnhanced(PassPhrase, InitVector, 8, 16, 256, Salt, 1000);
 
-            // TODO нужно инжектить юзера.
             // Изначальный не авторизованный пользователь.
-            User = CreateUnauthorizedUser();
+            _user = CreateUnauthorizedUser();
         }
 
         private static ClaimsPrincipal CreateUnauthorizedUser()
@@ -82,7 +78,7 @@ namespace DanilovSoft.vRPC
             return _proxyCache.GetProxyDecorator<T>(this);
         }
 
-        internal BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal)
+        internal BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal, TimeSpan validTime)
         {
             byte[] encryptedToken;
             using (var stream = GlobalVars.RecyclableMemory.GetStream("claims-principal", 32))
@@ -93,8 +89,7 @@ namespace DanilovSoft.vRPC
                 }
                 byte[] serializedClaims = stream.ToArray();
 
-                var tokenValidity = TimeSpan.FromDays(2);
-                DateTime validity = DateTime.Now + tokenValidity;
+                DateTime validity = DateTime.Now + validTime;
                 var serverBearer = new ServerAccessToken(serializedClaims, validity);
 
                 using (var mem = GlobalVars.RecyclableMemory.GetStream())
@@ -148,21 +143,19 @@ namespace DanilovSoft.vRPC
             if (DateTime.Now < bearerToken.Validity)
             // Токен валиден.
             {
-                // Безусловная авторизация.
-
-                try
+                using (var mem = new MemoryStream(bearerToken.ClaimsPrincipal, 0, bearerToken.ClaimsPrincipal.Length, false, true))
                 {
-                    using (var mem = new MemoryStream(bearerToken.ClaimsPrincipal, 0, bearerToken.ClaimsPrincipal.Length, false, true))
+                    using (var breader = new BinaryReader(mem, Encoding.UTF8, true))
                     {
-                        using (var breader = new BinaryReader(mem, Encoding.UTF8, true))
+                        try
                         {
                             user = new ClaimsPrincipal(breader);
                         }
+                        catch (Exception)
+                        {
+                            return new BadRequestResult("Токен не валиден");
+                        }
                     }
-                }
-                catch (Exception)
-                {
-                    return new BadRequestResult("Токен не валиден");
                 }
             }
             else
@@ -170,10 +163,8 @@ namespace DanilovSoft.vRPC
                 return new BadRequestResult("Токен истёк");
             }
 
-            lock (UserLock)
-            {
-                User = user;
-            }
+            // Эта строка фактически атомарно аутентифицирует соединение для всех последующих запросов.
+            _user = user;
 
             Listener.OnConnectionAuthenticated(this, user);
             return new OkResult();
@@ -181,10 +172,12 @@ namespace DanilovSoft.vRPC
 
         internal void SignOut()
         {
-            // TODO через инъекцию.
-            lock (UserLock)
+            // volatile копия.
+            var user = _user;
+            if (user.Identity.IsAuthenticated)
             {
-                User = CreateUnauthorizedUser();
+                _user = CreateUnauthorizedUser();
+                Listener.OnUserSignedOut(this, user);
             }
         }
 
@@ -197,34 +190,34 @@ namespace DanilovSoft.vRPC
         /// Проверяет доступность запрашиваемого метода пользователем.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        protected override bool InvokeMethodPermissionCheck(MethodInfo method, Type controllerType, out IActionResult permissionError)
+        private protected override bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult permissionError, out ClaimsPrincipal user)
         {
-            //// Проверить доступен ли метод пользователю.
-            //if (IsAuthorized)
-            //    return;
+            // Скопируем пользователя что-бы не мог измениться в пределах запроса.
+            user = _user;
 
-            // Разрешить если метод помечен как разрешенный для не авторизованных пользователей.
-            if (Attribute.IsDefined(method, typeof(AllowAnonymousAttribute)))
+            // 1. Проверить доступен ли метод пользователю.
+            if (user.Identity.IsAuthenticated)
             {
                 permissionError = null;
                 return true;
             }
 
-            // Разрешить если контроллер помечен как разрешенный для не акторизованных пользователей.
-            if (Attribute.IsDefined(controllerType, typeof(AllowAnonymousAttribute)))
+            // 2. Разрешить если контроллер помечен как разрешенный для не акторизованных пользователей.
+            if (Attribute.IsDefined(actionMeta.ControllerType, typeof(AllowAnonymousAttribute)))
             {
                 permissionError = null;
                 return true;
             }
 
-            permissionError = new UnauthorizedResult("This action requires user authentication.", StatusCode.Unauthorized);
+            // 3. Разрешить если метод помечен как разрешенный для не авторизованных пользователей.
+            if (Attribute.IsDefined(actionMeta.TargetMethod, typeof(AllowAnonymousAttribute)))
+            {
+                permissionError = null;
+                return true;
+            }
+
+            permissionError = new UnauthorizedResult($"Action '{actionMeta.ActionFullName}' requires user authentication.", StatusCode.Unauthorized);
             return false;
-        }
-
-        private protected override void BeforeInvokeController(Controller controller)
-        {
-            var serverController = (ServerController)controller;
-            serverController.Context = this;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

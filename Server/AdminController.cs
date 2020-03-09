@@ -14,7 +14,7 @@ namespace Server
 
         public void TestAdmin()
         {
-            Console.WriteLine(User.Identity.Name);
+            
         }
     }
 }

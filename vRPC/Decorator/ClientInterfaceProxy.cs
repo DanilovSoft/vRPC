@@ -28,7 +28,7 @@ namespace DanilovSoft.vRPC.Decorator
         // Вызывается через рефлексию.
         public ClientInterfaceProxy()
         {
-            // Этот конструктор является базовым для динамически созданного наследника.
+            
         }
 
         internal void InitializeClone(RpcClient rpcClient, string controllerName)

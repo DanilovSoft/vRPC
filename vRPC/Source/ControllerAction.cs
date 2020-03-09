@@ -12,9 +12,10 @@ namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Содержит исчерпывающую информацию о методе контроллера.
+    /// Этот клас переиспользуется.
     /// </summary>
     [DebuggerDisplay(@"\{{TargetMethod.GetControllerActionName()}\}")]
-    internal sealed class ControllerAction
+    internal sealed class ControllerActionMeta
     {
         public Action<Stream, object> Serializer { get; }
         public MethodInfo TargetMethod { get; }
@@ -22,15 +23,19 @@ namespace DanilovSoft.vRPC
         /// Формат возвращаемых данных.
         /// </summary>
         public string ProducesEncoding { get; }
+        public string ActionFullName { get; }
+
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public readonly Func<object, object[], object> FastInvokeDelegate;
+        
         /// <summary>
         /// Контроллер для активации через IoC.
         /// </summary>
         public Type ControllerType { get; }
 
-        public ControllerAction(Type controllerType, MethodInfo methodInfo)
+        public ControllerActionMeta(string actionFullName, Type controllerType, MethodInfo methodInfo)
         {
+            ActionFullName = actionFullName;
             ControllerType = controllerType;
             TargetMethod = methodInfo;
             var protobufAttrib = methodInfo.GetCustomAttribute<ProducesProtoBufAttribute>();

@@ -15,11 +15,6 @@ namespace DanilovSoft.vRPC
 {
     internal static class ExtensionMethods
     {
-        ///// <summary>
-        ///// Используется Bson сериализатором по умолчанию.
-        ///// </summary>
-        //private static readonly Encoding _UTF8NoBOM = new UTF8Encoding(false, true);
-
         /// <summary>
         /// Сериализует объект в JSON.
         /// </summary>
@@ -444,6 +439,12 @@ namespace DanilovSoft.vRPC
                 Debug.Assert(conRes.ShutdownRequest != null);
                 return new ConnectResult(ConnectionState.ShutdownRequest, conRes.SocketError, conRes.ShutdownRequest);
             }
+        }
+
+        internal static void ValidateAccessToken(this AccessToken accessToken, string arguemntName)
+        {
+            if (accessToken.Length == 0)
+                throw new ArgumentOutOfRangeException(arguemntName, "AccessToken is empty");
         }
     }
 }

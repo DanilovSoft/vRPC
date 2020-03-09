@@ -4,14 +4,14 @@ using System.Security.Claims;
 
 namespace DanilovSoft.vRPC
 {
-    public sealed class ClientAuthenticatedEventArgs : EventArgs
+    public sealed class ClientSignedOutEventArgs : EventArgs
     {
         public ServerSideConnection Connection { get; }
         public ClaimsPrincipal User { get; }
         public RpcListener Listener => Connection.Listener;
 
         [DebuggerStepThrough]
-        internal ClientAuthenticatedEventArgs(ServerSideConnection connection, ClaimsPrincipal user)
+        internal ClientSignedOutEventArgs(ServerSideConnection connection, ClaimsPrincipal user)
         {
             Connection = connection;
             User = user;

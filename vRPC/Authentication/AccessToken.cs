@@ -14,9 +14,15 @@ namespace DanilovSoft.vRPC
     [JsonConverter(typeof(AccessTokenJsonConverter))]
     public readonly struct AccessToken : IEquatable<AccessToken>, ISerializable
     {
+        private const string SerializerKeyName = "RawToken";
+
+        [JsonPropertyName(SerializerKeyName)]
         [ProtoMember(1, IsRequired = true)]
-        private readonly byte[] _rawToken;
-        public int Length => _rawToken.Length;
+        private byte[] RawToken { get; }
+
+        [JsonIgnore]
+        [IgnoreDataMember]
+        public int Length => RawToken.Length;
 
         // Для десериализации через ISerializable.
         private AccessToken(SerializationInfo info, StreamingContext _)
@@ -24,22 +30,22 @@ namespace DanilovSoft.vRPC
             if (info == null)
                 throw new ArgumentNullException(nameof(info));
 
-            _rawToken = (byte[])info.GetValue("token", typeof(byte[]));
+            RawToken = (byte[])info.GetValue(SerializerKeyName, typeof(byte[]));
         }
 
         public AccessToken(byte[] rawToken)
         {
             Debug.Assert(rawToken != null);
-            _rawToken = rawToken;
+            RawToken = rawToken;
         }
 
-        [SecurityPermission(SecurityAction.LinkDemand, Flags = SecurityPermissionFlag.SerializationFormatter)]
+        [SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.SerializationFormatter)]
         void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
         {
             if (info == null)
                 throw new ArgumentNullException(nameof(info));
 
-            info.AddValue("token", _rawToken);
+            info.AddValue(SerializerKeyName, RawToken);
         }
 
         public static implicit operator AccessToken(byte[] rawToken)
@@ -50,7 +56,7 @@ namespace DanilovSoft.vRPC
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2225:Для перегрузок операторов существуют варианты с именами", Justification = "Предлагает дичь")]
         public static implicit operator byte[](AccessToken self)
         {
-            return self._rawToken;
+            return self.RawToken;
         }
 
         public static AccessToken From(byte[] rawToken)
@@ -60,7 +66,7 @@ namespace DanilovSoft.vRPC
 
         public byte[] AsRawBytes()
         {
-            return _rawToken;
+            return RawToken;
         }
 
         public override bool Equals(object obj)
@@ -73,7 +79,7 @@ namespace DanilovSoft.vRPC
 
         public override int GetHashCode()
         {
-            return _rawToken.GetHashCode();
+            return RawToken.GetHashCode();
         }
 
         public static bool operator ==(AccessToken left, AccessToken right)
@@ -88,12 +94,12 @@ namespace DanilovSoft.vRPC
 
         public bool Equals(AccessToken other)
         {
-            if (_rawToken == other._rawToken)
+            if (RawToken == other.RawToken)
                 return true;
 
-            if (_rawToken.Length == other._rawToken.Length)
+            if (RawToken.Length == other.RawToken.Length)
             {
-                return _rawToken.SequenceEqual(other._rawToken);
+                return Enumerable.SequenceEqual(RawToken, other.RawToken);
             }
             return false;
         }
@@ -108,7 +114,7 @@ namespace DanilovSoft.vRPC
 
             public override void Write(Utf8JsonWriter writer, AccessToken value, JsonSerializerOptions options)
             {
-                JsonSerializer.Serialize(writer, value._rawToken, options);
+                JsonSerializer.Serialize(writer, value.RawToken, options);
             }
         }
     }

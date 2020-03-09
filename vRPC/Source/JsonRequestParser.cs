@@ -15,7 +15,7 @@ namespace DanilovSoft.vRPC
         public static RequestToInvoke TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeActions, HeaderDto header, out IActionResult error)
         {
             string actionName = null;
-            ControllerAction action = null;
+            ControllerActionMeta action = null;
             object[] args = null;
             ParameterInfo[] targetArguments = null;
             bool hasArguments = false;
@@ -36,7 +36,11 @@ namespace DanilovSoft.vRPC
                                     actionName = reader.GetString();
                                     if (!invokeActions.TryGetAction(actionName, out action))
                                     {
+#if NETSTANDARD2_0
                                         int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter);
+#else
+                                        int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter, StringComparison.Ordinal);
+#endif
                                         if (controllerIndex > 0)
                                         {
                                             error = new NotFoundResult($"Unable to find requested action \"{actionName}\".");
@@ -84,13 +88,16 @@ namespace DanilovSoft.vRPC
                                             }
                                             catch (Exception ex)
                                             {
-                                                throw new InvalidOperationException($"Ошибка при десериализации аргумента №{jsonArgsCount + 1} функции {actionName}", ex);
+                                                throw new InvalidOperationException($"Ошибка при десериализации аргумента №{jsonArgsCount + 1} для метода '{actionName}'", ex);
                                             }
                                             jsonArgsCount++;
                                         }
 
-                                        if (!ValidateArgumentsCount(targetArguments, jsonArgsCount, out error))
+                                        if (!ValidateArgumentsCount(targetArguments, jsonArgsCount, actionName, out error))
+                                        // Не соответствует число аргументов.
+                                        {
                                             return null;
+                                        }
                                     }
                                 }
                             }
@@ -130,8 +137,9 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, out IActionResult error)
+        private static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, string actionName, out IActionResult error)
         {
+            Debug.Assert(actionName != null);
             if (jsonArgsCount == targetArguments.Length)
             {
                 error = null;
@@ -139,7 +147,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                error = new BadRequestResult("Argument count mismatch.");
+                error = new BadRequestResult($"Argument count mismatch for action '{actionName}'.");
                 return false;
             }
         }

@@ -18,14 +18,14 @@ namespace DanilovSoft.vRPC
         private ConnectResult DebugDisplay => this.ToConnectResult();
 
         public SocketError? SocketError { get; }
-        public ManagedConnection Connection { get; }
+        public ClientSideConnection Connection { get; }
         public ShutdownRequest ShutdownRequest { get; }
 
         [DebuggerStepThrough]
-        public InnerConnectionResult(SocketError? socketError, ShutdownRequest stopRequired, ManagedConnection context)
+        public InnerConnectionResult(SocketError? socketError, ShutdownRequest stopRequired, ClientSideConnection connection)
         {
             SocketError = socketError;
-            Connection = context;
+            Connection = connection;
             ShutdownRequest = stopRequired;
         }
 
@@ -33,7 +33,7 @@ namespace DanilovSoft.vRPC
         /// 
         /// </summary>
         /// <exception cref="WasShutdownException"/>
-        public ManagedConnection ToManagedConnection()
+        public ClientSideConnection ToManagedConnection()
         {
             if (Connection != null)
             // Успешно подключились.
@@ -54,23 +54,23 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="WasShutdownException"/>
-        public ValueTask<ManagedConnection> ToManagedConnectionTask()
+        public ValueTask<ClientSideConnection> ToManagedConnectionTask()
         {
             if (Connection != null)
             // Успешно подключились.
             {
-                return new ValueTask<ManagedConnection>(Connection);
+                return new ValueTask<ClientSideConnection>(Connection);
             }
             else if (SocketError != null)
             // Не удалось подключиться.
             {
-                return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(SocketError.Value.ToException()));
+                return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(SocketError.Value.ToException()));
             }
             else
             // Пользователь запросил остановку.
             {
                 Debug.Assert(ShutdownRequest != null);
-                return new ValueTask<ManagedConnection>(Task.FromException<ManagedConnection>(new WasShutdownException(ShutdownRequest)));
+                return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(new WasShutdownException(ShutdownRequest)));
             }
         }
     }

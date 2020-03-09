@@ -11,7 +11,7 @@ namespace Server
     {
         public AccountController()
         {
-
+            
         }
 
         [ProducesProtoBuf]
@@ -29,18 +29,13 @@ namespace Server
             // Аутентифицированный пользователь и его клеймы (роли и тп.)
             var user = new ClaimsPrincipal(idIdentity);
 
-            var token = CreateAccessToken(user);
+            var token = CreateAccessToken(user, TimeSpan.FromDays(2));
             return token;
         }
 
-        //public void Login(AccessToken accessToken)
-        //{
-            
-        //}
-
         public void Logout()
         {
-            this.SignOut();
+            SignOut();
         }
     }
 }

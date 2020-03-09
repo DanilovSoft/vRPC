@@ -12,9 +12,8 @@ namespace DanilovSoft.vRPC
     {
         // "Удалённая сторона закрыла соединение без объяснения причины."
         internal const string ConnectionClosedNormallyMessage = "Произошло грациозное разъединение без указания причины.";
-        internal const string ConnectionClosedMessage = "Соединение не установлено.";
 
-        public ConnectionClosedException() : base(ConnectionClosedMessage)
+        public ConnectionClosedException() : base(ConnectionClosedNormallyMessage)
         {
             
         }
