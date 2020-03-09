@@ -15,8 +15,8 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public sealed class ClientSideConnection : ManagedConnection
     {
-        private static readonly RequestMeta SignInMeta = new RequestMeta("", "SignIn", typeof(void), false);
-        private static readonly RequestMeta SignOutMeta = new RequestMeta("", "SignOut", typeof(void), false);
+        //private static readonly RequestMeta SignInMeta = new RequestMeta("", "SignIn", typeof(void), false);
+        //private static readonly RequestMeta SignOutMeta = new RequestMeta("", "SignOut", typeof(void), false);
         private static readonly RequestMeta SignInAsyncMeta = new RequestMeta("", "SignIn", typeof(Task), false);
         private static readonly RequestMeta SignOutAsyncMeta = new RequestMeta("", "SignOut", typeof(Task), false);
         internal static readonly LockedDictionary<MethodInfo, RequestMeta> InterfaceMethodsInfo = new LockedDictionary<MethodInfo, RequestMeta>();
