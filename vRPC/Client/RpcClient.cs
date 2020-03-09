@@ -16,9 +16,22 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Контекст клиентского соединения.
     /// </summary>
-    [DebuggerDisplay(@"\{{State}\}")]
+    [DebuggerDisplay(@"\{{DebugDisplay,nq}\}")]
     public sealed class RpcClient : IDisposable, IGetProxy
     {
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private string DebugDisplay
+        {
+            get
+            {
+                var state = State;
+                if (state == RpcState.Open && IsAuthenticated)
+                {
+                    return $"{state}, Authenticated";
+                }
+                return state.ToString();
+            }
+        }
         /// <summary>
         /// Используется для синхронизации установки соединения.
         /// </summary>
