@@ -16,22 +16,24 @@ namespace DanilovSoft.vRPC
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private ConnectResult DebugDisplay => this.ToConnectResult();
-
         public SocketError? SocketError { get; }
         public ClientSideConnection Connection { get; }
         public ShutdownRequest ShutdownRequest { get; }
+        public bool NewConnectionCreated { get; }
 
         [DebuggerStepThrough]
-        public InnerConnectionResult(SocketError? socketError, ShutdownRequest stopRequired, ClientSideConnection connection)
+        public InnerConnectionResult(SocketError? socketError, ShutdownRequest stopRequired, ClientSideConnection connection, bool newConnectionCreated)
         {
             SocketError = socketError;
             Connection = connection;
             ShutdownRequest = stopRequired;
+            NewConnectionCreated = newConnectionCreated;
         }
 
         /// <summary>
-        /// 
+        /// Может бросить исключение.
         /// </summary>
+        /// <exception cref="SocketException"/>
         /// <exception cref="WasShutdownException"/>
         public ClientSideConnection ToManagedConnection()
         {
@@ -53,6 +55,10 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        /// <summary>
+        /// Может бросить исключение.
+        /// </summary>
+        /// <exception cref="SocketException"/>
         /// <exception cref="WasShutdownException"/>
         public ValueTask<ClientSideConnection> ToManagedConnectionTask()
         {

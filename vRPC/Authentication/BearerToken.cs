@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
     [Serializable]
     [ProtoContract]
     [DebuggerDisplay(@"\{{TimeLeft,nq}\}")]
-    public readonly struct BearerToken : IEquatable<BearerToken>, ISerializable
+    public struct BearerToken : IEquatable<BearerToken>
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string TimeLeft
@@ -39,20 +39,20 @@ namespace DanilovSoft.vRPC
         /// </summary>
         [JsonPropertyName("AccessToken")]
         [ProtoMember(1, IsRequired = true)]
-        public AccessToken AccessToken { get; }
+        public AccessToken AccessToken { get; set; }
 
         /// <summary>
         /// Время актуальности токена.
         /// </summary>
         [JsonPropertyName("ExpiresAt")]
         [ProtoMember(2, IsRequired = true, DataFormat = DataFormat.WellKnown)]
-        public DateTime ExpiresAt { get; }
+        public DateTime ExpiresAt { get; set; }
 
-        private BearerToken(SerializationInfo info, StreamingContext _)
-        {
-            ExpiresAt = default;
-            AccessToken = default;
-        }
+        //private BearerToken(SerializationInfo info, StreamingContext _)
+        //{
+        //    ExpiresAt = default;
+        //    AccessToken = default;
+        //}
 
         public BearerToken(AccessToken accessToken, DateTime expiresAt)
         {

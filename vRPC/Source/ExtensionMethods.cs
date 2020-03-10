@@ -443,7 +443,7 @@ namespace DanilovSoft.vRPC
 
         internal static void ValidateAccessToken(this AccessToken accessToken, string arguemntName)
         {
-            if (accessToken.Length == 0)
+            if (accessToken.Bytes.Length == 0)
                 throw new ArgumentOutOfRangeException(arguemntName, "AccessToken is empty");
         }
     }

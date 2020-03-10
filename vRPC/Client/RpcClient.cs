@@ -203,7 +203,7 @@ namespace DanilovSoft.vRPC
             ThrowIfDisposed();
             ThrowIfWasShutdown();
 
-            ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync();
+            ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync(default);
             if(t.IsCompletedSuccessfully)
             {
                 InnerConnectionResult conRes = t.Result;
@@ -231,7 +231,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="ObjectDisposedException"/>
         public ConnectResult Connect(AccessToken accessToken)
         {
-            throw new NotImplementedException();
+            return ConnectAsync(accessToken).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -243,7 +243,27 @@ namespace DanilovSoft.vRPC
         /// <exception cref="ObjectDisposedException"/>
         public Task<ConnectResult> ConnectAsync(AccessToken accessToken)
         {
+            ThrowIfDisposed();
+            ThrowIfWasShutdown();
+
             throw new NotImplementedException();
+            //ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync(accessToken);
+            //if (t.IsCompletedSuccessfully)
+            //{
+            //    InnerConnectionResult conRes = t.Result;
+            //    return Task.FromResult(conRes.ToConnectResult());
+            //}
+            //else
+            //{
+            //    return WaitForConnectAsync(t);
+            //}
+
+            //// Локальная.
+            //static async Task<ConnectResult> WaitForConnectAsync(ValueTask<InnerConnectionResult> t)
+            //{
+            //    InnerConnectionResult conRes = await t.ConfigureAwait(false);
+            //    return conRes.ToConnectResult();
+            //}
         }
 
         /// <summary>
@@ -268,7 +288,7 @@ namespace DanilovSoft.vRPC
             ThrowIfWasShutdown();
 
             // Начать соединение или взять существующее.
-            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection();
+            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(accessToken);
 
             if (connectionTask.IsCompleted)
             {
@@ -347,10 +367,11 @@ namespace DanilovSoft.vRPC
             return decorator;
         }
 
+        // Когда выполняют вызов метода через интерфейс.
         internal object OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Начать соединение или взять существующее.
-            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection();
+            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
 
             return ManagedConnection.OnClientProxyCallStatic(connectionTask, targetMethod, args, controllerName);
         }
@@ -449,9 +470,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Возвращает существующее подключение или создаёт новое если это разрешает свойство <see cref="IsAutoConnectAllowed"/>.
         /// </summary>
+        /// <exception cref="SocketException"/>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ConnectionNotOpenException"/>
-        internal ValueTask<ClientSideConnection> GetOrOpenConnection()
+        internal ValueTask<ClientSideConnection> GetOrOpenConnection(AccessToken accessToken)
         {
             // Копия volatile.
             ClientSideConnection connection = _connection;
@@ -459,6 +481,7 @@ namespace DanilovSoft.vRPC
             if (connection != null)
             // Есть живое соединение.
             {
+                //createdNew = false;
                 return new ValueTask<ClientSideConnection>(connection);
             }
             else
@@ -468,7 +491,7 @@ namespace DanilovSoft.vRPC
                 {
                     if (!TryGetShutdownException(out ValueTask<ClientSideConnection> shutdownException))
                     {
-                        ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync();
+                        ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync(accessToken);
                         if (t.IsCompletedSuccessfully)
                         {
                             InnerConnectionResult connectionResult = t.Result; // Взять успешный результат.
@@ -511,7 +534,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Выполнить подключение сокета если еще не подключен.
         /// </summary>
-        private ValueTask<InnerConnectionResult> ConnectOrGetExistedConnectionAsync()
+        private ValueTask<InnerConnectionResult> ConnectOrGetExistedConnectionAsync(AccessToken accessToken)
         {
             // Копия volatile.
             ClientSideConnection connection = _connection;
@@ -529,24 +552,24 @@ namespace DanilovSoft.vRPC
                 if (t.IsCompletedSuccessfully)
                 {
                     ChannelLock.Releaser releaser = t.Result;
-                    return LockAquiredConnectAsync(releaser);
+                    return LockAquiredConnectAsync(releaser, accessToken);
                 }
                 else
                 {
-                    return WaitForLockAndConnectAsync(t);
+                    return WaitForLockAndConnectAsync(t, accessToken);
                 }
             }
-        }
 
-        private async ValueTask<InnerConnectionResult> WaitForLockAndConnectAsync(ValueTask<ChannelLock.Releaser> t)
-        {
-            ChannelLock.Releaser releaser = await t.ConfigureAwait(false);
-            return await LockAquiredConnectAsync(releaser).ConfigureAwait(false);
+            async ValueTask<InnerConnectionResult> WaitForLockAndConnectAsync(ValueTask<ChannelLock.Releaser> t, AccessToken accessToken)
+            {
+                ChannelLock.Releaser releaser = await t.ConfigureAwait(false);
+                return await LockAquiredConnectAsync(releaser, accessToken).ConfigureAwait(false);
+            }
         }
 
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(ChannelLock.Releaser conLock)
+        private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(ChannelLock.Releaser conLock, AccessToken accessToken)
         {
             using (conLock)
             {
@@ -685,7 +708,9 @@ namespace DanilovSoft.vRPC
                     }
                 }
                 else
+                {
                     return new InnerConnectionResult(SocketError.Success, null, connection);
+                }
             }
         }
 

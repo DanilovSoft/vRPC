@@ -7,10 +7,6 @@ namespace DanilovSoft.vRPC
     public enum ConnectionState
     {
         /// <summary>
-        /// Соединение успешно установлено.
-        /// </summary>
-        Connected,
-        /// <summary>
         /// Не удалось установить соединение.
         /// </summary>
         SocketError,
@@ -18,5 +14,9 @@ namespace DanilovSoft.vRPC
         /// Во время подключения произошел запрос на остановку сервиса – использовать данный экземпляр больше нельзя.
         /// </summary>
         ShutdownRequest,
+        /// <summary>
+        /// Соединение успешно установлено.
+        /// </summary>
+        Connected,
     }
 }
