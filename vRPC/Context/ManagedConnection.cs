@@ -128,7 +128,7 @@ namespace DanilovSoft.vRPC
 
                 if(closeReason != null && value != null)
                 {
-                    value(this, new SocketDisconnectedEventArgs(closeReason));
+                    value(this, new SocketDisconnectedEventArgs(this, closeReason));
                 }
             }
             remove
@@ -137,7 +137,6 @@ namespace DanilovSoft.vRPC
                 _disconnected -= value;
             }
         }
-        //private protected abstract void BeforeInvokeController(Controller controller);
         private volatile bool _isConnected = true;
         /// <summary>
         /// Является <see langword="volatile"/>. Если значение – <see langword="false"/>, то можно узнать причину через свойство <see cref="DisconnectReason"/>.
@@ -145,6 +144,7 @@ namespace DanilovSoft.vRPC
         /// После разъединения текущий экземпляр не может быть переподключен.
         /// </summary>
         public bool IsConnected => _isConnected;
+        public abstract bool IsAuthenticated { get; }
         private Task _loopSender;
 
         // static ctor.
@@ -194,13 +194,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Запускает бесконечный цикл обработки запросов.
         /// </summary>
-        internal void InitStartThreads()
+        internal void StartReceiveLoopThreads()
         {
             // Не бросает исключения.
             _loopSender = LoopSendAsync();
-
-            // Запустить цикл отправки сообщений.
-            //ThreadPool.UnsafeQueueUserWorkItem(SenderLoopStart, this); // Без замыкания.
 
             // Запустить цикл приёма сообщений.
             ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this); // Без замыкания.
@@ -372,20 +369,20 @@ namespace DanilovSoft.vRPC
         internal object OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
-            RequestMeta requestToSend = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestMeta(tm, cn), controllerName);
+            RequestMeta requestMeta = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestMeta(tm, cn), controllerName);
 
             // Сериализуем запрос в память.
-            BinaryMessageToSend serMsg = requestToSend.SerializeRequest(args);
+            BinaryMessageToSend serMsg = requestMeta.SerializeRequest(args);
 
-            if (!requestToSend.IsNotificationRequest)
+            if (!requestMeta.IsNotificationRequest)
             {
                 // Отправляем запрос.
-                var objResult = SendRequestAndGetResult(serMsg, requestToSend);
+                var objResult = SendRequestAndGetResult(serMsg, requestMeta);
                 return objResult;
             }
             else
             {
-                PostNotification(serMsg);
+                PostNotification(serMsg, requestMeta);
                 return Task.CompletedTask;
             }
         }
@@ -454,7 +451,7 @@ namespace DanilovSoft.vRPC
 
             // Может бросить исключение.
             // Добавляет сообщение в очередь на отправку.
-            Task sendNotificationTask = SendNotificationAsync(connectionTask, binaryRequest);
+            Task sendNotificationTask = SendNotificationAsync(connectionTask, binaryRequest, requestMeta);
 
             // Конвертируем Task в ValueTask если это требует интерфейс.
             return ConvertNotificationTask(sendNotificationTask, requestMeta);
@@ -467,7 +464,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private static Task SendNotificationAsync(ValueTask<ClientSideConnection> connectingTask, BinaryMessageToSend serializedMessage)
+        private static Task SendNotificationAsync(ValueTask<ClientSideConnection> connectingTask, BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
         {
             if (connectingTask.IsCompleted)
             {
@@ -475,7 +472,7 @@ namespace DanilovSoft.vRPC
                 ManagedConnection connection = connectingTask.Result;
                 
                 // Отправляет уведомление через очередь.
-                connection.PostNotification(serializedMessage);
+                connection.PostNotification(serializedMessage, requestMeta);
 
                 // Нотификации не возвращают результат.
                 return Task.CompletedTask;
@@ -483,16 +480,16 @@ namespace DanilovSoft.vRPC
             else
             // Подключение к серверу ещё не завершено.
             {
-                return WaitForConnectAndSendNotification(connectingTask, serializedMessage);
+                return WaitForConnectAndSendNotification(connectingTask, serializedMessage, requestMeta);
             }
 
             // Локальная функция.
-            static async Task WaitForConnectAndSendNotification(ValueTask<ClientSideConnection> t, BinaryMessageToSend serializedMessage)
+            static async Task WaitForConnectAndSendNotification(ValueTask<ClientSideConnection> t, BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
             {
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                connection.PostNotification(serializedMessage);
+                connection.PostNotification(serializedMessage, requestMeta);
             }
         }
 
@@ -502,7 +499,7 @@ namespace DanilovSoft.vRPC
             {
                 // Может быть исключение если не удалось подключиться.
                 ClientSideConnection connection = connectionTask.Result;
-                
+
                 // Отправляет запрос и получает результат от удалённой стороны.
                 return connection.SendRequestAndGetResult(serializedMessage, requestMetadata);
             }
@@ -612,17 +609,31 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal void PostNotification(BinaryMessageToSend serializedMessage)
+        internal void PostNotification(BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
         {
             ThrowIfDisposed();
             ThrowIfShutdownRequired();
+            //ValidateAuthenticationRequired(requestMeta);
 
             // Планируем отправку запроса.
             QueueSendMessage(serializedMessage);
         }
 
+        ///// <exception cref="VRpcException"/>
+        //private void ValidateAuthenticationRequired(RequestMeta requestMetadata)
+        //{
+        //    Debug.Assert(IsConnected);
+        //    if (!requestMetadata.IsRequiredAuthentication || IsAuthenticated)
+        //    {
+        //        return;
+        //    }
+        //    throw new VRpcException($"Доступ к методу '{requestMetadata.ActionFullName}' требует предварительную аутентификацию", VRpcErrorCode.MethodRequiresAuthentication);
+        //}
+
         private protected object SendRequestAndGetResult(BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
         {
+            //ValidateAuthenticationRequired(requestMeta);
+
             Task<object> requestTask = SendRequestAndGetResultTask(serializedMessage, requestMeta);
 
             // Преобразовать в Task<T> или извлечь готовый результат.
@@ -973,7 +984,7 @@ namespace DanilovSoft.vRPC
                                                 rawResult = null;
 
                                                 var protocolErrorException = new RpcProtocolErrorException(
-                                                    $"Ошибка десериализации ответа на запрос \"{reqAwaiter.Request.ActionName}\".", deserializationException);
+                                                    $"Ошибка десериализации ответа на запрос \"{reqAwaiter.Request.ActionFullName}\".", deserializationException);
 
                                                 // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
                                                 reqAwaiter.TrySetException(protocolErrorException);
@@ -1778,7 +1789,7 @@ namespace DanilovSoft.vRPC
                 }
 
                 // Сообщить об обрыве.
-                disconnected?.Invoke(this, new SocketDisconnectedEventArgs(possibleReason));
+                disconnected?.Invoke(this, new SocketDisconnectedEventArgs(this, possibleReason));
 
                 // Установить Task Completion.
                 SetCompletion(possibleReason);

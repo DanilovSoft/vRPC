@@ -424,20 +424,20 @@ namespace DanilovSoft.vRPC
 #endif
         }
 
-        internal static ConnectResult ToConnectResult(this in InnerConnectionResult conRes)
+        internal static ConnectResult ToPublicConnectResult(this in InnerConnectionResult conRes)
         {
             if (conRes.Connection != null)
             {
-                return new ConnectResult(ConnectionState.Connected, conRes.SocketError, null);
+                return ConnectResult.FromConnectionSuccess();
             }
             else if (conRes.SocketError != null)
             {
-                return new ConnectResult(ConnectionState.SocketError, conRes.SocketError, null);
+                return ConnectResult.FromError(conRes.SocketError.Value);
             }
             else
             {
                 Debug.Assert(conRes.ShutdownRequest != null);
-                return new ConnectResult(ConnectionState.ShutdownRequest, conRes.SocketError, conRes.ShutdownRequest);
+                return ConnectResult.FromShutdownRequest(conRes.ShutdownRequest);
             }
         }
 

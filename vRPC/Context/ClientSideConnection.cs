@@ -29,7 +29,7 @@ namespace DanilovSoft.vRPC
         /// Перед чтением этого значения нужно дождаться завершения <see cref="_lastAuthTask"/> — этот таск может модифицировать значение минуя захват блокировки.
         /// </summary>
         private volatile bool _isAuthenticated;
-        public bool IsAuthenticated => _isAuthenticated;
+        public override bool IsAuthenticated => _isAuthenticated;
         /// <summary>
         /// Установка свойства только через блокировку <see cref="_authLock"/>.
         /// Этот таск настроен не провоцировать исключения.
@@ -108,7 +108,7 @@ namespace DanilovSoft.vRPC
                     // Теперь мы имеем эксклюзивную возможность выполнить SignIn/Out.
                     {
                         // Начали свой запрос.
-                        task = PrivateSignIn(accessToken);
+                        task = PrivateSignInAsync(accessToken);
 
                         // Можем обновить свойство пока в блокировке.
                         _lastAuthTask = task.ContinueWith(t => { }, default, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
@@ -133,7 +133,7 @@ namespace DanilovSoft.vRPC
             } while (retryRequired);
         }
 
-        private async Task PrivateSignIn(AccessToken accessToken)
+        internal async Task PrivateSignInAsync(AccessToken accessToken)
         {
             Task requestTask;
 

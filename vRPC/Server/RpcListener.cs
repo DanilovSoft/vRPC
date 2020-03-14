@@ -64,7 +64,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Единожны меняет состояние на <see langword="true"/>.
         /// </summary>
-        private bool _started;
+        private volatile bool _started;
         ///// <summary>
         ///// Коллекция авторизованных пользователей.
         ///// Ключ словаря — UserId авторизованного пользователя.
@@ -128,8 +128,12 @@ namespace DanilovSoft.vRPC
         /// Выполняется единожды при инициализации подключения.
         /// </summary>
         /// <param name="configure"></param>
+        /// <exception cref="ArgumentNullException"/>
         public void ConfigureService(Action<ServiceCollection> configure)
         {
+            if (_started)
+                throw new InvalidOperationException($"Конфигурация должна осуществляться до начала приёма соединений.");
+
             if (configure == null)
                 throw new ArgumentNullException(nameof(configure));
 
@@ -146,8 +150,12 @@ namespace DanilovSoft.vRPC
             return _serviceCollection.BuildServiceProvider();
         }
 
+        /// <exception cref="ArgumentNullException"/>
         public void Configure(Action<ServiceProvider> configureApp)
         {
+            if (_started)
+                throw new InvalidOperationException($"Конфигурация должна осуществляться до начала приёма соединений.");
+
             _configureApp = configureApp;
         }
 
@@ -427,7 +435,7 @@ namespace DanilovSoft.vRPC
             if (connection != null)
             {
                 // Сервер разрешил установку этого соединения, можно начать чтение.
-                connection.InitStartThreads();
+                connection.StartReceiveLoopThreads();
 
                 // Сначала нужно запустить чтение, а потом вызвать событие.
                 ClientConnected?.Invoke(this, new ClientConnectedEventArgs(connection));

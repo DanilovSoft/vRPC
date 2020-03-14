@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
     /// Не подлежит сериализации.
     /// Потокобезопасен.
     /// </summary>
-    [DebuggerDisplay(@"\{Request = {ActionName}\}")]
+    [DebuggerDisplay(@"\{Request = {ActionFullName}\}")]
     internal sealed class RequestMeta : IMessageMeta
     {
         public Type ReturnType { get; }
@@ -25,6 +25,7 @@ namespace DanilovSoft.vRPC
         /// и соответственно не возвращает результат.
         /// </summary>
         public bool IsNotificationRequest { get; }
+        //public bool IsRequiredAuthentication { get; }
         /// <summary>
         /// Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="Task"/> (<see cref="Task{TResult}"/>)
         /// или <see cref="ValueTask"/> (<see cref="ValueTask{TResult}"/>).
@@ -33,7 +34,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Имя метода например 'Home/Hello' без постфикса 'Async'.
         /// </summary>
-        public string ActionName { get; }
+        public string ActionFullName { get; }
         public bool IsRequest => true;
 
         /// <summary>
@@ -46,16 +47,22 @@ namespace DanilovSoft.vRPC
             ReturnType = interfaceMethod.ReturnType;
 
             IsNotificationRequest = Attribute.IsDefined(interfaceMethod, typeof(NotificationAttribute));
+            //IsRequiredAuthentication = Attribute.IsDefined(interfaceMethod, typeof(AuthenticationRequiredAttribute));
+            //if (!IsRequiredAuthentication)
+            //{
+            //    IsRequiredAuthentication = Attribute.IsDefined(interfaceMethod.DeclaringType, typeof(AuthenticationRequiredAttribute));
+            //}
 
             if (IsNotificationRequest)
             {
                 ValidateNotification(interfaceMethod.ReturnType, interfaceMethod.Name);
             }
             IncapsulatedReturnType = GetMethodReturnType(interfaceMethod.ReturnType);
-            ActionName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{interfaceMethod.GetNameTrimAsync()}";
+            ActionFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{interfaceMethod.GetNameTrimAsync()}";
             IsAsync = interfaceMethod.ReturnType.IsAsyncReturnType();
         }
 
+        // Используется для Internal вызовов таких как SignIn, SignOut.
         public RequestMeta(string controllerName, string methodName, Type returnType, bool notification)
         {
             ReturnType = returnType;
@@ -67,7 +74,7 @@ namespace DanilovSoft.vRPC
             }
 
             IncapsulatedReturnType = GetMethodReturnType(returnType);
-            ActionName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{methodName}";
+            ActionFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{methodName}";
             IsAsync = returnType.IsAsyncReturnType();
         }
 
@@ -116,7 +123,7 @@ namespace DanilovSoft.vRPC
             var serializedMessage = new BinaryMessageToSend(this);
             try
             {
-                var request = new RequestMessageDto(ActionName, args);
+                var request = new RequestMessageDto(ActionFullName, args);
                 ExtensionMethods.SerializeObjectJson(serializedMessage.MemPoolStream, request);
                 var ret = serializedMessage;
                 serializedMessage = null;

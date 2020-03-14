@@ -15,19 +15,59 @@ namespace DanilovSoft.vRPC
     internal readonly struct InnerConnectionResult
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        private ConnectResult DebugDisplay => this.ToConnectResult();
+        private ConnectResult DebugDisplay => this.ToPublicConnectResult();
         public SocketError? SocketError { get; }
         public ClientSideConnection Connection { get; }
         public ShutdownRequest ShutdownRequest { get; }
         public bool NewConnectionCreated { get; }
 
-        [DebuggerStepThrough]
-        public InnerConnectionResult(SocketError? socketError, ShutdownRequest stopRequired, ClientSideConnection connection, bool newConnectionCreated)
+        private InnerConnectionResult(ClientSideConnection connection, bool newConnectionCreated)
+        {
+            Debug.Assert(connection != null);
+            Connection = connection;
+            SocketError = null;
+            ShutdownRequest = null;
+            NewConnectionCreated = newConnectionCreated;
+        }
+
+        /// <summary>
+        /// Подключение не удалось (SocketError может быть Success).
+        /// </summary>
+        private InnerConnectionResult(SocketError socketError)
         {
             SocketError = socketError;
-            Connection = connection;
-            ShutdownRequest = stopRequired;
-            NewConnectionCreated = newConnectionCreated;
+            ShutdownRequest = null;
+            Connection = null;
+            NewConnectionCreated = false;
+        }
+
+        private InnerConnectionResult(ShutdownRequest shutdownRequest)
+        {
+            Debug.Assert(shutdownRequest != null);
+            ShutdownRequest = shutdownRequest;
+            SocketError = null;
+            Connection = null;
+            NewConnectionCreated = false;
+        }
+
+        public static InnerConnectionResult FromExistingConnection(ClientSideConnection connection)
+        {
+            return new InnerConnectionResult(connection, newConnectionCreated: false);
+        }
+
+        public static InnerConnectionResult FromConnectionError(SocketError socketError)
+        {
+            return new InnerConnectionResult(socketError);
+        }
+
+        public static InnerConnectionResult FromShutdownRequest(ShutdownRequest shutdownRequest)
+        {
+            return new InnerConnectionResult(shutdownRequest);
+        }
+
+        public static InnerConnectionResult FromNewConnection(ClientSideConnection connection)
+        {
+            return new InnerConnectionResult(connection, newConnectionCreated: true);
         }
 
         /// <summary>

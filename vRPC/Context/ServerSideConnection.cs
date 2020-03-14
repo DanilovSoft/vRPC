@@ -29,6 +29,7 @@ namespace DanilovSoft.vRPC
         private readonly ProxyCache _proxyCache = new ProxyCache();
         private readonly RijndaelEnhanced _jwt;
         private volatile ClaimsPrincipal _user;
+        public override bool IsAuthenticated => true;
         /// <summary>
         /// Пользователь ассоциированный с текущим соединением.
         /// </summary>

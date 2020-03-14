@@ -50,6 +50,7 @@ namespace DanilovSoft.vRPC
         private ApplicationBuilder _appBuilder;
         public ServiceProvider ServiceProvider { get; private set; }
         private Action<ApplicationBuilder> _configureApp;
+        private Func<AccessToken> _autoAuthentication;
 
         /// <summary>
         /// Устанавливается в блокировке <see cref="StateLock"/>.
@@ -71,7 +72,7 @@ namespace DanilovSoft.vRPC
             }
         }
         /// <summary>
-        /// volatile требуется лишь для публичного доступа.
+        /// volatile требуется лишь для публичного доступа. Запись через блокировку <see cref="StateLock"/>.
         /// </summary>
         private volatile ShutdownRequest _shutdownRequest;
         /// <summary>
@@ -92,6 +93,8 @@ namespace DanilovSoft.vRPC
         /// True если соединение прошло аутентификацию на сервере.
         /// </summary>
         public bool IsAuthenticated => _connection?.IsAuthenticated ?? false;
+        //public event EventHandler<ConnectionAuthenticationEventArgs> ConnectionAuthentication;
+        public event EventHandler Connected;
 
         // ctor.
         static RpcClient()
@@ -148,6 +151,7 @@ namespace DanilovSoft.vRPC
         /// Позволяет настроить IoC контейнер.
         /// Выполняется единожды при инициализации подключения.
         /// </summary>
+        /// <exception cref="ArgumentNullException"/>
         /// <exception cref="ObjectDisposedException"/>
         public void ConfigureService(Action<ServiceCollection> configure)
         {
@@ -167,8 +171,22 @@ namespace DanilovSoft.vRPC
         public void Configure(Action<ApplicationBuilder> configureApp)
         {
             ThrowIfDisposed();
+            
+            if (_configureApp != null)
+                throw new InvalidOperationException("RpcClient already configured.");
 
-            _configureApp = configureApp;
+            _configureApp = configureApp ?? throw new ArgumentNullException(nameof(configureApp));
+        }
+
+        /// <exception cref="ObjectDisposedException"/>
+        public void ConfigureAutoAuthentication(Func<AccessToken> configure)
+        {
+            ThrowIfDisposed();
+
+            if (_autoAuthentication != null)
+                throw new InvalidOperationException("Auto authentication already configured.");
+
+            _autoAuthentication = configure ?? throw new ArgumentNullException(nameof(configure));
         }
 
         /// <summary>
@@ -207,7 +225,7 @@ namespace DanilovSoft.vRPC
             if(t.IsCompletedSuccessfully)
             {
                 InnerConnectionResult conRes = t.Result;
-                return Task.FromResult(conRes.ToConnectResult());
+                return Task.FromResult(conRes.ToPublicConnectResult());
             }
             else
             {
@@ -218,53 +236,53 @@ namespace DanilovSoft.vRPC
             static async Task<ConnectResult> WaitForConnectAsync(ValueTask<InnerConnectionResult> t)
             {
                 InnerConnectionResult conRes = await t.ConfigureAwait(false);
-                return conRes.ToConnectResult();
+                return conRes.ToPublicConnectResult();
             }
         }
 
-        /// <summary>
-        /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-        /// Потокобезопасно.
-        /// </summary>
-        /// <exception cref="WasShutdownException"/>
-        /// <exception cref="HttpHandshakeException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        public ConnectResult Connect(AccessToken accessToken)
-        {
-            return ConnectAsync(accessToken).GetAwaiter().GetResult();
-        }
+        ///// <summary>
+        ///// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+        ///// Потокобезопасно.
+        ///// </summary>
+        ///// <exception cref="WasShutdownException"/>
+        ///// <exception cref="HttpHandshakeException"/>
+        ///// <exception cref="ObjectDisposedException"/>
+        //public ConnectResult Connect(AccessToken accessToken)
+        //{
+        //    return ConnectAsync(accessToken).GetAwaiter().GetResult();
+        //}
 
-        /// <summary>
-        /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-        /// Потокобезопасно.
-        /// </summary>
-        /// <exception cref="WasShutdownException"/>
-        /// <exception cref="HttpHandshakeException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        public Task<ConnectResult> ConnectAsync(AccessToken accessToken)
-        {
-            ThrowIfDisposed();
-            ThrowIfWasShutdown();
+        ///// <summary>
+        ///// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+        ///// Потокобезопасно.
+        ///// </summary>
+        ///// <exception cref="WasShutdownException"/>
+        ///// <exception cref="HttpHandshakeException"/>
+        ///// <exception cref="ObjectDisposedException"/>
+        //public Task<ConnectResult> ConnectAsync(AccessToken accessToken)
+        //{
+        //    ThrowIfDisposed();
+        //    ThrowIfWasShutdown();
 
-            throw new NotImplementedException();
-            //ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync(accessToken);
-            //if (t.IsCompletedSuccessfully)
-            //{
-            //    InnerConnectionResult conRes = t.Result;
-            //    return Task.FromResult(conRes.ToConnectResult());
-            //}
-            //else
-            //{
-            //    return WaitForConnectAsync(t);
-            //}
+        //    throw new NotImplementedException();
+        //    //ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync(accessToken);
+        //    //if (t.IsCompletedSuccessfully)
+        //    //{
+        //    //    InnerConnectionResult conRes = t.Result;
+        //    //    return Task.FromResult(conRes.ToConnectResult());
+        //    //}
+        //    //else
+        //    //{
+        //    //    return WaitForConnectAsync(t);
+        //    //}
 
-            //// Локальная.
-            //static async Task<ConnectResult> WaitForConnectAsync(ValueTask<InnerConnectionResult> t)
-            //{
-            //    InnerConnectionResult conRes = await t.ConfigureAwait(false);
-            //    return conRes.ToConnectResult();
-            //}
-        }
+        //    //// Локальная.
+        //    //static async Task<ConnectResult> WaitForConnectAsync(ValueTask<InnerConnectionResult> t)
+        //    //{
+        //    //    InnerConnectionResult conRes = await t.ConfigureAwait(false);
+        //    //    return conRes.ToConnectResult();
+        //    //}
+        //}
 
         /// <summary>
         /// Выполняет аутентификацию текущего соединения.
@@ -529,6 +547,9 @@ namespace DanilovSoft.vRPC
         {
             // volatile.
             _connection = null;
+
+            // Отпишем отключенный экземпляр.
+            e.Connection.Disconnected -= OnDisconnected;
         }
 
         /// <summary>
@@ -542,7 +563,7 @@ namespace DanilovSoft.vRPC
             if (connection != null)
             // Есть живое соединение.
             {
-                return new ValueTask<InnerConnectionResult>(new InnerConnectionResult(null, null, connection));
+                return new ValueTask<InnerConnectionResult>(InnerConnectionResult.FromExistingConnection(connection));
             }
             else
             // Подключение отсутствует.
@@ -571,146 +592,180 @@ namespace DanilovSoft.vRPC
         /// <exception cref="ObjectDisposedException"/>
         private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(ChannelLock.Releaser conLock, AccessToken accessToken)
         {
+            InnerConnectionResult conResult;
             using (conLock)
             {
-                // Копия volatile.
-                ClientSideConnection connection = _connection;
+                conResult = await LockAquiredConnectAsync(accessToken).ConfigureAwait(false);
+            }
 
-                if (connection == null)
+            // Только один поток получит соединение с этим флагом.
+            if (conResult.NewConnectionCreated)
+            {
+                Connected?.Invoke(this, EventArgs.Empty);
+            }
+
+            return conResult;
+        }
+
+        private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(AccessToken accessToken)
+        {
+            // Копия volatile.
+            ClientSideConnection connection = _connection;
+
+            if (connection == null)
+            {
+                ServiceProvider serviceProvider = ServiceProvider;
+                lock (StateLock)
                 {
-                    ServiceProvider serviceProvider = ServiceProvider;
-                    lock (StateLock)
+                    if (!_disposed)
                     {
-                        if (!_disposed)
+                        // Пока в блокировке можно безопасно трогать свойство _shutdownRequest.
+                        if (_shutdownRequest != null)
                         {
-                            if (_shutdownRequest != null)
-                            {
-                                // Нельзя создавать новое подключение если был вызван Stop.
-                                return new InnerConnectionResult(null, _shutdownRequest, null);
-                            }
-                            else
-                            {
-                                if (serviceProvider == null)
-                                {
-                                    serviceProvider = _serviceCollection.BuildServiceProvider();
-                                    ServiceProvider = serviceProvider;
-                                }
-                            }
+                            // Нельзя создавать новое подключение если был вызван Stop.
+                            return InnerConnectionResult.FromShutdownRequest(_shutdownRequest);
                         }
                         else
                         {
-                            throw new ObjectDisposedException(GetType().FullName);
+                            if (serviceProvider == null)
+                            {
+                                serviceProvider = _serviceCollection.BuildServiceProvider();
+                                ServiceProvider = serviceProvider;
+                            }
                         }
                     }
-
-                    _appBuilder = new ApplicationBuilder(serviceProvider);
-                    _configureApp?.Invoke(_appBuilder);
-
-                    // Новый сокет.
-                    var ws = new ClientWebSocket();
-                    ws.Options.KeepAliveInterval = _appBuilder.KeepAliveInterval;
-                    ws.Options.ReceiveTimeout = _appBuilder.ReceiveTimeout;
-
-                    // Позволить Dispose прервать подключение.
-                    Interlocked.Exchange(ref _connectingWs, ws);
-
-                    try
+                    else
                     {
-                        // Обычное подключение Tcp.
-                        ReceiveResult receiveResult = await ws.ConnectExAsync(ServerAddress, CancellationToken.None).ConfigureAwait(false);
+                        throw new ObjectDisposedException(GetType().FullName);
+                    }
+                }
 
-                        if (Interlocked.Exchange(ref _connectingWs, null) == null)
-                        // Stop или Dispose уже вызвали Dispose для ws.
+                _appBuilder = new ApplicationBuilder(serviceProvider);
+                _configureApp?.Invoke(_appBuilder);
+
+                // Новый сокет.
+                var ws = new ClientWebSocket();
+                ws.Options.KeepAliveInterval = _appBuilder.KeepAliveInterval;
+                ws.Options.ReceiveTimeout = _appBuilder.ReceiveTimeout;
+
+                // Позволить Dispose прервать подключение.
+                Interlocked.Exchange(ref _connectingWs, ws);
+
+                try
+                {
+                    // Обычное подключение Tcp.
+                    ReceiveResult wsReceiveResult = await ws.ConnectExAsync(ServerAddress, CancellationToken.None).ConfigureAwait(false);
+
+                    if (Interlocked.Exchange(ref _connectingWs, null) == null)
+                    // Другой поток уничтожил наш web-socket.
+                    {
+                        // Предотвратим лишний Dispose.
+                        ws = null;
+
+                        lock (StateLock)
                         {
-                            // Предотвратим лишний Dispose.
-                            ws = null;
-
-                            lock (StateLock)
+                            if (!_disposed)
                             {
-                                if (!_disposed)
+                                if (_shutdownRequest != null)
+                                // Другой поток вызвал Shutdown.
                                 {
-                                    if (_shutdownRequest != null)
-                                    {
-                                        // Нельзя создавать новое подключение если был вызван Stop.
-                                        return new InnerConnectionResult(null, _shutdownRequest, null);
-                                    }
+                                    return InnerConnectionResult.FromShutdownRequest(_shutdownRequest);
                                 }
-                                else
-                                {
-                                    // Больше ничего делать не нужно.
-                                    throw new ObjectDisposedException(GetType().FullName);
-                                }
-                            }
-                        }
-
-                        if (receiveResult.IsReceivedSuccessfully)
-                        // Соединение успешно установлено.
-                        {
-                            ShutdownRequest stopRequired = null;
-                            lock (StateLock)
-                            {
-                                if (!_disposed)
-                                {
-                                    connection = new ClientSideConnection(this, ws, serviceProvider, _invokeActions);
-
-                                    // Предотвратить Dispose.
-                                    ws = null;
-
-                                    // Скопировать пока мы в блокировке.
-                                    stopRequired = _shutdownRequest;
-
-                                    if (stopRequired == null)
-                                    {
-                                        // Скопируем таск соединения.
-                                        Completion = connection.Completion;
-
-                                        // Косвенно устанавливает флаг IsConnected.
-                                        _connection = connection;
-                                    }
-                                }
-                                else
-                                // Был выполнен Dispose в тот момент когда велась попытка установить соединение.
-                                {
-                                    throw new ObjectDisposedException(GetType().FullName);
-                                }
-                            }
-
-                            if (stopRequired == null)
-                            // Запроса на остановку сервиса ещё не было.
-                            {
-                                connection.InitStartThreads();
-                                connection.Disconnected += OnDisconnected;
-                                return new InnerConnectionResult(receiveResult.SocketError, null, connection);
                             }
                             else
-                            // Был запрос на остановку сервиса. 
-                            // Он произошел в тот момент когда велась попытка установить соединение.
-                            // Это очень редкий случай но мы должны его предусмотреть.
+                            // Другой поток вызвал Dispose.
                             {
-                                using (connection)
-                                {
-                                    // Мы обязаны закрыть это соединение.
-                                    await connection.InnerShutdownAsync(stopRequired).ConfigureAwait(false);
-                                }
-
-                                return new InnerConnectionResult(receiveResult.SocketError, stopRequired, null);
+                                // Больше ничего делать не нужно.
+                                throw new ObjectDisposedException(GetType().FullName);
                             }
                         }
-                        else
-                        // Подключение не удалось.
+                    }
+
+                    if (wsReceiveResult.IsReceivedSuccessfully)
+                    // Соединение успешно установлено.
+                    {
+                        ShutdownRequest stopRequired = null;
+                        lock (StateLock)
                         {
-                            return new InnerConnectionResult(receiveResult.SocketError, null, null);
+                            if (!_disposed)
+                            {
+                                connection = new ClientSideConnection(this, ws, serviceProvider, _invokeActions);
+
+                                // Предотвратить Dispose.
+                                ws = null;
+
+                                // Скопировать пока мы в блокировке.
+                                stopRequired = _shutdownRequest;
+
+                                if (stopRequired == null)
+                                {
+                                    // Скопируем таск соединения.
+                                    Completion = connection.Completion;
+
+                                    // Косвенно устанавливает флаг IsConnected.
+                                    _connection = connection;
+                                }
+                            }
+                            else
+                            // Был выполнен Dispose в тот момент когда велась попытка установить соединение.
+                            {
+                                throw new ObjectDisposedException(GetType().FullName);
+                            }
+                        }
+
+                        if (stopRequired == null)
+                        // Запроса на остановку сервиса ещё не было.
+                        {
+                            connection.StartReceiveLoopThreads();
+                            connection.Disconnected += OnDisconnected;
+
+                            if (accessToken == (default))
+                            {
+                                // Запросить токен у пользователя.
+                                AccessToken autoAccessToken = _autoAuthentication?.Invoke() ?? default;
+                                if (accessToken != default)
+                                {
+                                    await connection.PrivateSignInAsync(accessToken).ConfigureAwait(false);
+                                }
+                            }
+                            else
+                            // Приоритет у токена переданный как параметр — это явная SignIn операция.
+                            {
+                                await connection.PrivateSignInAsync(accessToken).ConfigureAwait(false);
+                            }
+
+                            // Успешно подключились.
+                            return InnerConnectionResult.FromNewConnection(connection);
+                        }
+                        else
+                        // Был запрос на остановку сервиса. 
+                        // Он произошел в тот момент когда велась попытка установить соединение.
+                        // Это очень редкий случай но мы должны его предусмотреть.
+                        {
+                            using (connection)
+                            {
+                                // Мы обязаны закрыть это соединение.
+                                await connection.InnerShutdownAsync(stopRequired).ConfigureAwait(false);
+                            }
+
+                            return InnerConnectionResult.FromShutdownRequest(stopRequired);
                         }
                     }
-                    finally
+                    else
+                    // Подключение не удалось.
                     {
-                        ws?.Dispose();
+                        return InnerConnectionResult.FromConnectionError(wsReceiveResult.SocketError);
                     }
                 }
-                else
+                finally
                 {
-                    return new InnerConnectionResult(SocketError.Success, null, connection);
+                    ws?.Dispose();
                 }
+            }
+            else
+            // Подключать сокет не нужно — есть живое соединение.
+            {
+                return InnerConnectionResult.FromExistingConnection(connection);
             }
         }
 
@@ -793,6 +848,7 @@ namespace DanilovSoft.vRPC
 
                     _connection?.Dispose();
                     ServiceProvider?.Dispose();
+                    Connected = null;
                 }
             }
         }

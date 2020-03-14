@@ -78,7 +78,7 @@
         </member>
         <member name="F:DanilovSoft.vRPC.RpcClient._shutdownRequest">
             <summary>
-            volatile требуется лишь для публичного доступа.
+            volatile требуется лишь для публичного доступа. Запись через блокировку <see cref="P:DanilovSoft.vRPC.RpcClient.StateLock"/>.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.RpcClient.StopRequiredState">
@@ -126,9 +126,13 @@
             Позволяет настроить IoC контейнер.
             Выполняется единожды при инициализации подключения.
             </summary>
+            <exception cref="T:System.ArgumentNullException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.Configure(System.Action{DanilovSoft.vRPC.ApplicationBuilder})">
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConfigureAutoAuthentication(System.Func{DanilovSoft.vRPC.AccessToken})">
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.WaitCompletion">
@@ -146,24 +150,6 @@
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.ConnectAsync">
-            <summary>
-            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-            Потокобезопасно.
-            </summary>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
-            <exception cref="T:DanilovSoft.WebSockets.HttpHandshakeException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.Connect(DanilovSoft.vRPC.AccessToken)">
-            <summary>
-            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-            Потокобезопасно.
-            </summary>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
-            <exception cref="T:DanilovSoft.WebSockets.HttpHandshakeException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectAsync(DanilovSoft.vRPC.AccessToken)">
             <summary>
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
             Потокобезопасно.
@@ -237,10 +223,11 @@
             <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
             <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.GetOrOpenConnection">
+        <member name="M:DanilovSoft.vRPC.RpcClient.GetOrOpenConnection(DanilovSoft.vRPC.AccessToken)">
             <summary>
             Возвращает существующее подключение или создаёт новое если это разрешает свойство <see cref="P:DanilovSoft.vRPC.RpcClient.IsAutoConnectAllowed"/>.
             </summary>
+            <exception cref="T:System.Net.Sockets.SocketException"/>
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:DanilovSoft.vRPC.ConnectionNotOpenException"/>
         </member>
@@ -249,12 +236,12 @@
             Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectOrGetExistedConnectionAsync">
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectOrGetExistedConnectionAsync(DanilovSoft.vRPC.AccessToken)">
             <summary>
             Выполнить подключение сокета если еще не подключен.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.LockAquiredConnectAsync(System.Threading.ChannelLock.Releaser)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.LockAquiredConnectAsync(System.Threading.ChannelLock.Releaser,DanilovSoft.vRPC.AccessToken)">
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
@@ -467,7 +454,7 @@
             После разъединения текущий экземпляр не может быть переподключен.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.InitStartThreads">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.StartReceiveLoopThreads">
             <summary>
             Запускает бесконечный цикл обработки запросов.
             </summary>
@@ -543,7 +530,7 @@
             Отправляет запрос как уведомление. Результатом может быть Null или Task или ValueTask.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.BinaryMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
             <summary>
             Ожидает завершение подключения к серверу и передаёт сообщение в очередь на отправку.
             Может бросить исключение.
@@ -570,7 +557,7 @@
             </summary>
             <param name="voidTask">Такс без результата (<see langword="void"/>).</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.PostNotification(DanilovSoft.vRPC.BinaryMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.PostNotification(DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу. 
             Добавляет запрос-уведомление в очередь на отправку (выполнит отправку текущим потоком если очередь пуста).
@@ -893,6 +880,11 @@
             Причина закрытия соединения.
             </summary>
         </member>
+        <member name="P:DanilovSoft.vRPC.ConnectionAuthenticationEventArgs.AuthenticateConnectionToken">
+            <summary>
+            Токен авторизации который будет передан серверу. Может быть Null.
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.SocketDisconnectedEventArgs.DisconnectReason">
             <summary>
             Причина обрыва соединения.
@@ -995,7 +987,7 @@
             или <see cref="T:System.Threading.Tasks.ValueTask"/> (<see cref="T:System.Threading.Tasks.ValueTask`1"/>).
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RequestMeta.ActionName">
+        <member name="P:DanilovSoft.vRPC.RequestMeta.ActionFullName">
             <summary>
             Имя метода например 'Home/Hello' без постфикса 'Async'.
             </summary>
@@ -1137,6 +1129,10 @@
             Выполняется единожды при инициализации подключения.
             </summary>
             <param name="configure"></param>
+            <exception cref="T:System.ArgumentNullException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.Configure(System.Action{Microsoft.Extensions.DependencyInjection.ServiceProvider})">
+            <exception cref="T:System.ArgumentNullException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.Shutdown(System.TimeSpan,System.String)">
             <summary>
@@ -1266,11 +1262,6 @@
             Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ConnectionState.Connected">
-            <summary>
-            Соединение успешно установлено.
-            </summary>
-        </member>
         <member name="F:DanilovSoft.vRPC.ConnectionState.SocketError">
             <summary>
             Не удалось установить соединение.
@@ -1279,6 +1270,16 @@
         <member name="F:DanilovSoft.vRPC.ConnectionState.ShutdownRequest">
             <summary>
             Во время подключения произошел запрос на остановку сервиса – использовать данный экземпляр больше нельзя.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ConnectionState.Connected">
+            <summary>
+            Соединение успешно установлено.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.ConnectResult.SocketError">
+            <summary>
+            Может быть <see cref="F:System.Net.Sockets.SocketError.Success"/> несмотря на то что State == <see cref="F:DanilovSoft.vRPC.ConnectionState.SocketError"/>.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.ConnectResult.ShutdownRequest">
@@ -1393,13 +1394,23 @@
             Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения. Пустую строку не возвращает.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.InnerConnectionResult.#ctor(System.Net.Sockets.SocketError)">
+            <summary>
+            Подключение не удалось (SocketError может быть Success).
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.InnerConnectionResult.ToManagedConnection">
             <summary>
-            
+            Может бросить исключение.
             </summary>
+            <exception cref="T:System.Net.Sockets.SocketException"/>
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.InnerConnectionResult.ToManagedConnectionTask">
+            <summary>
+            Может бросить исключение.
+            </summary>
+            <exception cref="T:System.Net.Sockets.SocketException"/>
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
         </member>
         <member name="F:DanilovSoft.vRPC.InvokeActionsDictionary._actionsDict">

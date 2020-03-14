@@ -8,10 +8,14 @@ namespace Client
 {
     class Program
     {
+        private static AccessToken _accessToken;
+
         static void Main()
         {
             var client = new RpcClient("localhost", 1234, false, true);
-
+            client.Connected += Client_Connected;
+            client.ConfigureAutoAuthentication(() => _accessToken);
+            
             if (string.IsNullOrEmpty(Settings.Default.AccessToken))
             {
                 client.Connect();
@@ -29,12 +33,17 @@ namespace Client
             }
             else
             {
-                var accessToken = Convert.FromBase64String(Settings.Default.AccessToken);
-                client.Connect(accessToken);
+                _accessToken = Convert.FromBase64String(Settings.Default.AccessToken);
+                client.Connect();
 
                 Settings.Default.AccessToken = null;
                 Settings.Default.Save();
             }
+        }
+
+        private static void Client_Connected(object sender, EventArgs e)
+        {
+            
         }
     }
 

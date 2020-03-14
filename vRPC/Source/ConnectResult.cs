@@ -8,6 +8,9 @@ namespace DanilovSoft.vRPC
     public readonly struct ConnectResult : IEquatable<ConnectResult>
     {
         public ConnectionState State { get; }
+        /// <summary>
+        /// Может быть <see cref="System.Net.Sockets.SocketError.Success"/> несмотря на то что State == <see cref="ConnectionState.SocketError"/>.
+        /// </summary>
         public SocketError? SocketError { get; }
         /// <summary>
         /// Не Null если State = <see cref="ConnectionState.ShutdownRequest"/>.
@@ -15,11 +18,26 @@ namespace DanilovSoft.vRPC
         public ShutdownRequest ShutdownRequest { get; }
 
         [DebuggerStepThrough]
-        internal ConnectResult(ConnectionState connectState, SocketError? socketError, ShutdownRequest shutdownRequest)
+        private ConnectResult(ConnectionState connectState, SocketError? socketError, ShutdownRequest shutdownRequest)
         {
             State = connectState;
             SocketError = socketError;
             ShutdownRequest = shutdownRequest;
+        }
+
+        internal static ConnectResult FromConnectionSuccess()
+        {
+            return new ConnectResult(ConnectionState.Connected, null, null);
+        }
+
+        internal static ConnectResult FromError(SocketError socketError)
+        {
+            return new ConnectResult(ConnectionState.SocketError, socketError, null);
+        }
+
+        internal static ConnectResult FromShutdownRequest(ShutdownRequest shutdownRequest)
+        {
+            return new ConnectResult(ConnectionState.ShutdownRequest, null, shutdownRequest);
         }
 
         public bool Equals(ConnectResult other)

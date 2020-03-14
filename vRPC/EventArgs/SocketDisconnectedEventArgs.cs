@@ -11,10 +11,12 @@ namespace DanilovSoft.vRPC
         /// Причина обрыва соединения.
         /// </summary>
         public CloseReason DisconnectReason { get; }
+        public ManagedConnection Connection { get; }
 
         [DebuggerStepThrough]
-        public SocketDisconnectedEventArgs(CloseReason closeResult)
+        public SocketDisconnectedEventArgs(ManagedConnection connection, CloseReason closeResult)
         {
+            Connection = connection;
             DisconnectReason = closeResult;
         }
     }
