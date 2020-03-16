@@ -1185,6 +1185,11 @@
             Производит аутентификацию текущего подключения.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.SignOut">
+            <summary>
+            Сбрасывает аутентификацию соединения в изначальное состояние.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.ServerSideConnection.ActionPermissionCheck(DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.IActionResult@,System.Security.Claims.ClaimsPrincipal@)">
             <summary>
             Проверяет доступность запрашиваемого метода пользователем.
@@ -1204,6 +1209,11 @@
         <member name="P:DanilovSoft.vRPC.ServerController.User">
             <summary>
             Пользователь ассоциированный с текущим запросом.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ServerController.SignOut">
+            <summary>
+            Сбрасывает аутентификацию соединения в изначальное состояние.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.Decorator.ClientInterfaceProxy">

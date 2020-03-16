@@ -27,7 +27,9 @@ namespace DanilovSoft.vRPC
         internal static readonly ServerConcurrentDictionary<MethodInfo, string> ProxyMethodName = new ServerConcurrentDictionary<MethodInfo, string>();
         private static readonly ServerConcurrentDictionary<MethodInfo, RequestMeta> _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestMeta>();
         private readonly ProxyCache _proxyCache = new ProxyCache();
-        private readonly RijndaelEnhanced _jwt;
+
+        private RijndaelEnhanced _jwt;
+        private RijndaelEnhanced Jwt => LazyInitializer.EnsureInitialized(ref _jwt, () => new RijndaelEnhanced(PassPhrase, InitVector, 8, 16, 256, Salt, 1000));
         private volatile ClaimsPrincipal _user;
         public override bool IsAuthenticated => true;
         /// <summary>
@@ -47,8 +49,6 @@ namespace DanilovSoft.vRPC
             : base(clientConnection, isServer: true, serviceProvider, listener.InvokeActions)
         {
             Listener = listener;
-
-            _jwt = new RijndaelEnhanced(PassPhrase, InitVector, 8, 16, 256, Salt, 1000);
 
             // Изначальный не авторизованный пользователь.
             _user = CreateUnauthorizedUser();
@@ -99,7 +99,7 @@ namespace DanilovSoft.vRPC
                     byte[] serializedTmpBuf = mem.GetBuffer();
 
                     // Закриптовать.
-                    encryptedToken = _jwt.EncryptToBytes(serializedTmpBuf.AsSpan(0, (int)mem.Length));
+                    encryptedToken = Jwt.EncryptToBytes(serializedTmpBuf.AsSpan(0, (int)mem.Length));
                 }
 
                 var token = new BearerToken(encryptedToken, validity);
@@ -118,7 +118,7 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Расшифровать токен.
-                decripted = _jwt.DecryptToBytes(accessToken);
+                decripted = Jwt.DecryptToBytes(accessToken);
             }
             catch (Exception)
             {
@@ -171,7 +171,10 @@ namespace DanilovSoft.vRPC
             return new OkResult();
         }
 
-        internal void SignOut()
+        /// <summary>
+        /// Сбрасывает аутентификацию соединения в изначальное состояние.
+        /// </summary>
+        public void SignOut()
         {
             // volatile копия.
             var user = _user;

@@ -41,6 +41,9 @@ namespace DanilovSoft.vRPC
             return Context.CreateAccessToken(claimsPrincipal, validTime);
         }
 
+        /// <summary>
+        /// Сбрасывает аутентификацию соединения в изначальное состояние.
+        /// </summary>
         public void SignOut() => Context.SignOut();
     }
 }
