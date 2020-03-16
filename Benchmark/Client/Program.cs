@@ -79,7 +79,7 @@ namespace Client
                         while (true)
                         {
                             ConnectResult conResult;
-                            while ((conResult = client.Connect()).State == ConnectionState.SocketError)
+                            while ((conResult = client.ConnectEx()).State == ConnectionState.SocketError)
                                 Thread.Sleep(new Random().Next(2000, 3000));
 
                             if (conResult.State == ConnectionState.ShutdownRequest)

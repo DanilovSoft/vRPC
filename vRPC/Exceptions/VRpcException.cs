@@ -28,6 +28,11 @@ namespace DanilovSoft.vRPC
         {
         }
 
+        public VRpcException(string message, Exception innerException, VRpcErrorCode errorCode) : base(message, innerException)
+        {
+            ErrorCode = errorCode;
+        }
+
         [SecurityPermission(SecurityAction.Demand, SerializationFormatter = true)]
         // Constructor should be protected for unsealed classes, private for sealed classes.
         // (The Serializer invokes this constructor through reflection, so it can be private)
@@ -50,7 +55,7 @@ namespace DanilovSoft.vRPC
     public enum VRpcErrorCode
     {
         None,
-        //MethodRequiresAuthentication,
-        InvalidInterfaceName
+        InvalidInterfaceName,
+        ConnectionError,
     }
 }

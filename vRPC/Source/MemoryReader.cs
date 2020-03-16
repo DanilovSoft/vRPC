@@ -52,8 +52,10 @@ namespace System.IO
             return 0;
         }
 
-#if !NETSTANDARD2_0
+#if NETSTANDARD2_0 || NET472
+        
 
+#else
         public override int Read(Span<byte> buffer)
         {
             int count = buffer.Length;

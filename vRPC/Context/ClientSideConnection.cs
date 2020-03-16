@@ -38,6 +38,9 @@ namespace DanilovSoft.vRPC
         private protected override IConcurrentDictionary<MethodInfo, RequestMeta> InterfaceMethods => InterfaceMethodsInfo;
 
         // ctor.
+        /// <summary>
+        /// Принимает открытое соединение Web-Socket.
+        /// </summary>
         internal ClientSideConnection(RpcClient client, ClientWebSocket ws, ServiceProvider serviceProvider, InvokeActionsDictionary controllers)
             : base(ws.ManagedWebSocket, isServer: false, serviceProvider, controllers)
         {

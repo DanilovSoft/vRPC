@@ -416,7 +416,7 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsCompletedSuccessfully(this Task t)
         {
-#if NETSTANDARD2_0
+#if NETSTANDARD2_0 || NET472
 
             return t.Status == TaskStatus.RanToCompletion;
 #else
@@ -424,6 +424,9 @@ namespace DanilovSoft.vRPC
 #endif
         }
 
+        /// <summary>
+        /// Не бросает исключения.
+        /// </summary>
         internal static ConnectResult ToPublicConnectResult(this in InnerConnectionResult conRes)
         {
             if (conRes.Connection != null)
@@ -445,6 +448,11 @@ namespace DanilovSoft.vRPC
         {
             if (accessToken.Bytes.Length == 0)
                 throw new ArgumentOutOfRangeException(arguemntName, "AccessToken is empty");
+        }
+
+        internal static WasShutdownException ToException(this ShutdownRequest shutdownRequest)
+        {
+            return new WasShutdownException(shutdownRequest);
         }
     }
 }

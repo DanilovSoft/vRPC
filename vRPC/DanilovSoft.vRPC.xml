@@ -45,6 +45,406 @@
             Время актуальности токена.
             </summary>
         </member>
+        <member name="T:DanilovSoft.vRPC.RijndaelEnhanced">
+            <summary>
+            This class uses a symmetric key algorithm (Rijndael/AES) to encrypt and
+            decrypt data. As long as it is initialized with the same constructor
+            parameters, the class will use the same key. Before performing encryption,
+            the class can prepend random bytes to plain text and generate different
+            encrypted values from the same plain text, encryption key, initialization
+            vector, and other parameters. This class is thread-safe.
+            </summary>
+            <remarks>
+            Be careful when performing encryption and decryption. There is a bug
+            ("feature"?) in .NET Framework, which causes corruption of encryptor/
+            decryptor if a cryptographic exception occurs during encryption/
+            decryption operation. To correct the problem, re-initialize the class
+            instance when a cryptographic exception occurs.
+            </remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption with 256-bit key, derived using 1 password iteration,
+            hashing without salt, no initialization vector, electronic codebook
+            (ECB) mode, SHA-1 hashing algorithm, and 4-to-8 byte long salt.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <remarks>
+            This constructor is not recommended because it does not use
+            initialization vector and uses the ECB cipher mode, which is less
+            secure than the CBC mode.
+            </remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption with 256-bit key, derived using 1 password iteration,
+            hashing without salt, cipher block chaining (CBC) mode, SHA-1
+            hashing algorithm, and 4-to-8 byte long salt.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption with 256-bit key, derived using 1 password iteration,
+            hashing without salt, cipher block chaining (CBC) mode, SHA-1 
+            hashing algorithm, and 0-to-8 byte long salt.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 8, the default min value will be used (currently 8
+            bytes).
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption with 256-bit key, derived using 1 password iteration,
+            hashing without salt, cipher block chaining (CBC) mode, SHA-1
+            hashing algorithm. Use the minSaltLen and maxSaltLen parameters to
+            specify the size of randomly generated salt.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 8, the default min value will be used (currently 8
+            bytes).
+            </param>
+            <param name="maxSaltLen">
+            Max size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is negative or greater than 255, the default max value will be
+            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
+            than the specified min value (which can be adjusted to default value),
+            salt will not be used and plain text value will be encrypted as is.
+            In this case, salt will not be processed during decryption either.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption using the key derived from 1 password iteration,
+            hashing without salt, cipher block chaining (CBC) mode, and
+            SHA-1 hashing algorithm.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 8, the default min value will be used (currently 8
+            bytes).
+            </param>
+            <param name="maxSaltLen">
+            Max size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is negative or greater than 255, the default max value will be 
+            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
+            than the specified min value (which can be adjusted to default value),
+            salt will not be used and plain text value will be encrypted as is.
+            In this case, salt will not be processed during decryption either.
+            </param>
+            <param name="keySize">
+            Size of symmetric key (in bits): 128, 192, or 256.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption using the key derived from 1 password iteration, and
+            cipher block chaining (CBC) mode.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key.
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 8, the default min value will be used (currently 8
+            bytes).
+            </param>
+            <param name="maxSaltLen">
+            Max size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is negative or greater than 255, the default max value will be
+            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
+            than the specified min value (which can be adjusted to default value),
+            salt will not be used and plain text value will be encrypted as is.
+            In this case, salt will not be processed during decryption either.
+            </param>
+            <param name="keySize">
+            Size of symmetric key (in bits): 128, 192, or 256.
+            </param>
+            <param name="saltValue">
+            Salt value used for password hashing during key generation. This is
+            not the same as the salt we will use during encryption. This parameter
+            can be any string.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String,System.Int32)">
+            <summary>
+            Use this constructor if you are planning to perform encryption/
+            decryption with the key derived from the explicitly specified
+            parameters.
+            </summary>
+            <param name="passPhrase">
+            Passphrase from which a pseudo-random password will be derived.
+            The derived password will be used to generate the encryption key
+            Passphrase can be any string. In this example we assume that the
+            passphrase is an ASCII string. Passphrase value must be kept in
+            secret.
+            </param>
+            <param name="initVector">
+            Initialization vector (IV). This value is required to encrypt the
+            first block of plaintext data. For RijndaelManaged class IV must be
+            exactly 16 ASCII characters long. IV value does not have to be kept
+            in secret.
+            </param>
+            <param name="minSaltLen">
+            Min size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is less than 8, the default min value will be used (currently 8
+            bytes).
+            </param>
+            <param name="maxSaltLen">
+            Max size (in bytes) of randomly generated salt which will be added at
+            the beginning of plain text before encryption is performed. When this
+            value is negative or greater than 255, the default max value will be
+            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
+            than the specified min value (which can be adjusted to default value),
+            salt will not be used and plain text value will be encrypted as is.
+            In this case, salt will not be processed during decryption either.
+            </param>
+            <param name="keySize">
+            Size of symmetric key (in bits): 128, 192, or 256.
+            </param>
+            <param name="saltValue">
+            Salt value used for password hashing during key generation. This is
+            not the same as the salt we will use during encryption. This parameter
+            can be any string.
+            </param>
+            <param name="passwordIterations">
+            Number of iterations used to hash password. More iterations are
+            considered more secure but may take longer.
+            </param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Encrypt(System.String)">
+            <summary>
+            Encrypts a string value generating a base64-encoded string.
+            </summary>
+            <param name="plainText">
+            Plain text string to be encrypted.
+            </param>
+            <returns>
+            Cipher text formatted as a base64-encoded string.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Encrypt(System.Byte[])">
+            <summary>
+            Encrypts a byte array generating a base64-encoded string.
+            </summary>
+            <param name="plainTextBytes">
+            Plain text bytes to be encrypted.
+            </param>
+            <returns>
+            Cipher text formatted as a base64-encoded string.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.EncryptToBytes(System.String)">
+            <summary>
+            Encrypts a string value generating a byte array of cipher text.
+            </summary>
+            <param name="plainText">
+            Plain text string to be encrypted.
+            </param>
+            <returns>
+            Cipher text formatted as a byte array.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.EncryptToBytes(System.Span{System.Byte})">
+            <summary>
+            Encrypts a byte array generating a byte array of cipher text.
+            </summary>
+            <param name="plainTextBytes">
+            Plain text bytes to be encrypted.
+            </param>
+            <returns>
+            Cipher text formatted as a byte array.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Decrypt(System.String)">
+            <summary>
+            Decrypts a base64-encoded cipher text value generating a string result.
+            </summary>
+            <param name="cipherText">
+            Base64-encoded cipher text string to be decrypted.
+            </param>
+            <returns>
+            Decrypted string value.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Decrypt(System.Byte[])">
+            <summary>
+            Decrypts a byte array containing cipher text value and generates a
+            string result.
+            </summary>
+            <param name="cipherTextBytes">
+            Byte array containing encrypted data.
+            </param>
+            <returns>
+            Decrypted string value.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.DecryptToBytes(System.String)">
+            <summary>
+            Decrypts a base64-encoded cipher text value and generates a byte array
+            of plain text data.
+            </summary>
+            <param name="cipherText">
+            Base64-encoded cipher text string to be decrypted.
+            </param>
+            <returns>
+            Byte array containing decrypted value.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.DecryptToBytes(System.Byte[])">
+            <summary>
+            Decrypts a base64-encoded cipher text value and generates a byte array
+            of plain text data.
+            </summary>
+            <param name="cipherTextBytes">
+            Byte array containing encrypted data.
+            </param>
+            <returns>
+            Byte array containing decrypted value.
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.AddSalt(System.Span{System.Byte},System.Span{System.Byte},System.Int32)">
+            <summary>
+            Adds an array of randomly generated bytes at the beginning of the
+            array holding original plain text value.
+            </summary>
+            <param name="plainTextBytes">
+            Byte array containing original plain text value.
+            </param>
+            <returns>
+            Either original array of plain text bytes (if salt is not used) or a
+            modified array containing a randomly generated salt added at the 
+            beginning of the plain text bytes. 
+            </returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.GenerateSalt(System.Int32)">
+            <summary>
+            Generates an array holding cryptographically strong bytes.
+            </summary>
+            <returns>
+            Array of randomly generated bytes.
+            </returns>
+            <remarks>
+            Salt size will be defined at random or exactly as specified by the
+            minSlatLen and maxSaltLen parameters passed to the object constructor.
+            The first four bytes of the salt array will contain the salt length
+            split into four two-bit pieces.
+            </remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.GenerateRandomNumber(System.Int32,System.Int32)">
+            <summary>
+            Generates random integer.
+            </summary>
+            <param name="minValue">
+            Min value (inclusive).
+            </param>
+            <param name="maxValue">
+            Max value (inclusive).
+            </param>
+            <returns>
+            Random integer value between the min and max values (inclusive).
+            </returns>
+            <remarks>
+            This methods overcomes the limitations of .NET Framework's Random
+            class, which - when initialized multiple times within a very short
+            period of time - can generate the same "random" number.
+            </remarks>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RijndaelEnhancedTest">
+            <summary>
+            Illustrates the use of RijndaelEnhanced class to encrypt and decrypt data
+            using a random salt value.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RijndaelEnhancedTest.Main">
+            <summary>
+            The main entry point for the application.
+            </summary>
+        </member>
         <member name="T:DanilovSoft.vRPC.RpcClient">
             <summary>
             Контекст клиентского соединения.
@@ -145,8 +545,8 @@
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
             Потокобезопасно.
             </summary>
+            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
-            <exception cref="T:DanilovSoft.WebSockets.HttpHandshakeException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.ConnectAsync">
@@ -154,8 +554,28 @@
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
             Потокобезопасно.
             </summary>
+            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
-            <exception cref="T:DanilovSoft.WebSockets.HttpHandshakeException"/>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectEx">
+            <summary>
+            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+            Помимо кода возврата может бросить исключение типа <see cref="T:DanilovSoft.vRPC.VRpcException"/>.
+            Потокобезопасно.
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.ConnectExAsync">
+            <summary>
+            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+            Помимо кода возврата может бросить исключение типа <see cref="T:DanilovSoft.vRPC.VRpcException"/>.
+            Потокобезопасно.
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
+            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.SignIn(DanilovSoft.vRPC.AccessToken)">
@@ -330,6 +750,11 @@
             Этот таск настроен не провоцировать исключения.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.ClientSideConnection.#ctor(DanilovSoft.vRPC.RpcClient,DanilovSoft.WebSockets.ClientWebSocket,Microsoft.Extensions.DependencyInjection.ServiceProvider,DanilovSoft.vRPC.InvokeActionsDictionary)">
+            <summary>
+            Принимает открытое соединение Web-Socket.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.ClientSideConnection.SignIn(DanilovSoft.vRPC.AccessToken)">
             <summary>
             Выполняет аутентификацию соединения.
@@ -452,6 +877,11 @@
             Является <see langword="volatile"/>. Если значение – <see langword="false"/>, то можно узнать причину через свойство <see cref="P:DanilovSoft.vRPC.ManagedConnection.DisconnectReason"/>.
             Когда значение становится <see langword="false"/>, то вызывается событие <see cref="E:DanilovSoft.vRPC.ManagedConnection.Disconnected"/>.
             После разъединения текущий экземпляр не может быть переподключен.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.#ctor(DanilovSoft.WebSockets.ManagedWebSocket,System.Boolean,Microsoft.Extensions.DependencyInjection.ServiceProvider,DanilovSoft.vRPC.InvokeActionsDictionary)">
+            <summary>
+            Принимает открытое соединение Web-Socket.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.StartReceiveLoopThreads">
@@ -1394,6 +1824,11 @@
             Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения. Пустую строку не возвращает.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.ToPublicConnectResult(DanilovSoft.vRPC.InnerConnectionResult@)">
+            <summary>
+            Не бросает исключения.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.InnerConnectionResult.#ctor(System.Net.Sockets.SocketError)">
             <summary>
             Подключение не удалось (SocketError может быть Success).
@@ -1483,406 +1918,6 @@
         <member name="M:DanilovSoft.vRPC.RequestQueue.PropagateExceptionAndLockup(System.Exception)">
             <summary>
             Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет провоцировать это исключение.
-            </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.RijndaelEnhanced">
-            <summary>
-            This class uses a symmetric key algorithm (Rijndael/AES) to encrypt and
-            decrypt data. As long as it is initialized with the same constructor
-            parameters, the class will use the same key. Before performing encryption,
-            the class can prepend random bytes to plain text and generate different
-            encrypted values from the same plain text, encryption key, initialization
-            vector, and other parameters. This class is thread-safe.
-            </summary>
-            <remarks>
-            Be careful when performing encryption and decryption. There is a bug
-            ("feature"?) in .NET Framework, which causes corruption of encryptor/
-            decryptor if a cryptographic exception occurs during encryption/
-            decryption operation. To correct the problem, re-initialize the class
-            instance when a cryptographic exception occurs.
-            </remarks>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String)">
-            <summary>
-            Use this constructor if you are planning to perform encryption/
-            decryption with 256-bit key, derived using 1 password iteration,
-            hashing without salt, no initialization vector, electronic codebook
-            (ECB) mode, SHA-1 hashing algorithm, and 4-to-8 byte long salt.
-            </summary>
-            <param name="passPhrase">
-            Passphrase from which a pseudo-random password will be derived.
-            The derived password will be used to generate the encryption key.
-            Passphrase can be any string. In this example we assume that the
-            passphrase is an ASCII string. Passphrase value must be kept in
-            secret.
-            </param>
-            <remarks>
-            This constructor is not recommended because it does not use
-            initialization vector and uses the ECB cipher mode, which is less
-            secure than the CBC mode.
-            </remarks>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String)">
-            <summary>
-            Use this constructor if you are planning to perform encryption/
-            decryption with 256-bit key, derived using 1 password iteration,
-            hashing without salt, cipher block chaining (CBC) mode, SHA-1
-            hashing algorithm, and 4-to-8 byte long salt.
-            </summary>
-            <param name="passPhrase">
-            Passphrase from which a pseudo-random password will be derived.
-            The derived password will be used to generate the encryption key.
-            Passphrase can be any string. In this example we assume that the
-            passphrase is an ASCII string. Passphrase value must be kept in
-            secret.
-            </param>
-            <param name="initVector">
-            Initialization vector (IV). This value is required to encrypt the
-            first block of plaintext data. For RijndaelManaged class IV must be
-            exactly 16 ASCII characters long. IV value does not have to be kept
-            in secret.
-            </param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32)">
-            <summary>
-            Use this constructor if you are planning to perform encryption/
-            decryption with 256-bit key, derived using 1 password iteration,
-            hashing without salt, cipher block chaining (CBC) mode, SHA-1 
-            hashing algorithm, and 0-to-8 byte long salt.
-            </summary>
-            <param name="passPhrase">
-            Passphrase from which a pseudo-random password will be derived.
-            The derived password will be used to generate the encryption key
-            Passphrase can be any string. In this example we assume that the
-            passphrase is an ASCII string. Passphrase value must be kept in
-            secret.
-            </param>
-            <param name="initVector">
-            Initialization vector (IV). This value is required to encrypt the
-            first block of plaintext data. For RijndaelManaged class IV must be
-            exactly 16 ASCII characters long. IV value does not have to be kept
-            in secret.
-            </param>
-            <param name="minSaltLen">
-            Min size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is less than 8, the default min value will be used (currently 8
-            bytes).
-            </param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32)">
-            <summary>
-            Use this constructor if you are planning to perform encryption/
-            decryption with 256-bit key, derived using 1 password iteration,
-            hashing without salt, cipher block chaining (CBC) mode, SHA-1
-            hashing algorithm. Use the minSaltLen and maxSaltLen parameters to
-            specify the size of randomly generated salt.
-            </summary>
-            <param name="passPhrase">
-            Passphrase from which a pseudo-random password will be derived.
-            The derived password will be used to generate the encryption key.
-            Passphrase can be any string. In this example we assume that the
-            passphrase is an ASCII string. Passphrase value must be kept in
-            secret.
-            </param>
-            <param name="initVector">
-            Initialization vector (IV). This value is required to encrypt the
-            first block of plaintext data. For RijndaelManaged class IV must be
-            exactly 16 ASCII characters long. IV value does not have to be kept
-            in secret.
-            </param>
-            <param name="minSaltLen">
-            Min size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is less than 8, the default min value will be used (currently 8
-            bytes).
-            </param>
-            <param name="maxSaltLen">
-            Max size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is negative or greater than 255, the default max value will be
-            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
-            than the specified min value (which can be adjusted to default value),
-            salt will not be used and plain text value will be encrypted as is.
-            In this case, salt will not be processed during decryption either.
-            </param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32)">
-            <summary>
-            Use this constructor if you are planning to perform encryption/
-            decryption using the key derived from 1 password iteration,
-            hashing without salt, cipher block chaining (CBC) mode, and
-            SHA-1 hashing algorithm.
-            </summary>
-            <param name="passPhrase">
-            Passphrase from which a pseudo-random password will be derived.
-            The derived password will be used to generate the encryption key.
-            Passphrase can be any string. In this example we assume that the
-            passphrase is an ASCII string. Passphrase value must be kept in
-            secret.
-            </param>
-            <param name="initVector">
-            Initialization vector (IV). This value is required to encrypt the
-            first block of plaintext data. For RijndaelManaged class IV must be
-            exactly 16 ASCII characters long. IV value does not have to be kept
-            in secret.
-            </param>
-            <param name="minSaltLen">
-            Min size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is less than 8, the default min value will be used (currently 8
-            bytes).
-            </param>
-            <param name="maxSaltLen">
-            Max size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is negative or greater than 255, the default max value will be 
-            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
-            than the specified min value (which can be adjusted to default value),
-            salt will not be used and plain text value will be encrypted as is.
-            In this case, salt will not be processed during decryption either.
-            </param>
-            <param name="keySize">
-            Size of symmetric key (in bits): 128, 192, or 256.
-            </param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String)">
-            <summary>
-            Use this constructor if you are planning to perform encryption/
-            decryption using the key derived from 1 password iteration, and
-            cipher block chaining (CBC) mode.
-            </summary>
-            <param name="passPhrase">
-            Passphrase from which a pseudo-random password will be derived.
-            The derived password will be used to generate the encryption key.
-            Passphrase can be any string. In this example we assume that the
-            passphrase is an ASCII string. Passphrase value must be kept in
-            secret.
-            </param>
-            <param name="initVector">
-            Initialization vector (IV). This value is required to encrypt the
-            first block of plaintext data. For RijndaelManaged class IV must be
-            exactly 16 ASCII characters long. IV value does not have to be kept
-            in secret.
-            </param>
-            <param name="minSaltLen">
-            Min size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is less than 8, the default min value will be used (currently 8
-            bytes).
-            </param>
-            <param name="maxSaltLen">
-            Max size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is negative or greater than 255, the default max value will be
-            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
-            than the specified min value (which can be adjusted to default value),
-            salt will not be used and plain text value will be encrypted as is.
-            In this case, salt will not be processed during decryption either.
-            </param>
-            <param name="keySize">
-            Size of symmetric key (in bits): 128, 192, or 256.
-            </param>
-            <param name="saltValue">
-            Salt value used for password hashing during key generation. This is
-            not the same as the salt we will use during encryption. This parameter
-            can be any string.
-            </param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.#ctor(System.String,System.String,System.Int32,System.Int32,System.Int32,System.String,System.Int32)">
-            <summary>
-            Use this constructor if you are planning to perform encryption/
-            decryption with the key derived from the explicitly specified
-            parameters.
-            </summary>
-            <param name="passPhrase">
-            Passphrase from which a pseudo-random password will be derived.
-            The derived password will be used to generate the encryption key
-            Passphrase can be any string. In this example we assume that the
-            passphrase is an ASCII string. Passphrase value must be kept in
-            secret.
-            </param>
-            <param name="initVector">
-            Initialization vector (IV). This value is required to encrypt the
-            first block of plaintext data. For RijndaelManaged class IV must be
-            exactly 16 ASCII characters long. IV value does not have to be kept
-            in secret.
-            </param>
-            <param name="minSaltLen">
-            Min size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is less than 8, the default min value will be used (currently 8
-            bytes).
-            </param>
-            <param name="maxSaltLen">
-            Max size (in bytes) of randomly generated salt which will be added at
-            the beginning of plain text before encryption is performed. When this
-            value is negative or greater than 255, the default max value will be
-            used (currently 8 bytes). If max value is 0 (zero) or if it is smaller
-            than the specified min value (which can be adjusted to default value),
-            salt will not be used and plain text value will be encrypted as is.
-            In this case, salt will not be processed during decryption either.
-            </param>
-            <param name="keySize">
-            Size of symmetric key (in bits): 128, 192, or 256.
-            </param>
-            <param name="saltValue">
-            Salt value used for password hashing during key generation. This is
-            not the same as the salt we will use during encryption. This parameter
-            can be any string.
-            </param>
-            <param name="passwordIterations">
-            Number of iterations used to hash password. More iterations are
-            considered more secure but may take longer.
-            </param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Encrypt(System.String)">
-            <summary>
-            Encrypts a string value generating a base64-encoded string.
-            </summary>
-            <param name="plainText">
-            Plain text string to be encrypted.
-            </param>
-            <returns>
-            Cipher text formatted as a base64-encoded string.
-            </returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Encrypt(System.Byte[])">
-            <summary>
-            Encrypts a byte array generating a base64-encoded string.
-            </summary>
-            <param name="plainTextBytes">
-            Plain text bytes to be encrypted.
-            </param>
-            <returns>
-            Cipher text formatted as a base64-encoded string.
-            </returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.EncryptToBytes(System.String)">
-            <summary>
-            Encrypts a string value generating a byte array of cipher text.
-            </summary>
-            <param name="plainText">
-            Plain text string to be encrypted.
-            </param>
-            <returns>
-            Cipher text formatted as a byte array.
-            </returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.EncryptToBytes(System.Span{System.Byte})">
-            <summary>
-            Encrypts a byte array generating a byte array of cipher text.
-            </summary>
-            <param name="plainTextBytes">
-            Plain text bytes to be encrypted.
-            </param>
-            <returns>
-            Cipher text formatted as a byte array.
-            </returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Decrypt(System.String)">
-            <summary>
-            Decrypts a base64-encoded cipher text value generating a string result.
-            </summary>
-            <param name="cipherText">
-            Base64-encoded cipher text string to be decrypted.
-            </param>
-            <returns>
-            Decrypted string value.
-            </returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.Decrypt(System.Byte[])">
-            <summary>
-            Decrypts a byte array containing cipher text value and generates a
-            string result.
-            </summary>
-            <param name="cipherTextBytes">
-            Byte array containing encrypted data.
-            </param>
-            <returns>
-            Decrypted string value.
-            </returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.DecryptToBytes(System.String)">
-            <summary>
-            Decrypts a base64-encoded cipher text value and generates a byte array
-            of plain text data.
-            </summary>
-            <param name="cipherText">
-            Base64-encoded cipher text string to be decrypted.
-            </param>
-            <returns>
-            Byte array containing decrypted value.
-            </returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.DecryptToBytes(System.Byte[])">
-            <summary>
-            Decrypts a base64-encoded cipher text value and generates a byte array
-            of plain text data.
-            </summary>
-            <param name="cipherTextBytes">
-            Byte array containing encrypted data.
-            </param>
-            <returns>
-            Byte array containing decrypted value.
-            </returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.AddSalt(System.Span{System.Byte},System.Span{System.Byte},System.Int32)">
-            <summary>
-            Adds an array of randomly generated bytes at the beginning of the
-            array holding original plain text value.
-            </summary>
-            <param name="plainTextBytes">
-            Byte array containing original plain text value.
-            </param>
-            <returns>
-            Either original array of plain text bytes (if salt is not used) or a
-            modified array containing a randomly generated salt added at the 
-            beginning of the plain text bytes. 
-            </returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.GenerateSalt(System.Int32)">
-            <summary>
-            Generates an array holding cryptographically strong bytes.
-            </summary>
-            <returns>
-            Array of randomly generated bytes.
-            </returns>
-            <remarks>
-            Salt size will be defined at random or exactly as specified by the
-            minSlatLen and maxSaltLen parameters passed to the object constructor.
-            The first four bytes of the salt array will contain the salt length
-            split into four two-bit pieces.
-            </remarks>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhanced.GenerateRandomNumber(System.Int32,System.Int32)">
-            <summary>
-            Generates random integer.
-            </summary>
-            <param name="minValue">
-            Min value (inclusive).
-            </param>
-            <param name="maxValue">
-            Max value (inclusive).
-            </param>
-            <returns>
-            Random integer value between the min and max values (inclusive).
-            </returns>
-            <remarks>
-            This methods overcomes the limitations of .NET Framework's Random
-            class, which - when initialized multiple times within a very short
-            period of time - can generate the same "random" number.
-            </remarks>
-        </member>
-        <member name="T:DanilovSoft.vRPC.RijndaelEnhancedTest">
-            <summary>
-            Illustrates the use of RijndaelEnhanced class to encrypt and decrypt data
-            using a random salt value.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RijndaelEnhancedTest.Main">
-            <summary>
-            The main entry point for the application.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.ShutdownRequest.CloseDescription">

@@ -2,6 +2,7 @@
 using DanilovSoft.vRPC.Decorator;
 using Newtonsoft.Json;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Client
@@ -15,12 +16,13 @@ namespace Client
             var client = new RpcClient("localhost", 1234, false, true);
             client.Connected += Client_Connected;
             client.ConfigureAutoAuthentication(() => _accessToken);
-            
-            if (string.IsNullOrEmpty(Settings.Default.AccessToken))
+
+            //if (string.IsNullOrEmpty(Settings.Default.AccessToken))
             {
-                client.Connect();
                 var account = client.GetProxy<IAccountController>();
                 var admin = client.GetProxy<IAdmin>();
+
+                client.Connect();
                 BearerToken bearerToken = account.GetToken("user", "p@$$word");
                 
                 Settings.Default.AccessToken = Convert.ToBase64String(bearerToken.AccessToken);
@@ -31,17 +33,17 @@ namespace Client
                 client.SignOutAsync().GetAwaiter().GetResult();
                 admin.TestAdmin();
             }
-            else
-            {
-                _accessToken = Convert.FromBase64String(Settings.Default.AccessToken);
-                client.Connect();
+            //else
+            //{
+            //    _accessToken = Convert.FromBase64String(Settings.Default.AccessToken);
+            //    client.Connect();
 
-                Settings.Default.AccessToken = null;
-                Settings.Default.Save();
-            }
+            //    Settings.Default.AccessToken = null;
+            //    Settings.Default.Save();
+            //}
         }
 
-        private static void Client_Connected(object sender, EventArgs e)
+        private static void Client_Connected(object sender, ConnectedEventArgs e)
         {
             
         }

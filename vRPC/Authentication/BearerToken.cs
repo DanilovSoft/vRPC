@@ -48,12 +48,6 @@ namespace DanilovSoft.vRPC
         [ProtoMember(2, IsRequired = true, DataFormat = DataFormat.WellKnown)]
         public DateTime ExpiresAt { get; set; }
 
-        //private BearerToken(SerializationInfo info, StreamingContext _)
-        //{
-        //    ExpiresAt = default;
-        //    AccessToken = default;
-        //}
-
         public BearerToken(AccessToken accessToken, DateTime expiresAt)
         {
             AccessToken = accessToken;
@@ -76,11 +70,6 @@ namespace DanilovSoft.vRPC
         public override int GetHashCode()
         {
             return (ExpiresAt, AccessToken).GetHashCode();
-        }
-
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            throw new NotImplementedException();
         }
 
         public static bool operator ==(BearerToken left, BearerToken right)

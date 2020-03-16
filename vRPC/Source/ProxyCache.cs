@@ -113,7 +113,7 @@ namespace DanilovSoft.vRPC
 
         private static string ControllerNameFromTypeName(Type interfaceType)
         {
-#if NETSTANDARD2_0
+#if NETSTANDARD2_0 || NET472
             bool startsWithI = interfaceType.Name.StartsWith("I", StringComparison.Ordinal);
 #else
             bool startsWithI = interfaceType.Name.StartsWith('I');

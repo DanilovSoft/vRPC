@@ -93,8 +93,9 @@ namespace DanilovSoft.vRPC
         /// True если соединение прошло аутентификацию на сервере.
         /// </summary>
         public bool IsAuthenticated => _connection?.IsAuthenticated ?? false;
-        //public event EventHandler<ConnectionAuthenticationEventArgs> ConnectionAuthentication;
-        public event EventHandler Connected;
+        public event EventHandler<ConnectedEventArgs> Connected;
+        public System.Net.EndPoint LocalEndPoint => _connection?.LocalEndPoint;
+        public System.Net.EndPoint RemoteEndPoint => _connection?.RemoteEndPoint;
 
         // ctor.
         static RpcClient()
@@ -197,26 +198,64 @@ namespace DanilovSoft.vRPC
             return Completion.GetAwaiter().GetResult();
         }
 
+        #region Public Connect
+
         /// <summary>
         /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
         /// Потокобезопасно.
         /// </summary>
+        /// <exception cref="VRpcException"/>
         /// <exception cref="WasShutdownException"/>
-        /// <exception cref="HttpHandshakeException"/>
         /// <exception cref="ObjectDisposedException"/>
-        public ConnectResult Connect()
+        public void Connect()
         {
-            return ConnectAsync().GetAwaiter().GetResult();
+            ConnectAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
         /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
         /// Потокобезопасно.
         /// </summary>
+        /// <exception cref="VRpcException"/>
         /// <exception cref="WasShutdownException"/>
-        /// <exception cref="HttpHandshakeException"/>
         /// <exception cref="ObjectDisposedException"/>
-        public Task<ConnectResult> ConnectAsync()
+        public async Task ConnectAsync()
+        {
+            ConnectResult connectResult = await ConnectExAsync().ConfigureAwait(false);
+            
+            switch (connectResult.State)
+            {
+                case ConnectionState.Connected:
+                    return;
+                case ConnectionState.SocketError:
+                    throw new VRpcException($"Unable to connect to the remote server. Error: {(int)connectResult.SocketError}", VRpcErrorCode.ConnectionError);
+                case ConnectionState.ShutdownRequest:
+                    throw connectResult.ShutdownRequest.ToException();
+            }
+        }
+
+        /// <summary>
+        /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+        /// Помимо кода возврата может бросить исключение типа <see cref="VRpcException"/>.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <exception cref="VRpcException"/>
+        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="ObjectDisposedException"/>
+        public ConnectResult ConnectEx()
+        {
+            return ConnectExAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+        /// Помимо кода возврата может бросить исключение типа <see cref="VRpcException"/>.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <exception cref="VRpcException"/>
+        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="ObjectDisposedException"/>
+        public Task<ConnectResult> ConnectExAsync()
         {
             ThrowIfDisposed();
             ThrowIfWasShutdown();
@@ -235,54 +274,23 @@ namespace DanilovSoft.vRPC
             // Локальная.
             static async Task<ConnectResult> WaitForConnectAsync(ValueTask<InnerConnectionResult> t)
             {
-                InnerConnectionResult conRes = await t.ConfigureAwait(false);
+                InnerConnectionResult conRes;
+                try
+                {
+                    conRes = await t.ConfigureAwait(false);
+                }
+                catch (System.Net.WebSockets.WebSocketException ex)
+                {
+                    throw new VRpcException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex, VRpcErrorCode.ConnectionError);
+                }
+                catch (HttpHandshakeException ex)
+                {
+                    throw new VRpcException($"Unable to connect to the remote server due to handshake error", ex, VRpcErrorCode.ConnectionError);
+                }
                 return conRes.ToPublicConnectResult();
             }
         }
-
-        ///// <summary>
-        ///// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-        ///// Потокобезопасно.
-        ///// </summary>
-        ///// <exception cref="WasShutdownException"/>
-        ///// <exception cref="HttpHandshakeException"/>
-        ///// <exception cref="ObjectDisposedException"/>
-        //public ConnectResult Connect(AccessToken accessToken)
-        //{
-        //    return ConnectAsync(accessToken).GetAwaiter().GetResult();
-        //}
-
-        ///// <summary>
-        ///// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-        ///// Потокобезопасно.
-        ///// </summary>
-        ///// <exception cref="WasShutdownException"/>
-        ///// <exception cref="HttpHandshakeException"/>
-        ///// <exception cref="ObjectDisposedException"/>
-        //public Task<ConnectResult> ConnectAsync(AccessToken accessToken)
-        //{
-        //    ThrowIfDisposed();
-        //    ThrowIfWasShutdown();
-
-        //    throw new NotImplementedException();
-        //    //ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync(accessToken);
-        //    //if (t.IsCompletedSuccessfully)
-        //    //{
-        //    //    InnerConnectionResult conRes = t.Result;
-        //    //    return Task.FromResult(conRes.ToConnectResult());
-        //    //}
-        //    //else
-        //    //{
-        //    //    return WaitForConnectAsync(t);
-        //    //}
-
-        //    //// Локальная.
-        //    //static async Task<ConnectResult> WaitForConnectAsync(ValueTask<InnerConnectionResult> t)
-        //    //{
-        //    //    InnerConnectionResult conRes = await t.ConfigureAwait(false);
-        //    //    return conRes.ToConnectResult();
-        //    //}
-        //}
+        #endregion
 
         /// <summary>
         /// Выполняет аутентификацию текущего соединения.
@@ -601,7 +609,7 @@ namespace DanilovSoft.vRPC
             // Только один поток получит соединение с этим флагом.
             if (conResult.NewConnectionCreated)
             {
-                Connected?.Invoke(this, EventArgs.Empty);
+                Connected?.Invoke(this, new ConnectedEventArgs(conResult.Connection));
             }
 
             return conResult;

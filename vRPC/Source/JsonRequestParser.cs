@@ -36,7 +36,7 @@ namespace DanilovSoft.vRPC
                                     actionName = reader.GetString();
                                     if (!invokeActions.TryGetAction(actionName, out action))
                                     {
-#if NETSTANDARD2_0
+#if NETSTANDARD2_0 || NET472
                                         int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter);
 #else
                                         int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter, StringComparison.Ordinal);

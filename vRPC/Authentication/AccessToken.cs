@@ -1,6 +1,7 @@
 ﻿using ProtoBuf;
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
@@ -13,13 +14,15 @@ namespace DanilovSoft.vRPC
     [Serializable] // Разрешим юзеру хранить токен в любом виде.
     [ProtoContract]
     //[JsonConverter(typeof(AccessTokenJsonConverter))]
+    [DebuggerDisplay(@"\{Length = {Bytes.Length}, {AsHex}\}")]
     public struct AccessToken : IEquatable<AccessToken>
     {
-        //private const string SerializerKeyName = "Bytes";
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private string AsHex => Convert.ToBase64String(Bytes);
 
         [JsonPropertyName("Bytes")]
         [ProtoMember(1, IsRequired = true)]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1819:Свойства не должны возвращать массивы", Justification = "<Ожидание>")]
+        [SuppressMessage("Performance", "CA1819:Свойства не должны возвращать массивы", Justification = "<Ожидание>")]
         public byte[] Bytes { get; set; }
 
         //[JsonIgnore]
@@ -56,7 +59,7 @@ namespace DanilovSoft.vRPC
             return new AccessToken(rawToken);
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2225:Для перегрузок операторов существуют варианты с именами", Justification = "Предлагает дичь")]
+        [SuppressMessage("Usage", "CA2225:Для перегрузок операторов существуют варианты с именами", Justification = "Предлагает дичь")]
         public static implicit operator byte[](AccessToken self)
         {
             return self.Bytes;

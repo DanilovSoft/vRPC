@@ -58,7 +58,7 @@ namespace DanilovSoft.vRPC
         /// Не бросает исключения.
         /// </summary>
         public Task<CloseReason> Completion => _completionTcs.Task;
-        public bool IsServer { get; }
+        internal bool IsServer { get; }
         public ServiceProvider ServiceProvider { get; }
         /// <summary>
         /// Подключенный TCP сокет.
@@ -68,8 +68,8 @@ namespace DanilovSoft.vRPC
         /// Коллекция запросов ожидающие ответ от удалённой стороны.
         /// </summary>
         private readonly RequestQueue _pendingRequests;
-        public EndPoint LocalEndPoint => _ws.LocalEndPoint;
-        public EndPoint RemoteEndPoint => _ws.RemoteEndPoint;
+        public EndPoint LocalEndPoint { get; }
+        public EndPoint RemoteEndPoint { get; }
         /// <summary>
         /// Отправка сообщения <see cref="BinaryMessageToSend"/> должна выполняться только через этот канал.
         /// </summary>
@@ -166,11 +166,19 @@ namespace DanilovSoft.vRPC
         }
 
         // ctor.
+        /// <summary>
+        /// Принимает открытое соединение Web-Socket.
+        /// </summary>
         internal ManagedConnection(ManagedWebSocket clientConnection, bool isServer, ServiceProvider serviceProvider, InvokeActionsDictionary actions)
         {
             IsServer = isServer;
 
+            Debug.Assert(clientConnection.State == Ms.WebSocketState.Open);
+
+            LocalEndPoint = clientConnection.LocalEndPoint;
+            RemoteEndPoint = clientConnection.RemoteEndPoint;
             _ws = clientConnection;
+
             _pendingRequests = new RequestQueue();
 
             // IoC готов к работе.
