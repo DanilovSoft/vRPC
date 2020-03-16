@@ -151,24 +151,6 @@ namespace DanilovSoft.vRPC
             ProtoBuf.Serializer.Serialize(destination, instance);
         }
 
-        ///// <summary>
-        ///// Десериализует Bson.
-        ///// </summary>
-        //public static RequestMessageDto DeserializeRequestBson(Stream stream)
-        //{
-        //    using(var br = new BinaryReader(stream, _UTF8NoBOM, leaveOpen: true))
-        //    using (var json = new BsonDataReader(br))
-        //    {
-        //        var ser = new JsonSerializer();
-        //        var req = ser.Deserialize<RequestMessageDto>(json);
-        //        if (req != null)
-        //            return req;
-
-        //        // Сюда не должны попадать.
-        //        throw new InvalidOperationException("Результатом десериализации оказался Null.");
-        //    }
-        //}
-
         public static void WarmupRequestMessageJson()
         {
             var dto = new RequestMessageDto("Home/Hello", new object[] { 1 });

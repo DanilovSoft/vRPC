@@ -101,7 +101,6 @@ namespace DanilovSoft.vRPC
                     // Закриптовать.
                     encryptedToken = Jwt.EncryptToBytes(serializedTmpBuf.AsSpan(0, (int)mem.Length));
                 }
-
                 var token = new BearerToken(encryptedToken, validity);
                 return token;
             }
@@ -137,7 +136,12 @@ namespace DanilovSoft.vRPC
             {
                 return new BadRequestResult("Токен не валиден");
             }
-            
+
+            return SignIn(bearerToken);
+        }
+
+        private IActionResult SignIn(ServerAccessToken bearerToken)
+        {
             Debug.Assert(bearerToken.ClaimsPrincipal != null);
 
             ClaimsPrincipal user;
@@ -151,6 +155,10 @@ namespace DanilovSoft.vRPC
                         try
                         {
                             user = new ClaimsPrincipal(breader);
+                        }
+                        catch (EndOfStreamException)
+                        {
+                            return new BadRequestResult("Аутентификация не работает на .NET Framework из-за бага");
                         }
                         catch (Exception)
                         {

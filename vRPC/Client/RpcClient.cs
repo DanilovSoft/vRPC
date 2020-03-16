@@ -228,7 +228,10 @@ namespace DanilovSoft.vRPC
                 case ConnectionState.Connected:
                     return;
                 case ConnectionState.SocketError:
-                    throw new VRpcException($"Unable to connect to the remote server. Error: {(int)connectResult.SocketError}", VRpcErrorCode.ConnectionError);
+                    
+                    throw new VRpcException($"Unable to connect to the remote server. Error: {(int)connectResult.SocketError}", 
+                        connectResult.SocketError.Value.ToException(), VRpcErrorCode.ConnectionError);
+
                 case ConnectionState.ShutdownRequest:
                     throw connectResult.ShutdownRequest.ToException();
             }
@@ -278,6 +281,10 @@ namespace DanilovSoft.vRPC
                 try
                 {
                     conRes = await t.ConfigureAwait(false);
+                }
+                catch (SocketException ex)
+                {
+                    throw new VRpcException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex, VRpcErrorCode.ConnectionError);
                 }
                 catch (System.Net.WebSockets.WebSocketException ex)
                 {

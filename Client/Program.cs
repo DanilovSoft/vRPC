@@ -31,7 +31,7 @@ namespace Client
                 client.SignInAsync(bearerToken.AccessToken).GetAwaiter().GetResult();
                 admin.TestAdmin();
                 client.SignOutAsync().GetAwaiter().GetResult();
-                admin.TestAdmin();
+                //admin.TestAdmin();
             }
             //else
             //{
