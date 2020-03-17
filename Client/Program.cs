@@ -17,6 +17,8 @@ namespace Client
             client.Connected += Client_Connected;
             client.ConfigureAutoAuthentication(() => _accessToken);
 
+            var res = client.Completion.Result;
+            
             //if (string.IsNullOrEmpty(Settings.Default.AccessToken))
             {
                 var account = client.GetProxy<IAccountController>();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
@@ -12,7 +13,8 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// "Соединение не установлено."
         /// </summary>
-        internal static readonly CloseReason NoConnectionGracifully = new CloseReason(null, null, null, "Соединение не установлено.", null);
+        internal static readonly CloseReason NoConnectionGracifully = new CloseReason(null, null, null, "Соединение не установлено", null);
+        internal static Task<CloseReason> NoConnectionCompletion = Task.FromResult(NoConnectionGracifully);
 
         /// <summary>
         /// Является <see langword="true"/> если разъединение завершилось грациозно.
@@ -72,7 +74,14 @@ namespace DanilovSoft.vRPC
             {
                 if(string.IsNullOrEmpty(CloseDescription))
                 {
-                    return "Удалённая сторона выполнила нормальное закрытие без объяснения причины";
+                    if (string.IsNullOrEmpty(AdditionalDescription))
+                    {
+                        return "Удалённая сторона выполнила нормальное закрытие без объяснения причины";
+                    }
+                    else
+                    {
+                        return AdditionalDescription;
+                    }
                 }
                 else
                 {

@@ -56,11 +56,13 @@ namespace DanilovSoft.vRPC
         /// Устанавливается в блокировке <see cref="StateLock"/>.
         /// </summary>
         private volatile ClientSideConnection _connection;
+
+        private Task<CloseReason> _completion;
         /// <summary>
         /// Завершается если подключение разорвано.
         /// Не бросает исключения.
         /// </summary>
-        public Task<CloseReason> Completion { get; private set; }
+        public Task<CloseReason> Completion => _completion ?? CloseReason.NoConnectionCompletion;
         public RpcState State
         {
             get
@@ -715,7 +717,7 @@ namespace DanilovSoft.vRPC
                                 if (stopRequired == null)
                                 {
                                     // Скопируем таск соединения.
-                                    Completion = connection.Completion;
+                                    _completion = connection.Completion;
 
                                     // Косвенно устанавливает флаг IsConnected.
                                     _connection = connection;
