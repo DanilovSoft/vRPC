@@ -11,20 +11,27 @@ namespace Client
     {
         private static AccessToken _accessToken;
 
-        static void Main()
+        static async Task Main()
         {
-            var client = new RpcClient("localhost", 1234, false, true);
+            var client = new RpcClient("10.2.2.22", 1234, false, true);
+
+            Console.CancelKeyPress += (s, e) => 
+            {
+                Console.WriteLine("Closing...");
+                e.Cancel = true;
+                client.BeginShutdown(TimeSpan.FromSeconds(2), "Пользователь нажал Ctrl+C");
+            };
+
+            Console.WriteLine("ConnectExAsync");
+            var result = await client.ConnectExAsync();
+            
             client.Connected += Client_Connected;
             client.ConfigureAutoAuthentication(() => _accessToken);
-
-            var res = client.Completion.Result;
-            
             //if (string.IsNullOrEmpty(Settings.Default.AccessToken))
             {
                 var account = client.GetProxy<IAccountController>();
                 var admin = client.GetProxy<IAdmin>();
 
-                client.Connect();
                 BearerToken bearerToken = account.GetToken("user", "p@$$word");
                 
                 Settings.Default.AccessToken = Convert.ToBase64String(bearerToken.AccessToken);
