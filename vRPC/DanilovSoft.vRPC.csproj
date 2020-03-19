@@ -12,7 +12,7 @@
     <Authors>Vitalii Danilov</Authors>
     <PackageId>DanilovSoft.vRPC</PackageId>
     <Product>DanilovSoft.vRPC</Product>
-    <Version>1.7.3</Version>
+    <Version>1.7.4</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -37,7 +37,7 @@
   <!--<DefineConstants Condition=" '$(TargetFrameworkVersion)' != 'v4.0' ">NOT_RUNNING_ON_4</DefineConstants>-->
 
   <ItemGroup>
-    <PackageReference Include="DanilovSoft.WebSocket" Version="2.0.4" />
+    <PackageReference Include="DanilovSoft.WebSocket" Version="2.0.5" />
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
