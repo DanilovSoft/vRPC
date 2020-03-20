@@ -120,9 +120,9 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт контекст клиентского соединения.
         /// </summary>
-        /// <param name="allowReconnect">Разрешено ли интерфейсам самостоятельно устанавливать и повторно переподключаться к серверу.</param>
-        public RpcClient(string host, int port, bool ssl = false, bool allowReconnect = true) 
-            : this(Assembly.GetCallingAssembly(), new Uri($"{(ssl ? "wss" : "ws")}://{host}:{port}"), allowReconnect)
+        /// <param name="allowAutoConnect">Разрешено ли интерфейсам самостоятельно устанавливать и повторно переподключаться к серверу.</param>
+        public RpcClient(string host, int port, bool ssl = false, bool allowAutoConnect = true) 
+            : this(Assembly.GetCallingAssembly(), new Uri($"{(ssl ? "wss" : "ws")}://{host}:{port}"), allowAutoConnect)
         {
             
         }
