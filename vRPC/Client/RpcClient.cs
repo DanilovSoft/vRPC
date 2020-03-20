@@ -408,7 +408,7 @@ namespace DanilovSoft.vRPC
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
 
-            return ManagedConnection.OnClientProxyCallStatic(connectionTask, targetMethod, args, controllerName);
+            return ManagedConnection.OnClientInterfaceCall(connectionTask, targetMethod, args, controllerName);
         }
 
         /// <summary>

@@ -44,6 +44,12 @@ namespace XUnitTest
 
             }   
         }
+
+        [Fact]
+        public void TestDebugValidator()
+        {
+            DanilovSoft.vRPC.Decorator.DebugOnly.ValidateReturnType(typeof(TimeSpan), TimeSpan.Zero);
+        }
     }
 
     public interface I { }

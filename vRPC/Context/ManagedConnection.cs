@@ -381,17 +381,17 @@ namespace DanilovSoft.vRPC
 
             // Сериализуем запрос в память.
             BinaryMessageToSend serMsg = requestMeta.SerializeRequest(args);
-
             if (!requestMeta.IsNotificationRequest)
             {
                 // Отправляем запрос.
-                var objResult = SendRequestAndGetResult(serMsg, requestMeta);
-                return objResult;
+                Task<object> requestTask = SendRequestAndGetResult(requestMeta, serMsg);
+
+                return ConvertRequestTask(requestMeta, requestTask);
             }
             else
             {
                 PostNotification(serMsg, requestMeta);
-                return Task.CompletedTask;
+                return ConvertNotificationTask(requestMeta, Task.CompletedTask);
             }
         }
 
@@ -399,7 +399,7 @@ namespace DanilovSoft.vRPC
         /// Происходит при обращении к проксирующему интерфейсу.
         /// Возвращает Task или готовый результат если был вызван синхронный метод.
         /// </summary>
-        internal static object OnClientProxyCallStatic(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, object[] args, string controllerName)
+        internal static object OnClientInterfaceCall(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
             RequestMeta requestMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new RequestMeta(mi, cn), controllerName);
@@ -409,7 +409,10 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Результатом может быть не завершённый таск.
-                var activeCall = ExecuteRequest(connectionTask, serMsg, requestMeta);
+                var activeCall = ExecuteRequestStatic(connectionTask, serMsg, requestMeta);
+
+                Debug.Assert(targetMethod.ReturnType.IsInstanceOfType(activeCall), "Тип результата не совпадает с возвращаемым типом интерфейса");
+
                 serMsg = null; // Предотвратить Dispose.
                 return activeCall;
             }
@@ -422,47 +425,47 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
         /// </summary>
-        internal static object ExecuteRequest(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        private static object ExecuteRequestStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
         {
             if (!requestMeta.IsNotificationRequest)
             // Запрос должен получить ответ.
             {
-                return SendRequestAndWaitResult(connectionTask, binaryRequest, requestMeta);
+                return SendRequestAndGetResultStatic(connectionTask, binaryRequest, requestMeta);
             }
             else
             // Отправляем запрос как уведомление.
             {
-                return SendNotification(connectionTask, binaryRequest, requestMeta);
+                return SendNotificationStatic(connectionTask, binaryRequest, requestMeta);
             }
         }
 
         /// <summary>
         /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
         /// </summary>
-        internal static object SendRequestAndWaitResult(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        private static object SendRequestAndGetResultStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
             // Отправляем запрос.
-            var objResult = SendRequestAndGetResultAsync(connectionTask, binaryRequest, requestMeta);
+            Task<object> requestTask = SendRequestAndGetResultAsync(connectionTask, binaryRequest, requestMeta);
 
             // Результатом может быть не завершённый Task или готовый результат.
-            return objResult;
+            return ConvertRequestTask(requestMeta, requestTask);
         }
 
         /// <summary>
         /// Отправляет запрос как уведомление. Результатом может быть Null или Task или ValueTask.
         /// </summary>
-        internal static object SendNotification(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        private static object SendNotificationStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
         {
             Debug.Assert(requestMeta.IsNotificationRequest);
 
             // Может бросить исключение.
             // Добавляет сообщение в очередь на отправку.
-            Task sendNotificationTask = SendNotificationAsync(connectionTask, binaryRequest, requestMeta);
+            Task sendNotificationTask = SendNotificationStaticAsync(connectionTask, binaryRequest, requestMeta);
 
             // Конвертируем Task в ValueTask если это требует интерфейс.
-            return ConvertNotificationTask(sendNotificationTask, requestMeta);
+            return ConvertNotificationTask(requestMeta, sendNotificationTask);
         }
 
         /// <summary>
@@ -472,7 +475,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private static Task SendNotificationAsync(ValueTask<ClientSideConnection> connectingTask, BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
+        private static Task SendNotificationStaticAsync(ValueTask<ClientSideConnection> connectingTask, BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
         {
             if (connectingTask.IsCompleted)
             {
@@ -501,7 +504,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static object SendRequestAndGetResultAsync(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
+        private static Task<object> SendRequestAndGetResultAsync(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
         {
             if (connectionTask.IsCompleted)
             {
@@ -509,26 +512,26 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = connectionTask.Result;
 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendRequestAndGetResult(serializedMessage, requestMetadata);
+                return connection.SendRequestAndGetResult(requestMetadata, serializedMessage);
             }
             else
             {
-                return WaitForConnectAndSendRequest(connectionTask, serializedMessage, requestMetadata);
+                return WaitForConnectAndSendRequest(connectionTask, serializedMessage, requestMetadata).Unwrap();
             }
 
-            static async Task<object> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
+            static async Task<Task<object>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
             {
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendRequestAndGetResult(serializedMessage, requestMetadata);
+                return connection.SendRequestAndGetResult(requestMetadata, serializedMessage);
             }
         }
 
         /// <summary>
         /// Может вернуть Null или Task или ValueTask.
         /// </summary>
-        private static object ConvertNotificationTask(Task sendNotificationTask, RequestMeta requestActionMeta)
+        private static object ConvertNotificationTask(RequestMeta requestActionMeta, Task sendNotificationTask)
         {
             if (requestActionMeta.IsAsync)
             // Возвращаемый тип функции интерфейса — Task или ValueTask.
@@ -555,7 +558,7 @@ namespace DanilovSoft.vRPC
         /// Преобразует <see cref="Task"/><see langword="&lt;object&gt;"/> в <see cref="Task"/>&lt;T&gt; или возвращает TResult
         /// если метод интерфейса является синхронной функцией.
         /// </summary>
-        private static object ConvertRequestTask(RequestMeta requestMeta, Task<object> requestTask)
+        private protected static object ConvertRequestTask(RequestMeta requestMeta, Task<object> requestTask)
         {
             if (requestMeta.IsAsync)
             // Возвращаемый тип функции интерфейса — Task.
@@ -617,7 +620,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal void PostNotification(BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
+        internal void PostNotification(BinaryMessageToSend serializedMessage, RequestMeta _)
         {
             ThrowIfDisposed();
             ThrowIfShutdownRequired();
@@ -627,34 +630,42 @@ namespace DanilovSoft.vRPC
             QueueSendMessage(serializedMessage);
         }
 
-        ///// <exception cref="VRpcException"/>
-        //private void ValidateAuthenticationRequired(RequestMeta requestMetadata)
+        //private protected Task<object> SendRequestAndGetResult(BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
         //{
-        //    Debug.Assert(IsConnected);
-        //    if (!requestMetadata.IsRequiredAuthentication || IsAuthenticated)
-        //    {
-        //        return;
-        //    }
-        //    throw new VRpcException($"Доступ к методу '{requestMetadata.ActionFullName}' требует предварительную аутентификацию", VRpcErrorCode.MethodRequiresAuthentication);
+        //    return SendRequestAndGetResultTask(serializedMessage, requestMeta);
         //}
 
-        private protected object SendRequestAndGetResult(BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
+        /// <summary>
+        /// Отправляет запрос и ожидает его ответ.
+        /// </summary>
+        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="ObjectDisposedException"/>
+        private protected Task<object> SendRequestAndGetResult(RequestMeta requestMeta, object[] args)
         {
-            //ValidateAuthenticationRequired(requestMeta);
+            Debug.Assert(!requestMeta.IsNotificationRequest);
 
-            Task<object> requestTask = SendRequestAndGetResultTask(serializedMessage, requestMeta);
-
-            // Преобразовать в Task<T> или извлечь готовый результат.
-            return ConvertRequestTask(requestMeta, requestTask);
+            BinaryMessageToSend request = requestMeta.SerializeRequest(args);
+            try
+            {
+                Task<object> requestTask = SendRequestAndGetResult(requestMeta, request);
+                request = null;
+                return requestTask;
+            }
+            finally
+            {
+                request?.Dispose();
+            }
         }
 
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
+        /// Если не случилось исключения то <paramref name="serializedMessage"/> диспозить нельзя.
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private Task<object> SendRequestAndGetResultTask(BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
+        private protected Task<object> SendRequestAndGetResult(RequestMeta requestMeta, BinaryMessageToSend serializedMessage)
         {
+            Debug.Assert(!requestMeta.IsNotificationRequest);
             try
             {
                 ThrowIfDisposed();

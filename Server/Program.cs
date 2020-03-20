@@ -5,14 +5,26 @@ using System.Net;
 
 namespace Server
 {
+    public interface IHome
+    {
+        [Notification]
+        void Test();
+    }
+
     class Program
     {
         static void Main()
         {
             var listener = new RpcListener(IPAddress.Any, 1234);
+            listener.ClientConnected += Listener_ClientConnected;
             listener.ClientAuthenticated += Listener_ClientAuthenticated;
             listener.ClientSignedOut += Listener_ClientSignedOut;
             listener.RunAsync().Wait();
+        }
+
+        private static void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
+        {
+            //e.Connection.GetProxy<IHome>().Test();
         }
 
         private static void Listener_ClientSignedOut(object sender, ClientSignedOutEventArgs e)

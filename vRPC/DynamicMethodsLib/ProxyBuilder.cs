@@ -389,9 +389,11 @@ namespace DynamicMethodsLib
                 }
                 else
                 {
-                    // Не нужно кастовать если возвращаемый тип совпадает.
+                    // Не нужно кастовать если возвращаемый тип интерфейса тоже object.
                     if (method.ReturnType != typeof(object))
-                        il.Emit(OpCodes.Isinst, method.ReturnType);
+                    {
+                        il.Emit(OpCodes.Isinst, method.ReturnType); // Каст с помощью as.
+                    }
                 }
             }
             il.Emit(OpCodes.Ret);

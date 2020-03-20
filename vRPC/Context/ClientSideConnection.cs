@@ -144,7 +144,7 @@ namespace DanilovSoft.vRPC
             BinaryMessageToSend binaryRequest = SignInAsyncMeta.SerializeRequest(new object[] { accessToken });
             try
             {
-                requestTask = SendRequestAndGetResult(binaryRequest, SignInAsyncMeta) as Task;
+                requestTask = SendRequestAndGetResult(SignInAsyncMeta, binaryRequest);
                 binaryRequest = null;
             }
             finally
@@ -223,7 +223,7 @@ namespace DanilovSoft.vRPC
             BinaryMessageToSend binaryRequest = SignOutAsyncMeta.SerializeRequest(Array.Empty<object>());
             try
             {
-                requestTask = SendRequestAndGetResult(binaryRequest, SignOutAsyncMeta) as Task;
+                requestTask = SendRequestAndGetResult(SignOutAsyncMeta, binaryRequest);
                 binaryRequest = null;
             }
             finally

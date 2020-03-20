@@ -45,7 +45,7 @@ namespace DanilovSoft.vRPC
 
         // ctor.
         // Только Listener может создать этот класс.
-        internal ServerSideConnection(ManagedWebSocket clientConnection, ServiceProvider serviceProvider, RpcListener listener) 
+        internal ServerSideConnection(ManagedWebSocket clientConnection, ServiceProvider serviceProvider, RpcListener listener)
             : base(clientConnection, isServer: true, serviceProvider, listener.InvokeActions)
         {
             Listener = listener;
@@ -234,5 +234,49 @@ namespace DanilovSoft.vRPC
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private protected override T InnerGetProxy<T>() => GetProxy<T>();
+
+        #region Call Helpers
+
+        public void Call(string controllerName, string actionName, params object[] args)
+        {
+            var requestMeta = new RequestMeta(controllerName, actionName, typeof(void), false);
+            Task<object> obj = SendRequestAndGetResult(requestMeta, args);
+            object result = ConvertRequestTask(requestMeta, obj);
+            if (result is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+
+        public Task CallAsync(string controllerName, string actionName, params object[] args)
+        {
+            var requestMeta = new RequestMeta(controllerName, actionName, typeof(Task), false);
+            Task<object> requestTask = SendRequestAndGetResult(requestMeta, args);
+            Task task = ConvertRequestTask(requestMeta, requestTask) as Task;
+            Debug.Assert(task != null);
+            return task;
+        }
+
+        public T Call<T>(string controllerName, string actionName, params object[] args)
+        {
+            var requestMeta = new RequestMeta(controllerName, actionName, typeof(T), false);
+            Task<object> requestTask = SendRequestAndGetResult(requestMeta, args);
+            var result = (T)ConvertRequestTask(requestMeta, requestTask);
+            return result;
+        }
+
+        public Task<T> CallAsync<T>(string controllerName, string actionName, params object[] args)
+        {
+            var requestMeta = new RequestMeta(controllerName, actionName, typeof(Task<T>), false);
+
+            Task<object> requestTask = SendRequestAndGetResult(requestMeta, args);
+
+            Task<T> task = ConvertRequestTask(requestMeta, requestTask) as Task<T>;
+            Debug.Assert(task != null);
+
+            return task;
+        }
+
+        #endregion
     }
 }

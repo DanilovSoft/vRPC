@@ -1,6 +1,7 @@
 ﻿using DynamicMethodsLib;
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -43,10 +44,16 @@ namespace DanilovSoft.vRPC.Decorator
             return MemberwiseClone() as T;
         }
 
+
         // Вызывается через рефлексию.
+        [SuppressMessage("Design", "CA1062:Проверить аргументы или открытые методы", Justification = "Логически не может быть Null")]
         protected object Invoke(MethodInfo targetMethod, object[] args)
         {
-            return Client.OnInterfaceMethodCall(targetMethod, args, ControllerName);
+            object returnValue = Client.OnInterfaceMethodCall(targetMethod, args, ControllerName);
+
+            DebugOnly.ValidateReturnType(targetMethod.ReturnType, returnValue);
+
+            return returnValue;
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -44,9 +45,14 @@ namespace DanilovSoft.vRPC.Decorator
         }
 
         // Вызывается через рефлексию.
+        [SuppressMessage("Design", "CA1062:Проверить аргументы или открытые методы", Justification = "Логически не может быть Null")]
         protected object Invoke(MethodInfo targetMethod, object[] args)
         {
-            return Connection.OnInterfaceMethodCall(targetMethod, args, ControllerName);
+            object returnValue = Connection.OnInterfaceMethodCall(targetMethod, args, ControllerName);
+
+            DebugOnly.ValidateReturnType(targetMethod.ReturnType, returnValue);
+
+            return returnValue;
         }
     }
 }
