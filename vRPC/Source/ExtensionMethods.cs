@@ -68,6 +68,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Десериализует Json.
         /// </summary>
+        //[Obsolete]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static object DeserializeJson(ReadOnlyMemory<byte> utf8Json, Type returnType)
         {
@@ -142,7 +143,9 @@ namespace DanilovSoft.vRPC
         internal static object DeserializeProtoBuf(ReadOnlyMemory<byte> source, Type type)
         {
             using (var stream = new MemoryReader(source))
+            {
                 return ProtoBuf.Serializer.Deserialize(type, stream);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
