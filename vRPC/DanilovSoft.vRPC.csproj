@@ -24,6 +24,7 @@
   <PropertyGroup>
     <NoWarn>1701;1702;1573;1591</NoWarn>
     <NeutralLanguage>en</NeutralLanguage>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

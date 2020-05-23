@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Причина остановки сервиса указанная пользователем. Может быть <see langword="null"/>.
         /// </summary>
-        public string CloseDescription { get; }
+        public string? CloseDescription { get; }
         internal Task<CloseReason> Task => _tcs.Task;
         /// <summary>
         /// Максимальное время ожидания остановки сервиса указанное пользователем 
@@ -21,7 +21,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public TimeSpan ShutdownTimeout { get; }
 
-        public ShutdownRequest(TimeSpan disconnectTimeout, string closeDescription)
+        public ShutdownRequest(TimeSpan disconnectTimeout, string? closeDescription)
         {
             _tcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
             ShutdownTimeout = disconnectTimeout;

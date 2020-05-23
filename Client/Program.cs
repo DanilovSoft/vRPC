@@ -15,7 +15,6 @@ namespace Client
         {
             var client = new RpcClient("127.0.0.1", 1234, false, true);
             client.Connect();
-            client.Completion.Wait();
             //var result = await client.ConnectExAsync();
 
             client.Connected += Client_Connected;

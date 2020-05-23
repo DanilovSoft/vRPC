@@ -18,11 +18,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Результат вызова метода контроллера.
         /// </summary>
-        public object ActionResult { get; }
+        public object? ActionResult { get; }
         /// <summary>
         /// Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
         /// </summary>
-        public RequestToInvoke ReceivedRequest { get; private set; }
+        public RequestToInvoke? ReceivedRequest { get; private set; }
         public bool IsRequest => false;
         public bool IsNotificationRequest => false;
 
@@ -41,7 +41,7 @@ namespace DanilovSoft.vRPC
         /// <param name="receivedRequest"></param>
         /// <param name="rawResult"></param>
         [DebuggerStepThrough]
-        public ResponseMessage(RequestToInvoke receivedRequest, object rawResult)
+        public ResponseMessage(RequestToInvoke receivedRequest, object? rawResult)
         {
             Debug.Assert(receivedRequest.Uid != null);
 

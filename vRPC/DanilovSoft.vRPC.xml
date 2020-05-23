@@ -785,7 +785,10 @@
         </member>
         <member name="P:DanilovSoft.vRPC.IMessageMeta.IsNotificationRequest">
             <summary>
-            Может быть True если IsRequest тоже является ft.vRPC.ManagedConnection">
+            Может быть True если IsRequest тоже является True.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.ManagedConnection">
             <summary>
             Контекст соединения Web-Сокета. Владеет соединением.
             </summary>
@@ -1295,9 +1298,6 @@
             На данный момент сериализуется только в Json.
             </summary>
         </member>
-        ется только в Json.
-            </summary>
-        </member>
         <member name="P:DanilovSoft.vRPC.RequestMessageDto.ActionName">
             <summary>
             Вызываемый метод.
@@ -1453,7 +1453,26 @@
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.RequestMeta.SerializeRequest(System.Object[])">
-            <sumR2.GetString(System.String,System.Object)">
+            <summary>
+            Сериализует сообщение в память. Может бросить исключение сериализации.
+            </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RequestToInvoke">
+            <summary>
+            Содержит запрос полученный от удалённой стороны.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestToInvoke.ActionToInvoke">
+            <summary>
+            Запрашиваемый метод контроллера.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestToInvoke.Args">
+            <summary>
+            Аргументы вызываемого метода.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.Resources.SR2.GetString(System.String,System.Object)">
             <summary>
             Форматирует строку.
             </summary>
@@ -1575,16 +1594,6 @@
             <summary>
             Начинает остановку сервиса. Не блокирует поток.
             Не бросает исключения.
-            Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
-            </summary>
-            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
-            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
-            Может быть <see langword="null"/>.</param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcListener.ShutdownAsync(System.TimeSpan,System.String)">
-            <summary>
-            Останавливает сервис и ожидает до полной остановки.
-            Не бросает исключения�я.
             Результат остановки можно получить через <see cref="P:DanilovSoft.vRPC.RpcListener.Completion"/>.
             </summary>
             <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>

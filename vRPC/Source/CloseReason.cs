@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,21 +25,21 @@ namespace DanilovSoft.vRPC
         /// Является <see langword="null"/> если разъединение завершилось грациозно
         /// и не является <see langword="null"/> когда разъединение завершилось не грациозно.
         /// </summary>
-        public Exception ConnectionError { get; }
+        public Exception? ConnectionError { get; }
         /// <summary>
         /// Сообщение от удалённой стороны указывающее причину разъединения (может быть <see langword="null"/>).
         /// Если текст совпадает с переданным в метод Shutdown то разъединение произошло по вашей инициативе.
         /// </summary>
-        public string CloseDescription { get; }
+        public string? CloseDescription { get; }
         /// <summary>
         /// Может быть <see langword="null"/>. Не зависит от <see cref="Gracifully"/>.
         /// </summary>
-        public string AdditionalDescription { get; }
+        public string? AdditionalDescription { get; }
         internal WebSocketCloseStatus? CloseStatus { get; }
         /// <summary>
         /// Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
         /// </summary>
-        public ShutdownRequest ShutdownRequest { get; }
+        public ShutdownRequest? ShutdownRequest { get; }
 
         [DebuggerStepThrough]
         internal static CloseReason FromException(WasShutdownException stopRequiredException)
@@ -47,19 +48,19 @@ namespace DanilovSoft.vRPC
         }
 
         [DebuggerStepThrough]
-        internal static CloseReason FromException(Exception ex, ShutdownRequest stopRequired, string additionalDescription = null)
+        internal static CloseReason FromException(Exception ex, ShutdownRequest? stopRequired, string? additionalDescription = null)
         {
             return new CloseReason(ex, null, null, additionalDescription, stopRequired);
         }
 
         [DebuggerStepThrough]
-        internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription, ShutdownRequest stopRequired)
+        internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string? closeDescription, string? additionalDescription, ShutdownRequest stopRequired)
         {
             return new CloseReason(null, closeStatus, closeDescription, additionalDescription, stopRequired);
         }
 
         [DebuggerStepThrough]
-        private CloseReason(Exception error, WebSocketCloseStatus? closeStatus, string closeDescription, string additionalDescription, ShutdownRequest stopRequired)
+        private CloseReason(Exception? error, WebSocketCloseStatus? closeStatus, string? closeDescription, string? additionalDescription, ShutdownRequest? stopRequired)
         {
             ConnectionError = error;
             CloseDescription = closeDescription;
@@ -90,7 +91,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                return $"Соединение оборвано: {AdditionalDescription ?? ConnectionError.Message}";
+                return $"Соединение оборвано: {AdditionalDescription ?? ConnectionError!.Message}";
             }
         }
     }

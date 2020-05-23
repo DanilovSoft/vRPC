@@ -24,7 +24,7 @@ namespace DanilovSoft.vRPC
         /// Преобразует <see cref="Task"/><see langword="&lt;object&gt;"/> в <see cref="Task{T}"/> или в <see cref="ValueTask{T}"/>.
         /// Не бросает исключения но агрегирует их в Task.
         /// </summary>
-        public static object ConvertTask(Task<object> task, Type desireType, Type returnType)
+        public static object ConvertTask(Task<object?> task, Type desireType, Type returnType)
         {
             // Получить делегат шаблонного конвертера.
             return _dict.GetOrAdd(desireType, DelegateFactory, returnType).Invoke(task);

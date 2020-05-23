@@ -19,9 +19,9 @@ namespace DanilovSoft.vRPC
         private volatile bool _isCompleted;
         [DebuggerNonUserCode]
         public bool IsCompleted => _isCompleted;
-        private volatile object _response;
-        private volatile Exception _exception;
-        private Action _continuationAtomic;
+        private volatile object? _response;
+        private volatile Exception? _exception;
+        private Action? _continuationAtomic;
 
         // ctor.
         public RequestAwaiter(RequestMeta requestToSend)
@@ -33,7 +33,7 @@ namespace DanilovSoft.vRPC
         public RequestAwaiter GetAwaiter() => this;
 
         [DebuggerNonUserCode]
-        public object GetResult()
+        public object? GetResult()
         {
             if (_exception == null)
             {
@@ -58,7 +58,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передает результат ожидающему потоку.
         /// </summary>
-        public void TrySetResult(object rawResult)
+        public void TrySetResult(object? rawResult)
         {
             _response = rawResult;
             OnResultAtomic();
@@ -70,7 +70,7 @@ namespace DanilovSoft.vRPC
             _isCompleted = true;
 
             // Атомарно записать заглушку или вызвать оригинальный continuation.
-            Action continuation = Interlocked.CompareExchange(ref _continuationAtomic, GlobalVars.DummyAction, null);
+            Action? continuation = Interlocked.CompareExchange(ref _continuationAtomic, GlobalVars.DummyAction, null);
             if (continuation != null)
             {
                 // Нельзя делать продолжение текущим потоком т.к. это затормозит/остановит диспетчер 
@@ -84,9 +84,11 @@ namespace DanilovSoft.vRPC
         }
 
         //[DebuggerStepThrough]
-        private static void CallContinuation(object state)
+        private static void CallContinuation(object? state)
         {
-            ((Action)state).Invoke();
+            var action = state as Action;
+            Debug.Assert(action != null);
+            action.Invoke();
         }
 
         public void OnCompleted(Action continuation)

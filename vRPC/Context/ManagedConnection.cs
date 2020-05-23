@@ -49,7 +49,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Причина закрытия соединения. Это свойство возвращает <see cref="Completion"/>.
         /// </summary>
-        public CloseReason DisconnectReason { get; private set; }
+        public CloseReason? DisconnectReason { get; private set; }
         /// <summary>
         /// Возвращает <see cref="Task"/> который завершается когда 
         /// соединение переходит в закрытое состояние.
@@ -88,7 +88,7 @@ namespace DanilovSoft.vRPC
         /// Используется для проверки возможности начать новый запрос.
         /// Использовать через блокировку <see cref="StopRequiredLock"/>.
         /// </summary>
-        private volatile ShutdownRequest _stopRequired;
+        private volatile ShutdownRequest? _stopRequired;
         /// <summary>
         /// Предотвращает повторный вызов Stop.
         /// </summary>
@@ -102,7 +102,7 @@ namespace DanilovSoft.vRPC
         /// Подписку на событие Disconnected нужно синхронизировать что-бы подписчики не пропустили момент обрыва.
         /// </summary>
         private object DisconnectEventObj => _sendChannel;
-        private EventHandler<SocketDisconnectedEventArgs> _disconnected;
+        private EventHandler<SocketDisconnectedEventArgs>? _disconnected;
         /// <summary>
         /// Событие обрыва соединения. Может сработать только один раз.
         /// Если подписка на событие происходит к уже отключенному сокету то событие сработает сразу же.
@@ -112,7 +112,7 @@ namespace DanilovSoft.vRPC
         {
             add
             {
-                CloseReason closeReason = null;
+                CloseReason? closeReason = null;
                 lock (DisconnectEventObj)
                 {
                     if (DisconnectReason == null)
@@ -145,7 +145,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public bool IsConnected => _isConnected;
         public abstract bool IsAuthenticated { get; }
-        private Task _loopSender;
+        private Task? _loopSender;
 
         // static ctor.
         static ManagedConnection()
@@ -207,18 +207,35 @@ namespace DanilovSoft.vRPC
             // Не бросает исключения.
             _loopSender = LoopSendAsync();
 
+#if NETSTANDARD2_0 || NET472
             // Запустить цикл приёма сообщений.
             ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this); // Без замыкания.
+#else
+            // Запустить цикл приёма сообщений.
+            ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this, preferLocal: true); // Без замыкания.
+#endif
         }
 
-        private static void ReceiveLoopStart(object state)
+#if NETSTANDARD2_0 || NET472
+
+        private static void ReceiveLoopStart(object? state)
+        {
+            var self = state as ManagedConnection;
+            Debug.Assert(self != null);
+            ReceiveLoopStart(argState: self!);
+        }
+#endif
+
+        private static void ReceiveLoopStart(ManagedConnection argState)
         {
             // Не бросает исключения.
-            ((ManagedConnection)state).ReceiveLoop();
+            argState.ReceiveLoop();
         }
 
-        private void WebSocket_Disconnected(object sender, SocketDisconnectingEventArgs e)
+        private void WebSocket_Disconnected(object? sender, SocketDisconnectingEventArgs e)
         {
+            Debug.Assert(_stopRequired != null);
+            
             CloseReason closeReason;
             if (e.DisconnectingReason.Gracifully)
             {
@@ -239,7 +256,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public CloseReason Shutdown(TimeSpan disconnectTimeout, string closeDescription = null)
+        public CloseReason Shutdown(TimeSpan disconnectTimeout, string? closeDescription = null)
         {
             return InnerShutdownAsync(new ShutdownRequest(disconnectTimeout, closeDescription)).GetAwaiter().GetResult();
         }
@@ -250,7 +267,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public Task<CloseReason> ShutdownAsync(TimeSpan disconnectTimeout, string closeDescription = null)
+        public Task<CloseReason> ShutdownAsync(TimeSpan disconnectTimeout, string? closeDescription = null)
         {
             return InnerShutdownAsync(new ShutdownRequest(disconnectTimeout, closeDescription));
         }
@@ -324,6 +341,8 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private void DisposeOnCloseReceived()
         {
+            Debug.Assert(_stopRequired != null);
+
             // Был получен Close. Это значит что веб сокет уже закрыт и нам остаётся только закрыть сервис.
             AtomicDispose(CloseReason.FromCloseFrame(_ws.CloseStatus, _ws.CloseStatusDescription, null, _stopRequired));
         }
@@ -332,7 +351,7 @@ namespace DanilovSoft.vRPC
         /// Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
         /// Не бросает исключения.
         /// </summary>
-        private async void PrivateBeginClose(string closeDescription)
+        private async void PrivateBeginClose(string? closeDescription)
         {
             // Эту функцию вызывает тот поток который поймал флаг о необходимости завершения сервиса.
             // Благодаря событию WebSocket.Disconnect у нас гарантированно вызовется AtomicDispose.
@@ -374,7 +393,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal object OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
+        internal object? OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
             RequestMeta requestMeta = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestMeta(tm, cn), controllerName);
@@ -384,7 +403,7 @@ namespace DanilovSoft.vRPC
             if (!requestMeta.IsNotificationRequest)
             {
                 // Отправляем запрос.
-                Task<object> requestTask = SendRequestAndGetResult(requestMeta, serMsg);
+                Task<object?> requestTask = SendRequestAndGetResult(requestMeta, serMsg);
 
                 return ConvertRequestTask(requestMeta, requestTask);
             }
@@ -399,13 +418,13 @@ namespace DanilovSoft.vRPC
         /// Происходит при обращении к проксирующему интерфейсу.
         /// Возвращает Task или готовый результат если был вызван синхронный метод.
         /// </summary>
-        internal static object OnClientInterfaceCall(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, object[] args, string controllerName)
+        internal static object? OnClientInterfaceCall(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
             RequestMeta requestMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new RequestMeta(mi, cn), controllerName);
 
             // Сериализуем запрос в память. Лучше выполнить до подключения.
-            BinaryMessageToSend serMsg = requestMeta.SerializeRequest(args);
+            BinaryMessageToSend? serMsg = requestMeta.SerializeRequest(args);
             try
             {
                 // Результатом может быть не завершённый таск.
@@ -425,7 +444,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
         /// </summary>
-        private static object ExecuteRequestStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        private static object? ExecuteRequestStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
         {
             if (!requestMeta.IsNotificationRequest)
             // Запрос должен получить ответ.
@@ -442,12 +461,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
         /// </summary>
-        private static object SendRequestAndGetResultStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        private static object? SendRequestAndGetResultStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
             // Отправляем запрос.
-            Task<object> requestTask = SendRequestAndGetResultAsync(connectionTask, binaryRequest, requestMeta);
+            Task<object?> requestTask = SendRequestAndGetResultAsync(connectionTask, binaryRequest, requestMeta);
 
             // Результатом может быть не завершённый Task или готовый результат.
             return ConvertRequestTask(requestMeta, requestTask);
@@ -456,7 +475,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос как уведомление. Результатом может быть Null или Task или ValueTask.
         /// </summary>
-        private static object SendNotificationStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        private static object? SendNotificationStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
         {
             Debug.Assert(requestMeta.IsNotificationRequest);
 
@@ -504,7 +523,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static Task<object> SendRequestAndGetResultAsync(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
+        private static Task<object?> SendRequestAndGetResultAsync(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
         {
             if (connectionTask.IsCompleted)
             {
@@ -519,7 +538,7 @@ namespace DanilovSoft.vRPC
                 return WaitForConnectAndSendRequest(connectionTask, serializedMessage, requestMetadata).Unwrap();
             }
 
-            static async Task<Task<object>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
+            static async Task<Task<object?>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
             {
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
@@ -531,7 +550,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Может вернуть Null или Task или ValueTask.
         /// </summary>
-        private static object ConvertNotificationTask(RequestMeta requestActionMeta, Task sendNotificationTask)
+        private static object? ConvertNotificationTask(RequestMeta requestActionMeta, Task sendNotificationTask)
         {
             if (requestActionMeta.IsAsync)
             // Возвращаемый тип функции интерфейса — Task или ValueTask.
@@ -558,7 +577,7 @@ namespace DanilovSoft.vRPC
         /// Преобразует <see cref="Task"/><see langword="&lt;object&gt;"/> в <see cref="Task"/>&lt;T&gt; или возвращает TResult
         /// если метод интерфейса является синхронной функцией.
         /// </summary>
-        private protected static object ConvertRequestTask(RequestMeta requestMeta, Task<object> requestTask)
+        private protected static object? ConvertRequestTask(RequestMeta requestMeta, Task<object?> requestTask)
         {
             if (requestMeta.IsAsync)
             // Возвращаемый тип функции интерфейса — Task.
@@ -589,7 +608,7 @@ namespace DanilovSoft.vRPC
             // Была вызвана синхронная функция.
             {
                 // Результатом может быть исключение.
-                object finalResult = requestTask.GetAwaiter().GetResult();
+                object? finalResult = requestTask.GetAwaiter().GetResult();
                 return finalResult;
             }
         }
@@ -640,14 +659,14 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private protected Task<object> SendRequestAndGetResult(RequestMeta requestMeta, object[] args)
+        private protected Task<object?> SendRequestAndGetResult(RequestMeta requestMeta, object[] args)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
-            BinaryMessageToSend request = requestMeta.SerializeRequest(args);
+            BinaryMessageToSend? request = requestMeta.SerializeRequest(args);
             try
             {
-                Task<object> requestTask = SendRequestAndGetResult(requestMeta, request);
+                Task<object?> requestTask = SendRequestAndGetResult(requestMeta, request);
                 request = null;
                 return requestTask;
             }
@@ -663,7 +682,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private protected Task<object> SendRequestAndGetResult(RequestMeta requestMeta, BinaryMessageToSend serializedMessage)
+        private protected Task<object?> SendRequestAndGetResult(RequestMeta requestMeta, BinaryMessageToSend serializedMessage)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
             try
@@ -692,11 +711,11 @@ namespace DanilovSoft.vRPC
                 serializedMessage?.Dispose();
             }
 
-            static async Task<object> WaitForAwaiterAsync(RequestAwaiter tcs)
+            static async Task<object?> WaitForAwaiterAsync(RequestAwaiter tcs)
             {
                 // Ожидаем результат от потока поторый читает из сокета.
                 // Валидным результатом может быть исключение.
-                object rawResult = await tcs;
+                object? rawResult = await tcs;
 
                 // Успешно получили результат без исключений.
                 return rawResult;
@@ -710,7 +729,7 @@ namespace DanilovSoft.vRPC
             // Бесконечно обрабатываем сообщения сокета.
             while (!IsDisposed)
             {
-                #region Читаем хедер
+#region Читаем хедер
 
                 ValueWebSocketReceiveResult webSocketMessage;
 
@@ -773,7 +792,7 @@ namespace DanilovSoft.vRPC
                         {
                             try
                             {
-                                await _ws.CloseOutputAsync(_ws.CloseStatus.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
+                                await _ws.CloseOutputAsync(_ws.CloseStatus!.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
                             }
                             catch (Exception ex)
                             // Обрыв соединения.
@@ -793,7 +812,7 @@ namespace DanilovSoft.vRPC
                     return;
                 }
 
-                #endregion
+#endregion
 
                 if (header != null)
                 {
@@ -832,9 +851,9 @@ namespace DanilovSoft.vRPC
                                     return;
                                 }
 
-                                #region Пока не EndOfMessage записывать в буфер памяти
+#region Пока не EndOfMessage записывать в буфер памяти
 
-                                #region Читаем фрейм веб-сокета
+#region Читаем фрейм веб-сокета
 
                                 // Ограничиваем буфер памяти до колличества принятых байт из сокета.
                                 Memory<byte> contentBuffer = contentMem.Slice(bufferOffset, receiveMessageBytesLeft);
@@ -852,7 +871,7 @@ namespace DanilovSoft.vRPC
                                     // Завершить поток.
                                     return;
                                 }
-                                #endregion
+#endregion
 
                                 if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
                                 {
@@ -877,7 +896,7 @@ namespace DanilovSoft.vRPC
                                         {
                                             try
                                             {
-                                                await _ws.CloseOutputAsync(_ws.CloseStatus.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
+                                                await _ws.CloseOutputAsync(_ws.CloseStatus!.Value, _ws.CloseStatusDescription, CancellationToken.None).ConfigureAwait(false);
                                             }
                                             catch (Exception ex)
                                             // Обрыв соединения.
@@ -896,12 +915,12 @@ namespace DanilovSoft.vRPC
                                     // Завершить поток.
                                     return;
                                 }
-                                #endregion
+#endregion
 
                             } while (!webSocketMessage.EndOfMessage);
                         }
 
-                        #region Обработка Payload
+#region Обработка Payload
 
                         if (header.StatusCode == StatusCode.Request)
                         // Получен запрос.
@@ -915,10 +934,10 @@ namespace DanilovSoft.vRPC
                                 }
                             }
 
-                            #region Десериализация запроса
+#region Десериализация запроса
 
                             RequestToInvoke requestToInvoke;
-                            IActionResult error = null;
+                            IActionResult? error = null;
                             try
                             {
                                 // Десериализуем запрос.
@@ -927,7 +946,7 @@ namespace DanilovSoft.vRPC
                             catch (Exception ex)
                             // Ошибка десериализации запроса.
                             {
-                                #region Игнорируем запрос
+#region Игнорируем запрос
 
                                 if (header.Uid != null)
                                 // Запрос ожидает ответ.
@@ -941,11 +960,11 @@ namespace DanilovSoft.vRPC
 
                                 // Вернуться к чтению заголовка.
                                 continue;
-                                #endregion
+#endregion
                             }
-                            #endregion
+#endregion
 
-                            #region Не удалось десериализовать — игнорируем запрос
+#region Не удалось десериализовать — игнорируем запрос
 
                             if (requestToInvoke == null)
                             // Не удалось десериализовать запрос.                                    
@@ -962,7 +981,7 @@ namespace DanilovSoft.vRPC
                                 // Вернуться к чтению заголовка.
                                 continue;
                             }
-                            #endregion
+#endregion
 
                             // Начать выполнение запроса в отдельном потоке.
                             StartProcessRequest(requestToInvoke);
@@ -970,24 +989,24 @@ namespace DanilovSoft.vRPC
                         else
                         // Получен ответ на запрос.
                         {
-                            #region Передача другому потоку ответа на запрос
+#region Передача другому потоку ответа на запрос
 
                             // Удалить запрос из словаря.
                             if (_pendingRequests.TryRemove(header.Uid.Value, out RequestAwaiter reqAwaiter))
                             // Передать ответ ожидающему потоку.
                             {
-                                #region Передать ответ ожидающему потоку
+#region Передать ответ ожидающему потоку
 
                                 if (header.StatusCode == StatusCode.Ok)
                                 // Запрос на удалённой стороне был выполнен успешно.
                                 {
-                                    #region Передать успешный результат
+#region Передать успешный результат
 
                                     if (reqAwaiter.Request.IncapsulatedReturnType != typeof(void))
                                     // Поток ожидает некий объект как результат.
                                     {
                                         bool deserialized;
-                                        object rawResult;
+                                        object? rawResult;
                                         if (!contentMem.IsEmpty)
                                         {
                                             // Десериализатор в соответствии с ContentEncoding.
@@ -1043,7 +1062,7 @@ namespace DanilovSoft.vRPC
                                     {
                                         reqAwaiter.TrySetResult(null);
                                     }
-                                    #endregion
+#endregion
                                 }
                                 else
                                 // Сервер прислал код ошибки.
@@ -1054,7 +1073,7 @@ namespace DanilovSoft.vRPC
                                     // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
                                     reqAwaiter.TrySetException(new BadRequestException(errorMessage, header.StatusCode));
                                 }
-                                #endregion
+#endregion
 
                                 // Получен ожидаемый ответ на запрос.
                                 if (DecActiveRequestCount())
@@ -1072,9 +1091,9 @@ namespace DanilovSoft.vRPC
                                 }
                             }
 
-                            #endregion
+#endregion
                         }
-                        #endregion
+#endregion
                     }
                 }
                 else
@@ -1097,7 +1116,7 @@ namespace DanilovSoft.vRPC
         private async Task<bool> FinishSenderAsync()
         {
             bool completed = _sendChannel.Writer.TryComplete();
-            Task senderTask = Volatile.Read(ref _loopSender);
+            Task? senderTask = Volatile.Read(ref _loopSender);
             if (senderTask != null)
             // Подождать завершение Send потока.
             {
@@ -1151,18 +1170,19 @@ namespace DanilovSoft.vRPC
         /// <param name="responseToSend"></param>
         private void QueueSendResponse(ResponseMessage responseToSend)
         {
-            ThreadPool.UnsafeQueueUserWorkItem(QueueSendResponseThread, Tuple.Create(this, responseToSend));
+            ThreadPool.UnsafeQueueUserWorkItem(QueueSendResponseThread, (this, responseToSend));
         }
 
-        private static void QueueSendResponseThread(object state)
+        private static void QueueSendResponseThread(object? state)
         {
-            var tuple = (Tuple<ManagedConnection, ResponseMessage>)state;
+            Debug.Assert(state != null);
+            (ManagedConnection self, ResponseMessage responseToSend) = ((ManagedConnection, ResponseMessage))state;
 
             // Сериализуем.
-            BinaryMessageToSend serializedMessage = SerializeResponse(tuple.Item2);
-            
+            BinaryMessageToSend serializedMessage = SerializeResponse(responseToSend);
+
             // Ставим в очередь.
-            tuple.Item1.QueueSendMessage(serializedMessage);
+            self.QueueSendMessage(serializedMessage);
         }
 
         
@@ -1173,7 +1193,7 @@ namespace DanilovSoft.vRPC
         private static BinaryMessageToSend SerializeResponse(ResponseMessage responseToSend)
         {
             BinaryMessageToSend refCopy;
-            var serMsg = new BinaryMessageToSend(responseToSend);
+            BinaryMessageToSend? serMsg = new BinaryMessageToSend(responseToSend);
             try
             {
                 if (responseToSend.ActionResult is IActionResult actionResult)
@@ -1190,7 +1210,7 @@ namespace DanilovSoft.vRPC
                     // Сериализуем ответ.
                     serMsg.StatusCode = StatusCode.Ok;
 
-                    object result = responseToSend.ActionResult;
+                    object? result = responseToSend.ActionResult;
                     if (result != null)
                     {
                         responseToSend.ReceivedRequest.ActionToInvoke.Serializer(serMsg.MemPoolStream, result);
@@ -1316,7 +1336,7 @@ namespace DanilovSoft.vRPC
                         // Размер сообщения без заголовка.
                         int messageSize = (int)serializedMessage.MemPoolStream.Length - serializedMessage.HeaderSize;
 
-                        #region Отправка заголовка
+#region Отправка заголовка
 
                         try
                         {
@@ -1333,11 +1353,11 @@ namespace DanilovSoft.vRPC
                             // Завершить поток.
                             return;
                         }
-                        #endregion
+#endregion
 
                         if (messageSize > 0)
                         {
-                            #region Отправка тела сообщения (запрос или ответ на запрос)
+#region Отправка тела сообщения (запрос или ответ на запрос)
 
                             try
                             {
@@ -1354,7 +1374,7 @@ namespace DanilovSoft.vRPC
                                 return;
                             }
 
-                            #endregion
+#endregion
                         }
 
                         if (!serializedMessage.MessageToSend.IsRequest)
@@ -1434,12 +1454,12 @@ namespace DanilovSoft.vRPC
         /// Результатом может быть IActionResult или Raw объект или исключение.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        private ValueTask<object> InvokeControllerAsync(RequestToInvoke receivedRequest)
+        private ValueTask<object?> InvokeControllerAsync(RequestToInvoke receivedRequest)
         {
             // Проверить доступ к функции.
             if (ActionPermissionCheck(receivedRequest.ActionToInvoke, out IActionResult permissionError, out var user))
             {
-                IServiceScope scope = ServiceProvider.CreateScope();
+                IServiceScope? scope = ServiceProvider.CreateScope();
                 try
                 {
                     // Инициализируем Scope текущим соединением.
@@ -1447,7 +1467,8 @@ namespace DanilovSoft.vRPC
                     getProxyScope.GetProxy = this;
 
                     // Активируем контроллер через IoC.
-                    var controller = (Controller)scope.ServiceProvider.GetRequiredService(receivedRequest.ActionToInvoke.ControllerType);
+                    var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.ActionToInvoke.ControllerType) as Controller;
+                    Debug.Assert(controller != null);
 
                     // Подготавливаем контроллер.
                     controller.BeforeInvokeController(this, user);
@@ -1468,19 +1489,21 @@ namespace DanilovSoft.vRPC
                             controllerResult = t.Result;
 
                             // Результат успешно получен без исключения.
-                            return new ValueTask<object>(controllerResult);
+                            return new ValueTask<object?>(controllerResult);
                         }
                         else
                         {
+                            var scopeRefCpy = scope;
+
                             // Предотвратить Dispose.
                             scope = null;
 
-                            return WaitForControllerActionAsync(t, scope);
+                            return WaitForControllerActionAsync(t, scopeRefCpy);
                         }
                     }
                     else
                     {
-                        return new ValueTask<object>(result: null);
+                        return new ValueTask<object?>(result: null);
                     }
                 }
                 finally
@@ -1491,10 +1514,10 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                return new ValueTask<object>(permissionError);
+                return new ValueTask<object?>(permissionError);
             }
 
-            static async ValueTask<object> WaitForControllerActionAsync(ValueTask<object> t, IServiceScope scope)
+            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object> t, IServiceScope scope)
             {
                 using (scope)
                 {
@@ -1520,15 +1543,27 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private void StartProcessRequest(RequestToInvoke request)
         {
-            ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestThread, Tuple.Create(this, request)); // Без замыкания.
+#if NETSTANDARD2_0 || NET472
+            ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestThread, (this, request)); // Без замыкания.
+#else
+            ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestThread, (this, request), preferLocal: true); // Без замыкания.
+#endif
         }
 
-        private static void StartProcessRequestThread(object state)
+#if NETSTANDARD2_0 || NET472
+        private static void StartProcessRequestThread(object? state)
         {
-            var tuple = (Tuple<ManagedConnection, RequestToInvoke>)state;
+            Debug.Assert(state != null);
+            var tuple = ((ManagedConnection, RequestToInvoke))state;
 
+            StartProcessRequestThread(stateTuple: tuple);
+        }  
+#endif
+
+        private static void StartProcessRequestThread((ManagedConnection self, RequestToInvoke request) stateTuple)
+        {
             // Не бросает исключения.
-            tuple.Item1.StartProcessRequestThread(tuple.Item2);
+            stateTuple.self.StartProcessRequestThread(stateTuple.request);
         }
 
         /// <summary>
@@ -1610,16 +1645,16 @@ namespace DanilovSoft.vRPC
             else
             // Notification
             {
-                ValueTask<object> t = InvokeControllerAsync(requestToInvoke);
+                ValueTask<object?> t = InvokeControllerAsync(requestToInvoke);
 
-                if(!t.IsCompletedSuccessfully)
+                if (!t.IsCompletedSuccessfully)
                 {
                     WaitForNotification(t);
                 }
             }
         }
 
-        private static async void WaitForNotification(ValueTask<object> t)
+        private static async void WaitForNotification(ValueTask<object?> t)
         {
             try
             {
@@ -1664,13 +1699,13 @@ namespace DanilovSoft.vRPC
         private ValueTask<ResponseMessage> GetResponseAsync(RequestToInvoke requestContext)
         {
             // Не должно бросать исключения.
-            ValueTask<object> t = InvokeControllerAsync(requestContext);
+            ValueTask<object?> t = InvokeControllerAsync(requestContext);
 
             if(t.IsCompletedSuccessfully)
             // Синхронно только в случае успеха.
             {
                 // Результат контроллера. Может быть Task.
-                object result = t.Result;
+                object? result = t.Result;
 
                 return new ValueTask<ResponseMessage>(new ResponseMessage(requestContext, result));
             }
@@ -1713,9 +1748,9 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static async ValueTask<ResponseMessage> WaitForInvokeControllerAsync(ValueTask<object> t, RequestToInvoke requestContext)
+        private static async ValueTask<ResponseMessage> WaitForInvokeControllerAsync(ValueTask<object?> t, RequestToInvoke requestContext)
         {
-            object rawResult;
+            object? rawResult;
             try
             {
                 // Находит и выполняет запрашиваемую функцию.
