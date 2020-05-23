@@ -410,7 +410,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                PostNotification(serMsg, requestMeta);
+                PostNotification(serMsg);
                 return ConvertNotificationTask(requestMeta, Task.CompletedTask);
             }
         }
@@ -431,18 +431,18 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Результатом может быть не завершённый таск.
+                // Может начать отправку текущим потоком.
                 object? activeCall = ExecuteRequestStatic(connectionTask, serMsg, requestMeta);
+
                 toDispose = null; // Предотвратить Dispose.
 
                 ValidateIfaceTypeMatch(targetMethod, activeCall);
                 return activeCall;
             }
-            catch (Exception ex)
-            {
-                throw;
-            }
             finally
             {
+                // В случае исключения в методе ExecuteRequestStatic
+                // объект может быть уже уничтожен но это не страшно, его Dispose - атомарный.
                 toDispose?.Dispose();
             }
         }
@@ -517,7 +517,7 @@ namespace DanilovSoft.vRPC
                 ManagedConnection connection = connectingTask.Result;
                 
                 // Отправляет уведомление через очередь.
-                connection.PostNotification(serializedMessage, requestMeta);
+                connection.PostNotification(serializedMessage);
 
                 // Нотификации не возвращают результат.
                 return Task.CompletedTask;
@@ -534,7 +534,7 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                connection.PostNotification(serializedMessage, requestMeta);
+                connection.PostNotification(serializedMessage);
             }
         }
 
@@ -654,7 +654,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal void PostNotification(BinaryMessageToSend serializedMessage, RequestMeta _)
+        internal void PostNotification(BinaryMessageToSend serializedMessage)
         {
             ThrowIfDisposed();
             ThrowIfShutdownRequired();
@@ -1244,7 +1244,7 @@ namespace DanilovSoft.vRPC
         private static void QueueSendResponseThread((ManagedConnection self, ResponseMessage responseToSend) argState)
         {
             // Сериализуем.
-            BinaryMessageToSend serializedMessage = SerializeResponse(argState.responseToSend);
+            BinaryMessageToSend serializedMessage = SerializeActionResponse(argState.responseToSend);
 
             // Ставим в очередь.
             argState.self.QueueSendMessage(serializedMessage);
@@ -1253,43 +1253,46 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
-        private static BinaryMessageToSend SerializeResponse(ResponseMessage responseToSend)
+        private static BinaryMessageToSend SerializeActionResponse(ResponseMessage responseToSend)
         {
-            BinaryMessageToSend refCopy;
-            BinaryMessageToSend? serMsg = new BinaryMessageToSend(responseToSend);
+            Debug.Assert(responseToSend.ReceivedRequest != null, "Результат контроллера может быть только на основе запроса");
+
+            BinaryMessageToSend serMsg = new BinaryMessageToSend(responseToSend);
+            BinaryMessageToSend? toDispose = serMsg;
+
             try
             {
                 if (responseToSend.ActionResult is IActionResult actionResult)
+                // Метод контроллера вернул специальный тип.
                 {
                     var actionContext = new ActionContext(responseToSend.ReceivedRequest, serMsg.MemPoolStream);
-                    
+
                     // Сериализуем ответ.
                     actionResult.ExecuteResult(actionContext);
                     serMsg.StatusCode = actionContext.StatusCode;
                     serMsg.ContentEncoding = actionContext.ProducesEncoding;
                 }
                 else
+                // Отправлять результат контроллера будем как есть.
                 {
                     // Сериализуем ответ.
                     serMsg.StatusCode = StatusCode.Ok;
 
-                    object? result = responseToSend.ActionResult;
-                    if (result != null)
+                    // Сериализуем контент если он есть (у void его нет).
+                    if (responseToSend.ActionResult != null)
                     {
-                        responseToSend.ReceivedRequest.ActionToInvoke.Serializer(serMsg.MemPoolStream, result);
+                        responseToSend.ReceivedRequest.ActionToInvoke.Serializer(serMsg.MemPoolStream, responseToSend.ActionResult);
                         serMsg.ContentEncoding = responseToSend.ReceivedRequest.ActionToInvoke.ProducesEncoding;
                     }
                 }
 
-                refCopy = serMsg;
-                serMsg = null; // Предотвратить Dispose.
+                toDispose = null; // Предотвратить Dispose.
+                return serMsg;
             }
             finally
             {
-                if(serMsg != null)
-                    serMsg.Dispose();
+                toDispose?.Dispose();
             }
-            return refCopy;
         }
 
         /// <summary>
@@ -1546,12 +1549,12 @@ namespace DanilovSoft.vRPC
                     // Может быть не завершённый Task.
                     if (actionResult != null)
                     {
-                        ValueTask<object?> t = DynamicAwaiter.WaitAsync(actionResult);
+                        ValueTask<object?> actionResultAsTask = DynamicAwaiter.WaitAsync(actionResult);
 
-                        if (t.IsCompletedSuccessfully)
+                        if (actionResultAsTask.IsCompletedSuccessfully)
                         {
                             // Извлекает результат из Task'а.
-                            actionResult = t.Result;
+                            actionResult = actionResultAsTask.Result;
 
                             // Результат успешно получен без исключения.
                             return new ValueTask<object?>(actionResult);
@@ -1561,7 +1564,7 @@ namespace DanilovSoft.vRPC
                             // Предотвратить Dispose.
                             toDispose = null;
 
-                            return WaitForControllerActionAsync(t, scope);
+                            return WaitForControllerActionAsync(actionResultAsTask, scope);
                         }
                     }
                     else
@@ -1576,15 +1579,16 @@ namespace DanilovSoft.vRPC
                 }
             }
             else
+            // Нет доступа к методу контроллера.
             {
-                return new ValueTask<object?>(permissionError);
+                return new ValueTask<object?>(result: permissionError);
             }
 
-            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> t, IServiceScope scope)
+            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> task, IServiceScope scope)
             {
                 using (scope)
                 {
-                    object? result = await t.ConfigureAwait(false);
+                    object? result = await task.ConfigureAwait(false);
 
                     // Результат успешно получен без исключения.
                     return result;
@@ -1690,7 +1694,7 @@ namespace DanilovSoft.vRPC
             if (requestToInvoke.Uid != null)
             {
                 // Выполняет запрос в текущем процессе и возвращает ответ.
-                ValueTask<ResponseMessage> task = GetResponseAsync(requestToInvoke);
+                ValueTask<ResponseMessage> task = InvokeControllerAndGetResponseAsync(requestToInvoke);
 
                 if (task.IsCompleted)
                 {
@@ -1698,7 +1702,7 @@ namespace DanilovSoft.vRPC
                     ResponseMessage responseMessage = task.Result;
 
                     // Не бросает исключения.
-                    SerializeAndSendResponse(responseMessage);
+                    SerializeActionResultAndSendResponse(responseMessage);
                 }
                 else
                 {
@@ -1736,10 +1740,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Не бросает исключения.
         /// </summary>
-        private void SerializeAndSendResponse(ResponseMessage responseMessage)
+        private void SerializeActionResultAndSendResponse(ResponseMessage responseMessage)
         {
             // Не бросает исключения.
-            BinaryMessageToSend responseToSend = SerializeResponse(responseMessage);
+            BinaryMessageToSend responseToSend = SerializeActionResponse(responseMessage);
 
             // Не бросает исключения.
             QueueSendMessage(responseToSend);
@@ -1752,29 +1756,29 @@ namespace DanilovSoft.vRPC
             ResponseMessage responseMessage = await task.ConfigureAwait(false);
 
             // Не бросает исключения.
-            SerializeAndSendResponse(responseMessage);
+            SerializeActionResultAndSendResponse(responseMessage);
         }
 
         /// <summary>
         /// Выполняет запрос клиента и инкапсулирует результат в <see cref="ResponseMessage"/>.
         /// Не бросает исключения.
         /// </summary>
-        private ValueTask<ResponseMessage> GetResponseAsync(RequestToInvoke requestContext)
+        private ValueTask<ResponseMessage> InvokeControllerAndGetResponseAsync(RequestToInvoke requestContext)
         {
             // Не должно бросать исключения.
-            ValueTask<object?> t = InvokeControllerAsync(requestContext);
+            ValueTask<object?> task = InvokeControllerAsync(requestContext);
 
-            if (t.IsCompletedSuccessfully)
+            if (task.IsCompletedSuccessfully)
             // Синхронно только в случае успеха.
             {
-                // Результат контроллера. Может быть Task.
-                object? result = t.Result;
+                // Результат контроллера.
+                object? actionResult = task.Result;
 
-                return new ValueTask<ResponseMessage>(new ResponseMessage(requestContext, result));
+                return new ValueTask<ResponseMessage>(new ResponseMessage(requestContext, actionResult));
             }
             else
             {
-                return WaitForInvokeControllerAsync(t, requestContext);
+                return WaitForInvokeControllerAsync(task, requestContext);
             }
         }
 
@@ -1888,7 +1892,7 @@ namespace DanilovSoft.vRPC
                 _ws.Dispose();
 
                 // Синхронизироваться с подписчиками на событие Disconnected.
-                EventHandler<SocketDisconnectedEventArgs> disconnected;
+                EventHandler<SocketDisconnectedEventArgs>? disconnected;
                 lock (DisconnectEventObj)
                 {
                     // Запомнить истинную причину обрыва.

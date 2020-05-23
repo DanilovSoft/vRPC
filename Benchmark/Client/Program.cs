@@ -95,7 +95,7 @@ namespace Client
                                 }
                                 catch (WasShutdownException)
                                 {
-                                    break;
+                                    return;
                                 }
                                 catch (Exception ex)
                                 {

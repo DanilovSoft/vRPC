@@ -988,7 +988,7 @@
             </summary>
             <param name="voidTask">Такс без результата (<see langword="void"/>).</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.PostNotification(DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.PostNotification(DanilovSoft.vRPC.BinaryMessageToSend)">
             <summary>
             Происходит при обращении к проксирующему интерфейсу. 
             Добавляет запрос-уведомление в очередь на отправку (выполнит отправку текущим потоком если очередь пуста).
@@ -1033,7 +1033,7 @@
             </summary>
             <param name="responseToSend"></param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponse(DanilovSoft.vRPC.ResponseMessage)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeActionResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
             Сериализует сообщение в память. Может бросить исключение сериализации.
             </summary>
@@ -1092,12 +1092,12 @@
             </summary>
             <returns></returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeAndSendResponse(DanilovSoft.vRPC.ResponseMessage,DanilovSoft.vRPC.RequestToInvoke)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeActionResultAndSendResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
             Не бросает исключения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.GetResponseAsync(DanilovSoft.vRPC.RequestToInvoke)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.InvokeControllerAndGetResponseAsync(DanilovSoft.vRPC.RequestToInvoke)">
             <summary>
             Выполняет запрос клиента и инкапсулирует результат в <see cref="T:DanilovSoft.vRPC.ResponseMessage"/>.
             Не бросает исключения.
@@ -1141,6 +1141,8 @@
         <member name="P:DanilovSoft.vRPC.ResponseMessage.ActionResult">
             <summary>
             Результат вызова метода контроллера.
+            Может быть <see cref="T:DanilovSoft.vRPC.IActionResult"/> или произвольный объект пользователя.
+            Может быть Null если результат контроллера - void.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.ResponseMessage.ReceivedRequest">
@@ -1150,7 +1152,7 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.Int32,System.Object)">
             <summary>
-            Конструктор ответа.
+            Конструктор ответа в случае ошибки десериализации запроса.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(DanilovSoft.vRPC.RequestToInvoke,System.Object)">
@@ -1158,7 +1160,7 @@
             Ответ на основе запроса.
             </summary>
             <param name="receivedRequest"></param>
-            <param name="rawResult"></param>
+            <param name="actionResult"></param>
         </member>
         <member name="T:DanilovSoft.vRPC.ServerSideConnection">
             <summary>

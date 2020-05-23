@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 
 namespace DanilovSoft.vRPC
@@ -25,9 +26,13 @@ namespace DanilovSoft.vRPC
                 {
                     byte[] copy = MemPoolStream.ToArray();
                     string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
-                    return System.Text.Json.JsonDocument.Parse(j).RootElement.ToString();
+                    var element = JsonDocument.Parse(j).RootElement;
+                    return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
                 }
-                return null;
+                else
+                {
+                    return null;
+                }
             }
         }
 #endif
@@ -80,9 +85,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public void Dispose()
         {
-            var stream = Interlocked.Exchange(ref _memPoolStream, null);
-            Debug.Assert(stream != null, "Другой поток уже выполнил Dispose — это не страшно но такого не должно случаться");
-            stream?.Dispose();
+            Interlocked.Exchange(ref _memPoolStream, null)?.Dispose();
         }
     }
 }

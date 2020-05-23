@@ -17,6 +17,8 @@ namespace DanilovSoft.vRPC
         public int Uid { get; }
         /// <summary>
         /// Результат вызова метода контроллера.
+        /// Может быть <see cref="IActionResult"/> или произвольный объект пользователя.
+        /// Может быть Null если результат контроллера - void.
         /// </summary>
         public object? ActionResult { get; }
         /// <summary>
@@ -27,27 +29,28 @@ namespace DanilovSoft.vRPC
         public bool IsNotificationRequest => false;
 
         /// <summary>
-        /// Конструктор ответа.
+        /// Конструктор ответа в случае ошибки десериализации запроса.
         /// </summary>
         public ResponseMessage(int uid, object rawResult)
         {
             Uid = uid;
             ActionResult = rawResult;
+            ReceivedRequest = null;
         }
 
         /// <summary>
         /// Ответ на основе запроса.
         /// </summary>
         /// <param name="receivedRequest"></param>
-        /// <param name="rawResult"></param>
+        /// <param name="actionResult"></param>
         [DebuggerStepThrough]
-        public ResponseMessage(RequestToInvoke receivedRequest, object? rawResult)
+        public ResponseMessage(RequestToInvoke receivedRequest, object? actionResult)
         {
             Debug.Assert(receivedRequest.Uid != null);
 
             ReceivedRequest = receivedRequest;
             Uid = receivedRequest.Uid!.Value;
-            ActionResult = rawResult;
+            ActionResult = actionResult;
         }
     }
 }
