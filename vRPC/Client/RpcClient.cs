@@ -47,17 +47,17 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// <see langword="volatile"/>.
         /// </summary>
-        private ApplicationBuilder _appBuilder;
-        public ServiceProvider ServiceProvider { get; private set; }
-        private Action<ApplicationBuilder> _configureApp;
-        private Func<AccessToken> _autoAuthentication;
+        private ApplicationBuilder? _appBuilder;
+        public ServiceProvider? ServiceProvider { get; private set; }
+        private Action<ApplicationBuilder>? _configureApp;
+        private Func<AccessToken>? _autoAuthentication;
 
         /// <summary>
         /// Устанавливается в блокировке <see cref="StateLock"/>.
         /// </summary>
-        private volatile ClientSideConnection _connection;
+        private volatile ClientSideConnection? _connection;
 
-        private Task<CloseReason> _completion;
+        private Task<CloseReason>? _completion;
         /// <summary>
         /// Завершается если подключение разорвано.
         /// Не бросает исключения.
@@ -76,12 +76,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// volatile требуется лишь для публичного доступа. Запись через блокировку <see cref="StateLock"/>.
         /// </summary>
-        private volatile ShutdownRequest _shutdownRequest;
+        private volatile ShutdownRequest? _shutdownRequest;
         /// <summary>
         /// Если был начат запрос на остновку, то это свойство будет содержать переданную причину остановки.
         /// Является <see langword="volatile"/>.
         /// </summary>
-        public ShutdownRequest StopRequiredState => _shutdownRequest;
+        public ShutdownRequest? StopRequiredState => _shutdownRequest;
         private bool _disposed;
         /// <summary>
         /// Для доступа к <see cref="_disposed"/> и <see cref="_shutdownRequest"/>.
@@ -90,14 +90,14 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Используется только что-бы аварийно прервать подключение через Dispose.
         /// </summary>
-        private ClientWebSocket _connectingWs;
+        private ClientWebSocket? _connectingWs;
         /// <summary>
         /// True если соединение прошло аутентификацию на сервере.
         /// </summary>
         public bool IsAuthenticated => _connection?.IsAuthenticated ?? false;
-        public event EventHandler<ConnectedEventArgs> Connected;
-        public System.Net.EndPoint LocalEndPoint => _connection?.LocalEndPoint;
-        public System.Net.EndPoint RemoteEndPoint => _connection?.RemoteEndPoint;
+        public event EventHandler<ConnectedEventArgs>? Connected;
+        public System.Net.EndPoint? LocalEndPoint => _connection?.LocalEndPoint;
+        public System.Net.EndPoint? RemoteEndPoint => _connection?.RemoteEndPoint;
 
         // ctor.
         static RpcClient()
@@ -230,7 +230,8 @@ namespace DanilovSoft.vRPC
                 case ConnectionState.Connected:
                     return;
                 case ConnectionState.SocketError:
-                    
+
+                    Debug.Assert(connectResult.SocketError != null);
                     throw new VRpcException($"Unable to connect to the remote server. Error: {(int)connectResult.SocketError}", 
                         connectResult.SocketError.Value.ToException(), VRpcErrorCode.ConnectionError);
 
@@ -359,7 +360,7 @@ namespace DanilovSoft.vRPC
             ThrowIfWasShutdown();
 
             // Копия volatile.
-            ClientSideConnection connection = _connection;
+            ClientSideConnection? connection = _connection;
 
             if (connection != null)
             {
@@ -417,7 +418,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public CloseReason Shutdown(TimeSpan disconnectTimeout, string closeDescription = null)
+        public CloseReason Shutdown(TimeSpan disconnectTimeout, string? closeDescription = null)
         {
             return ShutdownAsync(disconnectTimeout, closeDescription).GetAwaiter().GetResult();
         }
@@ -429,7 +430,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public void BeginShutdown(TimeSpan disconnectTimeout, string closeDescription = null)
+        public void BeginShutdown(TimeSpan disconnectTimeout, string? closeDescription = null)
         {
             _ = PrivateShutdownAsync(disconnectTimeout, closeDescription);
         }
@@ -440,16 +441,16 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public Task<CloseReason> ShutdownAsync(TimeSpan disconnectTimeout, string closeDescription = null)
+        public Task<CloseReason> ShutdownAsync(TimeSpan disconnectTimeout, string? closeDescription = null)
         {
             return PrivateShutdownAsync(disconnectTimeout, closeDescription);
         }
 
-        private async Task<CloseReason> PrivateShutdownAsync(TimeSpan disconnectTimeout, string closeDescription)
+        private async Task<CloseReason> PrivateShutdownAsync(TimeSpan disconnectTimeout, string? closeDescription)
         {
             bool created;
-            ShutdownRequest stopRequired;
-            ClientSideConnection connection;
+            ShutdownRequest? stopRequired;
+            ClientSideConnection? connection;
             lock (StateLock)
             {
                 stopRequired = _shutdownRequest;
@@ -511,7 +512,7 @@ namespace DanilovSoft.vRPC
         internal ValueTask<ClientSideConnection> GetOrOpenConnection(AccessToken accessToken)
         {
             // Копия volatile.
-            ClientSideConnection connection = _connection;
+            ClientSideConnection? connection = _connection;
 
             if (connection != null)
             // Есть живое соединение.
@@ -560,7 +561,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
         /// </summary>
-        private void OnDisconnected(object sender, SocketDisconnectedEventArgs e)
+        private void OnDisconnected(object? sender, SocketDisconnectedEventArgs e)
         {
             // volatile.
             _connection = null;
@@ -575,7 +576,7 @@ namespace DanilovSoft.vRPC
         private ValueTask<InnerConnectionResult> ConnectOrGetExistedConnectionAsync(AccessToken accessToken)
         {
             // Копия volatile.
-            ClientSideConnection connection = _connection;
+            ClientSideConnection? connection = _connection;
 
             if (connection != null)
             // Есть живое соединение.
@@ -627,11 +628,11 @@ namespace DanilovSoft.vRPC
         private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(AccessToken accessToken)
         {
             // Копия volatile.
-            ClientSideConnection connection = _connection;
+            ClientSideConnection? connection = _connection;
 
             if (connection == null)
             {
-                ServiceProvider serviceProvider = ServiceProvider;
+                ServiceProvider? serviceProvider = ServiceProvider;
                 lock (StateLock)
                 {
                     if (!_disposed)
@@ -662,6 +663,8 @@ namespace DanilovSoft.vRPC
 
                 // Новый сокет.
                 var ws = new ClientWebSocket();
+                ClientWebSocket? toDispose = ws;
+
                 ws.Options.KeepAliveInterval = _appBuilder.KeepAliveInterval;
                 ws.Options.ReceiveTimeout = _appBuilder.ReceiveTimeout;
 
@@ -677,7 +680,7 @@ namespace DanilovSoft.vRPC
                     // Другой поток уничтожил наш web-socket.
                     {
                         // Предотвратим лишний Dispose.
-                        ws = null;
+                        toDispose = null;
 
                         lock (StateLock)
                         {
@@ -701,7 +704,7 @@ namespace DanilovSoft.vRPC
                     if (wsReceiveResult.IsReceivedSuccessfully)
                     // Соединение успешно установлено.
                     {
-                        ShutdownRequest stopRequired = null;
+                        ShutdownRequest? stopRequired = null;
                         lock (StateLock)
                         {
                             if (!_disposed)
@@ -709,7 +712,7 @@ namespace DanilovSoft.vRPC
                                 connection = new ClientSideConnection(this, ws, serviceProvider, _invokeActions);
 
                                 // Предотвратить Dispose.
-                                ws = null;
+                                toDispose = null;
 
                                 // Скопировать пока мы в блокировке.
                                 stopRequired = _shutdownRequest;
@@ -776,7 +779,7 @@ namespace DanilovSoft.vRPC
                 }
                 finally
                 {
-                    ws?.Dispose();
+                    toDispose?.Dispose();
                 }
             }
             else
@@ -818,7 +821,7 @@ namespace DanilovSoft.vRPC
         private void ThrowIfWasShutdown()
         {
             // volatile копия.
-            ShutdownRequest shutdownRequired = _shutdownRequest;
+            ShutdownRequest? shutdownRequired = _shutdownRequest;
 
             if (shutdownRequired == null)
             {
@@ -837,7 +840,7 @@ namespace DanilovSoft.vRPC
         private bool TryGetShutdownException<T>(out ValueTask<T> exceptionTask)
         {
             // volatile копия.
-            ShutdownRequest stopRequired = _shutdownRequest;
+            ShutdownRequest? stopRequired = _shutdownRequest;
 
             if (stopRequired == null)
             {
