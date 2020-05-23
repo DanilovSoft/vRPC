@@ -19,6 +19,7 @@ using Ms = System.Net.WebSockets;
 using DanilovSoft.vRPC.Resources;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
+using System.IO.Pipelines;
 
 namespace DanilovSoft.vRPC
 {
@@ -64,6 +65,7 @@ namespace DanilovSoft.vRPC
         /// Подключенный TCP сокет.
         /// </summary>
         private readonly ManagedWebSocket _ws;
+        private readonly Pipe _pipe;
         /// <summary>
         /// Коллекция запросов ожидающие ответ от удалённой стороны.
         /// </summary>
@@ -88,7 +90,7 @@ namespace DanilovSoft.vRPC
         /// Используется для проверки возможности начать новый запрос.
         /// Использовать через блокировку <see cref="StopRequiredLock"/>.
         /// </summary>
-        private volatile ShutdownRequest? _stopRequired;
+        private volatile ShutdownRequest? _shutdownRequest;
         /// <summary>
         /// Предотвращает повторный вызов Stop.
         /// </summary>
@@ -178,6 +180,7 @@ namespace DanilovSoft.vRPC
             LocalEndPoint = clientConnection.LocalEndPoint;
             RemoteEndPoint = clientConnection.RemoteEndPoint;
             _ws = clientConnection;
+            _pipe = new Pipe();
 
             _pendingRequests = new RequestQueue();
 
@@ -234,18 +237,16 @@ namespace DanilovSoft.vRPC
 
         private void WebSocket_Disconnected(object? sender, SocketDisconnectingEventArgs e)
         {
-            Debug.Assert(_stopRequired != null);
-            
             CloseReason closeReason;
             if (e.DisconnectingReason.Gracifully)
             {
                 closeReason = CloseReason.FromCloseFrame(e.DisconnectingReason.CloseStatus, 
-                    e.DisconnectingReason.CloseDescription, e.DisconnectingReason.AdditionalDescription, _stopRequired);
+                    e.DisconnectingReason.CloseDescription, e.DisconnectingReason.AdditionalDescription, _shutdownRequest);
             }
             else
             {
                 closeReason = CloseReason.FromException(e.DisconnectingReason.Error, 
-                    _stopRequired, e.DisconnectingReason.AdditionalDescription);
+                    _shutdownRequest, e.DisconnectingReason.AdditionalDescription);
             }
             AtomicDispose(closeReason);
         }
@@ -284,13 +285,13 @@ namespace DanilovSoft.vRPC
             bool firstTime;
             lock (StopRequiredLock)
             {
-                if (_stopRequired == null)
+                if (_shutdownRequest == null)
                 {
                     firstTime = true;
 
                     // Запретить выполнять новые запросы.
                     // Запомнить причину отключения что-бы позднее передать её удалённой стороне.
-                    _stopRequired = stopRequired; // volatile.
+                    _shutdownRequest = stopRequired; // volatile.
 
                     if (!DecActiveRequestCount())
                     // Нет ни одного ожадающего запроса.
@@ -305,7 +306,7 @@ namespace DanilovSoft.vRPC
                 else
                 {
                     firstTime = false;
-                    stopRequired = _stopRequired;
+                    stopRequired = _shutdownRequest;
                 }
             }
 
@@ -341,10 +342,10 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private void DisposeOnCloseReceived()
         {
-            Debug.Assert(_stopRequired != null);
+            Debug.Assert(_shutdownRequest != null);
 
             // Был получен Close. Это значит что веб сокет уже закрыт и нам остаётся только закрыть сервис.
-            AtomicDispose(CloseReason.FromCloseFrame(_ws.CloseStatus, _ws.CloseStatusDescription, null, _stopRequired));
+            AtomicDispose(CloseReason.FromCloseFrame(_ws.CloseStatus, _ws.CloseStatusDescription, null, _shutdownRequest));
         }
 
         /// <summary>
@@ -369,7 +370,7 @@ namespace DanilovSoft.vRPC
                 catch (Exception ex)
                 {
                     // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                    AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                     // Завершить поток.
                     return;
@@ -383,9 +384,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private void BeginSendCloseBeforeShutdown()
         {
-            Debug.Assert(_stopRequired != null);
+            Debug.Assert(_shutdownRequest != null);
 
-            PrivateBeginClose(_stopRequired.CloseDescription);
+            PrivateBeginClose(_shutdownRequest.CloseDescription);
         }
 
         /// <summary>
@@ -424,20 +425,34 @@ namespace DanilovSoft.vRPC
             RequestMeta requestMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new RequestMeta(mi, cn), controllerName);
 
             // Сериализуем запрос в память. Лучше выполнить до подключения.
-            BinaryMessageToSend? serMsg = requestMeta.SerializeRequest(args);
+            BinaryMessageToSend serMsg = requestMeta.SerializeRequest(args);
+            BinaryMessageToSend? toDispose = serMsg;
+
             try
             {
                 // Результатом может быть не завершённый таск.
-                var activeCall = ExecuteRequestStatic(connectionTask, serMsg, requestMeta);
+                object? activeCall = ExecuteRequestStatic(connectionTask, serMsg, requestMeta);
+                toDispose = null; // Предотвратить Dispose.
 
-                Debug.Assert(targetMethod.ReturnType.IsInstanceOfType(activeCall), "Тип результата не совпадает с возвращаемым типом интерфейса");
-
-                serMsg = null; // Предотвратить Dispose.
+                ValidateIfaceTypeMatch(targetMethod, activeCall);
                 return activeCall;
+            }
+            catch (Exception ex)
+            {
+                throw;
             }
             finally
             {
-                serMsg?.Dispose();
+                toDispose?.Dispose();
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ValidateIfaceTypeMatch(MethodInfo targetMethod, object? activeCall)
+        {
+            if (targetMethod.ReturnType != typeof(void) && activeCall != null)
+            {
+                Debug.Assert(targetMethod.ReturnType.IsInstanceOfType(activeCall), "Тип результата не совпадает с возвращаемым типом интерфейса");
             }
         }
 
@@ -685,6 +700,8 @@ namespace DanilovSoft.vRPC
         private protected Task<object?> SendRequestAndGetResult(RequestMeta requestMeta, BinaryMessageToSend serializedMessage)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
+            BinaryMessageToSend? toDispose = serializedMessage;
+
             try
             {
                 ThrowIfDisposed();
@@ -701,14 +718,14 @@ namespace DanilovSoft.vRPC
                 QueueSendMessage(serializedMessage);
 
                 // Предотвратить Dispose на месте.
-                serializedMessage = null;
+                toDispose = null;
 
                 // Ожидаем результат от потока поторый читает из сокета.
                 return WaitForAwaiterAsync(tcs);
             }
             finally
             {
-                serializedMessage?.Dispose();
+                toDispose?.Dispose();
             }
 
             static async Task<object?> WaitForAwaiterAsync(RequestAwaiter tcs)
@@ -729,7 +746,13 @@ namespace DanilovSoft.vRPC
             // Бесконечно обрабатываем сообщения сокета.
             while (!IsDisposed)
             {
-#region Читаем хедер
+                #region Читаем хедер
+
+                //if (!await ReceiveHeaderAsync(headerBuffer).ConfigureAwait(false))
+                //{
+                //    // Завершить поток.
+                //    return;
+                //}
 
                 ValueWebSocketReceiveResult webSocketMessage;
 
@@ -745,7 +768,7 @@ namespace DanilovSoft.vRPC
                     // Обрыв соединения.
                     {
                         // Оповестить об обрыве.
-                        AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                        AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                         // Завершить поток.
                         return;
@@ -798,7 +821,7 @@ namespace DanilovSoft.vRPC
                             // Обрыв соединения.
                             {
                                 // Оповестить об обрыве.
-                                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                                AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                                 // Завершить поток.
                                 return;
@@ -866,7 +889,7 @@ namespace DanilovSoft.vRPC
                                 // Обрыв соединения.
                                 {
                                     // Оповестить об обрыве.
-                                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                                    AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                                     // Завершить поток.
                                     return;
@@ -902,7 +925,7 @@ namespace DanilovSoft.vRPC
                                             // Обрыв соединения.
                                             {
                                                 // Оповестить об обрыве.
-                                                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                                                AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                                                 // Завершить поток.
                                                 return;
@@ -936,7 +959,7 @@ namespace DanilovSoft.vRPC
 
 #region Десериализация запроса
 
-                            RequestToInvoke requestToInvoke;
+                            RequestToInvoke? requestToInvoke;
                             IActionResult? error = null;
                             try
                             {
@@ -973,6 +996,7 @@ namespace DanilovSoft.vRPC
                                 // Запрос ожидает ответ.
                                 {
                                     //Debug.Assert(header.Uid != null, "header.Uid оказался Null");
+                                    Debug.Assert(error != null);
 
                                     // Передать на отправку результат с ошибкой через очередь.
                                     QueueSendResponse(new ResponseMessage(header.Uid.Value, error));
@@ -1107,6 +1131,35 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        //private async ValueTask<bool> ReceiveHeaderAsync(byte[] headerBuffer)
+        //{
+        //    ValueWebSocketReceiveResult webSocketMessage;
+
+        //    int bufferOffset = 0;
+        //    do
+        //    {
+        //        try
+        //        {
+        //            // Читаем фрейм веб-сокета.
+        //            webSocketMessage = await _ws.ReceiveExAsync(headerBuffer.AsMemory(bufferOffset), CancellationToken.None).ConfigureAwait(false);
+        //        }
+        //        catch (Exception ex)
+        //        // Обрыв соединения.
+        //        {
+        //            // Оповестить об обрыве.
+        //            AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+
+        //            // Завершить поток.
+        //            return false;
+        //        }
+
+        //        bufferOffset += webSocketMessage.Count;
+
+        //    } while (!webSocketMessage.EndOfMessage);
+
+        //    return true;
+        //}
+
         /// <summary>
         /// Гарантирует что ничего больше не будет отправлено через веб-сокет. 
         /// Дожидается завершения отправляющего потока.
@@ -1148,7 +1201,7 @@ namespace DanilovSoft.vRPC
                 // Злой обрыв соединения.
                 {
                     // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                    AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                     // Завершить поток.
                     return;
@@ -1156,7 +1209,7 @@ namespace DanilovSoft.vRPC
             }
 
             // Оповестить об обрыве.
-            AtomicDispose(CloseReason.FromException(protocolErrorException, _stopRequired));
+            AtomicDispose(CloseReason.FromException(protocolErrorException, _shutdownRequest));
 
             // Завершить поток.
             return;
@@ -1278,6 +1331,7 @@ namespace DanilovSoft.vRPC
         private void QueueSendMessage(BinaryMessageToSend messageToSend)
         {
             Debug.Assert(messageToSend != null);
+            BinaryMessageToSend? toDispose = messageToSend;
 
             try
             {
@@ -1289,19 +1343,19 @@ namespace DanilovSoft.vRPC
                     AppendHeader(messageToSend);
 
                     // Передать на отправку.
-                    // Из-за AllowSynchronousContinuations частично начнёт отправку текущим потоком(!).
+                    // (!) Из-за AllowSynchronousContinuations частично начнёт отправку текущим потоком.
                     if (_sendChannel.Writer.TryWrite(messageToSend))
                     // Канал ещё не закрыт (не был вызван Dispose).
                     {
-                        // Предотвратить Dispose на месте.
-                        messageToSend = null;
+                        // Предотвратить Dispose.
+                        toDispose = null;
                         return;
                     }
                 }
             }
             finally
             {
-                messageToSend?.Dispose();
+                toDispose?.Dispose();
             }
         }
 
@@ -1358,7 +1412,7 @@ namespace DanilovSoft.vRPC
                         // Обрыв соединения.
                         {
                             // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                            AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                             // Завершить поток.
                             return;
@@ -1378,7 +1432,7 @@ namespace DanilovSoft.vRPC
                             // Обрыв соединения.
                             {
                                 // Оповестить об обрыве.
-                                AtomicDispose(CloseReason.FromException(ex, _stopRequired));
+                                AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                                 // Завершить поток.
                                 return;
@@ -1467,9 +1521,10 @@ namespace DanilovSoft.vRPC
         private ValueTask<object?> InvokeControllerAsync(RequestToInvoke receivedRequest)
         {
             // Проверить доступ к функции.
-            if (ActionPermissionCheck(receivedRequest.ActionToInvoke, out IActionResult permissionError, out var user))
+            if (ActionPermissionCheck(receivedRequest.ActionToInvoke, out IActionResult? permissionError, out ClaimsPrincipal? user))
             {
-                IServiceScope? scope = ServiceProvider.CreateScope();
+                IServiceScope scope = ServiceProvider.CreateScope();
+                IServiceScope? toDispose = scope;
                 try
                 {
                     // Инициализируем Scope текущим соединением.
@@ -1486,29 +1541,27 @@ namespace DanilovSoft.vRPC
                     //BeforeInvokeController(controller);
 
                     // Вызов метода контроллера.
-                    object controllerResult = receivedRequest.ActionToInvoke.FastInvokeDelegate(controller, receivedRequest.Args);
+                    object? actionResult = receivedRequest.ActionToInvoke.FastInvokeDelegate(controller, receivedRequest.Args);
 
                     // Может быть не завершённый Task.
-                    if (controllerResult != null)
+                    if (actionResult != null)
                     {
-                        ValueTask<object> t = DynamicAwaiter.WaitAsync(controllerResult);
+                        ValueTask<object?> t = DynamicAwaiter.WaitAsync(actionResult);
 
                         if (t.IsCompletedSuccessfully)
                         {
                             // Извлекает результат из Task'а.
-                            controllerResult = t.Result;
+                            actionResult = t.Result;
 
                             // Результат успешно получен без исключения.
-                            return new ValueTask<object?>(controllerResult);
+                            return new ValueTask<object?>(actionResult);
                         }
                         else
                         {
-                            var scopeRefCpy = scope;
-
                             // Предотвратить Dispose.
-                            scope = null;
+                            toDispose = null;
 
-                            return WaitForControllerActionAsync(t, scopeRefCpy);
+                            return WaitForControllerActionAsync(t, scope);
                         }
                     }
                     else
@@ -1519,7 +1572,7 @@ namespace DanilovSoft.vRPC
                 finally
                 {
                     // ServiceScope выполнит Dispose всем созданным экземплярам.
-                    scope?.Dispose();
+                    toDispose?.Dispose();
                 }
             }
             else
@@ -1527,11 +1580,11 @@ namespace DanilovSoft.vRPC
                 return new ValueTask<object?>(permissionError);
             }
 
-            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object> t, IServiceScope scope)
+            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> t, IServiceScope scope)
             {
                 using (scope)
                 {
-                    object result = await t.ConfigureAwait(false);
+                    object? result = await t.ConfigureAwait(false);
 
                     // Результат успешно получен без исключения.
                     return result;
@@ -1546,7 +1599,7 @@ namespace DanilovSoft.vRPC
         /// Не бросает исключения.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        private protected abstract bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult permissionError, out ClaimsPrincipal user);
+        private protected abstract bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user);
 
         /// <summary>
         /// В новом потоке выполняет запрос и отправляет ему результат или ошибку.
@@ -1636,20 +1689,20 @@ namespace DanilovSoft.vRPC
         {
             if (requestToInvoke.Uid != null)
             {
-                // Выполняет запрос и возвращает ответ.
-                ValueTask<ResponseMessage> t = GetResponseAsync(requestToInvoke);
+                // Выполняет запрос в текущем процессе и возвращает ответ.
+                ValueTask<ResponseMessage> task = GetResponseAsync(requestToInvoke);
 
-                if (t.IsCompleted)
+                if (task.IsCompleted)
                 {
                     // Не бросает исключения.
-                    ResponseMessage responseMessage = t.Result;
+                    ResponseMessage responseMessage = task.Result;
 
                     // Не бросает исключения.
-                    SerializeAndSendResponse(responseMessage, requestToInvoke);
+                    SerializeAndSendResponse(responseMessage);
                 }
                 else
                 {
-                    WaitResponseAndSendAsync(t, requestToInvoke);
+                    WaitResponseAndSendAsync(task);
                 }
             }
             else
@@ -1683,23 +1736,23 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Не бросает исключения.
         /// </summary>
-        private void SerializeAndSendResponse(ResponseMessage responseMessage, RequestToInvoke requestContext)
+        private void SerializeAndSendResponse(ResponseMessage responseMessage)
         {
             // Не бросает исключения.
-            BinaryMessageToSend responseToSend = SerializeResponse(responseMessage, requestContext);
+            BinaryMessageToSend responseToSend = SerializeResponse(responseMessage);
 
             // Не бросает исключения.
             QueueSendMessage(responseToSend);
         }
 
-        private async void WaitResponseAndSendAsync(ValueTask<ResponseMessage> t, RequestToInvoke requestContext)
+        private async void WaitResponseAndSendAsync(ValueTask<ResponseMessage> task)
         {
             // Не бросает исключения.
             // Выполняет запрос и возвращает ответ.
-            ResponseMessage responseMessage = await t.ConfigureAwait(false);
+            ResponseMessage responseMessage = await task.ConfigureAwait(false);
 
             // Не бросает исключения.
-            SerializeAndSendResponse(responseMessage, requestContext);
+            SerializeAndSendResponse(responseMessage);
         }
 
         /// <summary>
@@ -1711,7 +1764,7 @@ namespace DanilovSoft.vRPC
             // Не должно бросать исключения.
             ValueTask<object?> t = InvokeControllerAsync(requestContext);
 
-            if(t.IsCompletedSuccessfully)
+            if (t.IsCompletedSuccessfully)
             // Синхронно только в случае успеха.
             {
                 // Результат контроллера. Может быть Task.
@@ -1725,46 +1778,45 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static BinaryMessageToSend SerializeResponse(ResponseMessage response, RequestToInvoke requestContext)
-        {
-            if (response == null)
-            // Запрашиваемая функция выполнена успешно.
-            {
-                try
-                {
-                    return SerializeResponse(response);
-                }
-                catch (Exception ex)
-                // Злая ошибка сериализации ответа. Аналогично ошибке 500.
-                {
-                    // Прервать отладку.
-                    DebugOnly.Break();
+        //private static BinaryMessageToSend SerializeResponse(ResponseMessage response, RequestToInvoke requestContext)
+        //{
+        //    if (response != null)
+        //    {
+        //        // Сериализуется без исключения.
+        //        return SerializeResponse(response);
+        //    }
+        //    else
+        //    // Запрашиваемая функция выполнена успешно.
+        //    {
+        //        try
+        //        {
+        //            return SerializeResponse(response);
+        //        }
+        //        catch (Exception ex)
+        //        // Злая ошибка сериализации ответа. Аналогично ошибке 500.
+        //        {
+        //            // Прервать отладку.
+        //            DebugOnly.Break();
 
-                    // TODO залогировать.
-                    Debug.WriteLine(ex);
+        //            // TODO залогировать.
+        //            Debug.WriteLine(ex);
 
-                    // Вернуть результат с ошибкой.
-                    response = new ResponseMessage(requestContext, new InternalErrorResult("Internal Server Error"));
-                }
+        //            // Вернуть результат с ошибкой.
+        //            response = new ResponseMessage(requestContext, new InternalErrorResult("Internal Server Error"));
+        //        }
 
-                // response содержит ошибку.
-                return SerializeResponse(response);
-            }
-            else
-            // response содержит ошибку.
-            {
-                // Сериализуется без исключения.
-                return SerializeResponse(response);
-            }
-        }
+        //        // response содержит ошибку.
+        //        return SerializeResponse(response);
+        //    }
+        //}
 
-        private static async ValueTask<ResponseMessage> WaitForInvokeControllerAsync(ValueTask<object?> t, RequestToInvoke requestContext)
+        private static async ValueTask<ResponseMessage> WaitForInvokeControllerAsync(ValueTask<object?> task, RequestToInvoke requestContext)
         {
             object? rawResult;
             try
             {
                 // Находит и выполняет запрашиваемую функцию.
-                rawResult = await t.ConfigureAwait(false);
+                rawResult = await task.ConfigureAwait(false);
             }
             catch (BadRequestException ex)
             {
@@ -1809,10 +1861,10 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowIfShutdownRequired()
         {
-            if (_stopRequired == null)
+            if (_shutdownRequest == null)
                 return;
 
-            throw new WasShutdownException(_stopRequired);
+            throw new WasShutdownException(_shutdownRequest);
         }
 
         /// <summary>
@@ -1885,7 +1937,7 @@ namespace DanilovSoft.vRPC
 
         protected virtual void DisposeManaged()
         {
-            AtomicDispose(CloseReason.FromException(new ObjectDisposedException(GetType().FullName), _stopRequired, "Пользователь вызвал Dispose."));
+            AtomicDispose(CloseReason.FromException(new ObjectDisposedException(GetType().FullName), _shutdownRequest, "Пользователь вызвал Dispose."));
         }
 
         /// <summary>

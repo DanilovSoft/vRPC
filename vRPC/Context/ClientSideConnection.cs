@@ -48,7 +48,7 @@ namespace DanilovSoft.vRPC
         }
 
         // Клиент всегда разрешает серверу вызывать свои методы.
-        private protected override bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult permissionError, out ClaimsPrincipal user)
+        private protected override bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user)
         {
             user = null;
             permissionError = null;
@@ -142,14 +142,16 @@ namespace DanilovSoft.vRPC
 
             // Создаём запрос для отправки.
             BinaryMessageToSend binaryRequest = SignInAsyncMeta.SerializeRequest(new object[] { accessToken });
+            BinaryMessageToSend? toDispose = binaryRequest;
+
             try
             {
                 requestTask = SendRequestAndGetResult(SignInAsyncMeta, binaryRequest);
-                binaryRequest = null;
+                toDispose = null;
             }
             finally
             {
-                binaryRequest?.Dispose();
+                toDispose?.Dispose();
             }
 
             // Ждём завершения SignIn.
@@ -221,14 +223,16 @@ namespace DanilovSoft.vRPC
 
             // Создаём запрос для отправки.
             BinaryMessageToSend binaryRequest = SignOutAsyncMeta.SerializeRequest(Array.Empty<object>());
+            BinaryMessageToSend? toDispose = binaryRequest;
+
             try
             {
                 requestTask = SendRequestAndGetResult(SignOutAsyncMeta, binaryRequest);
-                binaryRequest = null;
+                toDispose = null;
             }
             finally
             {
-                binaryRequest?.Dispose();
+                toDispose?.Dispose();
             }
 
             // Ждём завершения SignOut — исключений быть не может, только при обрыве связи.

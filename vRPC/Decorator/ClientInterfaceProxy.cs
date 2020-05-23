@@ -13,8 +13,8 @@ namespace DanilovSoft.vRPC.Decorator
     /// </summary>
     public abstract class ClientInterfaceProxy
     {
-        public string ControllerName { get; protected set; }
-        public RpcClient Client { get; protected set; }
+        public string? ControllerName { get; protected set; }
+        public RpcClient? Client { get; protected set; }
     }
 
     // Тип должен быть публичным и не запечатанным.
@@ -41,15 +41,20 @@ namespace DanilovSoft.vRPC.Decorator
 
         T IInterfaceProxy.Clone<T>()
         {
-            return MemberwiseClone() as T;
+            var self = MemberwiseClone() as T;
+            Debug.Assert(self != null);
+            return self;
         }
 
 
         // Вызывается через рефлексию.
         [SuppressMessage("Design", "CA1062:Проверить аргументы или открытые методы", Justification = "Логически не может быть Null")]
-        protected object Invoke(MethodInfo targetMethod, object[] args)
+        protected object? Invoke(MethodInfo targetMethod, object[] args)
         {
-            object returnValue = Client.OnInterfaceMethodCall(targetMethod, args, ControllerName);
+            Debug.Assert(Client != null);
+            //Debug.Assert(ControllerName != null);
+
+            object? returnValue = Client.OnInterfaceMethodCall(targetMethod, args, ControllerName);
 
             DebugOnly.ValidateReturnType(targetMethod.ReturnType, returnValue);
 

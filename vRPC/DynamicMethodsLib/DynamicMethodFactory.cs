@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -19,10 +20,12 @@ namespace DynamicMethodsLib
             return dynamicMethod;
         }
 
-        public static Func<object, object[], object> CreateMethodCall(MethodInfo methodInfo, bool skipConvertion = false)
+        public static Func<object, object[], object?> CreateMethodCall(MethodInfo methodInfo, bool skipConvertion = false)
         {
             if (methodInfo != null)
             {
+                Debug.Assert(methodInfo.DeclaringType != null);
+
                 DynamicMethod dynamicMethod = CreateDynamicMethod(
                     name: methodInfo.Name,
                     returnType: typeof(object),

@@ -25,9 +25,10 @@ namespace Server.Controllers
         }
 
         [ProducesProtoBuf]
-        public void DummyCall(int n)
+        public async Task DummyCall(int n)
         {
             Interlocked.Increment(ref Program.ReqCount);
+            await Task.Delay(3000);
         }
 
         public void Test()

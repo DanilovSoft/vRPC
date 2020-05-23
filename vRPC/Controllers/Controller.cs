@@ -11,7 +11,7 @@ namespace DanilovSoft.vRPC
 
         }
 
-        internal abstract void BeforeInvokeController(ManagedConnection connection, ClaimsPrincipal user);
+        internal abstract void BeforeInvokeController(ManagedConnection connection, ClaimsPrincipal? user);
 
         protected static BadRequestResult BadRequest(string message)
         {

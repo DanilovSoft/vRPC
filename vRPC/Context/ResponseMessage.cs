@@ -46,7 +46,7 @@ namespace DanilovSoft.vRPC
             Debug.Assert(receivedRequest.Uid != null);
 
             ReceivedRequest = receivedRequest;
-            Uid = receivedRequest.Uid.Value;
+            Uid = receivedRequest.Uid!.Value;
             ActionResult = rawResult;
         }
     }

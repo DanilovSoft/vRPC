@@ -32,7 +32,7 @@ namespace DanilovSoft.vRPC
         /// следует использовать формат по умолчанию.
         /// </summary>
         [ProtoMember(4, IsRequired = false)]
-        public string ContentEncoding { get; }
+        public string? ContentEncoding { get; }
 
         // Требуется для десериализатора. Если структура то не используется.
         private HeaderDto()
@@ -43,7 +43,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт заголовок ответа на запрос.
         /// </summary>
-        public static HeaderDto FromResponse(int uid, StatusCode responseCode, int contentLength, string contentEncoding)
+        public static HeaderDto FromResponse(int uid, StatusCode responseCode, int contentLength, string? contentEncoding)
         {
             return new HeaderDto(uid, responseCode, contentLength, contentEncoding);
         }
@@ -59,7 +59,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Конструктор заголовка и для ответа и для запроса.
         /// </summary>
-        private HeaderDto(int? uid, StatusCode responseCode, int contentLength, string contentEncoding)
+        private HeaderDto(int? uid, StatusCode responseCode, int contentLength, string? contentEncoding)
         {
             Uid = uid;
             StatusCode = responseCode;

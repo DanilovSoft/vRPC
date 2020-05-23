@@ -80,7 +80,9 @@ namespace Client
                         {
                             ConnectResult conResult;
                             while ((conResult = client.ConnectEx()).State == ConnectionState.SocketError)
+                            {
                                 Thread.Sleep(new Random().Next(2000, 3000));
+                            }
 
                             if (conResult.State == ConnectionState.ShutdownRequest)
                                 break;
@@ -89,7 +91,7 @@ namespace Client
                             {
                                 try
                                 {
-                                    homeController.TestAsync().GetAwaiter().GetResult();
+                                    homeController.DummyCall(1);
                                 }
                                 catch (WasShutdownException)
                                 {

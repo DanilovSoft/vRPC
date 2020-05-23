@@ -7,31 +7,29 @@ namespace DanilovSoft.vRPC
     internal static class DynamicAwaiter
     {
         /// <summary>
-        /// Асинхронно ожидает завершение задачи если <paramref name="controllerResult"/> является <see cref="Task"/>'ом.
+        /// Асинхронно ожидает завершение задачи если <paramref name="actionResult"/> является <see cref="Task"/>'ом.
         /// </summary>
-        /// <param name="controllerResult"><see cref="Task"/> или любой объект.</param>
-        /// <returns></returns>
-        //[DebuggerStepThrough]
+        /// <param name="actionResult"><see cref="Task"/> или любой объект.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ValueTask<object> WaitAsync(object controllerResult)
+        public static ValueTask<object?> WaitAsync(object actionResult)
         {
             // Все методы InnerConvert должны возвращать одинаковый тип.
-            return InnerConvert((dynamic)controllerResult);
+            return InnerConvert((dynamic)actionResult);
         }
 
-        private static ValueTask<object> InnerConvert(ValueTask task)
+        private static ValueTask<object?> InnerConvert(ValueTask task)
         {
             if(task.IsCompleted)
             {
                 task.GetAwaiter().GetResult();
-                return new ValueTask<object>(result: null);
+                return new ValueTask<object?>(result: null);
             }
             else
             {
                 return WaitAsync(task);
             }
 
-            static async ValueTask<object> WaitAsync(ValueTask task)
+            static async ValueTask<object?> WaitAsync(ValueTask task)
             {
                 await task.ConfigureAwait(false);
                 return null;
@@ -43,56 +41,56 @@ namespace DanilovSoft.vRPC
             return new ValueTask<object>(rawResult);
         }
 
-        private static ValueTask<object> InnerConvert(Task task)
+        private static ValueTask<object?> InnerConvert(Task task)
         {
             if (task.IsCompleted)
             {
                 task.GetAwaiter().GetResult();
-                return new ValueTask<object>(result: null);
+                return new ValueTask<object?>(result: null);
             }
             else
             {
                 return WaitAsync(task);
             }
 
-            static async ValueTask<object> WaitAsync(Task task)
+            static async ValueTask<object?> WaitAsync(Task task)
             {
                 await task.ConfigureAwait(false);
                 return null;
             }
         }
 
-        private static ValueTask<object> InnerConvert<T>(Task<T> task)
+        private static ValueTask<object?> InnerConvert<T>(Task<T> task)
         {
             if(task.IsCompleted)
             {
                 T result = task.GetAwaiter().GetResult();
-                return new ValueTask<object>(result);
+                return new ValueTask<object?>(result);
             }
             else
             {
                 return WaitAsync(task);
             }
 
-            static async ValueTask<object> WaitAsync(Task<T> task)
+            static async ValueTask<object?> WaitAsync(Task<T> task)
             {
                 return await task.ConfigureAwait(false);
             }
         }
 
-        private static ValueTask<object> InnerConvert<T>(ValueTask<T> task)
+        private static ValueTask<object?> InnerConvert<T>(ValueTask<T> task)
         {
             if(task.IsCompleted)
             {
                 T result = task.Result;
-                return new ValueTask<object>(result);
+                return new ValueTask<object?>(result);
             }
             else
             {
                 return WaitAsync(task);
             }
 
-            static async ValueTask<object> WaitAsync(ValueTask<T> task)
+            static async ValueTask<object?> WaitAsync(ValueTask<T> task)
             {
                 return await task.ConfigureAwait(false);
             }

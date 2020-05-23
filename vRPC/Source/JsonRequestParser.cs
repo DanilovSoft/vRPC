@@ -12,12 +12,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Десериализует json запрос.
         /// </summary>
-        public static RequestToInvoke TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeActions, HeaderDto header, out IActionResult error)
+        public static RequestToInvoke? TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeActions, HeaderDto header, out IActionResult? error)
         {
-            string actionName = null;
-            ControllerActionMeta action = null;
-            object[] args = null;
-            ParameterInfo[] targetArguments = null;
+            string? actionName = null;
+            ControllerActionMeta? action = null;
+            object[]? args = null;
+            ParameterInfo[]? targetArguments = null;
             bool hasArguments = false;
 
             do
@@ -137,7 +137,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, string actionName, out IActionResult error)
+        private static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, string actionName, out IActionResult? error)
         {
             Debug.Assert(actionName != null);
             if (jsonArgsCount == targetArguments.Length)

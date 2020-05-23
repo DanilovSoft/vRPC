@@ -48,25 +48,25 @@ namespace DanilovSoft.vRPC
         }
 
         [DebuggerStepThrough]
-        internal static CloseReason FromException(Exception ex, ShutdownRequest? stopRequired, string? additionalDescription = null)
+        internal static CloseReason FromException(Exception ex, ShutdownRequest? shutdownRequest, string? additionalDescription = null)
         {
-            return new CloseReason(ex, null, null, additionalDescription, stopRequired);
+            return new CloseReason(ex, null, null, additionalDescription, shutdownRequest);
         }
 
         [DebuggerStepThrough]
-        internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string? closeDescription, string? additionalDescription, ShutdownRequest stopRequired)
+        internal static CloseReason FromCloseFrame(WebSocketCloseStatus? closeStatus, string? closeDescription, string? additionalDescription, ShutdownRequest? shutdownRequest)
         {
-            return new CloseReason(null, closeStatus, closeDescription, additionalDescription, stopRequired);
+            return new CloseReason(null, closeStatus, closeDescription, additionalDescription, shutdownRequest);
         }
 
         [DebuggerStepThrough]
-        private CloseReason(Exception? error, WebSocketCloseStatus? closeStatus, string? closeDescription, string? additionalDescription, ShutdownRequest? stopRequired)
+        private CloseReason(Exception? error, WebSocketCloseStatus? closeStatus, string? closeDescription, string? additionalDescription, ShutdownRequest? shutdownRequest)
         {
             ConnectionError = error;
             CloseDescription = closeDescription;
             CloseStatus = closeStatus;
             AdditionalDescription = additionalDescription;
-            ShutdownRequest = stopRequired;
+            ShutdownRequest = shutdownRequest;
         }
 
         public override string ToString()

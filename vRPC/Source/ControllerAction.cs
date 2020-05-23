@@ -26,7 +26,7 @@ namespace DanilovSoft.vRPC
         public string ActionFullName { get; }
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public readonly Func<object, object[], object> FastInvokeDelegate;
+        public readonly Func<object, object[], object?> FastInvokeDelegate;
         
         /// <summary>
         /// Контроллер для активации через IoC.
