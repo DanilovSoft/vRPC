@@ -30,10 +30,10 @@ namespace Server.Controllers
             Interlocked.Increment(ref Program.ReqCount);
         }
 
-        public async void Test()
+        public void Test()
         {
-            var proxy = Context.GetProxy<ITest>(out ServerInterfaceProxy decorator);
-            proxy.Bla();
+            //var proxy = Context.GetProxy<ITest>();
+            //proxy.Bla();
         }
 
         private async void PrivateTest()

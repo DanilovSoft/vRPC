@@ -1170,22 +1170,32 @@ namespace DanilovSoft.vRPC
         /// <param name="responseToSend"></param>
         private void QueueSendResponse(ResponseMessage responseToSend)
         {
+#if NETSTANDARD2_0 || NET472
             ThreadPool.UnsafeQueueUserWorkItem(QueueSendResponseThread, (this, responseToSend));
+#else
+            ThreadPool.UnsafeQueueUserWorkItem(QueueSendResponseThread, (this, responseToSend), preferLocal: true);
+#endif
         }
+
+#if NETSTANDARD2_0 || NET472
 
         private static void QueueSendResponseThread(object? state)
         {
             Debug.Assert(state != null);
-            (ManagedConnection self, ResponseMessage responseToSend) = ((ManagedConnection, ResponseMessage))state;
+            var tuple = ((ManagedConnection, ResponseMessage))state!;
 
+            QueueSendResponseThread(argState: tuple);
+        }
+#endif
+
+        private static void QueueSendResponseThread((ManagedConnection self, ResponseMessage responseToSend) argState)
+        {
             // Сериализуем.
-            BinaryMessageToSend serializedMessage = SerializeResponse(responseToSend);
+            BinaryMessageToSend serializedMessage = SerializeResponse(argState.responseToSend);
 
             // Ставим в очередь.
-            self.QueueSendMessage(serializedMessage);
+            argState.self.QueueSendMessage(serializedMessage);
         }
-
-        
 
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.

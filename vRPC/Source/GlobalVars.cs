@@ -1,6 +1,7 @@
 ﻿using Microsoft.IO;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
 
@@ -9,8 +10,8 @@ namespace DanilovSoft.vRPC
     internal static class GlobalVars
     {
         internal const char ControllerNameSplitter = '/';
-        public static readonly Action DummyAction = delegate { throw new Exception(nameof(RequestAwaiter)); };
-        private static RecyclableMemoryStreamManager _memoryManager;
+        public static readonly Action SentinelAction = delegate { Debug.Assert(false); throw new Exception(nameof(RequestAwaiter)); };
+        private static RecyclableMemoryStreamManager? _memoryManager;
         public static RecyclableMemoryStreamManager RecyclableMemory => LazyInitializer.EnsureInitialized(ref _memoryManager, () => new RecyclableMemoryStreamManager());
 
         public static void Initialize(RecyclableMemoryStreamManager memoryManager)

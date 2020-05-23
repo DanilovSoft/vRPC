@@ -70,25 +70,32 @@ namespace DanilovSoft.vRPC
             _isCompleted = true;
 
             // Атомарно записать заглушку или вызвать оригинальный continuation.
-            Action? continuation = Interlocked.CompareExchange(ref _continuationAtomic, GlobalVars.DummyAction, null);
+            Action? continuation = Interlocked.CompareExchange(ref _continuationAtomic, GlobalVars.SentinelAction, null);
             if (continuation != null)
             {
                 // Нельзя делать продолжение текущим потоком т.к. это затормозит/остановит диспетчер 
                 // или произойдет побег специального потока диспетчера.
-#if NETCOREAPP3_1
-                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true);
-#else
+#if NETSTANDARD2_0 || NET472
                 ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
+#else
+                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true);
 #endif
             }
         }
 
+#if NETSTANDARD2_0 || NET472
         //[DebuggerStepThrough]
         private static void CallContinuation(object? state)
         {
             var action = state as Action;
             Debug.Assert(action != null);
-            action.Invoke();
+            CallContinuation(argState: action);
+        }
+#endif
+
+        private static void CallContinuation(Action argState)
+        {
+            argState.Invoke();
         }
 
         public void OnCompleted(Action continuation)
@@ -104,7 +111,12 @@ namespace DanilovSoft.vRPC
             // это значит что другой поток уже установил результат и его можно забрать.
             // Но нужно предотвратить углубление стека (stack dive) поэтому продолжение вызывается
             // другим потоком.
+            
+#if NETSTANDARD2_0 || NET472
             ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
+#else
+            ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true);
+#endif
         }
 
         private static void QueueUserWorkItem(Action action) =>
