@@ -19,7 +19,6 @@ using Ms = System.Net.WebSockets;
 using DanilovSoft.vRPC.Resources;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
-using System.IO.Pipelines;
 
 namespace DanilovSoft.vRPC
 {
