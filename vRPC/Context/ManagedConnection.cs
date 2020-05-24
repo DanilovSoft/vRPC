@@ -413,11 +413,13 @@ namespace DanilovSoft.vRPC
             }
         }
 
+
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
         /// Возвращает Task или готовый результат если был вызван синхронный метод.
         /// </summary>
-        internal static object? OnClientInterfaceCall(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, object[] args, string controllerName)
+        [SuppressMessage("Reliability", "CA2000:Ликвидировать объекты перед потерей области", Justification = "Анализатор не видит смену ответственности на Channel")]
+        internal static object? OnClientInterfaceCall(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, object[] args, string? controllerName)
         {
             // Создаём запрос для отправки.
             RequestMeta requestMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new RequestMeta(mi, cn), controllerName);
@@ -429,7 +431,7 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Результатом может быть не завершённый таск.
-                // Может начать отправку текущим потоком.
+                // Может начать отправку текущим потоком. Диспозит serMsg в случае ошибки.
                 object? activeCall = ExecuteRequestStatic(connectionTask, serMsg, requestMeta);
 
                 toDispose = null; // Предотвратить Dispose.
@@ -659,7 +661,7 @@ namespace DanilovSoft.vRPC
             //ValidateAuthenticationRequired(requestMeta);
 
             // Планируем отправку запроса.
-            QueueSendMessage(serializedMessage);
+            PostMessage(serializedMessage);
         }
 
         //private protected Task<object> SendRequestAndGetResult(BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
@@ -713,7 +715,7 @@ namespace DanilovSoft.vRPC
 
                 // Планируем отправку запроса.
                 // Не бросает исключения.
-                QueueSendMessage(serializedMessage);
+                PostMessage(serializedMessage);
 
                 // Предотвратить Dispose на месте.
                 toDispose = null;
@@ -1267,7 +1269,7 @@ namespace DanilovSoft.vRPC
             BinaryMessageToSend serializedMessage = SerializeActionResponse(argState.responseToSend);
 
             // Ставим в очередь.
-            argState.self.QueueSendMessage(serializedMessage);
+            argState.self.PostMessage(serializedMessage);
         }
 
         /// <summary>
@@ -1351,7 +1353,7 @@ namespace DanilovSoft.vRPC
         /// Добавляет хэдер и передает на отправку другому потоку.
         /// Не бросает исключения.
         /// </summary>
-        private void QueueSendMessage(BinaryMessageToSend messageToSend)
+        private void PostMessage(BinaryMessageToSend messageToSend)
         {
             Debug.Assert(messageToSend != null);
             BinaryMessageToSend? toDispose = messageToSend;
@@ -1766,7 +1768,7 @@ namespace DanilovSoft.vRPC
             BinaryMessageToSend responseToSend = SerializeActionResponse(responseMessage);
 
             // Не бросает исключения.
-            QueueSendMessage(responseToSend);
+            PostMessage(responseToSend);
         }
 
         private async void WaitResponseAndSendAsync(ValueTask<ResponseMessage> task)

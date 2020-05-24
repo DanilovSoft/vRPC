@@ -3,6 +3,6 @@
     public interface IInterfaceDecorator<out TIface> where TIface : class
     {
         TIface Proxy { get; }
-        string ControllerName { get; }
+        string? ControllerName { get; }
     }
 }

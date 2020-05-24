@@ -11,7 +11,7 @@ namespace DynamicMethodsLib
     internal static class ProxyBuilder<TClass>
     {
         private const BindingFlags _visibilityFlags = BindingFlags.Public | BindingFlags.Instance;
-        private static readonly MethodInfo _invokeMethod = typeof(TClass).GetMethod("Invoke",
+        private static readonly MethodInfo? _invokeMethod = typeof(TClass).GetMethod("Invoke",
                 BindingFlags.NonPublic | BindingFlags.Instance,
                 null,
                 new[] { typeof(MethodInfo), typeof(object[]) },
@@ -40,7 +40,7 @@ namespace DynamicMethodsLib
         /// <param name="source"></param>
         /// <param name="instance">Параметр который будет передан в конструктор <typeparamref name="TClass"/></param>
         /// <returns></returns>
-        public static TClass CreateProxy<TIface>(TClass source = default, object instance = null)
+        public static TClass CreateProxy<TIface>(TClass source = default, object? instance = null)
         {
             var ifaceType = typeof(TIface);
             if (!ifaceType.IsPublic)
@@ -71,10 +71,10 @@ namespace DynamicMethodsLib
                 Type instanceType = instance.GetType();
 
                 // Пустой конструктор базового типа.
-                ConstructorInfo baseDefaultCtor = proxyParentClassType.GetConstructor(Type.EmptyTypes);
+                ConstructorInfo? baseDefaultCtor = proxyParentClassType.GetConstructor(Type.EmptyTypes);
 
                 // Базовый конструктор с параметром.
-                ConstructorInfo baseCtor = null;
+                ConstructorInfo? baseCtor = null;
                 var baseCtors = proxyParentClassType.GetConstructors();
                 foreach (ConstructorInfo ctor in baseCtors)
                 {
@@ -106,7 +106,7 @@ namespace DynamicMethodsLib
             else
             // Должен быть публичный и пустой конструктор.
             {
-                ConstructorInfo baseDefaultCtor = proxyParentClassType.GetConstructor(Type.EmptyTypes);
+                ConstructorInfo? baseDefaultCtor = proxyParentClassType.GetConstructor(Type.EmptyTypes);
                 if (baseDefaultCtor == null)
                     throw new InvalidOperationException($"У типа {proxyParentClassType.FullName} должен быть пустой и открытый конструктор.");
             }
@@ -141,8 +141,14 @@ namespace DynamicMethodsLib
                 property.SetGetMethod(getter);
                 property.SetSetMethod(setter);
 
-                classType.DefineMethodOverride(getter, v.GetGetMethod());
-                classType.DefineMethodOverride(setter, v.GetSetMethod());
+                MethodInfo? getMethod = v.GetGetMethod();
+                Debug.Assert(getMethod != null);
+
+                MethodInfo? setMethod = v.GetSetMethod();
+                Debug.Assert(setMethod != null);
+
+                classType.DefineMethodOverride(getter, getMethod);
+                classType.DefineMethodOverride(setter, setMethod);
             }
 
             if (source != null)
@@ -212,7 +218,7 @@ namespace DynamicMethodsLib
                 }
             }
 
-            TypeInfo ti = classType.CreateTypeInfo();
+            TypeInfo? ti = classType.CreateTypeInfo();
             //Type dynamicType = classType.CreateType();
 
             TClass proxy;
@@ -227,7 +233,7 @@ namespace DynamicMethodsLib
 
             foreach (var item in fields)
             {
-                FieldInfo field = ti.GetField(item.FieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+                FieldInfo? field = ti.GetField(item.FieldName, BindingFlags.NonPublic | BindingFlags.Instance);
                 field.SetValue(proxy, item.MethodInfo);
             }
 
@@ -262,7 +268,7 @@ namespace DynamicMethodsLib
             for (int i = 0; i < parameters.Length; i++)
             {
                 ParameterInfo parameter = parameters[i];
-                Type parameterType = parameter.ParameterType;
+                Type? parameterType = parameter.ParameterType;
 
                 if (hasOutArgs)
                 {
@@ -399,7 +405,7 @@ namespace DynamicMethodsLib
             il.Emit(OpCodes.Ret);
         }
 
-        private static K CopyValues<K>(TClass source, K destination)
+        private static K CopyValues<K>(TClass source, K destination) where K : notnull
         {
             foreach (PropertyInfo property in source.GetType().GetProperties(_visibilityFlags))
             {

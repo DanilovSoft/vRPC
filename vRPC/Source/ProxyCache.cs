@@ -25,13 +25,13 @@ namespace DanilovSoft.vRPC
 
         }
 
-        [DebuggerStepThrough]
+        //[DebuggerStepThrough]
         private static void InitializePropxy<T>(string controllerName, ServerInterfaceProxy<T> p, ManagedConnection connection) where T : class
         {
             p.InitializeClone(controllerName, connection);
         }
 
-        [DebuggerStepThrough]
+        //[DebuggerStepThrough]
         private static void InitializeAsyncPropxy<T>(string controllerName, ClientInterfaceProxy<T> p, RpcClient rpcClient) where T : class
         {
             p.InitializeClone(rpcClient, controllerName);
@@ -54,16 +54,18 @@ namespace DanilovSoft.vRPC
             Type classType = typeof(TClass);
             lock (_instanceDict)
             {
-                if (_instanceDict.TryGetValue(classType, out IInterfaceProxy proxy))
+                if (_instanceDict.TryGetValue(classType, out IInterfaceProxy? proxy))
                 {
-                    return proxy as TClass;
+                    var ret = proxy as TClass;
+                    Debug.Assert(ret != null);
+                    return ret;
                 }
                 else
                 {
                     string controllerName = GetControllerNameFromInterface(interfaceType);
                     
-                    IInterfaceProxy p;
-                    TClass createdStatic;
+                    IInterfaceProxy? p;
+                    TClass? createdStatic;
                     lock (_staticDict) // Нужна блокировка на статический словарь.
                     {
                         if (_staticDict.TryGetValue(interfaceType, out p))
@@ -77,7 +79,7 @@ namespace DanilovSoft.vRPC
                         }
                     }
 
-                    if (createdStatic == null)
+                    if (p != null)
                     {
                         // Клонирование можно выполнять одновременно разными потоками.
                         var clone = p.Clone<TClass>();
@@ -86,12 +88,15 @@ namespace DanilovSoft.vRPC
                     }
                     else
                     {
+                        Debug.Assert(createdStatic != null);
                         initializeClone(controllerName, createdStatic, arg1);
                         p = createdStatic;
                     }
 
                     _instanceDict.Add(classType, p);
-                    return p as TClass;
+                    var ret = p as TClass;
+                    Debug.Assert(ret != null);
+                    return ret;
                 }
             }
         }

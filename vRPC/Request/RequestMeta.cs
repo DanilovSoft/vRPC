@@ -42,7 +42,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="interfaceMethod"></param>
         /// <param name="controllerName"></param>
-        public RequestMeta(MethodInfo interfaceMethod, string controllerName)
+        public RequestMeta(MethodInfo interfaceMethod, string? controllerName)
         {
             ReturnType = interfaceMethod.ReturnType;
 
@@ -120,18 +120,21 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public BinaryMessageToSend SerializeRequest(object[] args)
         {
-            var serializedMessage = new BinaryMessageToSend(this);
+            var request = new RequestMessageDto(ActionFullName, args);
+
+            BinaryMessageToSend serializedMessage = new BinaryMessageToSend(this);
+            BinaryMessageToSend? toDispose = serializedMessage;
+
             try
             {
-                var request = new RequestMessageDto(ActionFullName, args);
                 ExtensionMethods.SerializeObjectJson(serializedMessage.MemPoolStream, request);
-                var ret = serializedMessage;
-                serializedMessage = null;
-                return ret;
+
+                toDispose = null;
+                return serializedMessage;
             }
             finally
             {
-                serializedMessage?.Dispose();
+                toDispose?.Dispose();
             }
         }
     }

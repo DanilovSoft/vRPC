@@ -71,21 +71,21 @@ namespace DanilovSoft.vRPC
         ///// </summary>
         //public ConcurrentDictionary<int, UserConnections> Connections { get; } = new ConcurrentDictionary<int, UserConnections>();
         private bool _disposed;
-        private ServiceProvider _serviceProvider;
+        private ServiceProvider? _serviceProvider;
         /// <summary>
         /// Может быть <see langword="null"/> если не выполнен ConfigureService и сервис ещё не запущен.
         /// </summary>
-        public ServiceProvider ServiceProvider => _serviceProvider;
-        public event EventHandler<ClientConnectedEventArgs> ClientConnected;
-        public event EventHandler<ClientDisconnectedEventArgs> ClientDisconnected;
-        public event EventHandler<ClientAuthenticatedEventArgs> ClientAuthenticated;
-        public event EventHandler<ClientSignedOutEventArgs> ClientSignedOut;
-        private Action<ServiceProvider> _configureApp;
+        public ServiceProvider? ServiceProvider => _serviceProvider;
+        public event EventHandler<ClientConnectedEventArgs>? ClientConnected;
+        public event EventHandler<ClientDisconnectedEventArgs>? ClientDisconnected;
+        public event EventHandler<ClientAuthenticatedEventArgs>? ClientAuthenticated;
+        public event EventHandler<ClientSignedOutEventArgs>? ClientSignedOut;
+        private Action<ServiceProvider>? _configureApp;
         /// <summary>
         /// Не позволяет подключаться новым клиентам. Единожны меняет состояние в момент остановки сервиса.
         /// Также предотвращает повторный запуск сервиса.
         /// </summary>
-        private volatile ShutdownRequest _stopRequired;
+        private volatile ShutdownRequest? _stopRequired;
         public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
         public TimeSpan ClientReceiveTimeout { get => _wsServ.ClientReceiveTimeout; set => _wsServ.ClientReceiveTimeout = value; }
 
@@ -179,7 +179,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
-        public bool Shutdown(TimeSpan disconnectTimeout, string closeDescription = null)
+        public bool Shutdown(TimeSpan disconnectTimeout, string? closeDescription = null)
         {
             return ShutdownAsync(disconnectTimeout, closeDescription).GetAwaiter().GetResult();
         }
@@ -192,7 +192,7 @@ namespace DanilovSoft.vRPC
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.
         /// Может быть <see langword="null"/>.</param>
-        public void BeginShutdown(TimeSpan disconnectTimeout, string closeDescription = null)
+        public void BeginShutdown(TimeSpan disconnectTimeout, string? closeDescription = null)
         {
             InnerBeginShutdown(disconnectTimeout, closeDescription);
         }
@@ -205,7 +205,7 @@ namespace DanilovSoft.vRPC
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
         /// Может быть <see langword="null"/>.</param>
-        public Task<bool> ShutdownAsync(TimeSpan disconnectTimeout, string closeDescription = null)
+        public Task<bool> ShutdownAsync(TimeSpan disconnectTimeout, string? closeDescription = null)
         {
             InnerBeginShutdown(disconnectTimeout, closeDescription);
             return Completion;
@@ -214,9 +214,9 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Начинает остановку сервера и взводит <see cref="Completion"/> не дольше чем указано в <paramref name="disconnectTimeout"/>.
         /// </summary>
-        private async void InnerBeginShutdown(TimeSpan disconnectTimeout, string closeDescription)
+        private async void InnerBeginShutdown(TimeSpan disconnectTimeout, string? closeDescription)
         {
-            ShutdownRequest stopRequired;
+            ShutdownRequest? stopRequired;
             lock (StartLock)
             {
                 // Копия volatile.
@@ -408,14 +408,16 @@ namespace DanilovSoft.vRPC
             return false;
         }
 
-        private void Listener_OnConnected(object sender, DanilovSoft.WebSockets.ClientConnectedEventArgs e)
+        private void Listener_OnConnected(object? sender, DanilovSoft.WebSockets.ClientConnectedEventArgs e)
         {
             // Возможно сервер находится в режиме остановки.
-            ServerSideConnection connection;
+            ServerSideConnection? connection;
             lock (_connections.SyncObj)
             {
                 if (_stopRequired == null) // volatile.
                 {
+                    Debug.Assert(_serviceProvider != null, "На этом этапе контейнер должен быть инициализирован");
+
                     // Создать контекст для текущего подключения.
                     connection = new ServerSideConnection(e.WebSocket, _serviceProvider, listener: this);
                     
@@ -446,7 +448,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static async void CloseWebSocket(ManagedWebSocket ws, string closeDescription)
+        private static async void CloseWebSocket(ManagedWebSocket ws, string? closeDescription)
         {
             using (ws)
             {
@@ -462,9 +464,11 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private void Context_Disconnected(object sender, SocketDisconnectedEventArgs e)
+        private void Context_Disconnected(object? sender, SocketDisconnectedEventArgs e)
         {
-            var context = (ServerSideConnection)sender;
+            var context = sender as ServerSideConnection;
+            Debug.Assert(context != null);
+
             lock (_connections.SyncObj)
             {
                 _connections.Remove(context);
@@ -518,6 +522,25 @@ namespace DanilovSoft.vRPC
             return Array.Empty<ServerSideConnection>();
         }
 
+        private void DisposeAllConnections()
+        {
+            ServerSideConnection[] connections;
+
+            lock (_connections.SyncObj)
+            {
+                connections = _connections.Count > 0 
+                    ? _connections.ToArray()
+                    : Array.Empty<ServerSideConnection>();
+
+                _connections.Clear();
+            }
+
+            for (int i = 0; i < connections.Length; i++)
+            {
+                connections[i].Dispose();
+            }
+        }
+
         public void Dispose()
         {
             if (!_disposed)
@@ -525,18 +548,7 @@ namespace DanilovSoft.vRPC
                 _disposed = true;
                 _wsServ.Dispose();
                 _serviceProvider?.Dispose();
-
-                ServerSideConnection[] connections;
-                lock (_connections.SyncObj)
-                {
-                    connections = _connections.ToArray();
-                    _connections.Clear();
-                }
-
-                foreach (var con in connections)
-                {
-                    con.Dispose();
-                }
+                DisposeAllConnections();
             }
         }
     }

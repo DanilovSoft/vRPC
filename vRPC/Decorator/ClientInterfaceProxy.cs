@@ -32,7 +32,7 @@ namespace DanilovSoft.vRPC.Decorator
             
         }
 
-        internal void InitializeClone(RpcClient rpcClient, string controllerName)
+        internal void InitializeClone(RpcClient rpcClient, string? controllerName)
         {
             Proxy = this as TIface;
             Client = rpcClient;
@@ -52,7 +52,7 @@ namespace DanilovSoft.vRPC.Decorator
         protected object? Invoke(MethodInfo targetMethod, object[] args)
         {
             Debug.Assert(Client != null);
-            //Debug.Assert(ControllerName != null);
+            Debug.Assert(targetMethod != null);
 
             object? returnValue = Client.OnInterfaceMethodCall(targetMethod, args, ControllerName);
 

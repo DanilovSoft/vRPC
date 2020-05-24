@@ -1011,6 +1011,11 @@
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessPayload(DanilovSoft.vRPC.HeaderDto,System.Memory{System.Byte})">
+            <summary>
+            Обработка Payload.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.FinishSenderAsync">
             <summary>
             Гарантирует что ничего больше не будет отправлено через веб-сокет. 
@@ -1043,7 +1048,7 @@
             Сериализует хэдер в стрим сообщения. Не бросает исключения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendMessage(DanilovSoft.vRPC.BinaryMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.PostMessage(DanilovSoft.vRPC.BinaryMessageToSend)">
             <summary>
             Добавляет хэдер и передает на отправку другому потоку.
             Не бросает исключения.

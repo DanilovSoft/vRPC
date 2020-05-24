@@ -12,11 +12,6 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay("{ActionToInvoke}")]
     internal sealed class RequestToInvoke
     {
-        ///// <summary>
-        ///// Десериализованный заголовок запроса. Не может быть null.
-        ///// </summary>
-        //public HeaderDto HeaderDto { get; }
-
         public int? Uid { get; }
 
         /// <summary>

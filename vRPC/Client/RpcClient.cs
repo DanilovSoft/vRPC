@@ -404,7 +404,7 @@ namespace DanilovSoft.vRPC
         }
 
         // Когда выполняют вызов метода через интерфейс.
-        internal object? OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
+        internal object? OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string? controllerName)
         {
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
