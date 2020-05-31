@@ -32,7 +32,7 @@ namespace DanilovSoft.vRPC
         [DebuggerStepThrough]
         public RequestAwaiter GetAwaiter() => this;
 
-        [DebuggerNonUserCode]
+        //[DebuggerNonUserCode]
         public object? GetResult()
         {
             if (_exception == null)

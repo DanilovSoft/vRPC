@@ -16,17 +16,10 @@ namespace Client
         {
             using var listener = new RpcListener(IPAddress.Any, 1234);
             listener.Start();
-
-            //Thread.Sleep(10000); // Нужно дать просраться IntelliTrace.
-
             using var client = new RpcClient("127.0.0.1", 1234, false, true);
             client.Connect();
 
-            //var content = new System.Net.Http.MultipartContent();
-            //var content = new System.Net.Http.ReadOnlyMemoryContent();
-            //content.Add();
-
-
+            
             var multipart = client.GetProxy<IMultipart>();
 
             using (var mem = MemoryPool<byte>.Shared.Rent(-1))
