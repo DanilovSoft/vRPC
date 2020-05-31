@@ -390,7 +390,9 @@ namespace DanilovSoft.vRPC
         /// <typeparam name="T">Интерфейс.</typeparam>
         public T GetProxy<T>() where T : class
         {
-            return GetProxyDecorator<T>().Proxy;
+            var proxy = GetProxyDecorator<T>().Proxy;
+            Debug.Assert(proxy != null);
+            return proxy;
         }
 
         /// <summary>

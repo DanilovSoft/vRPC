@@ -15,8 +15,8 @@ namespace DanilovSoft.vRPC
 
     //}
 
-    public interface IActionResult<T> : IActionResult
-    {
+    //public interface IActionResult<T> : IActionResult
+    //{
         
-    }
+    //}
 }

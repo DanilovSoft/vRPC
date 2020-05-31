@@ -13,14 +13,9 @@ namespace DanilovSoft.vRPC
 
         internal abstract void BeforeInvokeController(ManagedConnection connection, ClaimsPrincipal? user);
 
-        protected static BadRequestResult BadRequest(string message)
+        protected static BadRequestResult BadRequest(string errorMessage)
         {
-            return new BadRequestResult(message);
-        }
-
-        protected static BadRequestResult<T> BadRequest<T>(string message)
-        {
-            return new BadRequestResult<T>(message);
+            return new BadRequestResult(errorMessage);
         }
 
         protected static OkResult Ok()
@@ -28,14 +23,9 @@ namespace DanilovSoft.vRPC
             return new OkResult();
         }
 
-        protected static OkObjectResult<T> Ok<T>(T result)
+        protected static OkObjectResult Ok(object value)
         {
-            return new OkObjectResult<T>(result);
-        }
-
-        protected static OkObjectResult Ok(object result)
-        {
-            return new OkObjectResult(result);
+            return new OkObjectResult(value);
         }
     }
 }

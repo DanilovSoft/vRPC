@@ -4,9 +4,14 @@
         <name>DanilovSoft.vRPC</name>
     </assembly>
     <members>
+        <member name="T:DanilovSoft.vRPC.ActionContext">
+            <summary>
+            Контекст запроса.
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.ActionContext.RequestContext">
             <summary>
-            Не может быть <see langword="null"/>.
+            Может быть <see langword="null"/> если не удалось разобрать запрос.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.InternalErrorResult">
@@ -1013,8 +1018,15 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessPayload(DanilovSoft.vRPC.HeaderDto,System.Memory{System.Byte})">
             <summary>
-            Обработка Payload.
+            Обработка Payload. Если возвращает false то нужно завершить поток чтения.
             </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendErrorResponse(DanilovSoft.vRPC.HeaderDto,System.Exception)">
+            <summary>
+            Если запрос ожидает результат то отправляет ошибку как результат.
+            </summary>
+            <param name="header">Заголовок запроса.</param>
+            <param name="exception">Ошибка произошедшая при разборе запроса.</param>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.FinishSenderAsync">
             <summary>
@@ -1085,17 +1097,17 @@
             </summary>
             <param name="requestContext"></param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.IncActiveRequestCount">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.IncreaseActiveRequestsCount">
             <summary>
             Увеличивает счётчик на 1 при получении запроса или при отправке запроса.
             </summary>
-            <returns></returns>
+            <returns>True если можно продолжить получение запросов иначе нужно закрыть соединение.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.DecActiveRequestCount">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.DecreaseActiveRequestsCount">
             <summary>
             Уменьшает счётчик на 1 при получении ответа на запрос или при отправке ответа на запрос.
             </summary>
-            <returns></returns>
+            <returns>True если можно продолжить получение запросов иначе нужно закрыть соединение.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeActionResultAndSendResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
@@ -1254,7 +1266,17 @@
         </member>
         <member name="T:DanilovSoft.vRPC.HeaderDto">
             <summary>
-            Заголовок передаваемого сообщения. Размер заголовка — динамический. Сериализатор всегда ProtoBuf.
+            Заголовок запроса или ответа. Бинарный размер — динамический. Сериализуется всегда через ProtoBuf.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.HeaderDto.IsResponseRequired">
+            <summary>
+            True если задан <see cref="P:DanilovSoft.vRPC.HeaderDto.Uid"/>.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.HeaderDto.IsRequest">
+            <summary>
+            Это заголовок запроса когда статус равен <see cref="F:DanilovSoft.vRPC.StatusCode.Request"/>.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.HeaderDto.ContentEncoding">

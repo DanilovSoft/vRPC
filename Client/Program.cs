@@ -1,7 +1,10 @@
 ﻿using DanilovSoft.vRPC;
+using DanilovSoft.vRPC.Content;
 using DanilovSoft.vRPC.Decorator;
 using Newtonsoft.Json;
 using System;
+using System.Buffers;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,11 +14,28 @@ namespace Client
     {
         static async Task Main()
         {
-            var client = new RpcClient("127.0.0.1", 1234, false, true);
+            using var listener = new RpcListener(IPAddress.Any, 1234);
+            listener.Start();
+
+            //Thread.Sleep(10000); // Нужно дать просраться IntelliTrace.
+
+            using var client = new RpcClient("127.0.0.1", 1234, false, true);
             client.Connect();
 
+            //var content = new System.Net.Http.MultipartContent();
+            //var content = new System.Net.Http.ReadOnlyMemoryContent();
+            //content.Add();
+
+
             var multipart = client.GetProxy<IMultipart>();
-            multipart.Test();
+
+            using (var mem = MemoryPool<byte>.Shared.Rent(-1))
+            {
+                using (var content = new ReadOnlyMemoryContent(mem.Memory))
+                {
+                    multipart.Test(content);
+                }
+            }
         }
     }
 
@@ -31,6 +51,7 @@ namespace Client
 
     public interface IMultipart
     {
-        void Test();
+        int GetSum();
+        void Test(ReadOnlyMemoryContent memory);
     }
 }

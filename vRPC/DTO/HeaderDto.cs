@@ -8,7 +8,7 @@ using ProtoBufSerializer = ProtoBuf.Serializer;
 namespace DanilovSoft.vRPC
 {
     /// <summary>
-    /// Заголовок передаваемого сообщения. Размер заголовка — динамический. Сериализатор всегда ProtoBuf.
+    /// Заголовок запроса или ответа. Бинарный размер — динамический. Сериализуется всегда через ProtoBuf.
     /// </summary>
     [ProtoContract]
     [DebuggerDisplay(@"\{Uid = {Uid}, Status = {StatusCode}, Content = {ContentLength} байт\}")]
@@ -18,6 +18,18 @@ namespace DanilovSoft.vRPC
         //public static HeaderDto Empty => default;
         private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
 
+        /// <summary>
+        /// True если задан <see cref="Uid"/>.
+        /// </summary>
+        [ProtoIgnore]
+        public bool IsResponseRequired => Uid != null;
+
+        /// <summary>
+        /// Это заголовок запроса когда статус равен <see cref="StatusCode.Request"/>.
+        /// </summary>
+        [ProtoIgnore]
+        public bool IsRequest => StatusCode == StatusCode.Request;
+
         [ProtoMember(1, IsRequired = false)]
         public int? Uid { get; }
 
@@ -25,7 +37,7 @@ namespace DanilovSoft.vRPC
         public StatusCode StatusCode { get; }
 
         [ProtoMember(3, IsRequired = false)]
-        public int ContentLength { get; }
+        public int PayloadLength { get; }
 
         /// <summary>
         /// Формат контента. Может быть <see langword="null"/>, тогда 
@@ -63,7 +75,7 @@ namespace DanilovSoft.vRPC
         {
             Uid = uid;
             StatusCode = responseCode;
-            ContentLength = contentLength;
+            PayloadLength = contentLength;
             ContentEncoding = contentEncoding;
         }
 
@@ -92,11 +104,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Может вернуть <see langword="null"/> если не удалось десериализовать.
         /// </summary>
-        public static HeaderDto DeserializeProtobuf(byte[] buffer, int offset, int count)
+        public static HeaderDto? DeserializeProtobuf(byte[] buffer, int offset, int count)
         {
             using (var mem = new MemoryStream(buffer, offset, count))
             {
-                HeaderDto header = ProtoBufSerializer.Deserialize<HeaderDto>(mem);
+                HeaderDto? header = ProtoBufSerializer.Deserialize<HeaderDto>(mem);
                 return header; // может быть null если не удалось десериализовать.
             }
         }
@@ -128,7 +140,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public override string ToString()
         {
-            string s = $"{nameof(Uid)} = {Uid} {nameof(StatusCode)} = {StatusCode} {nameof(ContentLength)} = {ContentLength}";
+            string s = $"{nameof(Uid)} = {Uid} {nameof(StatusCode)} = {StatusCode} {nameof(PayloadLength)} = {PayloadLength}";
             if(ContentEncoding != null)
             {
                 s += $" {nameof(ContentEncoding)} = {ContentEncoding}";

@@ -17,7 +17,7 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{{TargetMethod.GetControllerActionName()}\}")]
     internal sealed class ControllerActionMeta
     {
-        public Action<Stream, object> Serializer { get; }
+        public Action<Stream, object> SerializerDelegate { get; }
         public MethodInfo TargetMethod { get; }
         /// <summary>
         /// Формат возвращаемых данных.
@@ -41,13 +41,13 @@ namespace DanilovSoft.vRPC
             var protobufAttrib = methodInfo.GetCustomAttribute<ProducesProtoBufAttribute>();
             if (protobufAttrib != null)
             {
-                Serializer = ExtensionMethods.SerializeObjectProtobuf;
+                SerializerDelegate = ExtensionMethods.SerializeObjectProtobuf;
                 ProducesEncoding = ProducesProtoBufAttribute.Encoding;
             }
             else
             {
                 // Сериализатор по умолчанию — Json.
-                Serializer = ExtensionMethods.SerializeObjectJson;
+                SerializerDelegate = ExtensionMethods.SerializeObjectJson;
                 ProducesEncoding = "json";
             }
 

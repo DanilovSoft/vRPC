@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -7,7 +8,7 @@ namespace DanilovSoft.vRPC
 {
     public abstract class ActionResult : IActionResult
     {
-        public StatusCode StatusCode { get; }
+        public StatusCode StatusCode { get; internal set; }
 
         public ActionResult(StatusCode statusCode)
         {
@@ -20,12 +21,12 @@ namespace DanilovSoft.vRPC
             return Task.CompletedTask;
         }
 
-        public void ExecuteResult(ActionContext context)
+        public virtual void ExecuteResult(ActionContext context)
         {
-            InnerExecuteResult(context);
+            FinalExecuteResult(context);
         }
 
-        private protected virtual void InnerExecuteResult(ActionContext context)
+        private protected virtual void FinalExecuteResult(ActionContext context)
         {
 
         }

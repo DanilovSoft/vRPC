@@ -5,3 +5,6 @@ dotnet_diagnostic.CA1031.severity = none
 
 # CA1303: Не передавать литералы в качестве локализованных параметров
 dotnet_diagnostic.CA1303.severity = none
+
+# Default severity for analyzer diagnostics with category 'Usage'
+dotnet_analyzer_diagnostic.category-Usage.severity = none

@@ -6,22 +6,23 @@ namespace DanilovSoft.vRPC
 {
     public class ObjectResult : ActionResult
     {
-        private readonly object _value;
+        public object? Value { get; }
+        public Type? DeclaredType { get; set; }
 
-        public ObjectResult(object value, StatusCode statusCode) : base(statusCode)
+        public ObjectResult(object? value) : base(StatusCode.Ok)
         {
-            _value = value;
+            Value = value;
         }
 
-        private protected override void InnerExecuteResult(ActionContext context)
+        private protected override void FinalExecuteResult(ActionContext context)
         {
             context.StatusCode = StatusCode;
 
             // Нет необходимости отправлять Null.
-            if (_value != null)
+            if (Value != null)
             {
                 // Сериализуем в стрим.
-                context.RequestContext.ActionToInvoke.Serializer(context.ResponseStream, _value);
+                context.RequestContext.ActionToInvoke.SerializerDelegate(context.ResponseStream, Value);
 
                 // Устанавливаем формат.
                 context.ProducesEncoding = context.RequestContext.ActionToInvoke.ProducesEncoding;

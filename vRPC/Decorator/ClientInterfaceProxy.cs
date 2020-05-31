@@ -24,7 +24,7 @@ namespace DanilovSoft.vRPC.Decorator
     [DebuggerDisplay(@"\{Proxy to remote controller {ControllerName}, ConnectionState = {Client}\}")]
     public class ClientInterfaceProxy<TIface> : ClientInterfaceProxy, IInterfaceProxy, IInterfaceDecorator<TIface> where TIface : class
     {
-        public TIface Proxy { get; private set; }
+        public TIface? Proxy { get; private set; }
 
         // Вызывается через рефлексию.
         public ClientInterfaceProxy()

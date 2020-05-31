@@ -4,16 +4,25 @@ using System.Text;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 
 namespace DanilovSoft.vRPC
 {
     internal static class JsonRequestParser
     {
+        private const string ArgumentsCountMismatch = "Argument count mismatch for action '{0}'. {1} arguments was expected.";
+
         /// <summary>
         /// Десериализует json запрос.
         /// </summary>
         public static RequestToInvoke? TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeActions, HeaderDto header, out IActionResult? error)
         {
+#if DEBUG
+            var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
+#endif
+
             string? actionName = null;
             ControllerActionMeta? action = null;
             object[]? args = null;
@@ -34,13 +43,14 @@ namespace DanilovSoft.vRPC
                                 if (reader.TokenType == JsonTokenType.String)
                                 {
                                     actionName = reader.GetString();
-                                    if (!invokeActions.TryGetAction(actionName, out action))
+                                    if (invokeActions.TryGetAction(actionName, out action))
                                     {
-#if NETSTANDARD2_0 || NET472
-                                        int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter);
-#else
+                                        targetArguments = action.TargetMethod.GetParameters();
+                                    }
+                                    else
+                                    {
                                         int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter, StringComparison.Ordinal);
-#endif
+
                                         if (controllerIndex > 0)
                                         {
                                             error = new NotFoundResult($"Unable to find requested action \"{actionName}\".");
@@ -52,10 +62,6 @@ namespace DanilovSoft.vRPC
                                             return null;
                                         }
                                     }
-                                    else
-                                    {
-                                        targetArguments = action.TargetMethod.GetParameters();
-                                    }
                                 }
                             }
                         }
@@ -64,36 +70,46 @@ namespace DanilovSoft.vRPC
                         {
                             hasArguments = true;
 
-                            if (action != null)
+                            if (targetArguments != null)
                             {
+                                Debug.Assert(actionName != null, "Не может быть Null потому что targetArguments не Null");
+
                                 if (reader.Read())
                                 {
                                     if (reader.TokenType == JsonTokenType.StartArray)
                                     {
-                                        // Считает сколько аргументов было в json'е и используется как индекс.
-                                        short jsonArgsCount = 0;
+                                        args = targetArguments.Length == 0 
+                                            ? Array.Empty<object>() 
+                                            : (new object[targetArguments.Length]);
 
-                                        if(targetArguments.Length == 0)
-                                            args = Array.Empty<object>();
-                                        else
-                                            args = new object[targetArguments.Length];
+                                        // Считаем сколько аргументов есть в json'е.
+                                        short argsInJsonCounter = 0;
 
                                         while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
                                         {
-                                            Type type = targetArguments[jsonArgsCount].ParameterType;
+                                            if (targetArguments.Length > argsInJsonCounter)
+                                            {
+                                                Type type = targetArguments[argsInJsonCounter].ParameterType;
 
-                                            try
-                                            {
-                                                args[jsonArgsCount] = JsonSerializer.Deserialize(ref reader, type);
+                                                try
+                                                {
+                                                    args[argsInJsonCounter] = JsonSerializer.Deserialize(ref reader, type);
+                                                }
+                                                catch (Exception ex)
+                                                {
+                                                    throw new InvalidOperationException($"Ошибка при десериализации аргумента №{argsInJsonCounter + 1} для метода '{actionName}'", ex);
+                                                }
+                                                argsInJsonCounter++;
                                             }
-                                            catch (Exception ex)
+                                            else
+                                            // Выход за границы массива.
                                             {
-                                                throw new InvalidOperationException($"Ошибка при десериализации аргумента №{jsonArgsCount + 1} для метода '{actionName}'", ex);
+                                                error = ArgumentsCountMismatchError(actionName, targetArguments.Length);
+                                                return null;
                                             }
-                                            jsonArgsCount++;
                                         }
 
-                                        if (!ValidateArgumentsCount(targetArguments, jsonArgsCount, actionName, out error))
+                                        if (!ValidateArgumentsCount(targetArguments, argsInJsonCounter, actionName, out error))
                                         // Не соответствует число аргументов.
                                         {
                                             return null;
@@ -113,7 +129,9 @@ namespace DanilovSoft.vRPC
             if (action != null)
             // В json'е был найден метод.
             {
-                if(args == null)
+                Debug.Assert(targetArguments != null, "Не может быть Null потому что action не Null");
+
+                if (args == null)
                 // В json'е отсутвует массив параметров.
                 {
                     if (targetArguments.Length == 0)
@@ -137,9 +155,16 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static BadRequestResult ArgumentsCountMismatchError(string actionName, int targetArgumentsCount)
+        {
+            return new BadRequestResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
+        }
+
+#if NETSTANDARD2_0 || NET472
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, string actionName, out IActionResult? error)
         {
-            Debug.Assert(actionName != null);
             if (jsonArgsCount == targetArguments.Length)
             {
                 error = null;
@@ -147,29 +172,56 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                error = new BadRequestResult($"Argument count mismatch for action '{actionName}'.");
+                error = new BadRequestResult($"Argument count mismatch for action '{actionName}'. {targetArguments.Length} arguments expected.");
                 return false;
             }
         }
+#else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, string actionName, [MaybeNullWhen(true)] out IActionResult? error)
+        {
+            if (jsonArgsCount == targetArguments.Length)
+            {
+                error = null;
+                return true;
+            }
+            else
+            {
+                error = ArgumentsCountMismatchError(actionName, targetArguments.Length);
+                return false;
+            }
+        }
+#endif
 
-        ///// <summary>
-        ///// Производит маппинг аргументов запроса в соответствии с делегатом.
-        ///// </summary>
-        ///// <param name="method">Метод который будем вызывать.</param>
-        //private object[] DeserializeParameters(ParameterInfo[] targetArguments, RequestMessage request)
-        //{
-        //    object[] args = new object[targetArguments.Length];
+#if DEBUG
+        [DebuggerDisplay("{ToString()}")]
+        private readonly ref struct DebuggerDisplayJson
+        {
+            private readonly ReadOnlySpan<byte> _utf8Json;
 
-        //    for (int i = 0; i < targetArguments.Length; i++)
-        //    {
-        //        ParameterInfo p = targetArguments[i];
-        //        var arg = request.Args.FirstOrDefault(x => x.ParameterName.Equals(p.Name, StringComparison.InvariantCultureIgnoreCase));
-        //        if (arg == null)
-        //            throw new BadRequestException($"Argument \"{p.Name}\" missing.");
+            public DebuggerDisplayJson(ReadOnlySpan<byte> utf8Json)
+            {
+                _utf8Json = utf8Json;
+            }
 
-        //        args[i] = arg.Value.ToObject(p.ParameterType);
-        //    }
-        //    return args;
-        //}
-    }
+#if NETSTANDARD2_0 || NET472
+
+#else
+            public string AsIndented => ToIndentedString();
+
+            public override string ToString()
+            {
+                return Encoding.UTF8.GetString(_utf8Json);
+            }
+
+            public string ToIndentedString()
+            {
+                string j = Encoding.UTF8.GetString(_utf8Json);
+                var element = JsonDocument.Parse(j).RootElement;
+                return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
+            }
+#endif
+        }
+#endif
+        }
 }

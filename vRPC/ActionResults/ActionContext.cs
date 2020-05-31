@@ -4,18 +4,21 @@ using System.Runtime.InteropServices;
 
 namespace DanilovSoft.vRPC
 {
+    /// <summary>
+    /// Контекст запроса.
+    /// </summary>
     public sealed class ActionContext
     {
         internal Stream ResponseStream { get; }
         /// <summary>
-        /// Не может быть <see langword="null"/>.
+        /// Может быть <see langword="null"/> если не удалось разобрать запрос.
         /// </summary>
-        internal RequestToInvoke RequestContext { get; }
+        internal RequestToInvoke? RequestContext { get; }
         public StatusCode StatusCode { get; internal set; }
-        internal string ProducesEncoding { get; set; }
+        internal string? ProducesEncoding { get; set; }
 
-        [DebuggerStepThrough]
-        internal ActionContext(in RequestToInvoke requestContext, Stream responseStream)
+        //[DebuggerStepThrough]
+        internal ActionContext(RequestToInvoke? requestContext, Stream responseStream)
         {
             RequestContext = requestContext;
             ResponseStream = responseStream;

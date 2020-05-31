@@ -214,7 +214,7 @@ namespace DanilovSoft.vRPC
             ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this); // Без замыкания.
 #else
             // Запустить цикл приёма сообщений.
-            ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this, preferLocal: true); // Без замыкания.
+            ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this, preferLocal: false); // Без замыкания.
 #endif
         }
 
@@ -292,7 +292,7 @@ namespace DanilovSoft.vRPC
                     // Запомнить причину отключения что-бы позднее передать её удалённой стороне.
                     _shutdownRequest = stopRequired; // volatile.
 
-                    if (!DecActiveRequestCount())
+                    if (!DecreaseActiveRequestsCount())
                     // Нет ни одного ожадающего запроса.
                     {
                         // Можно безопасно остановить сокет.
@@ -748,7 +748,6 @@ namespace DanilovSoft.vRPC
                 #region Читаем хедер
 
                 ValueWebSocketReceiveResult webSocketMessage;
-
                 int bufferOffset = 0;
                 do
                 {
@@ -769,7 +768,11 @@ namespace DanilovSoft.vRPC
 
                 } while (!webSocketMessage.EndOfMessage);
 
-                HeaderDto header;
+                #endregion
+
+                #region Десериализуем хедер
+
+                HeaderDto? header;
                 if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
                 {
                     try
@@ -794,20 +797,22 @@ namespace DanilovSoft.vRPC
 
                 if (header != null)
                 {
-                    using (IMemoryOwner<byte> contentMemHandler = MemoryPool<byte>.Shared.Rent(header.ContentLength))
+                    #region Читаем контент
+
+                    using (IMemoryOwner<byte> contentMemHandler = MemoryPool<byte>.Shared.Rent(header.PayloadLength))
                     {
                         Memory<byte> contentMem = null;
 
-                        if (header.ContentLength > 0)
+                        if (header.PayloadLength > 0)
                         // Есть дополнительный фрейм с телом сообщения.
                         {
                             // Можно не очищать – буффер будет перезаписан.
-                            contentMem = contentMemHandler.Memory.Slice(0, header.ContentLength);
+                            contentMem = contentMemHandler.Memory.Slice(0, header.PayloadLength);
 
                             bufferOffset = 0;
 
                             // Сколько байт должны принять в следующих фреймах.
-                            int receiveMessageBytesLeft = header.ContentLength;
+                            int receiveMessageBytesLeft = header.PayloadLength;
 
                             do // Читаем и склеиваем фреймы веб-сокета пока не EndOfMessage.
                             {
@@ -857,12 +862,14 @@ namespace DanilovSoft.vRPC
                             } while (!webSocketMessage.EndOfMessage);
                         }
 
+                        // У сообщения может не быть контента.
                         if (!ProcessPayload(header, contentMem))
                         {
                             // Завершить поток.
                             return;
                         }
                     }
+                    #endregion
                 }
                 else
                 // Ошибка в хедере.
@@ -893,16 +900,16 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Обработка Payload.
+        /// Обработка Payload. Если возвращает false то нужно завершить поток чтения.
         /// </summary>
         private bool ProcessPayload(HeaderDto header, Memory<byte> contentMem)
         {
-            if (header.StatusCode == StatusCode.Request)
+            if (header.IsRequest)
             // Получен запрос.
             {
-                if (header.Uid != null)
+                if (header.IsResponseRequired)
                 {
-                    if (!IncActiveRequestCount())
+                    if (!IncreaseActiveRequestsCount())
                     // Происходит остановка. Выполнять запрос не нужно.
                     {
                         return false;
@@ -911,8 +918,8 @@ namespace DanilovSoft.vRPC
 
                 #region Десериализация запроса
 
+                IActionResult? error;
                 RequestToInvoke? requestToInvoke;
-                IActionResult? error = null;
                 try
                 {
                     // Десериализуем запрос.
@@ -921,21 +928,10 @@ namespace DanilovSoft.vRPC
                 catch (Exception ex)
                 // Ошибка десериализации запроса.
                 {
-                    #region Игнорируем запрос
+                    // Игнорируем этот запрос и отправляем обратно ошибку.
+                    QueueSendErrorResponse(header, ex);
 
-                    if (header.Uid != null)
-                    // Запрос ожидает ответ.
-                    {
-                        // Подготовить ответ с ошибкой.
-                        var errorResponse = new ResponseMessage(header.Uid.Value, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\"."));
-
-                        // Передать на отправку результат с ошибкой через очередь.
-                        QueueSendResponse(errorResponse);
-                    }
-
-                    // Вернуться к чтению заголовка.
-                    return true;
-                    #endregion
+                    return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
                 }
                 #endregion
 
@@ -1052,7 +1048,7 @@ namespace DanilovSoft.vRPC
                     #endregion
 
                     // Получен ожидаемый ответ на запрос.
-                    if (DecActiveRequestCount())
+                    if (DecreaseActiveRequestsCount())
                     {
                         return true;
                     }
@@ -1068,8 +1064,25 @@ namespace DanilovSoft.vRPC
                 }
                 #endregion
             }
+            return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
+        }
 
-            return true;
+        /// <summary>
+        /// Если запрос ожидает результат то отправляет ошибку как результат.
+        /// </summary>
+        /// <param name="header">Заголовок запроса.</param>
+        /// <param name="exception">Ошибка произошедшая при разборе запроса.</param>
+        private void QueueSendErrorResponse(HeaderDto header, Exception exception)
+        {
+            if (header.Uid != null)
+            // Запрос ожидает ответ.
+            {
+                // Подготовить ответ с ошибкой.
+                var errorResponse = new ResponseMessage(header.Uid.Value, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{exception.Message}\"."));
+
+                // Передать на отправку результат с ошибкой через очередь.
+                QueueSendResponse(errorResponse);
+            }
         }
 
         private Task CloseReceivedAsync()
@@ -1247,12 +1260,13 @@ namespace DanilovSoft.vRPC
 #if NETSTANDARD2_0 || NET472
             ThreadPool.UnsafeQueueUserWorkItem(QueueSendResponseThread, (this, responseToSend));
 #else
-            ThreadPool.UnsafeQueueUserWorkItem(QueueSendResponseThread, (this, responseToSend), preferLocal: true);
+            ThreadPool.UnsafeQueueUserWorkItem(QueueSendResponseThread, (this, responseToSend), preferLocal: false); // Предпочитаем глобальную очередь.
 #endif
         }
 
 #if NETSTANDARD2_0 || NET472
 
+        // Точка входа потока тред-пула.
         private static void QueueSendResponseThread(object? state)
         {
             Debug.Assert(state != null);
@@ -1261,7 +1275,7 @@ namespace DanilovSoft.vRPC
             QueueSendResponseThread(argState: tuple);
         }
 #endif
-
+        // Точка входа потока тред-пула.
         private static void QueueSendResponseThread((ManagedConnection self, ResponseMessage responseToSend) argState)
         {
             // Сериализуем.
@@ -1276,10 +1290,10 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private static BinaryMessageToSend SerializeActionResponse(ResponseMessage responseToSend)
         {
-            Debug.Assert(responseToSend.ReceivedRequest != null, "Результат контроллера может быть только на основе запроса");
+            //Debug.Assert(responseToSend.ReceivedRequest != null, "Результат контроллера может быть только на основе запроса");
 
             BinaryMessageToSend serMsg = new BinaryMessageToSend(responseToSend);
-            BinaryMessageToSend? toDispose = serMsg;
+            BinaryMessageToSend? serMsgToDispose = serMsg;
 
             try
             {
@@ -1302,17 +1316,17 @@ namespace DanilovSoft.vRPC
                     // Сериализуем контент если он есть (у void его нет).
                     if (responseToSend.ActionResult != null)
                     {
-                        responseToSend.ReceivedRequest.ActionToInvoke.Serializer(serMsg.MemPoolStream, responseToSend.ActionResult);
+                        Debug.Assert(responseToSend.ReceivedRequest != null, "RAW результат может быть только на основе запроса");
+                        responseToSend.ReceivedRequest.ActionToInvoke.SerializerDelegate(serMsg.MemPoolStream, responseToSend.ActionResult);
                         serMsg.ContentEncoding = responseToSend.ReceivedRequest.ActionToInvoke.ProducesEncoding;
                     }
                 }
-
-                toDispose = null; // Предотвратить Dispose.
+                serMsgToDispose = null; // Предотвратить Dispose.
                 return serMsg;
             }
             finally
             {
-                toDispose?.Dispose();
+                serMsgToDispose?.Dispose();
             }
         }
 
@@ -1408,7 +1422,7 @@ namespace DanilovSoft.vRPC
                             if (!serializedMessage.MessageToSend.IsNotificationRequest)
                             // Должны получить ответ на этот запрос.
                             {
-                                if (!IncActiveRequestCount())
+                                if (!IncreaseActiveRequestsCount())
                                 // Происходит остановка и сокет уже уничтожен.
                                 {
                                     // Просто завершить поток.
@@ -1468,7 +1482,7 @@ namespace DanilovSoft.vRPC
                         if (!serializedMessage.MessageToSend.IsRequest)
                         // Ответ успешно отправлен.
                         {
-                            if (DecActiveRequestCount())
+                            if (DecreaseActiveRequestsCount())
                             {
                                 continue;
                             }
@@ -1635,7 +1649,8 @@ namespace DanilovSoft.vRPC
 #if NETSTANDARD2_0 || NET472
             ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestThread, (this, request)); // Без замыкания.
 #else
-            ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestThread, (this, request), preferLocal: true); // Без замыкания.
+            // Предпочитаем глобальную очередь что-бы не замедлять читающий поток.
+            ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestThread, (this, request), preferLocal: false);
 #endif
         }
 
@@ -1649,6 +1664,7 @@ namespace DanilovSoft.vRPC
         }  
 #endif
 
+        // Точка входа для потока из пула.
         private static void StartProcessRequestThread((ManagedConnection self, RequestToInvoke request) stateTuple)
         {
             // Не бросает исключения.
@@ -1672,12 +1688,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Увеличивает счётчик на 1 при получении запроса или при отправке запроса.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>True если можно продолжить получение запросов иначе нужно закрыть соединение.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool IncActiveRequestCount()
+        private bool IncreaseActiveRequestsCount()
         {
-            //LogInc();
-
             // Увеличить счетчик запросов.
             if (Interlocked.Increment(ref _activeRequestCount) > 0)
             {
@@ -1693,12 +1707,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Уменьшает счётчик на 1 при получении ответа на запрос или при отправке ответа на запрос.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>True если можно продолжить получение запросов иначе нужно закрыть соединение.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool DecActiveRequestCount()
+        private bool DecreaseActiveRequestsCount()
         {
-            //LogDec();
-
             // Получен ожидаемый ответ на запрос.
             if (Interlocked.Decrement(ref _activeRequestCount) != -1)
             {

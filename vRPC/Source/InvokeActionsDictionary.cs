@@ -1,6 +1,7 @@
 ﻿using DanilovSoft.vRPC.Controllers;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -35,10 +36,18 @@ namespace DanilovSoft.vRPC
             }
         }
 
+#if NETSTANDARD2_0 || NET472
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetAction(string actionFullName, out ControllerActionMeta value)
+        public bool TryGetAction(string actionFullName, out ControllerActionMeta? value)
         {
             return _actionsDict.TryGetValue(actionFullName, out value);
         }
+#else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGetAction(string actionFullName, [MaybeNullWhen(false)] out ControllerActionMeta value)
+        {
+            return _actionsDict.TryGetValue(actionFullName, out value);
+        }
+#endif
     }
 }

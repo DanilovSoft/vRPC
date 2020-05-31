@@ -52,7 +52,7 @@ namespace DanilovSoft.vRPC
         public void TrySetException(Exception exception)
         {
             _exception = exception;
-            OnResultAtomic();
+            WakeContinuation();
         }
 
         /// <summary>
@@ -61,10 +61,10 @@ namespace DanilovSoft.vRPC
         public void TrySetResult(object? rawResult)
         {
             _response = rawResult;
-            OnResultAtomic();
+            WakeContinuation();
         }
 
-        private void OnResultAtomic()
+        private void WakeContinuation()
         {
             // Результат уже установлен. Можно установить fast-path.
             _isCompleted = true;
@@ -78,6 +78,7 @@ namespace DanilovSoft.vRPC
 #if NETSTANDARD2_0 || NET472
                 ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
 #else
+                // Через глобальную очередь.
                 ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: false);
 #endif
             }
@@ -105,21 +106,25 @@ namespace DanilovSoft.vRPC
             {
                 return;
             }
+            else
+            {
+                // Шанс попасть в этот блок очень маленький.
+                // В переменной _continuationAtomic была другая ссылка, 
+                // это значит что другой поток уже установил результат и его можно забрать.
+                // Но нужно предотвратить углубление стека (stack dive) поэтому продолжение вызывается
+                // другим потоком.
 
-            // Шанс попасть в этот блок очень маленький.
-            // В переменной _continuationAtomic была другая ссылка, 
-            // это значит что другой поток уже установил результат и его можно забрать.
-            // Но нужно предотвратить углубление стека (stack dive) поэтому продолжение вызывается
-            // другим потоком.
-            
 #if NETSTANDARD2_0 || NET472
-            ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
+                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
 #else
-            ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true);
+                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true);
 #endif
+            }
         }
 
-        private static void QueueUserWorkItem(Action action) =>
+        private static void QueueUserWorkItem(Action action)
+        {
             Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        }
     }
 }

@@ -17,7 +17,7 @@
         //    context.StatusCode = StatusCode;
         //}
 
-        private protected override void InnerExecuteResult(ActionContext context)
+        private protected override void FinalExecuteResult(ActionContext context)
         {
             context.StatusCode = StatusCode;
         }
