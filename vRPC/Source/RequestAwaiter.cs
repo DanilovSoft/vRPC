@@ -78,7 +78,7 @@ namespace DanilovSoft.vRPC
 #if NETSTANDARD2_0 || NET472
                 ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
 #else
-                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true);
+                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: false);
 #endif
             }
         }

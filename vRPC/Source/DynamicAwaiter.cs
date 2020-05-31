@@ -19,10 +19,12 @@ namespace DanilovSoft.vRPC
 
         private static ValueTask<object?> InnerConvert(ValueTask task)
         {
-            if(task.IsCompleted)
+            if (task.IsCompleted)
             {
+                // Может быть исключение — аналогично await task.
                 task.GetAwaiter().GetResult();
-                return new ValueTask<object?>(result: null);
+
+                return new ValueTask<object?>();
             }
             else
             {
@@ -38,15 +40,17 @@ namespace DanilovSoft.vRPC
 
         private static ValueTask<object> InnerConvert(object rawResult)
         {
-            return new ValueTask<object>(rawResult);
+            return new ValueTask<object>(result: rawResult);
         }
 
         private static ValueTask<object?> InnerConvert(Task task)
         {
             if (task.IsCompleted)
             {
+                // Может быть исключение — аналогично await task.
                 task.GetAwaiter().GetResult();
-                return new ValueTask<object?>(result: null);
+
+                return new ValueTask<object?>();
             }
             else
             {
@@ -62,9 +66,11 @@ namespace DanilovSoft.vRPC
 
         private static ValueTask<object?> InnerConvert<T>(Task<T> task)
         {
-            if(task.IsCompleted)
+            if (task.IsCompleted)
             {
+                // Может быть исключение — GetAwaiter().GetResult() аналогично await task и предпочтительнее чем Result.
                 T result = task.GetAwaiter().GetResult();
+
                 return new ValueTask<object?>(result);
             }
             else
@@ -80,10 +86,12 @@ namespace DanilovSoft.vRPC
 
         private static ValueTask<object?> InnerConvert<T>(ValueTask<T> task)
         {
-            if(task.IsCompleted)
+            if (task.IsCompleted)
             {
-                T result = task.Result;
-                return new ValueTask<object?>(result);
+                // Может быть исключение — GetAwaiter().GetResult() аналогично await task и предпочтительнее чем Result.
+                T result = task.GetAwaiter().GetResult();
+
+                return new ValueTask<object?>(result: result);
             }
             else
             {

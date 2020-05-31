@@ -14,8 +14,8 @@ namespace Client
             var client = new RpcClient("127.0.0.1", 1234, false, true);
             client.Connect();
 
-            var account = client.GetProxy<IAccountController>();
-            var admin = client.GetProxy<IAdmin>();
+            var multipart = client.GetProxy<IMultipart>();
+            multipart.Test();
         }
     }
 
@@ -27,5 +27,10 @@ namespace Client
     public interface IAdmin
     {
         void TestAdmin();
+    }
+
+    public interface IMultipart
+    {
+        void Test();
     }
 }

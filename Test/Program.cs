@@ -9,21 +9,26 @@ using System.Security.Cryptography;
 using ProtoBuf;
 using System.Buffers;
 using ProtoBuf.Meta;
+using System.Net.Sockets;
+using System.IO.Pipelines;
 
 namespace Test
 {
     class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
-            ReadOnlySequence<byte> seq;
-            
-            //var reader = ProtoReader.Create(out var state, payload, RuntimeTypeModel.Default);
-        }
+            ////PipeScheduler.ThreadPool
+            //SingleThreadPipeScheduler
 
-        public static void TestJwt()
-        {
+            //Pipe p = new Pipe(new PipeOptions(,,,,,,));
            
+
+            //ReadOnlySequence<byte> seq = default;
+
+            //Socket socket = null;
+            //socket.SendAsync(buffers: seq, SocketFlags.None);
+            //var reader = ProtoReader.Create(out var state, payload, RuntimeTypeModel.Default);
         }
     }
 }

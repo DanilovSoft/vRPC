@@ -1548,7 +1548,7 @@ namespace DanilovSoft.vRPC
             if (ActionPermissionCheck(receivedRequest.ActionToInvoke, out IActionResult? permissionError, out ClaimsPrincipal? user))
             {
                 IServiceScope scope = ServiceProvider.CreateScope();
-                IServiceScope? toDispose = scope;
+                IServiceScope? scopeToDispose = scope;
                 try
                 {
                     // Инициализируем Scope текущим соединением.
@@ -1581,9 +1581,10 @@ namespace DanilovSoft.vRPC
                             return new ValueTask<object?>(actionResult);
                         }
                         else
+                        // Будем ждать асинхронный результат.
                         {
                             // Предотвратить Dispose.
-                            toDispose = null;
+                            scopeToDispose = null;
 
                             return WaitForControllerActionAsync(actionResultAsTask, scope);
                         }
@@ -1596,7 +1597,7 @@ namespace DanilovSoft.vRPC
                 finally
                 {
                     // ServiceScope выполнит Dispose всем созданным экземплярам.
-                    toDispose?.Dispose();
+                    scopeToDispose?.Dispose();
                 }
             }
             else
