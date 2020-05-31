@@ -1900,7 +1900,7 @@
             Словарь используемый только для чтения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.JsonRequestParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.JsonRequestParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.RequestToInvoke@,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
             </summary>

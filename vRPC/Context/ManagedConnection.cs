@@ -920,10 +920,11 @@ namespace DanilovSoft.vRPC
 
                 IActionResult? error;
                 RequestToInvoke? requestToInvoke;
+                bool success;
                 try
                 {
                     // Десериализуем запрос.
-                    requestToInvoke = JsonRequestParser.TryDeserializeRequestJson(contentMem.Span, _invokeActions, header, out error);
+                    success = JsonRequestParser.TryDeserializeRequestJson(contentMem.Span, _invokeActions, header, out requestToInvoke, out error);
                 }
                 catch (Exception ex)
                 // Ошибка десериализации запроса.
@@ -935,16 +936,23 @@ namespace DanilovSoft.vRPC
                 }
                 #endregion
 
-                #region Не удалось десериализовать — игнорируем запрос
+                if (success)
+                {
+                    Debug.Assert(requestToInvoke != null, "Не может быть Null когда success");
 
-                if (requestToInvoke == null)
+                    // Начать выполнение запроса в отдельном потоке.
+                    StartProcessRequest(requestToInvoke);
+                }
+                else
                 // Не удалось десериализовать запрос.                                    
                 {
-                    if (header.Uid != null)
+                    #region Игнорируем запрос
+
+                    if (header.IsResponseRequired)
                     // Запрос ожидает ответ.
                     {
-                        //Debug.Assert(header.Uid != null, "header.Uid оказался Null");
-                        Debug.Assert(error != null);
+                        Debug.Assert(error != null, "Не может быть Null когда !success");
+                        Debug.Assert(header.Uid != null, "Не может быть Null когда IsResponseRequired");
 
                         // Передать на отправку результат с ошибкой через очередь.
                         QueueSendResponse(new ResponseMessage(header.Uid.Value, error));
@@ -952,11 +960,9 @@ namespace DanilovSoft.vRPC
 
                     // Вернуться к чтению заголовка.
                     return true;
-                }
-                #endregion
 
-                // Начать выполнение запроса в отдельном потоке.
-                StartProcessRequest(requestToInvoke);
+                    #endregion
+                }
             }
             else
             // Получен ответ на запрос.
@@ -1526,28 +1532,30 @@ namespace DanilovSoft.vRPC
 
             //header = Newtonsoft.Json.Linq.JToken.Parse(header).ToString(Newtonsoft.Json.Formatting.Indented);
             Debug.WriteLine(header);
-
-            if ((header.StatusCode == StatusCode.Ok || header.StatusCode == StatusCode.Request) 
-                && (serializedMessage.ContentEncoding == null || serializedMessage.ContentEncoding == "json"))
+            if (header != null)
             {
-                if (contentSize > 0)
+                if ((header.StatusCode == StatusCode.Ok || header.StatusCode == StatusCode.Request)
+                    && (serializedMessage.ContentEncoding == null || serializedMessage.ContentEncoding == "json"))
                 {
-                    try
+                    if (contentSize > 0)
                     {
-                        string content = System.Text.Json.JsonDocument.Parse(streamBuffer.AsMemory(0, contentSize)).RootElement.ToString();
-                        Debug.WriteLine(content);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine(ex);
-                        if (Debugger.IsAttached)
-                            Debugger.Break();
+                        try
+                        {
+                            string content = System.Text.Json.JsonDocument.Parse(streamBuffer.AsMemory(0, contentSize)).RootElement.ToString();
+                            Debug.WriteLine(content);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine(ex);
+                            if (Debugger.IsAttached)
+                                Debugger.Break();
+                        }
                     }
                 }
-            }
-            else
-            {
-                //Debug.WriteLine(streamBuffer.AsMemory(0, contentSize).Span.Select(x => x).ToString());
+                else
+                {
+                    //Debug.WriteLine(streamBuffer.AsMemory(0, contentSize).Span.Select(x => x).ToString());
+                }
             }
         }
 

@@ -17,7 +17,14 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Десериализует json запрос.
         /// </summary>
-        public static RequestToInvoke? TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeActions, HeaderDto header, out IActionResult? error)
+        public static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json,
+            InvokeActionsDictionary invokeActions,
+            HeaderDto header,
+#if !NETSTANDARD2_0 && !NET472
+            [MaybeNullWhen(false)]
+#endif
+            out RequestToInvoke? result,
+            out IActionResult? error)
         {
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
@@ -48,19 +55,9 @@ namespace DanilovSoft.vRPC
                                         targetArguments = action.TargetMethod.GetParameters();
                                     }
                                     else
+                                    // Не найден метод контроллера.
                                     {
-                                        int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter, StringComparison.Ordinal);
-
-                                        if (controllerIndex > 0)
-                                        {
-                                            error = new NotFoundResult($"Unable to find requested action \"{actionName}\".");
-                                            return null;
-                                        }
-                                        else
-                                        {
-                                            error = new NotFoundResult($"Controller name not specified in request \"{actionName}\".");
-                                            return null;
-                                        }
+                                        return MethodNotFound(actionName, out result, out error);
                                     }
                                 }
                             }
@@ -97,22 +94,24 @@ namespace DanilovSoft.vRPC
                                                 }
                                                 catch (Exception ex)
                                                 {
-                                                    throw new InvalidOperationException($"Ошибка при десериализации аргумента №{argsInJsonCounter + 1} для метода '{actionName}'", ex);
+                                                    result = null;
+                                                    return ErrorDeserializingArgument(actionName, argsInJsonCounter, ex, out error);
                                                 }
                                                 argsInJsonCounter++;
                                             }
                                             else
                                             // Выход за границы массива.
                                             {
-                                                error = ArgumentsCountMismatchError(actionName, targetArguments.Length);
-                                                return null;
+                                                result = null;
+                                                return ArgumentsCountMismatchError(actionName, targetArguments.Length, out error);
                                             }
                                         }
 
                                         if (!ValidateArgumentsCount(targetArguments, argsInJsonCounter, actionName, out error))
                                         // Не соответствует число аргументов.
                                         {
-                                            return null;
+                                            result = null;
+                                            return false;
                                         }
                                     }
                                 }
@@ -141,24 +140,50 @@ namespace DanilovSoft.vRPC
                     else
                     {
                         error = new BadRequestResult("В запросе остутствуют требуемые аргументы вызываемого метода.");
-                        return null;
+                        result = null;
+                        return false;
                     }
                 }
 
                 error = null;
-                return new RequestToInvoke(header.Uid, action, args);
+                result = new RequestToInvoke(header.Uid, action, args);
+                return true;
             }
             else
             {
                 error = new BadRequestResult("В запросе остутствует имя вызываемого метода.");
-                return default;
+                result = null;
+                return false;
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static BadRequestResult ArgumentsCountMismatchError(string actionName, int targetArgumentsCount)
+        private static bool ErrorDeserializingArgument(string actionName, short argsInJsonCounter, Exception ex, out IActionResult error)
         {
-            return new BadRequestResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
+            error = new InvalidRequestResult($"Ошибка при десериализации аргумента №{argsInJsonCounter + 1} для метода '{actionName}'. {ex.Message}");
+            return false;
+        }
+
+        private static bool MethodNotFound(string actionName, out RequestToInvoke? result, out IActionResult error)
+        {
+            int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter, StringComparison.Ordinal);
+
+            if (controllerIndex > 0)
+            {
+                error = new NotFoundResult($"Unable to find requested action \"{actionName}\".");
+            }
+            else
+            {
+                error = new NotFoundResult($"Controller name not specified in request \"{actionName}\".");
+            }
+            result = null;
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool ArgumentsCountMismatchError(string actionName, int targetArgumentsCount, out IActionResult error)
+        {
+            error = new BadRequestResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
+            return false;
         }
 
 #if NETSTANDARD2_0 || NET472
@@ -187,8 +212,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                error = ArgumentsCountMismatchError(actionName, targetArguments.Length);
-                return false;
+                return ArgumentsCountMismatchError(actionName, targetArguments.Length, out error);
             }
         }
 #endif

@@ -9,9 +9,9 @@ namespace Client
     [AllowAnonymous]
     public class MultipartController : ServerController
     {
-        public ValueTask Test()
+        public void Test(byte[] memory)
         {
-            return default;
+            
         }
     }
 }

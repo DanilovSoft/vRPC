@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace DanilovSoft.vRPC
 {
+    [DebuggerDisplay(@"\{InvalidRequestResult: {_message}\}")]
     internal sealed class InvalidRequestResult : IActionResult
     {
         private const StatusCode DefaultStatusCode = StatusCode.InvalidRequestFormat;

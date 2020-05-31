@@ -31,9 +31,17 @@ namespace Client
 
             using (var mem = MemoryPool<byte>.Shared.Rent(-1))
             {
+                new Random().NextBytes(mem.Memory.Span);
                 using (var content = new ReadOnlyMemoryContent(mem.Memory))
                 {
-                    multipart.Test(content);
+                    try
+                    {
+                        multipart.Test(content);
+                    }
+                    catch (Exception ex)
+                    {
+
+                    }                    
                 }
             }
         }
