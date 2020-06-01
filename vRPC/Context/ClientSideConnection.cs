@@ -17,6 +17,7 @@ namespace DanilovSoft.vRPC
     {
         private static readonly RequestMeta SignInAsyncMeta = new RequestMeta("", "SignIn", typeof(Task), false);
         private static readonly RequestMeta SignOutAsyncMeta = new RequestMeta("", "SignOut", typeof(Task), false);
+        //internal static readonly ServerConcurrentDictionary<MethodInfo, RequestMeta> InterfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestMeta>();
         internal static readonly LockedDictionary<MethodInfo, RequestMeta> InterfaceMethodsInfo = new LockedDictionary<MethodInfo, RequestMeta>();
         /// <summary>
         /// Методы SignIn, SignOut (async) должны выполняться последовательно

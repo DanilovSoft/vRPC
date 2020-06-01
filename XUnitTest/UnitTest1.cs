@@ -48,7 +48,7 @@ namespace XUnitTest
         [Fact]
         public void TestDebugValidator()
         {
-            DanilovSoft.vRPC.Decorator.DebugOnly.ValidateReturnType(typeof(TimeSpan), TimeSpan.Zero);
+            DanilovSoft.vRPC.Decorator.DebugOnly.ValidateIsInstanceOfType(TimeSpan.Zero, typeof(TimeSpan));
         }
     }
 

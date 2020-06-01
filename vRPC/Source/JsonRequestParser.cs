@@ -95,7 +95,7 @@ namespace DanilovSoft.vRPC
                                                 catch (Exception ex)
                                                 {
                                                     result = null;
-                                                    return ErrorDeserializingArgument(actionName, argsInJsonCounter, ex, out error);
+                                                    return ErrorDeserializingArgument(actionName, argsInJsonCounter, type, out error);
                                                 }
                                                 argsInJsonCounter++;
                                             }
@@ -157,9 +157,17 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static bool ErrorDeserializingArgument(string actionName, short argsInJsonCounter, Exception ex, out IActionResult error)
+        private static bool ErrorDeserializingArgument(string actionName, short argsInJsonCounter, Type argType, out IActionResult error)
         {
-            error = new InvalidRequestResult($"Ошибка при десериализации аргумента №{argsInJsonCounter + 1} для метода '{actionName}'. {ex.Message}");
+            if (argType.IsClrType())
+            {
+                error = new InvalidRequestResult($"Не удалось десериализовать аргумент №{argsInJsonCounter} в тип {argType.Name} метода {actionName}");
+            }
+            else
+            // Не будем раскрывать удалённой стороне имена сложных типов.
+            {
+                error = new InvalidRequestResult($"Не удалось десериализовать аргумент №{argsInJsonCounter} метода {actionName}");
+            }
             return false;
         }
 

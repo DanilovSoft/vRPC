@@ -50,7 +50,7 @@ namespace DanilovSoft.vRPC.Decorator
         {
             object returnValue = Connection.OnInterfaceMethodCall(targetMethod, args, ControllerName);
 
-            DebugOnly.ValidateReturnType(targetMethod.ReturnType, returnValue);
+            DebugOnly.ValidateIsInstanceOfType(returnValue, targetMethod.ReturnType);
 
             return returnValue;
         }

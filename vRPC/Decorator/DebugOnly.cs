@@ -8,7 +8,7 @@ namespace DanilovSoft.vRPC.Decorator
     internal static class DebugOnly
     {
         [Conditional("DEBUG")]
-        public static void ValidateReturnType(Type returnType, object? returnValue)
+        public static void ValidateIsInstanceOfType(object? returnValue, Type returnType)
         {
             if (returnValue != null)
             {

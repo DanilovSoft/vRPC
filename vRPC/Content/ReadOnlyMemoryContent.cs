@@ -1,16 +1,33 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq.Expressions;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
+using System.Threading.Tasks;
+using DanilovSoft.vRPC.Content;
 
-namespace DanilovSoft.vRPC.Content
+namespace DanilovSoft.vRPC
 {
-    public sealed class ReadOnlyMemoryContent : VRpcContent
+    public class ReadOnlyMemoryContent : VRpcContent
     {
-        private readonly ReadOnlyMemory<byte> _content;
+        public ReadOnlyMemory<byte> Memory { get; }
 
         public ReadOnlyMemoryContent(ReadOnlyMemory<byte> content)
         {
-            _content = content;
+            Memory = content;
+        }
+
+        protected internal override bool TryComputeLength(out long length)
+        {
+            length = Memory.Length;
+            return true;
+        }
+
+        protected internal override Task SerializeToStreamAsync(Stream stream)
+        {
+            throw new NotImplementedException();
         }
     }
 }

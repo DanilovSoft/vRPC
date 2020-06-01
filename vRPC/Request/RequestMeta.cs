@@ -37,28 +37,27 @@ namespace DanilovSoft.vRPC
         public string ActionFullName { get; }
         public bool IsRequest => true;
 
-        /// <summary>
-        /// ctor.
-        /// </summary>
-        /// <param name="interfaceMethod"></param>
-        /// <param name="controllerName"></param>
+        // ctor.
         public RequestMeta(MethodInfo interfaceMethod, string? controllerName)
         {
             ReturnType = interfaceMethod.ReturnType;
 
+            // Метод интерфейса может быть помечен как [Notification].
             IsNotificationRequest = Attribute.IsDefined(interfaceMethod, typeof(NotificationAttribute));
-            //IsRequiredAuthentication = Attribute.IsDefined(interfaceMethod, typeof(AuthenticationRequiredAttribute));
-            //if (!IsRequiredAuthentication)
-            //{
-            //    IsRequiredAuthentication = Attribute.IsDefined(interfaceMethod.DeclaringType, typeof(AuthenticationRequiredAttribute));
-            //}
 
             if (IsNotificationRequest)
             {
+                // Метод интерфейса не должен возвращать значения.
                 ValidateNotification(interfaceMethod.ReturnType, interfaceMethod.Name);
             }
+
+            // Возвращаемый тип без учёта обвёртки Task<>.
             IncapsulatedReturnType = GetMethodReturnType(interfaceMethod.ReturnType);
+            
+            // Нормализованное имя метода.
             ActionFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{interfaceMethod.GetNameTrimAsync()}";
+            
+            // Метод считается асинхронным есть возвращаемый тип Task или ValueTask.
             IsAsync = interfaceMethod.ReturnType.IsAsyncReturnType();
         }
 

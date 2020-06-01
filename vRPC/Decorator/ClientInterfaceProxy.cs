@@ -54,9 +54,10 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
+            // Может вернуть не завершённый таск.
             object? returnValue = Client.OnInterfaceMethodCall(targetMethod, args, ControllerName);
 
-            DebugOnly.ValidateReturnType(targetMethod.ReturnType, returnValue);
+            DebugOnly.ValidateIsInstanceOfType(returnValue, targetMethod.ReturnType);
 
             return returnValue;
         }

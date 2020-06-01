@@ -9,7 +9,7 @@ using System.Text;
 namespace DanilovSoft.vRPC
 {
     [DebuggerDisplay(@"\{Count = {_dict.Count}\}")]
-    internal sealed class ServerConcurrentDictionary<TKey, TValue> : IConcurrentDictionary<TKey, TValue>
+    internal sealed class ServerConcurrentDictionary<TKey, TValue> : IConcurrentDictionary<TKey, TValue> where TKey : notnull
     {
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
         private readonly ConcurrentDictionary<TKey, TValue> _dict = new ConcurrentDictionary<TKey, TValue>();
@@ -19,10 +19,10 @@ namespace DanilovSoft.vRPC
 
         }
 
-        public TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory)
-        {
-            return _dict.GetOrAdd(key, valueFactory);
-        }
+        //public TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory)
+        //{
+        //    return _dict.GetOrAdd(key, valueFactory);
+        //}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public TValue GetOrAdd<TArg>(TKey key, Func<TKey, TArg, TValue> factory, TArg factoryArgument)

@@ -19,7 +19,6 @@ namespace Client
             using var client = new RpcClient("127.0.0.1", 1234, false, true);
             client.Connect();
 
-            
             var multipart = client.GetProxy<IMultipart>();
 
             using (var mem = MemoryPool<byte>.Shared.Rent(-1))
@@ -27,14 +26,21 @@ namespace Client
                 new Random().NextBytes(mem.Memory.Span);
                 using (var content = new ReadOnlyMemoryContent(mem.Memory))
                 {
+                    using var multipartContent = new MultipartContent();
+                    using var connectionId = new ProtobufValueContent(1);
+                    //using var data = new ReadOnlyMemoryContent(new byte[] { 1, 2, 3 });
+
+                    multipartContent.Add(connectionId);
+                    //multipartContent.Add(data);
+
                     try
                     {
-                        multipart.Test(content);
+                        multipart.TcpData(connectionId);
                     }
                     catch (Exception ex)
                     {
 
-                    }                    
+                    }
                 }
             }
         }
@@ -52,7 +58,6 @@ namespace Client
 
     public interface IMultipart
     {
-        int GetSum();
-        void Test(ReadOnlyMemoryContent memory);
+        void TcpData(VRpcContent connectionData);
     }
 }

@@ -1905,6 +1905,11 @@
             Десериализует json запрос.
             </summary>
         </member>
+        <member name="T:DanilovSoft.vRPC.LockedDictionary`2">
+            <summary>
+            Использует блокировку для GetOrAdd.
+            </summary>
+        </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
             <summary>
             Содержит прокси созданные из интерфейсов.

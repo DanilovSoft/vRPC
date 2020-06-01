@@ -441,3 +441,16 @@ namespace DanilovSoft.vRPC
         }
     }
 }
+
+namespace System
+{
+    internal static class ExtensionMethods
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsClrType(this Type type)
+        {
+            return type.IsPrimitive
+                || type.Assembly == typeof(int).Assembly; // CoreLib.
+        }
+    }
+}
