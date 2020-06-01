@@ -417,47 +417,51 @@ namespace DanilovSoft.vRPC
         /// Происходит при обращении к проксирующему интерфейсу.
         /// Возвращает Task или готовый результат если был вызван синхронный метод.
         /// </summary>
+        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         [SuppressMessage("Reliability", "CA2000:Ликвидировать объекты перед потерей области", Justification = "Анализатор не видит смену ответственности на Channel")]
         internal static object? OnClientInterfaceCall(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, object[] args, string? controllerName)
         {
             // Создаём запрос для отправки.
             RequestMeta requestMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new RequestMeta(mi, cn), controllerName);
 
-            // Сериализуем запрос в память. Лучше выполнить до подключения.
+            // Сериализуем запрос в память. Лучше выполнить до завершения подключения.
             BinaryMessageToSend serMsg = requestMeta.SerializeRequest(args);
-            BinaryMessageToSend? toDispose = serMsg;
+            BinaryMessageToSend? serMsgToDispose = serMsg;
 
             try
             {
-                // Результатом может быть не завершённый таск.
+                // Результатом может быть незавершённый таск.
                 // Может начать отправку текущим потоком. Диспозит serMsg в случае ошибки.
-                object? activeCall = ExecuteRequestStatic(connectionTask, serMsg, requestMeta);
+                object? returnValue = ExecuteRequestStatic(connectionTask, serMsg, requestMeta);
 
-                toDispose = null; // Предотвратить Dispose.
+                serMsgToDispose = null; // Предотвратить Dispose.
 
-                ValidateIfaceTypeMatch(targetMethod, activeCall);
-                return activeCall;
+                // Преждевременно проверим что возвращаемый тип подходит для типа интерфейса.
+                DebugOnlyValidateIfaceTypeMatch(targetMethod, returnValue);
+
+                return returnValue;
             }
             finally
             {
                 // В случае исключения в методе ExecuteRequestStatic
                 // объект может быть уже уничтожен но это не страшно, его Dispose - атомарный.
-                toDispose?.Dispose();
+                serMsgToDispose?.Dispose();
             }
         }
 
         [Conditional("DEBUG")]
-        private static void ValidateIfaceTypeMatch(MethodInfo targetMethod, object? activeCall)
+        private static void DebugOnlyValidateIfaceTypeMatch(MethodInfo targetMethod, object? activeCall)
         {
             if (targetMethod.ReturnType != typeof(void) && activeCall != null)
             {
-                Debug.Assert(targetMethod.ReturnType.IsInstanceOfType(activeCall), "Тип результата не совпадает с возвращаемым типом интерфейса");
+                Debug.Assert(targetMethod.ReturnType.IsInstanceOfType(activeCall), "Тип результата не соответствует возвращаемому типу интерфейса");
             }
         }
 
         /// <summary>
         /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
         /// </summary>
+        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         private static object? ExecuteRequestStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
         {
             if (!requestMeta.IsNotificationRequest)
@@ -475,20 +479,22 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
         /// </summary>
+        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         private static object? SendRequestAndGetResultStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
             // Отправляем запрос.
-            Task<object?> requestTask = SendRequestAndGetResultAsync(connectionTask, binaryRequest, requestMeta);
+            Task<object?> pendingRequestTask = SendRequestAndGetResultAsync(connectionTask, binaryRequest, requestMeta);
 
             // Результатом может быть не завершённый Task или готовый результат.
-            return ConvertRequestTask(requestMeta, requestTask);
+            return ConvertRequestTask(requestMeta, pendingRequestTask);
         }
 
         /// <summary>
-        /// Отправляет запрос как уведомление. Результатом может быть Null или Task или ValueTask.
+        /// Отправляет запрос как уведомление не ожидая ответа.
         /// </summary>
+        /// <returns>Может быть Null или незавершённый таск.</returns>
         private static object? SendNotificationStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
         {
             Debug.Assert(requestMeta.IsNotificationRequest);
@@ -588,10 +594,11 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Преобразует <see cref="Task"/><see langword="&lt;object&gt;"/> в <see cref="Task"/>&lt;T&gt; или возвращает TResult
-        /// если метод интерфейса является синхронной функцией.
+        /// Преобразует <see cref="Task"/><see langword="&lt;object?&gt;"/> в строгий тип <see cref="Task{T}"/>
+        /// или возвращает RAW результат если метод интерфейса является синхронной функцией.
         /// </summary>
-        private protected static object? ConvertRequestTask(RequestMeta requestMeta, Task<object?> requestTask)
+        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
+        private protected static object? ConvertRequestTask(RequestMeta requestMeta, Task<object?> pendingRequestTask)
         {
             if (requestMeta.IsAsync)
             // Возвращаемый тип функции интерфейса — Task.
@@ -599,9 +606,9 @@ namespace DanilovSoft.vRPC
                 if (requestMeta.ReturnType.IsGenericType)
                 // У задачи есть результат.
                 {
-                    // Task<object> должен быть преобразован в Task<T>.
+                    // Task<object> должен быть преобразован в Task<T> иначе не получится вернуть через интерфейс.
                     // Не бросает исключения.
-                    return TaskConverter.ConvertTask(requestTask, requestMeta.IncapsulatedReturnType, requestMeta.ReturnType);
+                    return TaskConverter.ConvertTask(pendingRequestTask, requestMeta.IncapsulatedReturnType, requestMeta.ReturnType);
                 }
                 else
                 {
@@ -609,12 +616,12 @@ namespace DanilovSoft.vRPC
                     // Возвращаемый тип интерфейса – Task.
                     {
                         // Можно вернуть как Task<object>.
-                        return requestTask;
+                        return pendingRequestTask;
                     }
                     else
                     // Возвращаемый тип интерфейса – ValueTask.
                     {
-                        return new ValueTask(requestTask);
+                        return new ValueTask(pendingRequestTask);
                     }
                 }
             }
@@ -622,7 +629,7 @@ namespace DanilovSoft.vRPC
             // Была вызвана синхронная функция.
             {
                 // Результатом может быть исключение.
-                object? finalResult = requestTask.GetAwaiter().GetResult();
+                object? finalResult = pendingRequestTask.GetAwaiter().GetResult();
                 return finalResult;
             }
         }

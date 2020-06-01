@@ -19,11 +19,6 @@ namespace DanilovSoft.vRPC
 
         }
 
-        //public TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory)
-        //{
-        //    return _dict.GetOrAdd(key, valueFactory);
-        //}
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public TValue GetOrAdd<TArg>(TKey key, Func<TKey, TArg, TValue> factory, TArg factoryArgument)
         {

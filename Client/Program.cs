@@ -35,7 +35,7 @@ namespace Client
 
                     try
                     {
-                        multipart.TcpData(connectionId);
+                        await multipart.TcpDataAsync(1);
                     }
                     catch (Exception ex)
                     {
@@ -58,6 +58,7 @@ namespace Client
 
     public interface IMultipart
     {
+        Task<int> TcpDataAsync(int connectionData);
         void TcpData(VRpcContent connectionData);
     }
 }

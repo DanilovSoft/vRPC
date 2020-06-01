@@ -406,6 +406,7 @@ namespace DanilovSoft.vRPC
         }
 
         // Когда выполняют вызов метода через интерфейс.
+        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         internal object? OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string? controllerName)
         {
             // Начать соединение или взять существующее.

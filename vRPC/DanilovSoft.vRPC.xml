@@ -623,6 +623,9 @@
             </summary>
             <typeparam name="T">Интерфейс.</typeparam>
         </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.OnInterfaceMethodCall(System.Reflection.MethodInfo,System.Object[],System.String)">
+            <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
+        </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.Shutdown(System.TimeSpan,System.String)">
             <summary>
             Выполняет грациозную остановку. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
@@ -950,21 +953,25 @@
             Происходит при обращении к проксирующему интерфейсу.
             Возвращает Task или готовый результат если был вызван синхронный метод.
             </summary>
+            <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ExecuteRequestStatic(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
             <summary>
             Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
             </summary>
+            <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndGetResultStatic(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
             <summary>
             Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
             </summary>
+            <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationStatic(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
             <summary>
-            Отправляет запрос как уведомление. Результатом может быть Null или Task или ValueTask.
+            Отправляет запрос как уведомление не ожидая ответа.
             </summary>
+            <returns>Может быть Null или незавершённый таск.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationStaticAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.BinaryMessageToSend,DanilovSoft.vRPC.RequestMeta)">
             <summary>
@@ -982,9 +989,10 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ConvertRequestTask(DanilovSoft.vRPC.RequestMeta,System.Threading.Tasks.Task{System.Object})">
             <summary>
-            Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object&gt;"/> в <see cref="T:System.Threading.Tasks.Task"/>&lt;T&gt; или возвращает TResult
-            если метод интерфейса является синхронной функцией.
+            Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object?&gt;"/> в строгий тип <see cref="T:System.Threading.Tasks.Task`1"/>
+            или возвращает RAW результат если метод интерфейса является синхронной функцией.
             </summary>
+            <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.EncapsulateValueTask(System.Threading.Tasks.Task,System.Type)">
             <summary>
@@ -1469,13 +1477,6 @@
             <summary>
             Имя метода например 'Home/Hello' без постфикса 'Async'.
             </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestMeta.#ctor(System.Reflection.MethodInfo,System.String)">
-            <summary>
-            ctor.
-            </summary>
-            <param name="interfaceMethod"></param>
-            <param name="controllerName"></param>
         </member>
         <member name="M:DanilovSoft.vRPC.RequestMeta.GetMethodReturnType(System.Type)">
             <summary>
@@ -2015,6 +2016,13 @@
             Преобразует <see cref="T:System.Threading.Tasks.Task"/><see langword="&lt;object&gt;"/> в <see cref="T:System.Threading.Tasks.Task`1"/> или в <see cref="T:System.Threading.Tasks.ValueTask`1"/>.
             Не бросает исключения но агрегирует их в Task.
             </summary>
+            <returns><see cref="T:System.Threading.Tasks.Task`1"/> или в <see cref="T:System.Threading.Tasks.ValueTask`1"/>.</returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.TaskConverter.InnerConvertTask``1(System.Threading.Tasks.Task{System.Object})">
+            <returns><see cref="T:System.Threading.Tasks.Task`1"/> где TResult может быть Null.</returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.TaskConverter.InnerConvertValueTask``1(System.Threading.Tasks.Task{System.Object})">
+            <returns><see cref="T:System.Threading.Tasks.ValueTask`1"/> упакованный в object где TResult может быть Null.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.TaskConverter.DelegateFactory(System.Type,System.Type)">
             <summary>
