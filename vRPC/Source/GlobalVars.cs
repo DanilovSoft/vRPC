@@ -10,7 +10,7 @@ namespace DanilovSoft.vRPC
     internal static class GlobalVars
     {
         internal const char ControllerNameSplitter = '/';
-        public static readonly Action SentinelAction = delegate { Debug.Assert(false); throw new Exception(nameof(RequestAwaiter)); };
+        public static readonly Action SentinelAction = delegate { Debug.Assert(false); throw new Exception(nameof(ResponseAwaiter)); };
         private static RecyclableMemoryStreamManager? _memoryManager;
         public static RecyclableMemoryStreamManager RecyclableMemory => LazyInitializer.EnsureInitialized(ref _memoryManager, () => new RecyclableMemoryStreamManager());
 

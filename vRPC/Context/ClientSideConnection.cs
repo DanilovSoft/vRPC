@@ -15,10 +15,13 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public sealed class ClientSideConnection : ManagedConnection
     {
-        private static readonly RequestMeta SignInAsyncMeta = new RequestMeta("", "SignIn", typeof(Task), false);
-        private static readonly RequestMeta SignOutAsyncMeta = new RequestMeta("", "SignOut", typeof(Task), false);
+        /// <summary>
+        /// Internal запрос для аутентификации.
+        /// </summary>
+        private static readonly RequestMethodMeta SignInAsyncMeta = new RequestMethodMeta("", "SignIn", returnType: typeof(Task), notification: false);
+        private static readonly RequestMethodMeta SignOutAsyncMeta = new RequestMethodMeta("", "SignOut", returnType: typeof(Task), notification: false);
         //internal static readonly ServerConcurrentDictionary<MethodInfo, RequestMeta> InterfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestMeta>();
-        internal static readonly LockedDictionary<MethodInfo, RequestMeta> InterfaceMethodsInfo = new LockedDictionary<MethodInfo, RequestMeta>();
+        internal static readonly LockedDictionary<MethodInfo, RequestMethodMeta> InterfaceMethodsInfo = new LockedDictionary<MethodInfo, RequestMethodMeta>();
         /// <summary>
         /// Методы SignIn, SignOut (async) должны выполняться последовательно
         /// что-бы синхронизироваться со свойством IsAuthenticated.
@@ -36,7 +39,7 @@ namespace DanilovSoft.vRPC
         /// Этот таск настроен не провоцировать исключения.
         /// </summary>
         private Task _lastAuthTask = Task.CompletedTask;
-        private protected override IConcurrentDictionary<MethodInfo, RequestMeta> InterfaceMethods => InterfaceMethodsInfo;
+        private protected override IConcurrentDictionary<MethodInfo, RequestMethodMeta> InterfaceMethods => InterfaceMethodsInfo;
 
         // ctor.
         /// <summary>
@@ -139,15 +142,15 @@ namespace DanilovSoft.vRPC
 
         internal async Task PrivateSignInAsync(AccessToken accessToken)
         {
-            Task requestTask;
+            Task pendingRequestTask;
 
             // Создаём запрос для отправки.
-            BinaryMessageToSend binaryRequest = SignInAsyncMeta.SerializeRequest(new object[] { accessToken });
-            BinaryMessageToSend? toDispose = binaryRequest;
+            SerializedMessageToSend serializedMessage = SignInAsyncMeta.SerializeRequest(new object[] { accessToken });
+            SerializedMessageToSend? toDispose = serializedMessage;
 
             try
             {
-                requestTask = SendRequestAndGetResponse(SignInAsyncMeta, binaryRequest);
+                pendingRequestTask = SendRequestAndWaitResponse(SignInAsyncMeta, serializedMessage);
                 toDispose = null;
             }
             finally
@@ -156,7 +159,7 @@ namespace DanilovSoft.vRPC
             }
 
             // Ждём завершения SignIn.
-            await requestTask.ConfigureAwait(false);
+            await pendingRequestTask.ConfigureAwait(false);
 
             // Делать lock нельзя! Может случиться дедлок (а нам и не нужно).
             _isAuthenticated = true;
@@ -220,15 +223,15 @@ namespace DanilovSoft.vRPC
 
         private async Task PrivateSignOutAsync()
         {
-            Task requestTask;
+            Task pendingRequestTask;
 
             // Создаём запрос для отправки.
-            BinaryMessageToSend binaryRequest = SignOutAsyncMeta.SerializeRequest(Array.Empty<object>());
-            BinaryMessageToSend? toDispose = binaryRequest;
+            SerializedMessageToSend binaryRequest = SignOutAsyncMeta.SerializeRequest(Array.Empty<object>());
+            SerializedMessageToSend? toDispose = binaryRequest;
 
             try
             {
-                requestTask = SendRequestAndGetResponse(SignOutAsyncMeta, binaryRequest);
+                pendingRequestTask = SendRequestAndWaitResponse(SignOutAsyncMeta, binaryRequest);
                 toDispose = null;
             }
             finally
@@ -237,7 +240,7 @@ namespace DanilovSoft.vRPC
             }
 
             // Ждём завершения SignOut — исключений быть не может, только при обрыве связи.
-            await requestTask.ConfigureAwait(false);
+            await pendingRequestTask.ConfigureAwait(false);
 
             // Делать lock нельзя! Может случиться дедлок (а нам и не нужно).
             _isAuthenticated = false;

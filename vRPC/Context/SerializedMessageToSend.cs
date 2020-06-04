@@ -11,11 +11,11 @@ namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Является запросом или ответом на запрос.
-    /// Содержит <see cref="MemoryStream"/> в который сериализуется 
-    /// сообщение и заголовок для отправки удалённой стороне.
+    /// Содержит <see cref="Stream"/> в который сериализуется заголовок
+    /// и сообщение для отправки удалённой стороне.
     /// Необходимо обязательно выполнить Dispose.
     /// </summary>
-    internal sealed class BinaryMessageToSend : IDisposable
+    internal sealed class SerializedMessageToSend : IDisposable
     {
 #if DEBUG
         // Что-бы видеть контент в режиме отладки.
@@ -74,7 +74,7 @@ namespace DanilovSoft.vRPC
         /// Содержит <see cref="MemoryStream"/> в который сериализуется сообщение и заголовок.
         /// Необходимо обязательно выполнить Dispose.
         /// </summary>
-        public BinaryMessageToSend(IMessageMeta messageToSend)
+        public SerializedMessageToSend(IMessageMeta messageToSend)
         {
             MessageToSend = messageToSend;
 
@@ -89,5 +89,13 @@ namespace DanilovSoft.vRPC
         {
             Interlocked.Exchange(ref _memPoolStream, null)?.Dispose();
         }
+
+#if DEBUG
+        [SuppressMessage("Performance", "CA1821:Удалите пустые завершающие методы", Justification = "Это ловушка для нарушенной логики")]
+        ~SerializedMessageToSend()
+        {
+            Debug.Assert(false, "Деструктор никогда не должен срабатывать");
+        }
+#endif
     }
 }

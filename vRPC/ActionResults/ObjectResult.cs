@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace DanilovSoft.vRPC
@@ -21,6 +22,8 @@ namespace DanilovSoft.vRPC
             // Нет необходимости отправлять Null.
             if (Value != null)
             {
+                Debug.Assert(context.RequestContext != null, "ObjectResult можно получить только из контекста запроса");
+
                 // Сериализуем в стрим.
                 context.RequestContext.ActionToInvoke.SerializerDelegate(context.ResponseStream, Value);
 

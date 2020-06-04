@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -25,10 +26,10 @@ namespace DanilovSoft.vRPC
         private const string Salt = "M6PgwzAnHy02Jv8z5FPIoOn5NeJP7bx7";
 
         internal static readonly ServerConcurrentDictionary<MethodInfo, string> ProxyMethodName = new ServerConcurrentDictionary<MethodInfo, string>();
-        private static readonly ServerConcurrentDictionary<MethodInfo, RequestMeta> _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestMeta>();
+        private static readonly ServerConcurrentDictionary<MethodInfo, RequestMethodMeta> _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestMethodMeta>();
         private readonly ProxyCache _proxyCache = new ProxyCache();
 
-        private RijndaelEnhanced _jwt;
+        private RijndaelEnhanced? _jwt;
         private RijndaelEnhanced Jwt => LazyInitializer.EnsureInitialized(ref _jwt, () => new RijndaelEnhanced(PassPhrase, InitVector, 8, 16, 256, Salt, 1000));
         private volatile ClaimsPrincipal _user;
         public override bool IsAuthenticated => true;
@@ -36,7 +37,7 @@ namespace DanilovSoft.vRPC
         /// Пользователь ассоциированный с текущим соединением.
         /// </summary>
         public ClaimsPrincipal User => _user;
-        private protected override IConcurrentDictionary<MethodInfo, RequestMeta> InterfaceMethods => _interfaceMethodsInfo;
+        private protected override IConcurrentDictionary<MethodInfo, RequestMethodMeta> InterfaceMethods => _interfaceMethodsInfo;
 
         /// <summary>
         /// Сервер который принял текущее соединение.
@@ -202,7 +203,13 @@ namespace DanilovSoft.vRPC
         /// Проверяет доступность запрашиваемого метода пользователем.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        private protected override bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult permissionError, out ClaimsPrincipal user)
+        private protected override bool ActionPermissionCheck(
+            ControllerActionMeta actionMeta,
+#if !NETSTANDARD2_0 && !NET472
+            [NotNullWhen(false)]
+#endif
+            out IActionResult? permissionError,
+            out ClaimsPrincipal user)
         {
             // Скопируем пользователя что-бы не мог измениться в пределах запроса.
             user = _user;
@@ -214,7 +221,7 @@ namespace DanilovSoft.vRPC
                 return true;
             }
 
-            // 2. Разрешить если контроллер помечен как разрешенный для не акторизованных пользователей.
+            // 2. Разрешить если весь контроллер помечен как разрешенный для не авторизованных пользователей.
             if (Attribute.IsDefined(actionMeta.ControllerType, typeof(AllowAnonymousAttribute)))
             {
                 permissionError = null;
@@ -239,10 +246,10 @@ namespace DanilovSoft.vRPC
 
         public void Call(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMeta(controllerName, actionName, typeof(void), false);
-            Task<object> obj = SendRequestAndGetResponse(requestMeta, args);
-            object result = ConvertRequestTask(requestMeta, obj);
-            if (result is IDisposable disposable)
+            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(void), false);
+            Task<object?> pendingRequest = SendRequestAndWaitResponse(requestMeta, args);
+            object? rawResult = ConvertRequestTask(requestMeta, pendingRequest);
+            if (rawResult is IDisposable disposable)
             {
                 disposable.Dispose();
             }
@@ -250,30 +257,30 @@ namespace DanilovSoft.vRPC
 
         public Task CallAsync(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMeta(controllerName, actionName, typeof(Task), false);
-            Task<object> requestTask = SendRequestAndGetResponse(requestMeta, args);
-            Task task = ConvertRequestTask(requestMeta, requestTask) as Task;
-            Debug.Assert(task != null);
+            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(Task), false);
+            Task<object?> pendingRequestTask = SendRequestAndWaitResponse(requestMeta, args);
+            Task? task = ConvertRequestTask(requestMeta, pendingRequestTask) as Task;
+            Debug.Assert(task != null, "Здесь результат не может быть Null");
             return task;
         }
 
+#if !NETSTANDARD2_0 && ! NET472
+        [return: MaybeNull]
+#endif
         public T Call<T>(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMeta(controllerName, actionName, typeof(T), false);
-            Task<object> requestTask = SendRequestAndGetResponse(requestMeta, args);
-            var result = (T)ConvertRequestTask(requestMeta, requestTask);
+            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(T), false);
+            Task<object?> requestTask = SendRequestAndWaitResponse(requestMeta, args);
+            T result = (T)ConvertRequestTask(requestMeta, requestTask);
             return result;
         }
 
         public Task<T> CallAsync<T>(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMeta(controllerName, actionName, typeof(Task<T>), false);
-
-            Task<object> requestTask = SendRequestAndGetResponse(requestMeta, args);
-
-            Task<T> task = ConvertRequestTask(requestMeta, requestTask) as Task<T>;
-            Debug.Assert(task != null);
-
+            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(Task<T>), false);
+            Task<object?> requestTask = SendRequestAndWaitResponse(requestMeta, args);
+            Task<T>? task = ConvertRequestTask(requestMeta, requestTask) as Task<T>;
+            Debug.Assert(task != null, "Здесь результат не может быть Null");
             return task;
         }
 

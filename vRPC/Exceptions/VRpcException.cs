@@ -7,7 +7,7 @@ using System.Text;
 namespace DanilovSoft.vRPC
 {
     [Serializable]
-    public sealed class VRpcException : Exception
+    public class VRpcException : Exception
     {
         public VRpcErrorCode ErrorCode { get; }
 
@@ -36,9 +36,9 @@ namespace DanilovSoft.vRPC
         [SecurityPermission(SecurityAction.Demand, SerializationFormatter = true)]
         // Constructor should be protected for unsealed classes, private for sealed classes.
         // (The Serializer invokes this constructor through reflection, so it can be private)
-        private VRpcException(SerializationInfo serializationInfo, StreamingContext streamingContext) : base(serializationInfo, streamingContext)
+        protected VRpcException(SerializationInfo serializationInfo, StreamingContext streamingContext) : base(serializationInfo, streamingContext)
         {
-            ErrorCode = (VRpcErrorCode)serializationInfo.GetValue(nameof(ErrorCode), typeof(VRpcErrorCode));
+            ErrorCode = serializationInfo.GetValue(nameof(ErrorCode), typeof(VRpcErrorCode)) as VRpcErrorCode? ?? VRpcErrorCode.None;
         }
 
         [SecurityPermission(SecurityAction.Demand, SerializationFormatter = true)]

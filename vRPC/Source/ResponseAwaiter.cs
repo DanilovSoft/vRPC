@@ -10,38 +10,52 @@ namespace DanilovSoft.vRPC
     /// Атомарный <see langword="await"/>'ер. Связывает запрос с его результатом.
     /// </summary>
     [DebuggerDisplay(@"\{Request = {Request.ActionName}\}")]
-    internal sealed class RequestAwaiter : INotifyCompletion
+    internal sealed class ResponseAwaiter : INotifyCompletion
     {
-        public RequestMeta Request { get; }
+        public RequestMethodMeta Request { get; }
         /// <summary>
         /// Флаг используется как fast-path.
         /// </summary>
         private volatile bool _isCompleted;
         [DebuggerNonUserCode]
         public bool IsCompleted => _isCompleted;
-        private volatile object? _response;
+        private volatile object? _responseValue;
         private volatile Exception? _exception;
         private Action? _continuationAtomic;
 
+#if DEBUG
+        private object? ValueForDebugDisplay
+        {
+            get
+            {
+                if (_isCompleted)
+                {
+                    return _exception ?? _responseValue;
+                }
+                return default;
+            }
+        }
+#endif
+
         // ctor.
-        public RequestAwaiter(RequestMeta requestToSend)
+        public ResponseAwaiter(RequestMethodMeta requestToSend)
         {
             Request = requestToSend;
         }
 
         [DebuggerStepThrough]
-        public RequestAwaiter GetAwaiter() => this;
+        public ResponseAwaiter GetAwaiter() => this;
 
         //[DebuggerNonUserCode]
         public object? GetResult()
         {
             if (_exception == null)
             {
-                return _response;
+                return _responseValue;
             }
             else
             {
-                // Результатом является исключение.
+                // Исключение является полноценным результатом.
                 throw _exception;
             }
         }
@@ -60,7 +74,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public void TrySetResult(object? rawResult)
         {
-            _response = rawResult;
+            _responseValue = rawResult;
             WakeContinuation();
         }
 
@@ -79,7 +93,7 @@ namespace DanilovSoft.vRPC
                 ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
 #else
                 // Через глобальную очередь.
-                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: false);
+                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: false); // Через глобальную очередь.
 #endif
             }
         }
@@ -117,7 +131,7 @@ namespace DanilovSoft.vRPC
 #if NETSTANDARD2_0 || NET472
                 ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
 #else
-                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true);
+                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true); // Через локальную очередь.
 #endif
             }
         }

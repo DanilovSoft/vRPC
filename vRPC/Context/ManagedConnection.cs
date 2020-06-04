@@ -31,7 +31,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Содержит имена методов прокси интерфейса без постфикса Async.
         /// </summary>
-        private protected abstract IConcurrentDictionary<MethodInfo, RequestMeta> InterfaceMethods { get; }
+        private protected abstract IConcurrentDictionary<MethodInfo, RequestMethodMeta> InterfaceMethods { get; }
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
@@ -68,13 +68,13 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Коллекция запросов ожидающие ответ от удалённой стороны.
         /// </summary>
-        private readonly RequestQueue _pendingRequests;
+        private readonly PendingRequestDictionary _pendingRequests;
         public EndPoint LocalEndPoint { get; }
         public EndPoint RemoteEndPoint { get; }
         /// <summary>
-        /// Отправка сообщения <see cref="BinaryMessageToSend"/> должна выполняться только через этот канал.
+        /// Отправка сообщения <see cref="SerializedMessageToSend"/> должна выполняться только через этот канал.
         /// </summary>
-        private readonly Channel<BinaryMessageToSend> _sendChannel;
+        private readonly Channel<SerializedMessageToSend> _sendChannel;
         private int _disposed;
         private bool IsDisposed
         {
@@ -181,7 +181,7 @@ namespace DanilovSoft.vRPC
             _ws = clientConnection;
             //_pipe = new Pipe();
 
-            _pendingRequests = new RequestQueue();
+            _pendingRequests = new PendingRequestDictionary();
 
             // IoC готов к работе.
             ServiceProvider = serviceProvider;
@@ -189,7 +189,7 @@ namespace DanilovSoft.vRPC
             // Копируем список контроллеров сервера.
             _invokeActions = actions;
 
-            _sendChannel = Channel.CreateUnbounded<BinaryMessageToSend>(new UnboundedChannelOptions
+            _sendChannel = Channel.CreateUnbounded<SerializedMessageToSend>(new UnboundedChannelOptions
             {
                 AllowSynchronousContinuations = true, // Внимательнее с этим параметром!
                 SingleReader = true,
@@ -247,7 +247,7 @@ namespace DanilovSoft.vRPC
                 closeReason = CloseReason.FromException(e.DisconnectingReason.Error, 
                     _shutdownRequest, e.DisconnectingReason.AdditionalDescription);
             }
-            AtomicDispose(closeReason);
+            TryDispose(closeReason);
         }
 
         /// <summary>
@@ -320,7 +320,7 @@ namespace DanilovSoft.vRPC
                 }
 
                 // Не бросает исключения.
-                AtomicDispose(CloseReason.FromException(new WasShutdownException(stopRequired)));
+                TryDispose(CloseReason.FromException(new WasShutdownException(stopRequired)));
 
                 CloseReason closeReason = _completionTcs.Task.Result;
 
@@ -342,7 +342,7 @@ namespace DanilovSoft.vRPC
         private void DisposeOnCloseReceived()
         {
             // Был получен Close. Это значит что веб сокет уже закрыт и нам остаётся только закрыть сервис.
-            AtomicDispose(CloseReason.FromCloseFrame(_ws.CloseStatus, _ws.CloseStatusDescription, null, _shutdownRequest));
+            TryDispose(CloseReason.FromCloseFrame(_ws.CloseStatus, _ws.CloseStatusDescription, null, _shutdownRequest));
         }
 
         /// <summary>
@@ -367,7 +367,7 @@ namespace DanilovSoft.vRPC
                 catch (Exception ex)
                 {
                     // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
+                    TryDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                     // Завершить поток.
                     return;
@@ -394,16 +394,16 @@ namespace DanilovSoft.vRPC
         internal object? OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string controllerName)
         {
             // Создаём запрос для отправки.
-            RequestMeta requestMeta = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestMeta(tm, cn), controllerName);
+            RequestMethodMeta requestMeta = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, cn), controllerName);
 
             // Сериализуем запрос в память.
-            BinaryMessageToSend serMsg = requestMeta.SerializeRequest(args);
+            SerializedMessageToSend serMsg = requestMeta.SerializeRequest(args);
             if (!requestMeta.IsNotificationRequest)
             {
                 // Отправляем запрос.
-                Task<object?> requestTask = SendRequestAndGetResponse(requestMeta, serMsg);
+                Task<object?> pendingRequestTask = SendRequestAndWaitResponse(requestMeta, serMsg);
 
-                return ConvertRequestTask(requestMeta, requestTask);
+                return ConvertRequestTask(requestMeta, pendingRequestTask);
             }
             else
             {
@@ -417,22 +417,23 @@ namespace DanilovSoft.vRPC
         /// Происходит при обращении к проксирующему интерфейсу.
         /// Возвращает Task или готовый результат если был вызван синхронный метод.
         /// </summary>
+        /// <exception cref="Exception"/>
         /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         [SuppressMessage("Reliability", "CA2000:Ликвидировать объекты перед потерей области", Justification = "Анализатор не видит смену ответственности на Channel")]
         internal static object? OnClientInterfaceCall(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, object[] args, string? controllerName)
         {
             // Создаём запрос для отправки.
-            RequestMeta requestMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new RequestMeta(mi, cn), controllerName);
+            RequestMethodMeta methodMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, (mi, cn) => new RequestMethodMeta(mi, cn), controllerName);
 
             // Сериализуем запрос в память. Лучше выполнить до завершения подключения.
-            BinaryMessageToSend serMsg = requestMeta.SerializeRequest(args);
-            BinaryMessageToSend? serMsgToDispose = serMsg;
+            SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
+            SerializedMessageToSend? serMsgToDispose = serMsg;
 
             try
             {
                 // Результатом может быть незавершённый таск.
                 // Может начать отправку текущим потоком. Диспозит serMsg в случае ошибки.
-                object? returnValue = ExecuteRequestStatic(connectionTask, serMsg, requestMeta);
+                object? returnValue = ExecuteRequestStatic(connectionTask, serMsg, methodMeta);
 
                 serMsgToDispose = null; // Предотвратить Dispose.
 
@@ -462,17 +463,17 @@ namespace DanilovSoft.vRPC
         /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
         /// </summary>
         /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
-        private static object? ExecuteRequestStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        private static object? ExecuteRequestStatic(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
         {
             if (!requestMeta.IsNotificationRequest)
             // Запрос должен получить ответ.
             {
-                return SendRequestAndGetResultStatic(connectionTask, binaryRequest, requestMeta);
+                return SendRequestAndGetResultStatic(connectionTask, serMsg, requestMeta);
             }
             else
-            // Отправляем запрос как уведомление.
+            // Отправляем запрос как уведомление которое не ждёт ответ.
             {
-                return SendNotificationStatic(connectionTask, binaryRequest, requestMeta);
+                return SendNotificationStatic(connectionTask, serMsg, requestMeta);
             }
         }
 
@@ -480,12 +481,12 @@ namespace DanilovSoft.vRPC
         /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
         /// </summary>
         /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
-        private static object? SendRequestAndGetResultStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        private static object? SendRequestAndGetResultStatic(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
             // Отправляем запрос.
-            Task<object?> pendingRequestTask = SendRequestAndGetResultAsync(connectionTask, binaryRequest, requestMeta);
+            Task<object?> pendingRequestTask = SendRequestAndGetResultAsync(connectionTask, serMsg, requestMeta);
 
             // Результатом может быть не завершённый Task или готовый результат.
             return ConvertRequestTask(requestMeta, pendingRequestTask);
@@ -494,17 +495,17 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос как уведомление не ожидая ответа.
         /// </summary>
-        /// <returns>Может быть Null или незавершённый таск.</returns>
-        private static object? SendNotificationStatic(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend binaryRequest, RequestMeta requestMeta)
+        /// <returns>Может быть Null или незавершённый таск в соответствии с сигнатурой <paramref name="methodMeta"/>.</returns>
+        private static object? SendNotificationStatic(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta methodMeta)
         {
-            Debug.Assert(requestMeta.IsNotificationRequest);
+            Debug.Assert(methodMeta.IsNotificationRequest);
 
             // Может бросить исключение.
             // Добавляет сообщение в очередь на отправку.
-            Task sendNotificationTask = SendNotificationStaticAsync(connectionTask, binaryRequest, requestMeta);
+            Task sendNotificationTask = SendNotificationStaticAsync(connectionTask, serMsg, methodMeta);
 
             // Конвертируем Task в ValueTask если это требует интерфейс.
-            return ConvertNotificationTask(requestMeta, sendNotificationTask);
+            return ConvertNotificationTask(methodMeta, sendNotificationTask);
         }
 
         /// <summary>
@@ -514,7 +515,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private static Task SendNotificationStaticAsync(ValueTask<ClientSideConnection> connectingTask, BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
+        private static Task SendNotificationStaticAsync(ValueTask<ClientSideConnection> connectingTask, SerializedMessageToSend serializedMessage, RequestMethodMeta requestMeta)
         {
             if (connectingTask.IsCompleted)
             {
@@ -534,7 +535,7 @@ namespace DanilovSoft.vRPC
             }
 
             // Локальная функция.
-            static async Task WaitForConnectAndSendNotification(ValueTask<ClientSideConnection> t, BinaryMessageToSend serializedMessage, RequestMeta requestMeta)
+            static async Task WaitForConnectAndSendNotification(ValueTask<ClientSideConnection> t, SerializedMessageToSend serializedMessage, RequestMethodMeta requestMeta)
             {
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
@@ -543,7 +544,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static Task<object?> SendRequestAndGetResultAsync(ValueTask<ClientSideConnection> connectionTask, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
+        private static Task<object?> SendRequestAndGetResultAsync(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMetadata)
         {
             if (connectionTask.IsCompleted)
             {
@@ -551,26 +552,26 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = connectionTask.Result;
 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendRequestAndGetResponse(requestMetadata, serializedMessage);
+                return connection.SendRequestAndWaitResponse(requestMetadata, serMsg);
             }
             else
             {
-                return WaitForConnectAndSendRequest(connectionTask, serializedMessage, requestMetadata).Unwrap();
+                return WaitForConnectAndSendRequest(connectionTask, serMsg, requestMetadata).Unwrap();
             }
 
-            static async Task<Task<object?>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, BinaryMessageToSend serializedMessage, RequestMeta requestMetadata)
+            static async Task<Task<object?>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, SerializedMessageToSend serMsg, RequestMethodMeta requestMetadata)
             {
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendRequestAndGetResponse(requestMetadata, serializedMessage);
+                return connection.SendRequestAndWaitResponse(requestMetadata, serMsg);
             }
         }
 
         /// <summary>
         /// Может вернуть Null или Task или ValueTask.
         /// </summary>
-        private static object? ConvertNotificationTask(RequestMeta requestActionMeta, Task sendNotificationTask)
+        private static object? ConvertNotificationTask(RequestMethodMeta requestActionMeta, Task sendNotificationTask)
         {
             if (requestActionMeta.IsAsync)
             // Возвращаемый тип функции интерфейса — Task или ValueTask.
@@ -595,10 +596,10 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Преобразует <see cref="Task"/><see langword="&lt;object?&gt;"/> в строгий тип <see cref="Task{T}"/>
-        /// или возвращает RAW результат если метод интерфейса является синхронной функцией.
+        /// или извлекает TResult из таска если метод интерфейса является синхронной функцией.
         /// </summary>
-        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
-        private protected static object? ConvertRequestTask(RequestMeta requestMeta, Task<object?> pendingRequestTask)
+        /// <returns>Может быть незавершённый таск или TResult или Null.</returns>
+        private protected static object? ConvertRequestTask(RequestMethodMeta requestMeta, Task<object?> pendingRequestTask)
         {
             if (requestMeta.IsAsync)
             // Возвращаемый тип функции интерфейса — Task.
@@ -660,7 +661,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal void PostNotification(BinaryMessageToSend serializedMessage)
+        internal void PostNotification(SerializedMessageToSend serializedMessage)
         {
             ThrowIfDisposed();
             ThrowIfShutdownRequired();
@@ -680,34 +681,36 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private protected Task<object?> SendRequestAndGetResponse(RequestMeta requestMeta, object[] args)
+        private protected Task<object?> SendRequestAndWaitResponse(RequestMethodMeta requestMeta, object[] args)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
-            BinaryMessageToSend request = requestMeta.SerializeRequest(args);
-            BinaryMessageToSend? requestToDispose = request;
+            SerializedMessageToSend serMsgRequest = requestMeta.SerializeRequest(args);
+            SerializedMessageToSend? serMsgToDispose = serMsgRequest;
             try
             {
-                Task<object?> requestTask = SendRequestAndGetResponse(requestMeta, request);
-                requestToDispose = null;
-                return requestTask;
+                Task<object?> pendingRequestTask = SendRequestAndWaitResponse(requestMeta, serMsgRequest);
+                serMsgToDispose = null;
+                return pendingRequestTask;
             }
             finally
             {
-                requestToDispose?.Dispose();
+                serMsgToDispose?.Dispose();
             }
         }
 
         /// <summary>
-        /// Происходит при обращении к проксирующему интерфейсу. Отправляет запрос и ожидает его ответ.
-        /// Если не случилось исключения то <paramref name="serializedMessage"/> диспозить нельзя.
+        /// Отправляет запрос и ожидает ответ.
+        /// Передаёт владение объектом <paramref name="serMsg"/> другому потоку.
         /// </summary>
+        /// <remarks>Происходит при обращении к прокси-интерфейсу.</remarks>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private protected Task<object?> SendRequestAndGetResponse(RequestMeta requestMeta, BinaryMessageToSend serializedMessage)
+        /// <returns>Таск с RAW объектом от сервера.</returns>
+        private protected Task<object?> SendRequestAndWaitResponse(RequestMethodMeta requestMeta, SerializedMessageToSend serMsg)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
-            BinaryMessageToSend? toDispose = serializedMessage;
+            SerializedMessageToSend? serMsgToDispose = serMsg;
 
             try
             {
@@ -715,31 +718,31 @@ namespace DanilovSoft.vRPC
                 ThrowIfShutdownRequired();
 
                 // Добавить запрос в словарь для дальнейшей связки с ответом.
-                RequestAwaiter tcs = _pendingRequests.AddRequest(requestMeta, out int uid);
+                ResponseAwaiter responseAwaiter = _pendingRequests.AddRequest(requestMeta, out int uid);
 
                 // Назначить запросу уникальный идентификатор.
-                serializedMessage.Uid = uid;
+                serMsg.Uid = uid;
 
                 // Планируем отправку запроса.
                 // Не бросает исключения.
-                PostMessage(serializedMessage);
+                PostMessage(serMsg);
 
-                // Предотвратить Dispose на месте.
-                toDispose = null;
+                // Мы больше не владеем этим объектом.
+                serMsgToDispose = null;
 
                 // Ожидаем результат от потока поторый читает из сокета.
-                return WaitForAwaiterAsync(tcs);
+                return WaitForAwaiterAsync(responseAwaiter);
             }
             finally
             {
-                toDispose?.Dispose();
+                serMsgToDispose?.Dispose();
             }
 
-            static async Task<object?> WaitForAwaiterAsync(RequestAwaiter tcs)
+            static async Task<object?> WaitForAwaiterAsync(ResponseAwaiter responseAwaiter)
             {
                 // Ожидаем результат от потока поторый читает из сокета.
                 // Валидным результатом может быть исключение.
-                object? rawResult = await tcs;
+                object? rawResult = await responseAwaiter;
 
                 // Успешно получили результат без исключений.
                 return rawResult;
@@ -768,7 +771,7 @@ namespace DanilovSoft.vRPC
                     // Обрыв соединения.
                     {
                         // Оповестить об обрыве и завершить поток.
-                        AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
+                        TryDispose(CloseReason.FromException(ex, _shutdownRequest));
                         return;
                     }
 
@@ -848,7 +851,7 @@ namespace DanilovSoft.vRPC
                                 // Обрыв соединения.
                                 {
                                     // Оповестить об обрыве и завершить поток.
-                                    AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
+                                    TryDispose(CloseReason.FromException(ex, _shutdownRequest));
                                     return;
                                 }
                                 #endregion
@@ -980,7 +983,7 @@ namespace DanilovSoft.vRPC
                 Debug.Assert(header.Uid != null, "У ответа на запрос должен быть идентификатор");
 
                 // Удалить запрос из словаря.
-                if (header.Uid != null && _pendingRequests.TryRemove(header.Uid.Value, out RequestAwaiter reqAwaiter))
+                if (header.Uid != null && _pendingRequests.TryRemove(header.Uid.Value, out ResponseAwaiter? reqAwaiter))
                 // Передать ответ ожидающему потоку.
                 {
                     #region Передать ответ ожидающему потоку
@@ -1122,7 +1125,7 @@ namespace DanilovSoft.vRPC
                 // Обрыв соединения.
                 {
                     // Оповестить об обрыве и завершить поток.
-                    AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
+                    TryDispose(CloseReason.FromException(ex, _shutdownRequest));
                     return;
                 }
             }
@@ -1233,7 +1236,7 @@ namespace DanilovSoft.vRPC
         private async Task CloseAndDisposeAsync(Exception protocolErrorException, string closeDescription)
         {
             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-            _pendingRequests.PropagateExceptionAndLockup(protocolErrorException);
+            _pendingRequests.TryPropagateExceptionAndLockup(protocolErrorException);
 
             if (await FinishSenderAsync().ConfigureAwait(false))
             {
@@ -1249,7 +1252,7 @@ namespace DanilovSoft.vRPC
                 // Злой обрыв соединения.
                 {
                     // Оповестить об обрыве.
-                    AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
+                    TryDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                     // Завершить поток.
                     return;
@@ -1257,7 +1260,7 @@ namespace DanilovSoft.vRPC
             }
 
             // Оповестить об обрыве.
-            AtomicDispose(CloseReason.FromException(protocolErrorException, _shutdownRequest));
+            TryDispose(CloseReason.FromException(protocolErrorException, _shutdownRequest));
 
             // Завершить поток.
             return;
@@ -1293,7 +1296,7 @@ namespace DanilovSoft.vRPC
         private static void QueueSendResponseThread((ManagedConnection self, ResponseMessage responseToSend) argState)
         {
             // Сериализуем.
-            BinaryMessageToSend serializedMessage = SerializeActionResponse(argState.responseToSend);
+            SerializedMessageToSend serializedMessage = SerializeActionResponse(argState.responseToSend);
 
             // Ставим в очередь.
             argState.self.PostMessage(serializedMessage);
@@ -1302,12 +1305,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
-        private static BinaryMessageToSend SerializeActionResponse(ResponseMessage responseToSend)
+        private static SerializedMessageToSend SerializeActionResponse(ResponseMessage responseToSend)
         {
             //Debug.Assert(responseToSend.ReceivedRequest != null, "Результат контроллера может быть только на основе запроса");
 
-            BinaryMessageToSend serMsg = new BinaryMessageToSend(responseToSend);
-            BinaryMessageToSend? serMsgToDispose = serMsg;
+            SerializedMessageToSend serMsg = new SerializedMessageToSend(responseToSend);
+            SerializedMessageToSend? serMsgToDispose = serMsg;
 
             try
             {
@@ -1347,7 +1350,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Сериализует хэдер в стрим сообщения. Не бросает исключения.
         /// </summary>
-        private static void AppendHeader(BinaryMessageToSend messageToSend)
+        private static void AppendHeader(SerializedMessageToSend messageToSend)
         {
             HeaderDto header = CreateHeader(messageToSend);
 
@@ -1358,7 +1361,7 @@ namespace DanilovSoft.vRPC
             messageToSend.HeaderSize = headerSize;
         }
 
-        private static HeaderDto CreateHeader(BinaryMessageToSend messageToSend)
+        private static HeaderDto CreateHeader(SerializedMessageToSend messageToSend)
         {
             Debug.Assert(messageToSend != null);
 
@@ -1380,10 +1383,10 @@ namespace DanilovSoft.vRPC
         /// Добавляет хэдер и передает на отправку другому потоку.
         /// Не бросает исключения.
         /// </summary>
-        private void PostMessage(BinaryMessageToSend messageToSend)
+        private void PostMessage(SerializedMessageToSend serializedMessage)
         {
-            Debug.Assert(messageToSend != null);
-            BinaryMessageToSend? toDispose = messageToSend;
+            Debug.Assert(serializedMessage != null);
+            SerializedMessageToSend? serializedMessageToDispose = serializedMessage;
 
             try
             {
@@ -1392,22 +1395,21 @@ namespace DanilovSoft.vRPC
                 if (!IsDisposed)
                 {
                     // Сериализуем хедер. Не бросает исключения.
-                    AppendHeader(messageToSend);
+                    AppendHeader(serializedMessage);
 
-                    // Передать на отправку.
-                    // (!) Из-за AllowSynchronousContinuations частично начнёт отправку текущим потоком.
-                    if (_sendChannel.Writer.TryWrite(messageToSend))
-                    // Канал ещё не закрыт (не был вызван Dispose).
+                    // Передать в очередь на отправку.
+                    // (!) Из-за AllowSynchronousContinuations начнёт отправку текущим потоком если очередь пуста.
+                    if (_sendChannel.Writer.TryWrite(serializedMessage))
+                    // Успешно передали объект другому потоку.
                     {
-                        // Предотвратить Dispose.
-                        toDispose = null;
-                        return;
+                        // Мы больше не владеем этим объектом.
+                        serializedMessageToDispose = null;
                     }
                 }
             }
             finally
             {
-                toDispose?.Dispose();
+                serializedMessageToDispose?.Dispose();
             }
         }
 
@@ -1423,7 +1425,7 @@ namespace DanilovSoft.vRPC
                 if (await _sendChannel.Reader.WaitToReadAsync().ConfigureAwait(false))
                 {
                     // Всегда true — у нас только один читатель.
-                    _sendChannel.Reader.TryRead(out BinaryMessageToSend serializedMessage);
+                    _sendChannel.Reader.TryRead(out SerializedMessageToSend serializedMessage);
 
                     Debug.Assert(serializedMessage != null);
 
@@ -1464,7 +1466,7 @@ namespace DanilovSoft.vRPC
                         // Обрыв соединения.
                         {
                             // Оповестить об обрыве.
-                            AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
+                            TryDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                             // Завершить поток.
                             return;
@@ -1484,7 +1486,7 @@ namespace DanilovSoft.vRPC
                             // Обрыв соединения.
                             {
                                 // Оповестить об обрыве.
-                                AtomicDispose(CloseReason.FromException(ex, _shutdownRequest));
+                                TryDispose(CloseReason.FromException(ex, _shutdownRequest));
 
                                 // Завершить поток.
                                 return;
@@ -1522,7 +1524,7 @@ namespace DanilovSoft.vRPC
         }
 
         [Conditional("LOG_RPC")]
-        private static void LogSend(BinaryMessageToSend serializedMessage)
+        private static void LogSend(SerializedMessageToSend serializedMessage)
         {
             byte[] streamBuffer = serializedMessage.MemPoolStream.GetBuffer();
 
@@ -1793,7 +1795,7 @@ namespace DanilovSoft.vRPC
         private void SerializeActionResultAndSendResponse(ResponseMessage responseMessage)
         {
             // Не бросает исключения.
-            BinaryMessageToSend responseToSend = SerializeActionResponse(responseMessage);
+            SerializedMessageToSend responseToSend = SerializeActionResponse(responseMessage);
 
             // Не бросает исключения.
             PostMessage(responseToSend);
@@ -1925,8 +1927,8 @@ namespace DanilovSoft.vRPC
         /// Потокобезопасно освобождает ресурсы соединения. Вызывается при закрытии соединения.
         /// Взводит <see cref="Completion"/>.
         /// </summary>
-        /// <param name="possibleReason">Возможная причина обрыва соединения.</param>
-        private void AtomicDispose(CloseReason possibleReason)
+        /// <param name="possibleReason">Одна из возможных причин обрыва соединения.</param>
+        private void TryDispose(CloseReason possibleReason)
         {
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) == 0)
             // Только один поток может зайти сюда (за всю жизнь экземпляра).
@@ -1936,7 +1938,7 @@ namespace DanilovSoft.vRPC
                 _sendChannel.Writer.TryComplete();
 
                 // Передать исключение всем ожидающим потокам.
-                _pendingRequests.PropagateExceptionAndLockup(possibleReason.ToException());
+                _pendingRequests.TryPropagateExceptionAndLockup(possibleReason.ToException());
 
                 // Закрыть соединение.
                 _ws.Dispose();
@@ -1991,7 +1993,7 @@ namespace DanilovSoft.vRPC
 
         protected virtual void DisposeManaged()
         {
-            AtomicDispose(CloseReason.FromException(new ObjectDisposedException(GetType().FullName), _shutdownRequest, "Пользователь вызвал Dispose."));
+            TryDispose(CloseReason.FromException(new ObjectDisposedException(GetType().FullName), _shutdownRequest, "Пользователь вызвал Dispose."));
         }
 
         /// <summary>

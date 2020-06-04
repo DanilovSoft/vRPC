@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
     /// Потокобезопасен.
     /// </summary>
     [DebuggerDisplay(@"\{Request = {ActionFullName}\}")]
-    internal sealed class RequestMeta : IMessageMeta
+    internal sealed class RequestMethodMeta : IMessageMeta
     {
         public Type ReturnType { get; }
         /// <summary>
@@ -38,7 +38,7 @@ namespace DanilovSoft.vRPC
         public bool IsRequest => true;
 
         // ctor.
-        public RequestMeta(MethodInfo interfaceMethod, string? controllerName)
+        public RequestMethodMeta(MethodInfo interfaceMethod, string? controllerName)
         {
             ReturnType = interfaceMethod.ReturnType;
 
@@ -64,7 +64,7 @@ namespace DanilovSoft.vRPC
         }
 
         // Используется для Internal вызовов таких как SignIn, SignOut.
-        public RequestMeta(string controllerName, string methodName, Type returnType, bool notification)
+        public RequestMethodMeta(string controllerName, string methodName, Type returnType, bool notification)
         {
             ReturnType = returnType;
             IsNotificationRequest = notification;
@@ -119,12 +119,13 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
-        public BinaryMessageToSend SerializeRequest(object[] args)
+        /// <exception cref="Exception"/>
+        public SerializedMessageToSend SerializeRequest(object[] args)
         {
             var request = new RequestMessageDto(ActionFullName, args);
 
-            BinaryMessageToSend serializedMessage = new BinaryMessageToSend(this);
-            BinaryMessageToSend? toDispose = serializedMessage;
+            SerializedMessageToSend serializedMessage = new SerializedMessageToSend(this);
+            SerializedMessageToSend? toDispose = serializedMessage;
 
             try
             {

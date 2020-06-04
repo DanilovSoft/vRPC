@@ -7,7 +7,7 @@ using System.Text;
 namespace DanilovSoft.vRPC
 {
     /// <summary>
-    /// Содержит запрос полученный от удалённой стороны.
+    /// Содержит разобранный запрос с параметрами полученный от удалённой стороны.
     /// </summary>
     [DebuggerDisplay("{ActionToInvoke}")]
     internal sealed class RequestToInvoke
@@ -20,7 +20,7 @@ namespace DanilovSoft.vRPC
         public ControllerActionMeta ActionToInvoke { get; }
 
         /// <summary>
-        /// Аргументы вызываемого метода.
+        /// Аргументы для вызываемого метода.
         /// </summary>
         public object[] Args { get; }
 

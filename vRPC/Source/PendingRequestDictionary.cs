@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
@@ -11,21 +12,21 @@ namespace DanilovSoft.vRPC
     /// Имеет лимит в 65'535 запросов.
     /// </summary>
     [DebuggerDisplay(@"\{Count = {_dict.Count}\}")]
-    internal sealed class RequestQueue
+    internal sealed class PendingRequestDictionary
     {
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        private readonly Dictionary<int, RequestAwaiter> _dict = new Dictionary<int, RequestAwaiter>();
+        private readonly Dictionary<int, ResponseAwaiter> _dict = new Dictionary<int, ResponseAwaiter>();
         /// <summary>
         /// Не является потокобезопасным.
         /// </summary>
         private readonly SpinWait _spinWait = new SpinWait();
-        private Exception _disconnectException;
+        private Exception? _disconnectException;
         private int _reqIdSeq;
 
         /// <summary>
         /// Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
         /// </summary>
-        public RequestQueue()
+        public PendingRequestDictionary()
         {
             
         }
@@ -34,10 +35,9 @@ namespace DanilovSoft.vRPC
         /// Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
         /// </summary>
         /// <exception cref="Exception">Происходит если уже происходил обрыв соединения.</exception>
-        public RequestAwaiter AddRequest(RequestMeta requestToSend, out int uid)
+        public ResponseAwaiter AddRequest(RequestMethodMeta requestToSend, out int uid)
         {
-            var tcs = new RequestAwaiter(requestToSend);
-
+            var responseAwaiter = new ResponseAwaiter(requestToSend);
             do
             {
                 lock (_dict)
@@ -50,8 +50,8 @@ namespace DanilovSoft.vRPC
                             do
                             {
                                 uid = IncrementSeq();
-                            } while (!_dict.TryAdd(uid, tcs));
-                            return tcs;
+                            } while (!_dict.TryAdd(uid, responseAwaiter));
+                            return responseAwaiter;
                         }
                     }
                     else
@@ -60,7 +60,6 @@ namespace DanilovSoft.vRPC
                     // Словарь переполнен — подождать и повторить попытку.
                     _spinWait.SpinOnce();
                 }
-
             } while (true);
         }
 
@@ -71,23 +70,33 @@ namespace DanilovSoft.vRPC
             return uid;
         }
 
-        /// <summary>
-        /// Потокобезопасно удаляет запрос из словаря.
-        /// </summary>
-        public bool TryRemove(int uid, out RequestAwaiter tcs)
+
+
+#if NETSTANDARD2_0 || NET472
+        public bool TryRemove(int uid, out ResponseAwaiter tcs)
         {
             lock (_dict)
             {
-                if (_dict.Remove(uid, out tcs))
-                    return true;
+                return _dict.Remove(uid, out tcs);
             }
-            return false;
         }
+#else
+        /// <summary>
+        /// Потокобезопасно удаляет запрос из словаря.
+        /// </summary>
+        public bool TryRemove(int uid, [MaybeNullWhen(false)] out ResponseAwaiter tcs)
+        {
+            lock (_dict)
+            {
+                return _dict.Remove(uid, out tcs);
+            }
+        }
+#endif
 
         /// <summary>
         /// Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет провоцировать это исключение.
         /// </summary>
-        internal void PropagateExceptionAndLockup(Exception exception)
+        internal void TryPropagateExceptionAndLockup(Exception exception)
         {
             lock (_dict)
             {
@@ -96,9 +105,10 @@ namespace DanilovSoft.vRPC
                     _disconnectException = exception;
                     if (_dict.Count > 0)
                     {
-                        foreach (RequestAwaiter tcs in _dict.Values)
+                        foreach (ResponseAwaiter tcs in _dict.Values)
+                        {
                             tcs.TrySetException(exception);
-                        
+                        }
                         _dict.Clear();
                     }
                 }

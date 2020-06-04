@@ -10,9 +10,9 @@ namespace DanilovSoft.vRPC
     /// Происходит при обращении к выключенному экземпляру или находящемуся в процессе отключения по запросу пользователя.
     /// </summary>
     [Serializable]
-    public sealed class WasShutdownException : Exception
+    public sealed class WasShutdownException : VRpcException
     {
-        public ShutdownRequest StopRequiredState { get; }
+        public ShutdownRequest? StopRequiredState { get; }
 
         public WasShutdownException() { }
 

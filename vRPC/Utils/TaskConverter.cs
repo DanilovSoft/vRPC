@@ -28,7 +28,7 @@ namespace DanilovSoft.vRPC
         /// <returns><see cref="Task{T}"/> или в <see cref="ValueTask{T}"/>.</returns>
         public static object ConvertTask(Task<object?> task, Type desireType, Type returnType)
         {
-            // Получить делегат шаблонного конвертера.
+            // Вызывает InnerConvertTask или InnerConvertValueTask.
             return _dict.GetOrAdd(desireType, DelegateFactory, returnType).Invoke(task);
         }
 
