@@ -35,7 +35,7 @@ namespace Client
 
                     try
                     {
-                        await multipart.TcpDataAsync(1);
+                        multipart.TcpData(connectionId);
                     }
                     catch (Exception ex)
                     {

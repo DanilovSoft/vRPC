@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -37,6 +38,7 @@ namespace DanilovSoft.vRPC
         }
 #endif
 
+        [SuppressMessage("Usage", "CA2213:Следует высвобождать высвобождаемые поля", Justification = "Dispose выполняется атомарно")]
         private MemoryStream? _memPoolStream;
         /// <summary>
         /// Содержит сериализованное сообщение типа <see cref="RequestMessageDto"/> или любой 

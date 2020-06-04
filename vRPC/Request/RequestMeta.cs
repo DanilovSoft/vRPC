@@ -59,6 +59,8 @@ namespace DanilovSoft.vRPC
             
             // Метод считается асинхронным есть возвращаемый тип Task или ValueTask.
             IsAsync = interfaceMethod.ReturnType.IsAsyncReturnType();
+
+            // Особая семантика метода - когда все параметры являются VRpcContent.
         }
 
         // Используется для Internal вызовов таких как SignIn, SignOut.

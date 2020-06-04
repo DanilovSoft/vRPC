@@ -401,7 +401,7 @@ namespace DanilovSoft.vRPC
             if (!requestMeta.IsNotificationRequest)
             {
                 // Отправляем запрос.
-                Task<object?> requestTask = SendRequestAndGetResult(requestMeta, serMsg);
+                Task<object?> requestTask = SendRequestAndGetResponse(requestMeta, serMsg);
 
                 return ConvertRequestTask(requestMeta, requestTask);
             }
@@ -551,7 +551,7 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = connectionTask.Result;
 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendRequestAndGetResult(requestMetadata, serializedMessage);
+                return connection.SendRequestAndGetResponse(requestMetadata, serializedMessage);
             }
             else
             {
@@ -563,7 +563,7 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendRequestAndGetResult(requestMetadata, serializedMessage);
+                return connection.SendRequestAndGetResponse(requestMetadata, serializedMessage);
             }
         }
 
@@ -680,20 +680,21 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private protected Task<object?> SendRequestAndGetResult(RequestMeta requestMeta, object[] args)
+        private protected Task<object?> SendRequestAndGetResponse(RequestMeta requestMeta, object[] args)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
-            BinaryMessageToSend? request = requestMeta.SerializeRequest(args);
+            BinaryMessageToSend request = requestMeta.SerializeRequest(args);
+            BinaryMessageToSend? requestToDispose = request;
             try
             {
-                Task<object?> requestTask = SendRequestAndGetResult(requestMeta, request);
-                request = null;
+                Task<object?> requestTask = SendRequestAndGetResponse(requestMeta, request);
+                requestToDispose = null;
                 return requestTask;
             }
             finally
             {
-                request?.Dispose();
+                requestToDispose?.Dispose();
             }
         }
 
@@ -703,7 +704,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private protected Task<object?> SendRequestAndGetResult(RequestMeta requestMeta, BinaryMessageToSend serializedMessage)
+        private protected Task<object?> SendRequestAndGetResponse(RequestMeta requestMeta, BinaryMessageToSend serializedMessage)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
             BinaryMessageToSend? toDispose = serializedMessage;

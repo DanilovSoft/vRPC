@@ -1262,6 +1262,9 @@
             Этот клас наследует пользовательские интерфейсы.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.Decorator.ClientInterfaceProxy`1.Invoke(System.Reflection.MethodInfo,System.Object[])">
+            <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
+        </member>
         <member name="T:DanilovSoft.vRPC.Decorator.ServerInterfaceProxy">
             <summary>
             Этот клас наследует пользовательские интерфейсы.

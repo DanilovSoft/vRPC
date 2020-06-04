@@ -48,6 +48,7 @@ namespace DanilovSoft.vRPC.Decorator
 
 
         // Вызывается через рефлексию.
+        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         [SuppressMessage("Design", "CA1062:Проверить аргументы или открытые методы", Justification = "Логически не может быть Null")]
         protected object? Invoke(MethodInfo targetMethod, object[] args)
         {

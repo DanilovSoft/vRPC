@@ -240,7 +240,7 @@ namespace DanilovSoft.vRPC
         public void Call(string controllerName, string actionName, params object[] args)
         {
             var requestMeta = new RequestMeta(controllerName, actionName, typeof(void), false);
-            Task<object> obj = SendRequestAndGetResult(requestMeta, args);
+            Task<object> obj = SendRequestAndGetResponse(requestMeta, args);
             object result = ConvertRequestTask(requestMeta, obj);
             if (result is IDisposable disposable)
             {
@@ -251,7 +251,7 @@ namespace DanilovSoft.vRPC
         public Task CallAsync(string controllerName, string actionName, params object[] args)
         {
             var requestMeta = new RequestMeta(controllerName, actionName, typeof(Task), false);
-            Task<object> requestTask = SendRequestAndGetResult(requestMeta, args);
+            Task<object> requestTask = SendRequestAndGetResponse(requestMeta, args);
             Task task = ConvertRequestTask(requestMeta, requestTask) as Task;
             Debug.Assert(task != null);
             return task;
@@ -260,7 +260,7 @@ namespace DanilovSoft.vRPC
         public T Call<T>(string controllerName, string actionName, params object[] args)
         {
             var requestMeta = new RequestMeta(controllerName, actionName, typeof(T), false);
-            Task<object> requestTask = SendRequestAndGetResult(requestMeta, args);
+            Task<object> requestTask = SendRequestAndGetResponse(requestMeta, args);
             var result = (T)ConvertRequestTask(requestMeta, requestTask);
             return result;
         }
@@ -269,7 +269,7 @@ namespace DanilovSoft.vRPC
         {
             var requestMeta = new RequestMeta(controllerName, actionName, typeof(Task<T>), false);
 
-            Task<object> requestTask = SendRequestAndGetResult(requestMeta, args);
+            Task<object> requestTask = SendRequestAndGetResponse(requestMeta, args);
 
             Task<T> task = ConvertRequestTask(requestMeta, requestTask) as Task<T>;
             Debug.Assert(task != null);

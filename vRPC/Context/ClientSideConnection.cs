@@ -147,7 +147,7 @@ namespace DanilovSoft.vRPC
 
             try
             {
-                requestTask = SendRequestAndGetResult(SignInAsyncMeta, binaryRequest);
+                requestTask = SendRequestAndGetResponse(SignInAsyncMeta, binaryRequest);
                 toDispose = null;
             }
             finally
@@ -228,7 +228,7 @@ namespace DanilovSoft.vRPC
 
             try
             {
-                requestTask = SendRequestAndGetResult(SignOutAsyncMeta, binaryRequest);
+                requestTask = SendRequestAndGetResponse(SignOutAsyncMeta, binaryRequest);
                 toDispose = null;
             }
             finally
