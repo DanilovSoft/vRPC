@@ -17,6 +17,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Десериализует json запрос.
         /// </summary>
+        /// <exception cref="JsonException"/>
         public static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json,
             InvokeActionsDictionary invokeActions,
             HeaderDto header,
@@ -29,7 +30,6 @@ namespace DanilovSoft.vRPC
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
 #endif
-
             string? actionName = null;
             ControllerActionMeta? action = null;
             object[]? args = null;

@@ -10,7 +10,7 @@ namespace Client
     [AllowAnonymous]
     public class MultipartController : ServerController
     {
-        public int TcpData(int connectionId)
+        public int TcpData(int connectionId, byte[] data)
         {
             return connectionId;
         }

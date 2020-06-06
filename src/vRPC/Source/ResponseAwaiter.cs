@@ -32,7 +32,10 @@ namespace DanilovSoft.vRPC
                 {
                     return _exception ?? _responseValue;
                 }
-                return default;
+                else
+                {
+                    return "Pending...";
+                }
             }
         }
 #endif

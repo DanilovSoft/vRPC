@@ -11,7 +11,7 @@ namespace DanilovSoft.vRPC
     /// Заголовок запроса или ответа. Бинарный размер — динамический. Сериализуется всегда через ProtoBuf.
     /// </summary>
     [ProtoContract]
-    [DebuggerDisplay(@"\{Uid = {Uid}, Status = {StatusCode}, Content = {ContentLength} байт\}")]
+    [DebuggerDisplay(@"\{Uid = {Uid}, Status = {StatusCode}, Content = {PayloadLength} байт\}")]
     internal sealed class HeaderDto
     {
         public const int HeaderMaxSize = 64;

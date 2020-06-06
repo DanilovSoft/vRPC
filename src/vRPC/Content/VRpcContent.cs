@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC.Content
 {
@@ -11,9 +13,13 @@ namespace DanilovSoft.vRPC.Content
         // Derived types return true if they're able to compute the length. It's OK if derived types return false to
         // indicate that they're not able to compute the length. The transport channel needs to decide what to do in
         // that case (send chunked, buffer first, etc.).
-        protected internal abstract bool TryComputeLength(out long length);
+        protected internal abstract bool TryComputeLength(out int length);
 
-        protected internal abstract Task SerializeToStreamAsync(Stream stream);
+        private protected abstract Multipart SerializeToStream(Stream stream);
+        //protected internal abstract bool TrySerializeSynchronously(Stream stream);
+
+        [DebuggerStepThrough]
+        internal Multipart InnerSerializeToStream(Stream stream) => SerializeToStream(stream);
 
         public void Dispose()
         {

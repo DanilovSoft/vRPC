@@ -6,6 +6,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC
 {
@@ -23,7 +24,7 @@ namespace DanilovSoft.vRPC
         {
             get
             {
-                if (MemPoolStream?.Length > 0)
+                if ((ContentEncoding == null || ContentEncoding == "json") && MemPoolStream?.Length > 0)
                 {
                     byte[] copy = MemPoolStream.ToArray();
                     string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
@@ -69,6 +70,8 @@ namespace DanilovSoft.vRPC
         /// Размер хэдера располагающийся в конце стрима.
         /// </summary>
         public int HeaderSize { get; set; }
+
+        public Multipart[]? Parts { get; set; }
 
         /// <summary>
         /// Содержит <see cref="MemoryStream"/> в который сериализуется сообщение и заголовок.

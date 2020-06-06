@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using DanilovSoft.vRPC.Content;
+using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC
 {
@@ -36,8 +39,14 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public string ActionFullName { get; }
         public bool IsRequest => true;
+        /// <summary>
+        /// Когда все параметры метода являются <see cref="VRpcContent"/> то обрабатываются
+        /// по отдельному сценарию.
+        /// </summary>
+        private readonly bool _multipartStrategy;
 
         // ctor.
+        /// <exception cref="InvalidOperationException"/>
         public RequestMethodMeta(MethodInfo interfaceMethod, string? controllerName)
         {
             ReturnType = interfaceMethod.ReturnType;
@@ -60,10 +69,27 @@ namespace DanilovSoft.vRPC
             // Метод считается асинхронным есть возвращаемый тип Task или ValueTask.
             IsAsync = interfaceMethod.ReturnType.IsAsyncReturnType();
 
-            // Особая семантика метода - когда все параметры являются VRpcContent.
+            // Особая семантика метода — когда все параметры являются VRpcContent.
+            _multipartStrategy = IsAllParametersIsSpecialType(interfaceMethod);
+        }
+
+        /// <exception cref="InvalidOperationException"/>
+        private static bool IsAllParametersIsSpecialType(MethodInfo interfaceMethod)
+        {
+            var prms = interfaceMethod.GetParameters();
+            var allIsContentType = prms.All(x => x.ParameterType.IsAssignableFrom(typeof(VRpcContent)));
+            if (!allIsContentType)
+            {
+                if (prms.Any(x => x.ParameterType.IsAssignableFrom(typeof(VRpcContent))))
+                {
+                    throw new InvalidOperationException($"Все параметры должны быть либо производными типа {nameof(VRpcContent)} либо любыми другими типами");
+                }
+            }
+            return allIsContentType;
         }
 
         // Используется для Internal вызовов таких как SignIn, SignOut.
+        /// <exception cref="InvalidOperationException"/>
         public RequestMethodMeta(string controllerName, string methodName, Type returnType, bool notification)
         {
             ReturnType = returnType;
@@ -79,6 +105,7 @@ namespace DanilovSoft.vRPC
             IsAsync = returnType.IsAsyncReturnType();
         }
 
+        /// <exception cref="InvalidOperationException"/>
         private static void ValidateNotification(Type returnType, string methodName)
         {
             if (returnType != typeof(void) && returnType != typeof(Task) && returnType != typeof(ValueTask))
@@ -122,14 +149,59 @@ namespace DanilovSoft.vRPC
         /// <exception cref="Exception"/>
         public SerializedMessageToSend SerializeRequest(object[] args)
         {
-            var request = new RequestMessageDto(ActionFullName, args);
+            if (!_multipartStrategy)
+            {
+                return SerializeToJson(args);
+            }
+            else
+            {
+                return SerializeToMultipart(args);
+            }
+        }
 
-            SerializedMessageToSend serializedMessage = new SerializedMessageToSend(this);
-            SerializedMessageToSend? toDispose = serializedMessage;
+        private SerializedMessageToSend SerializeToMultipart(object[] args)
+        {
+            Debug.Assert(_multipartStrategy);
 
+            var serMsg = new SerializedMessageToSend(this)
+            {
+                ContentEncoding = KnownEncoding.MultipartEncoding,
+                Parts = new Multipart[args.Length]
+            };
+            SerializedMessageToSend? toDispose = serMsg;
             try
             {
-                ExtensionMethods.SerializeObjectJson(serializedMessage.MemPoolStream, request);
+                for (int i = 0; i < args.Length; i++)
+                {
+                    using (var part = args[i] as VRpcContent)
+                    {
+                        Debug.Assert(part != null);
+
+                        if (part.TryComputeLength(out int length))
+                        {
+                            var requiredSize = (int)serMsg.MemPoolStream.Length + length;
+                            if (serMsg.MemPoolStream.Capacity < requiredSize)
+                                serMsg.MemPoolStream.Capacity = requiredSize;
+                        }
+                        serMsg.Parts[i] = part.InnerSerializeToStream(serMsg.MemPoolStream);
+                    }
+                }
+                toDispose = null;
+                return serMsg;
+            }
+            finally
+            {
+                toDispose?.Dispose();
+            }
+        }
+
+        private SerializedMessageToSend SerializeToJson(object[] args)
+        {
+            SerializedMessageToSend serializedMessage = new SerializedMessageToSend(this);
+            SerializedMessageToSend? toDispose = serializedMessage;
+            try
+            {
+                ExtensionMethods.SerializeObjectJson(serializedMessage.MemPoolStream, new RequestMessageDto(ActionFullName, args));
 
                 toDispose = null;
                 return serializedMessage;
