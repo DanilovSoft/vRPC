@@ -22,6 +22,7 @@ namespace DanilovSoft.vRPC.DTO
         {
             Size = size;
             Encoding = encoding;
+            //SelfSize = 0;
         }
     }
 }

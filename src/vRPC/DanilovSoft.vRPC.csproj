@@ -70,19 +70,11 @@
     <PackageReference Include="System.Text.Json" Version="4.7.2" />
     <PackageReference Include="System.Threading.Channels" Version="4.7.1" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Compile Update="Resources\SR.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>SR.resx</DependentUpon>
-    </Compile>
-  </ItemGroup>
-
   <ItemGroup>
     <EmbeddedResource Update="Resources\SR.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>SR.Designer.cs</LastGenOutput>
+      <LogicalName>DanilovSoft.vRPC.Resources.SR.resources</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using DanilovSoft.vRPC.Content;
 using DanilovSoft.vRPC.DTO;
 using DanilovSoft.vRPC.Source;
+using ProtoBuf;
 
 namespace DanilovSoft.vRPC
 {
@@ -19,13 +20,14 @@ namespace DanilovSoft.vRPC
         private protected override Multipart SerializeToStream(Stream stream)
         {
             int contentLength = (int)stream.Position;
-            ProtoBuf.Serializer.NonGeneric.Serialize(stream, _value);
+            Serializer.NonGeneric.Serialize(stream, _value);
             
             int headerPosition = (int)stream.Position;
 
             contentLength = headerPosition - contentLength;
 
-            ProtoBuf.Serializer.NonGeneric.Serialize(stream, new MultipartHeaderDto(contentLength, ProducesProtoBufAttribute.Encoding));
+            SerializeHeader(stream, new MultipartHeaderDto(contentLength, KnownEncoding.ProtobufEncoding));
+            
             byte headerSize = (byte)((int)stream.Position - headerPosition);
 
             return new Multipart(contentLength, headerSize);

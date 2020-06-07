@@ -18,6 +18,7 @@ namespace DanilovSoft.vRPC
         /// Десериализует json запрос.
         /// </summary>
         /// <exception cref="JsonException"/>
+        /// <returns>True если успешно десериализовали.</returns>
         public static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json,
             InvokeActionsDictionary invokeActions,
             HeaderDto header,
@@ -25,6 +26,9 @@ namespace DanilovSoft.vRPC
             [MaybeNullWhen(false)]
 #endif
             out RequestToInvoke? result,
+#if !NETSTANDARD2_0 && !NET472
+            [MaybeNullWhen(true)]
+#endif
             out IActionResult? error)
         {
 #if DEBUG
@@ -92,7 +96,7 @@ namespace DanilovSoft.vRPC
                                                 {
                                                     args[argsInJsonCounter] = JsonSerializer.Deserialize(ref reader, type);
                                                 }
-                                                catch (Exception ex)
+                                                catch (JsonException)
                                                 {
                                                     result = null;
                                                     return ErrorDeserializingArgument(actionName, argsInJsonCounter, type, out error);

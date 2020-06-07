@@ -39,7 +39,8 @@ namespace DanilovSoft.vRPC
 
             contentLength = headerPosition - contentLength;
 
-            ProtoBuf.Serializer.NonGeneric.Serialize(stream, new MultipartHeaderDto(contentLength, "raw"));
+            SerializeHeader(stream, new MultipartHeaderDto(contentLength, KnownEncoding.RawEncoding));
+            
             byte headerSize = (byte)((int)stream.Position - headerPosition);
 
             return new Multipart(contentLength, headerSize);

@@ -21,6 +21,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using DanilovSoft.vRPC.DTO;
 using DanilovSoft.vRPC.Source;
+using System.Text.Json;
 
 namespace DanilovSoft.vRPC
 {
@@ -916,41 +917,50 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Обработка Payload. Если возвращает false то нужно завершить поток чтения.
         /// </summary>
+        /// <param name="contentMem">Контент запроса целиком.</param>
         private bool ProcessPayload(HeaderDto header, Memory<byte> contentMem)
         {
             if (header.IsRequest)
             // Получен запрос.
             {
-                if (header.IsResponseRequired)
+                if (TryIncreaseActiveRequestsCount(header))
                 {
-                    if (!IncreaseActiveRequestsCount())
-                    // Происходит остановка. Выполнять запрос не нужно.
-                    {
-                        return false;
-                    }
                 }
-
-                #region Десериализация запроса
+                else
+                // Происходит остановка. Выполнять запрос не нужно.
+                {
+                    return false;
+                }
 
                 IActionResult? error;
                 RequestToInvoke? requestToInvoke;
-                bool success;
-                try
-                {
-                    // Десериализуем запрос.
-                    success = JsonRequestParser.TryDeserializeRequestJson(contentMem.Span, _invokeActions, header, out requestToInvoke, out error);
-                }
-                catch (Exception ex)
-                // Ошибка десериализации запроса.
-                {
-                    // Игнорируем этот запрос и отправляем обратно ошибку.
-                    QueueSendErrorResponse(header, ex);
+                bool deserialized;
 
-                    return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
+                #region Десериализация запроса
+
+                if (header.ContentEncoding != KnownEncoding.MultipartEncoding)
+                {
+                    try
+                    {
+                        // Десериализуем запрос.
+                        deserialized = JsonRequestParser.TryDeserializeRequestJson(contentMem.Span, _invokeActions, header, out requestToInvoke, out error);
+                    }
+                    catch (JsonException ex)
+                    // Ошибка десериализации запроса.
+                    {
+                        // Игнорируем этот запрос и отправляем обратно ошибку.
+                        QueueSendErrorResponse(header, ex);
+
+                        return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
+                    }
+                }
+                else
+                {
+                    deserialized = MultipartParser.TryDeserializeMultipart(contentMem, _invokeActions, header, out requestToInvoke, out error);
                 }
                 #endregion
 
-                if (success)
+                if (deserialized)
                 {
                     Debug.Assert(requestToInvoke != null, "Не может быть Null когда success");
 
@@ -1085,6 +1095,26 @@ namespace DanilovSoft.vRPC
                 #endregion
             }
             return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
+        }
+
+        private bool TryIncreaseActiveRequestsCount(HeaderDto header)
+        {
+            if (header.IsResponseRequired)
+            {
+                if (IncreaseActiveRequestsCount())
+                {
+                    return true;
+                }
+                else
+                // Происходит остановка. Выполнять запрос не нужно.
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return true;
+            }
         }
 
         /// <summary>
@@ -1378,7 +1408,7 @@ namespace DanilovSoft.vRPC
             else
             // Создать хедер для нового запроса.
             {
-                return HeaderDto.CreateRequest(messageToSend.Uid, (int)messageToSend.MemPoolStream.Length);
+                return HeaderDto.CreateRequest(messageToSend.Uid, (int)messageToSend.MemPoolStream.Length, messageToSend.ContentEncoding);
             }
         }
 
@@ -1450,7 +1480,7 @@ namespace DanilovSoft.vRPC
                             try
                             {
                                 // Заголовок лежит в конце стрима.
-                                await SendBufferAsync(streamBuffer.AsMemory(messageSize, serializedMessage.HeaderSize)).ConfigureAwait(false);
+                                await SendBufferAsync(streamBuffer.AsMemory(messageSize, serializedMessage.HeaderSize), true).ConfigureAwait(false);
                             }
                             catch (Exception ex)
                             // Обрыв соединения.
@@ -1471,7 +1501,7 @@ namespace DanilovSoft.vRPC
                                 {
                                     try
                                     {
-                                        await SendBufferAsync(streamBuffer.AsMemory(0, messageSize)).ConfigureAwait(false);
+                                        await SendBufferAsync(streamBuffer.AsMemory(0, messageSize), true).ConfigureAwait(false);
                                     }
                                     catch (Exception ex)
                                     // Обрыв соединения.
@@ -1488,14 +1518,16 @@ namespace DanilovSoft.vRPC
                                     #region Отправка частями как Multipart
 
                                     ReadOnlyMemory<byte> segment = streamBuffer;
-                                    foreach (Multipart part in serializedMessage.Parts)
+                                    for (int i = 0; i < serializedMessage.Parts.Length; i++)
                                     {
+                                        Multipart part = serializedMessage.Parts[i];
                                         ReadOnlyMemory<byte> header = segment.Slice(part.ContentLength, part.HeaderLength);
                                         ReadOnlyMemory<byte> content = segment.Slice(0, part.ContentLength);
+                                        bool lastPart = i == (serializedMessage.Parts.Length - 1);
                                         try
                                         {
-                                            await SendBufferAsync(header).ConfigureAwait(false);
-                                            await SendBufferAsync(content).ConfigureAwait(false);
+                                            await SendBufferAsync(header, false).ConfigureAwait(false);
+                                            await SendBufferAsync(content, lastPart).ConfigureAwait(false);
                                         }
                                         catch (Exception ex)
                                         // Обрыв соединения.
@@ -1598,9 +1630,9 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private ValueTask SendBufferAsync(ReadOnlyMemory<byte> buffer)
+        private ValueTask SendBufferAsync(ReadOnlyMemory<byte> buffer, bool endOfMessage)
         {
-            return _ws.SendAsync(buffer, Ms.WebSocketMessageType.Binary, true, CancellationToken.None);
+            return _ws.SendAsync(buffer, Ms.WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
         }
 
         [Conditional("LOG_RPC")]
@@ -1914,38 +1946,6 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        //private static BinaryMessageToSend SerializeResponse(ResponseMessage response, RequestToInvoke requestContext)
-        //{
-        //    if (response != null)
-        //    {
-        //        // Сериализуется без исключения.
-        //        return SerializeResponse(response);
-        //    }
-        //    else
-        //    // Запрашиваемая функция выполнена успешно.
-        //    {
-        //        try
-        //        {
-        //            return SerializeResponse(response);
-        //        }
-        //        catch (Exception ex)
-        //        // Злая ошибка сериализации ответа. Аналогично ошибке 500.
-        //        {
-        //            // Прервать отладку.
-        //            DebugOnly.Break();
-
-        //            // TODO залогировать.
-        //            Debug.WriteLine(ex);
-
-        //            // Вернуть результат с ошибкой.
-        //            response = new ResponseMessage(requestContext, new InternalErrorResult("Internal Server Error"));
-        //        }
-
-        //        // response содержит ошибку.
-        //        return SerializeResponse(response);
-        //    }
-        //}
-
         private static async ValueTask<ResponseMessage> WaitForInvokeControllerAsync(ValueTask<object?> task, RequestToInvoke requestContext)
         {
             object? rawResult;
@@ -2044,11 +2044,11 @@ namespace DanilovSoft.vRPC
                 disconnected?.Invoke(this, new SocketDisconnectedEventArgs(this, possibleReason));
 
                 // Установить Task Completion.
-                SetCompletion(possibleReason);
+                TrySetCompletion(possibleReason);
             }
         }
 
-        private void SetCompletion(CloseReason closeReason)
+        private void TrySetCompletion(CloseReason closeReason)
         {
             // Установить Task Completion.
             if(_completionTcs.TrySetResult(closeReason))
@@ -2058,7 +2058,7 @@ namespace DanilovSoft.vRPC
                     _cts.Cancel(false);
                 }
                 catch (AggregateException ex)
-                // Нужна защита от пользовательских ошибок.
+                // Нужна защита от пользовательских ошибок в токене отмены.
                 {
                     // Нужно проглотить исключение потому что его некому обработать.
                     Debug.Fail("Exception occurred on " + nameof(CompletionToken) + ".Cancel(false)", ex.ToString());

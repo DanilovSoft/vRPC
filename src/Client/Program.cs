@@ -26,7 +26,7 @@ namespace Client
             new Random().NextBytes(mem.Memory.Span);
             using var data = new PooledMemoryContent(mem);
 
-            using var connectionId = new ProtobufValueContent(1);
+            using var connectionId = new ProtobufValueContent(123);
 
             try
             {

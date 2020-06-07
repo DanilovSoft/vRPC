@@ -4,7 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using DanilovSoft.vRPC.DTO;
 using DanilovSoft.vRPC.Source;
+using ProtoBuf;
 
 namespace DanilovSoft.vRPC.Content
 {
@@ -20,6 +22,11 @@ namespace DanilovSoft.vRPC.Content
 
         [DebuggerStepThrough]
         internal Multipart InnerSerializeToStream(Stream stream) => SerializeToStream(stream);
+
+        private protected static void SerializeHeader(Stream stream, in MultipartHeaderDto header)
+        {
+            Serializer.NonGeneric.SerializeWithLengthPrefix(stream, header, PrefixStyle.Base128, 1);
+        }
 
         public void Dispose()
         {

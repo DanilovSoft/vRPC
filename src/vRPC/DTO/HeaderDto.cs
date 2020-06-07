@@ -63,9 +63,9 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт заголовок для нового запроса.
         /// </summary>
-        public static HeaderDto CreateRequest(int? uid, int contentLength)
+        public static HeaderDto CreateRequest(int? uid, int contentLength, string? contentEncoding)
         {
-            return new HeaderDto(uid, StatusCode.Request, contentLength, null);
+            return new HeaderDto(uid, StatusCode.Request, contentLength, contentEncoding);
         }
 
         /// <summary>
