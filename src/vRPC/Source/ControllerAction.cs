@@ -19,6 +19,7 @@ namespace DanilovSoft.vRPC
     {
         public Action<Stream, object> SerializerDelegate { get; }
         public MethodInfo TargetMethod { get; }
+        public ParameterInfo[] Parametergs { get; }
         /// <summary>
         /// Формат возвращаемых данных.
         /// </summary>
@@ -38,6 +39,7 @@ namespace DanilovSoft.vRPC
             ActionFullName = actionFullName;
             ControllerType = controllerType;
             TargetMethod = methodInfo;
+            Parametergs = methodInfo.GetParameters();
             var protobufAttrib = methodInfo.GetCustomAttribute<ProducesProtoBufAttribute>();
             if (protobufAttrib != null)
             {

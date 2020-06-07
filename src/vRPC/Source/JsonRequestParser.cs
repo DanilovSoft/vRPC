@@ -7,10 +7,14 @@ using System.Text.Json;
 using System.Runtime.CompilerServices;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.IO;
+using ProtoBuf;
+using DanilovSoft.vRPC.DTO;
+using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC
 {
-    internal static class JsonRequestParser
+    internal static class RequestContentParser
     {
         private const string ArgumentsCountMismatch = "Argument count mismatch for action '{0}'. {1} arguments was expected.";
 
@@ -90,16 +94,17 @@ namespace DanilovSoft.vRPC
                                         {
                                             if (targetArguments.Length > argsInJsonCounter)
                                             {
-                                                Type type = targetArguments[argsInJsonCounter].ParameterType;
+                                                Type paramType = targetArguments[argsInJsonCounter].ParameterType;
 
                                                 try
                                                 {
-                                                    args[argsInJsonCounter] = JsonSerializer.Deserialize(ref reader, type);
+                                                    args[argsInJsonCounter] = JsonSerializer.Deserialize(ref reader, paramType);
                                                 }
                                                 catch (JsonException)
                                                 {
                                                     result = null;
-                                                    return ErrorDeserializingArgument(actionName, argsInJsonCounter, type, out error);
+                                                    error = ErrorDeserializingArgument(actionName, argIndex: argsInJsonCounter, paramType);
+                                                    return false;
                                                 }
                                                 argsInJsonCounter++;
                                             }
@@ -161,18 +166,69 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static bool ErrorDeserializingArgument(string actionName, short argsInJsonCounter, Type argType, out IActionResult error)
+        public static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerActionMeta action,
+            HeaderDto header,
+#if !NETSTANDARD2_0 && !NET472
+            [MaybeNullWhen(false)]
+#endif
+            out RequestToInvoke? result,
+#if !NETSTANDARD2_0 && !NET472
+            [MaybeNullWhen(true)]
+#endif
+            out IActionResult? error)
+        {
+            object[] args = action.Parametergs.Length == 0
+                        ? Array.Empty<object>()
+                        : (new object[action.Parametergs.Length]);
+
+            using (var stream = new ReadOnlyMemoryStream(content))
+            {
+                for (short i = 0; i < action.Parametergs.Length; i++)
+                {
+                    Type type = action.Parametergs[i].ParameterType;
+
+                    var partHeader = Serializer.DeserializeWithLengthPrefix<MultipartHeaderDto>(stream, PrefixStyle.Base128, 1);
+
+                    if (partHeader.Encoding == KnownEncoding.ProtobufEncoding)
+                    {
+                        using (var argStream = new ReadOnlyMemoryStream(content.Slice((int)stream.Position, partHeader.Size)))
+                        {
+                            try
+                            {
+                                args[i] = Serializer.NonGeneric.Deserialize(type, argStream);
+                            }
+                            catch (Exception)
+                            {
+                                result = null;
+                                error = ErrorDeserializingArgument(action.ActionFullName, argIndex: i, type);
+                                return false;
+                            }
+                        }
+                    }
+                    else if (partHeader.Encoding == KnownEncoding.RawEncoding)
+                    {
+                        ReadOnlyMemory<byte> raw = content.Slice((int)stream.Position, partHeader.Size);
+                        args[i] = null;
+                    }
+                    stream.Position += partHeader.Size;
+                }
+            }
+            result = new RequestToInvoke(header.Uid, action, args);
+            error = null;
+            return true;
+        }
+
+        internal static InvalidRequestResult ErrorDeserializingArgument(string actionName, short argIndex, Type argType)
         {
             if (argType.IsClrType())
             {
-                error = new InvalidRequestResult($"Не удалось десериализовать аргумент №{argsInJsonCounter} в тип {argType.Name} метода {actionName}");
+                return new InvalidRequestResult($"Не удалось десериализовать аргумент №{argIndex} в тип {argType.Name} метода {actionName}");
             }
             else
             // Не будем раскрывать удалённой стороне имена сложных типов.
             {
-                error = new InvalidRequestResult($"Не удалось десериализовать аргумент №{argsInJsonCounter} метода {actionName}");
+                return new InvalidRequestResult($"Не удалось десериализовать аргумент №{argIndex} метода {actionName}");
             }
-            return false;
         }
 
         private static bool MethodNotFound(string actionName, out RequestToInvoke? result, out IActionResult error)

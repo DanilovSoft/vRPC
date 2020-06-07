@@ -822,6 +822,8 @@ namespace DanilovSoft.vRPC
                         if (header.PayloadLength > 0)
                         // Есть дополнительный фрейм с телом сообщения.
                         {
+                            #region Нужно прочитать весь контент
+
                             // Можно не очищать – буффер будет перезаписан.
                             contentMem = contentMemHandler.Memory.Slice(0, header.PayloadLength);
 
@@ -876,6 +878,7 @@ namespace DanilovSoft.vRPC
                                 #endregion
 
                             } while (!webSocketMessage.EndOfMessage);
+                            #endregion
                         }
 
                         // У сообщения может не быть контента.
@@ -918,77 +921,97 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Обработка Payload. Если возвращает false то нужно завершить поток чтения.
+        /// Десериализует Payload и выполняет запрос или передаёт ответ ожидающему потоку.
         /// </summary>
-        /// <param name="contentMem">Контент запроса целиком.</param>
-        private bool TryProcessPayload(HeaderDto header, Memory<byte> contentMem)
+        /// <param name="payload">Контент запроса целиком.</param>
+        /// <returns>false если нужно завершить поток чтения.</returns>
+        private bool TryProcessPayload(HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             if (header.IsRequest)
             // Получен запрос.
             {
                 if (TryIncreaseActiveRequestsCount(header))
                 {
+                    if (ValidateHeader(header))
+                    {
+                        if (TryGetRequestMethod(header, out ControllerActionMeta? action))
+                        {
+                            IActionResult? error;
+                            RequestToInvoke? requestToInvoke;
+                            bool deserialized;
+
+                            #region Десериализация запроса
+
+                            if (header.ContentEncoding != KnownEncoding.MultipartEncoding)
+                            {
+                                try
+                                {
+                                    // Десериализуем запрос.
+                                    deserialized = RequestContentParser.TryDeserializeRequestJson(payload.Span, _invokeActions, header, out requestToInvoke, out error);
+                                }
+                                catch (JsonException ex)
+                                // Ошибка десериализации запроса.
+                                {
+                                    // Игнорируем этот запрос и отправляем обратно ошибку.
+                                    TryPostSendErrorResponse(header, ex);
+
+                                    return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
+                                }
+                            }
+                            else
+                            {
+                                deserialized = RequestContentParser.TryDeserializeMultipart(payload, action, header, out requestToInvoke, out error);
+                            }
+                            #endregion
+
+                            #region Выполнение запроса
+
+                            if (deserialized)
+                            {
+                                Debug.Assert(requestToInvoke != null, "Не может быть Null когда success");
+
+                                // Начать выполнение запроса в отдельном потоке.
+                                StartProcessRequest(requestToInvoke);
+                            }
+                            else
+                            // Не удалось десериализовать запрос.                                    
+                            {
+                                #region Игнорируем запрос
+
+                                if (header.IsResponseRequired)
+                                // Запрос ожидает ответ.
+                                {
+                                    Debug.Assert(error != null, "Не может быть Null когда !success");
+                                    Debug.Assert(header.Uid != null, "Не может быть Null когда IsResponseRequired");
+
+                                    // Передать на отправку результат с ошибкой через очередь.
+                                    PostSendResponse(new ResponseMessage(header.Uid.Value, error));
+                                }
+
+                                // Вернуться к чтению следующего сообщения.
+                                return true;
+
+                                #endregion
+                            }
+                            #endregion
+                        }
+                        else
+                        {
+                            // Вернуться к чтению следующего сообщения.
+                            return true;
+                        }
+                    }
+                    else
+                    // Хедер не валиден.
+                    {
+                        // Завершать поток чтения не нужно (вернуться к чтению следующего сообщения).
+                        return true;
+                    }
                 }
                 else
                 // Происходит остановка. Выполнять запрос не нужно.
                 {
-                    return false;
-                }
-
-                IActionResult? error;
-                RequestToInvoke? requestToInvoke;
-                bool deserialized;
-
-                #region Десериализация запроса
-
-                if (header.ContentEncoding != KnownEncoding.MultipartEncoding)
-                {
-                    try
-                    {
-                        // Десериализуем запрос.
-                        deserialized = JsonRequestParser.TryDeserializeRequestJson(contentMem.Span, _invokeActions, header, out requestToInvoke, out error);
-                    }
-                    catch (JsonException ex)
-                    // Ошибка десериализации запроса.
-                    {
-                        // Игнорируем этот запрос и отправляем обратно ошибку.
-                        TryPostSendErrorResponse(header, ex);
-
-                        return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
-                    }
-                }
-                else
-                {
-                    deserialized = MultipartParser.TryDeserializeMultipart(contentMem, _invokeActions, header, out requestToInvoke, out error);
-                }
-                #endregion
-
-                if (deserialized)
-                {
-                    Debug.Assert(requestToInvoke != null, "Не может быть Null когда success");
-
-                    // Начать выполнение запроса в отдельном потоке.
-                    StartProcessRequest(requestToInvoke);
-                }
-                else
-                // Не удалось десериализовать запрос.                                    
-                {
-                    #region Игнорируем запрос
-
-                    if (header.IsResponseRequired)
-                    // Запрос ожидает ответ.
-                    {
-                        Debug.Assert(error != null, "Не может быть Null когда !success");
-                        Debug.Assert(header.Uid != null, "Не может быть Null когда IsResponseRequired");
-
-                        // Передать на отправку результат с ошибкой через очередь.
-                        PostSendResponse(new ResponseMessage(header.Uid.Value, error));
-                    }
-
-                    // Вернуться к чтению заголовка.
-                    return true;
-
-                    #endregion
+                    return false; // Завершить поток чтения.
                 }
             }
             else
@@ -1014,13 +1037,13 @@ namespace DanilovSoft.vRPC
                         {
                             bool deserialized;
                             object? rawResult;
-                            if (!contentMem.IsEmpty)
+                            if (!payload.IsEmpty)
                             {
                                 // Десериализатор в соответствии с ContentEncoding.
                                 Func<ReadOnlyMemory<byte>, Type, object> deserializer = header.GetDeserializer();
                                 try
                                 {
-                                    rawResult = deserializer(contentMem, reqAwaiter.Request.IncapsulatedReturnType);
+                                    rawResult = deserializer(payload, reqAwaiter.Request.IncapsulatedReturnType);
                                     deserialized = true;
                                 }
                                 catch (Exception deserializationException)
@@ -1073,7 +1096,7 @@ namespace DanilovSoft.vRPC
                     // Сервер прислал код ошибки.
                     {
                         // Телом ответа в этом случае будет строка.
-                        string errorMessage = contentMem.ReadAsString();
+                        string errorMessage = payload.ReadAsString();
 
                         // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
                         reqAwaiter.TrySetException(new BadRequestException(errorMessage, header.StatusCode));
@@ -1097,7 +1120,69 @@ namespace DanilovSoft.vRPC
                 }
                 #endregion
             }
-            return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
+            return true; // Завершать поток чтения не нужно (вернуться к чтению следующего сообщения).
+        }
+
+        private bool TryGetRequestMethod(HeaderDto header,
+#if !NETSTANDARD2_0 && !NET472
+            [NotNullWhen(true)]
+#endif
+            out ControllerActionMeta? action)
+        {
+            Debug.Assert(header.ActionName != null);
+
+            if (_invokeActions.TryGetAction(header.ActionName, out action))
+            {
+                return true;
+            }
+            else
+            // Не найден метод контроллера.
+            {
+                if (header.IsResponseRequired)
+                // Запрос ожидает ответ.
+                {
+                    Debug.Assert(header.Uid != null);
+
+                    var error = MethodNotFound(header.ActionName);
+
+                    // Передать на отправку результат с ошибкой через очередь.
+                    PostSendResponse(new ResponseMessage(header.Uid.Value, error));
+                }
+                return false;
+            }
+        }
+
+        private static NotFoundResult MethodNotFound(string actionName)
+        {
+            int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter, StringComparison.Ordinal);
+
+            if (controllerIndex > 0)
+            {
+                return new NotFoundResult($"Unable to find requested action \"{actionName}\".");
+            }
+            else
+            {
+                return new NotFoundResult($"Controller name not specified in request \"{actionName}\".");
+            }
+        }
+
+        /// <returns>true если хедер валиден.</returns>
+        private bool ValidateHeader(HeaderDto header)
+        {
+            if (!header.IsRequest || !string.IsNullOrEmpty(header.ActionName))
+            {
+                return true;
+            }
+            else
+            // Запрос ожидает ответ.
+            {
+                Debug.Assert(header.Uid != null, "Не может быть Null когда IsResponseRequired");
+
+                // Передать на отправку результат с ошибкой через очередь.
+                PostSendResponse(new ResponseMessage(header.Uid.Value, new InvalidRequestResult("В заголовке запроса отсутствует имя метода")));
+
+                return false;
+            }
         }
 
         /// <summary>
@@ -1339,8 +1424,7 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(state != null);
             var tuple = ((ManagedConnection, ResponseMessage))state!;
-
-            TrySendResponseThreadEntryPoint(argState: tuple);
+            SerializeResponseAndTrySendThreadEntryPoint(argState: tuple);
         }
 #endif
         // Точка входа потока тред-пула.
@@ -1426,7 +1510,10 @@ namespace DanilovSoft.vRPC
             else
             // Создать хедер для нового запроса.
             {
-                return HeaderDto.CreateRequest(messageToSend.Uid, (int)messageToSend.MemPoolStream.Length, messageToSend.ContentEncoding);
+                var request = messageToSend.MessageToSend as RequestMethodMeta;
+                Debug.Assert(request != null);
+
+                return HeaderDto.CreateRequest(messageToSend.Uid, (int)messageToSend.MemPoolStream.Length, messageToSend.ContentEncoding, request.ActionFullName);
             }
         }
 

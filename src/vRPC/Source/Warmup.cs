@@ -1,4 +1,6 @@
-﻿namespace DanilovSoft.vRPC
+﻿using System.Threading.Tasks;
+
+namespace DanilovSoft.vRPC
 {
     internal static class Warmup
     {
@@ -8,6 +10,10 @@
         public static void DoWarmup()
         {
             System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(ManagedConnection).TypeHandle);
+
+#pragma warning disable CA2012 // Используйте ValueTasks правильно
+            DynamicAwaiter.WaitAsync(new ValueTask());
+#pragma warning restore CA2012 // Используйте ValueTasks правильно
         }
     }
 }

@@ -1000,11 +1000,15 @@
             <summary>При получении Close или сообщения типа Text — отправляет Close и делает Dispose.</summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryProcessPayload(DanilovSoft.vRPC.HeaderDto,System.Memory{System.Byte})">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryProcessPayload(DanilovSoft.vRPC.HeaderDto,System.ReadOnlyMemory{System.Byte})">
             <summary>
-            Обработка Payload. Если возвращает false то нужно завершить поток чтения.
+            Десериализует Payload и выполняет запрос или передаёт ответ ожидающему потоку.
             </summary>
-            <param name="contentMem">Контент запроса целиком.</param>
+            <param name="payload">Контент запроса целиком.</param>
+            <returns>false если нужно завершить поток чтения.</returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ValidateHeader(DanilovSoft.vRPC.HeaderDto)">
+            <returns>true если хедер валиден.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryIncreaseActiveRequestsCount(DanilovSoft.vRPC.HeaderDto)">
             <summary>
@@ -1052,15 +1056,15 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.PostSendResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
-            Сериализует сообщение в новом потоке и добавляет в очередь на отправку.
+            Сериализует ответ в новом потоке и отправляет через очередь.
             Уменьшит <see cref="F:DanilovSoft.vRPC.ManagedConnection._activeRequestCount"/>.
             </summary>
+            <remarks>Исключение по вине пользователеля крашнет процесс.</remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySendThreadEntryPoint(System.Object)">
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TrySendResponseThreadEntryPoint(System.Object)">
-            <remarks>Не бросает исключения.</remarks>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TrySendResponseThreadEntryPoint(System.ValueTuple{DanilovSoft.vRPC.ManagedConnection,DanilovSoft.vRPC.ResponseMessage})">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySendThreadEntryPoint(System.ValueTuple{DanilovSoft.vRPC.ManagedConnection,DanilovSoft.vRPC.ResponseMessage})">
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponse(DanilovSoft.vRPC.ResponseMessage)">
@@ -1360,17 +1364,22 @@
             следует использовать формат по умолчанию.
             </summary>
         </member>
+        <member name="P:DanilovSoft.vRPC.HeaderDto.ActionName">
+            <summary>
+            У запроса всегда должно быть имя метода.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.HeaderDto.FromResponse(System.Int32,DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
             <summary>
             Создаёт заголовок ответа на запрос.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.HeaderDto.CreateRequest(System.Nullable{System.Int32},System.Int32,System.String)">
+        <member name="M:DanilovSoft.vRPC.HeaderDto.CreateRequest(System.Nullable{System.Int32},System.Int32,System.String,System.String)">
             <summary>
             Создаёт заголовок для нового запроса.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.Nullable{System.Int32},DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
+        <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.Nullable{System.Int32},DanilovSoft.vRPC.StatusCode,System.Int32,System.String,System.String)">
             <summary>
             Конструктор заголовка и для ответа и для запроса.
             </summary>
@@ -1987,7 +1996,7 @@
             Словарь используемый только для чтения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.JsonRequestParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.RequestToInvoke@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.RequestToInvoke@,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
             </summary>

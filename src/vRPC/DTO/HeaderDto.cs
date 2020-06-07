@@ -11,12 +11,28 @@ namespace DanilovSoft.vRPC
     /// Заголовок запроса или ответа. Бинарный размер — динамический. Сериализуется всегда через ProtoBuf.
     /// </summary>
     [ProtoContract]
-    [DebuggerDisplay(@"\{Uid = {Uid}, Status = {StatusCode}, Content = {PayloadLength} байт\}")]
+    [DebuggerDisplay("{DebugDisplay,nq}")]
     internal sealed class HeaderDto
     {
         public const int HeaderMaxSize = 64;
-        //public static HeaderDto Empty => default;
-        private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
+        private const string HeaderSizeExceededException = "Размер заголовка сообщения превысил максимально допустимый размер в 64 байта.";
+
+        [ProtoIgnore]
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        private string DebugDisplay
+        {
+            get
+            {
+                if (StatusCode == StatusCode.Request)
+                {
+                    return $"'{ActionName}', Content = {PayloadLength} байт";
+                }
+                else
+                {
+                    return $"Status = {StatusCode}, Content = {PayloadLength} байт";
+                }
+            }
+        }
 
         /// <summary>
         /// True если задан <see cref="Uid"/>.
@@ -46,6 +62,12 @@ namespace DanilovSoft.vRPC
         [ProtoMember(4, IsRequired = false)]
         public string? ContentEncoding { get; }
 
+        /// <summary>
+        /// У запроса всегда должно быть имя метода.
+        /// </summary>
+        [ProtoMember(5, IsRequired = false)]
+        public string? ActionName { get; }
+
         // Требуется для десериализатора. Если структура то не используется.
         private HeaderDto()
         {
@@ -57,26 +79,27 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public static HeaderDto FromResponse(int uid, StatusCode responseCode, int contentLength, string? contentEncoding)
         {
-            return new HeaderDto(uid, responseCode, contentLength, contentEncoding);
+            return new HeaderDto(uid, responseCode, contentLength, contentEncoding, actionName: null);
         }
 
         /// <summary>
         /// Создаёт заголовок для нового запроса.
         /// </summary>
-        public static HeaderDto CreateRequest(int? uid, int contentLength, string? contentEncoding)
+        public static HeaderDto CreateRequest(int? uid, int contentLength, string? contentEncoding, string actionName)
         {
-            return new HeaderDto(uid, StatusCode.Request, contentLength, contentEncoding);
+            return new HeaderDto(uid, StatusCode.Request, contentLength, contentEncoding, actionName);
         }
 
         /// <summary>
         /// Конструктор заголовка и для ответа и для запроса.
         /// </summary>
-        private HeaderDto(int? uid, StatusCode responseCode, int contentLength, string? contentEncoding)
+        private HeaderDto(int? uid, StatusCode responseCode, int contentLength, string? contentEncoding, string? actionName)
         {
             Uid = uid;
             StatusCode = responseCode;
             PayloadLength = contentLength;
             ContentEncoding = contentEncoding;
+            ActionName = actionName;
         }
 
         /// <summary>
@@ -109,7 +132,20 @@ namespace DanilovSoft.vRPC
             using (var mem = new MemoryStream(buffer, offset, count))
             {
                 HeaderDto? header = ProtoBufSerializer.Deserialize<HeaderDto>(mem);
+                ValidateDeserializedHeader(header);
                 return header; // может быть null если не удалось десериализовать.
+            }
+        }
+
+        [Conditional("DEBUG")]
+        private static void ValidateDeserializedHeader(HeaderDto? header)
+        {
+            if (header != null)
+            {
+                if (header.IsRequest)
+                {
+                    Debug.Assert(!string.IsNullOrEmpty(header.ActionName), "У запроса должно быть имя запрашиваемого метода");
+                }
             }
         }
 
@@ -125,27 +161,20 @@ namespace DanilovSoft.vRPC
             };
         }
 
-        //public static bool operator ==(in HeaderDto a, in HeaderDto b)
-        //{
-        //    return a.Equals(b);
-        //}
-
-        //public static bool operator !=(in HeaderDto a, in HeaderDto b)
-        //{
-        //    return !a.Equals(b);
-        //}
-
         /// <summary>
         /// Используется только для отладки и логирования.
         /// </summary>
         public override string ToString()
         {
-            string s = $"{nameof(Uid)} = {Uid} {nameof(StatusCode)} = {StatusCode} {nameof(PayloadLength)} = {PayloadLength}";
-            if(ContentEncoding != null)
+            string s = $"Uid = {Uid} Status = {StatusCode} Content = {PayloadLength} байт";
+            if (ContentEncoding != null)
             {
                 s += $" {nameof(ContentEncoding)} = {ContentEncoding}";
             }
-
+            if (ActionName != null)
+            {
+                s += $" '{ActionName}'";
+            }
             return s;
         }
     }
