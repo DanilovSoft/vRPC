@@ -96,6 +96,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет провоцировать это исключение.
         /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
         internal void TryPropagateExceptionAndLockup(Exception exception)
         {
             lock (_dict)

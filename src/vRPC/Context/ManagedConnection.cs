@@ -76,7 +76,7 @@ namespace DanilovSoft.vRPC
         public EndPoint LocalEndPoint { get; }
         public EndPoint RemoteEndPoint { get; }
         /// <summary>
-        /// Отправка сообщения <see cref="SerializedMessageToSend"/> должна выполняться только через этот канал.
+        /// Отправка сообщений <see cref="SerializedMessageToSend"/> должна выполняться только через этот канал.
         /// </summary>
         private readonly Channel<SerializedMessageToSend> _sendChannel;
         private int _disposed;
@@ -144,10 +144,11 @@ namespace DanilovSoft.vRPC
         }
         private volatile bool _isConnected = true;
         /// <summary>
-        /// Является <see langword="volatile"/>. Если значение – <see langword="false"/>, то можно узнать причину через свойство <see cref="DisconnectReason"/>.
+        /// Если значение – <see langword="false"/>, то можно узнать причину через свойство <see cref="DisconnectReason"/>.
         /// Когда значение становится <see langword="false"/>, то вызывается событие <see cref="Disconnected"/>.
         /// После разъединения текущий экземпляр не может быть переподключен.
         /// </summary>
+        /// <remarks><see langword="volatile"/>.</remarks>
         public bool IsConnected => _isConnected;
         public abstract bool IsAuthenticated { get; }
         private Task? _senderTask;
@@ -302,7 +303,7 @@ namespace DanilovSoft.vRPC
                     {
                         // Можно безопасно остановить сокет.
                         // Не бросает исключения.
-                        PrivateBeginClose(stopRequired.CloseDescription);
+                        TryPrivateBeginClose(stopRequired.CloseDescription);
                     }
                     // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
                     // Это будет соглашением о необходимости остановки.
@@ -342,9 +343,9 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Устанавливает причину закрытия соединения для текущего экземпляра и закрывает соединение.
-        /// Не бросает исключения.
         /// </summary>
-        private void DisposeOnCloseReceived()
+        /// <remarks>Не бросает исключения.</remarks>
+        private void TryDisposeOnCloseReceived()
         {
             // Был получен Close. Это значит что веб сокет уже закрыт и нам остаётся только закрыть сервис.
             TryDispose(CloseReason.FromCloseFrame(_ws.CloseStatus, _ws.CloseStatusDescription, null, _shutdownRequest));
@@ -352,15 +353,15 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
-        /// Не бросает исключения.
         /// </summary>
-        private async void PrivateBeginClose(string? closeDescription)
+        /// <remarks>Не бросает исключения.</remarks>
+        private async void TryPrivateBeginClose(string? closeDescription)
         {
             // Эту функцию вызывает тот поток который поймал флаг о необходимости завершения сервиса.
             // Благодаря событию WebSocket.Disconnect у нас гарантированно вызовется AtomicDispose.
 
             // Нельзя делать Close одновременно с Send операцией.
-            if (await FinishSenderAsync().ConfigureAwait(false))
+            if (await TryCompleteSenderAsync().ConfigureAwait(false))
             // Send больше никто не сделает.
             {
                 try
@@ -388,7 +389,7 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(_shutdownRequest != null);
 
-            PrivateBeginClose(_shutdownRequest.CloseDescription);
+            TryPrivateBeginClose(_shutdownRequest.CloseDescription);
         }
 
         /// <summary>
@@ -674,7 +675,7 @@ namespace DanilovSoft.vRPC
             //ValidateAuthenticationRequired(requestMeta);
 
             // Планируем отправку запроса.
-            PostMessage(serializedMessage);
+            TryPostMessage(serializedMessage);
         }
 
         /// <summary>
@@ -726,7 +727,7 @@ namespace DanilovSoft.vRPC
 
                 // Планируем отправку запроса.
                 // Не бросает исключения.
-                PostMessage(serMsg);
+                TryPostMessage(serMsg);
 
                 // Мы больше не владеем этим объектом.
                 serMsgToDispose = null;
@@ -805,7 +806,7 @@ namespace DanilovSoft.vRPC
                 else
                 // Получен Close или Text.
                 {
-                    await NonBinaryTypeAsync(webSocketMessage).ConfigureAwait(false);
+                    await TryNonBinaryTypeCloseAndDisposeAsync(webSocketMessage).ConfigureAwait(false);
                     return;
                 }
                 #endregion
@@ -869,7 +870,7 @@ namespace DanilovSoft.vRPC
                                 // Получен Close или Text.
                                 {
                                     // Оповестить и завершить поток.
-                                    await NonBinaryTypeAsync(webSocketMessage).ConfigureAwait(false);
+                                    await TryNonBinaryTypeCloseAndDisposeAsync(webSocketMessage).ConfigureAwait(false);
                                     return;
                                 }
                                 #endregion
@@ -878,7 +879,7 @@ namespace DanilovSoft.vRPC
                         }
 
                         // У сообщения может не быть контента.
-                        if (!ProcessPayload(header, contentMem))
+                        if (!TryProcessPayload(header, contentMem))
                         {
                             // Завершить поток.
                             return;
@@ -896,21 +897,23 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private Task NonBinaryTypeAsync(ValueWebSocketReceiveResult webSocketMessage)
+        /// <summary>При получении Close или сообщения типа Text — отправляет Close и делает Dispose.</summary>
+        /// <remarks>Не бросает исключения.</remarks>
+        private Task TryNonBinaryTypeCloseAndDisposeAsync(ValueWebSocketReceiveResult webSocketMessage)
         {
             Debug.Assert(webSocketMessage.MessageType != Ms.WebSocketMessageType.Binary);
 
             if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
-            // Тип Text не поддерживается.
+            // Наш протокол не поддерживает сообщения типа Text.
             {
                 // Отправка Close и завершить поток.
-                return SendCloseTextNotSupportedAsync();
+                return TrySendNotSupportedTypeAndCloseAsync();
             }
             else
             // Получен Close.
             {
                 // Оповестить и завершить поток.
-                return CloseReceivedAsync();
+                return TryCloseReceivedAsync();
             }
         }
 
@@ -918,7 +921,7 @@ namespace DanilovSoft.vRPC
         /// Обработка Payload. Если возвращает false то нужно завершить поток чтения.
         /// </summary>
         /// <param name="contentMem">Контент запроса целиком.</param>
-        private bool ProcessPayload(HeaderDto header, Memory<byte> contentMem)
+        private bool TryProcessPayload(HeaderDto header, Memory<byte> contentMem)
         {
             if (header.IsRequest)
             // Получен запрос.
@@ -949,7 +952,7 @@ namespace DanilovSoft.vRPC
                     // Ошибка десериализации запроса.
                     {
                         // Игнорируем этот запрос и отправляем обратно ошибку.
-                        QueueSendErrorResponse(header, ex);
+                        TryPostSendErrorResponse(header, ex);
 
                         return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
                     }
@@ -979,7 +982,7 @@ namespace DanilovSoft.vRPC
                         Debug.Assert(header.Uid != null, "Не может быть Null когда IsResponseRequired");
 
                         // Передать на отправку результат с ошибкой через очередь.
-                        QueueSendResponse(new ResponseMessage(header.Uid.Value, error));
+                        PostSendResponse(new ResponseMessage(header.Uid.Value, error));
                     }
 
                     // Вернуться к чтению заголовка.
@@ -1097,6 +1100,12 @@ namespace DanilovSoft.vRPC
             return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
         }
 
+        /// <summary>
+        /// Увеличивает счётчик активных запросов.
+        /// </summary>
+        /// <param name="header"></param>
+        /// <returns>true если разрешено продолжить выполнение запроса, 
+        /// false если требуется остановить сервис.</returns>
         private bool TryIncreaseActiveRequestsCount(HeaderDto header)
         {
             if (header.IsResponseRequired)
@@ -1122,7 +1131,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="header">Заголовок запроса.</param>
         /// <param name="exception">Ошибка произошедшая при разборе запроса.</param>
-        private void QueueSendErrorResponse(HeaderDto header, Exception exception)
+        private void TryPostSendErrorResponse(HeaderDto header, Exception exception)
         {
             if (header.Uid != null)
             // Запрос ожидает ответ.
@@ -1131,24 +1140,27 @@ namespace DanilovSoft.vRPC
                 var errorResponse = new ResponseMessage(header.Uid.Value, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{exception.Message}\"."));
 
                 // Передать на отправку результат с ошибкой через очередь.
-                QueueSendResponse(errorResponse);
+                PostSendResponse(errorResponse);
             }
         }
 
-        private Task CloseReceivedAsync()
+        /// <summary>Отправляет Close и делает Dispose.</summary>
+        /// <remarks>Не бросает исключения.</remarks>
+        private Task TryCloseReceivedAsync()
         {
             if (_ws.State == Ms.WebSocketState.CloseReceived)
             {
-                return FinishSenderAndSendCloseAsync();
+                return TryFinishSenderAndSendCloseAsync();
             }
 
-            DisposeOnCloseReceived();
+            TryDisposeOnCloseReceived();
             return Task.CompletedTask;
         }
 
-        private async Task FinishSenderAndSendCloseAsync()
+        /// <remarks>Не бросает исключения.</remarks>
+        private async Task TryFinishSenderAndSendCloseAsync()
         {
-            if (await FinishSenderAsync().ConfigureAwait(false))
+            if (await TryCompleteSenderAsync().ConfigureAwait(false))
             {
                 try
                 {
@@ -1162,7 +1174,7 @@ namespace DanilovSoft.vRPC
                     return;
                 }
             }
-            DisposeOnCloseReceived();
+            TryDisposeOnCloseReceived();
         }
 
         //private Task SendCloseMessageTypeNotSupportedAsync()
@@ -1180,30 +1192,34 @@ namespace DanilovSoft.vRPC
             var protocolErrorException = new RpcProtocolErrorException("Размер сообщения оказался больше чем заявлено в заголовке");
 
             // Отправка Close.
-            return CloseAndDisposeAsync(protocolErrorException, "Web-Socket message size was larger than specified in the header's 'ContentLength'");
+            return TryCloseAndDisposeAsync(protocolErrorException, "Web-Socket message size was larger than specified in the header's 'ContentLength'");
         }
 
-        private Task SendCloseTextNotSupportedAsync()
+        /// <summary>
+        /// Отправляет Close и делает Dispose.
+        /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
+        private Task TrySendNotSupportedTypeAndCloseAsync()
         {
             // Тип фрейма должен быть Binary.
             var protocolErrorException = new RpcProtocolErrorException(SR.TextMessageTypeNotSupported);
 
             // Отправка Close.
-            return CloseAndDisposeAsync(protocolErrorException, SR.TextMessageTypeNotSupported);
+            return TryCloseAndDisposeAsync(protocolErrorException, SR.TextMessageTypeNotSupported);
         }
 
         private Task SendCloseHeaderErrorAsync(int webSocketMessageCount, Exception headerException)
         {
             // Отправка Close.
             var propagateException = new RpcProtocolErrorException(SR2.GetString(SR.ProtocolError, headerException.Message), headerException);
-            return CloseAndDisposeAsync(propagateException, $"Unable to deserialize header. Count of bytes was {webSocketMessageCount}");
+            return TryCloseAndDisposeAsync(propagateException, $"Unable to deserialize header. Count of bytes was {webSocketMessageCount}");
         }
 
         private Task SendCloseHeaderErrorAsync(int webSocketMessageCount)
         {
             // Отправка Close.
             var protocolException = new RpcProtocolErrorException("Не удалось десериализовать полученный заголовок сообщения.");
-            return CloseAndDisposeAsync(protocolException, $"Unable to deserialize header. Count of bytes was {webSocketMessageCount}");
+            return TryCloseAndDisposeAsync(protocolException, $"Unable to deserialize header. Count of bytes was {webSocketMessageCount}");
         }
 
         //private async ValueTask<bool> ReceiveHeaderAsync(byte[] headerBuffer)
@@ -1238,10 +1254,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Гарантирует что ничего больше не будет отправлено через веб-сокет. 
         /// Дожидается завершения отправляющего потока.
-        /// Не бросает исключения.
         /// Атомарно возвращает true означающее что поток должен выполнить Close.
         /// </summary>
-        private ValueTask<bool> FinishSenderAsync()
+        /// <remarks>Не бросает исключения.</remarks>
+        /// <returns>true если текущий поток запрыл канал, false если канал уже был закрыт другим потоком.</returns>
+        private ValueTask<bool> TryCompleteSenderAsync()
         {
             bool completed = _sendChannel.Writer.TryComplete();
             Task? senderTask = Volatile.Read(ref _senderTask);
@@ -1263,15 +1280,16 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Отправляет Close и выполняет Dispose.
+        /// Отправляет Close если канал ещё не закрыт и выполняет Dispose.
         /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
         /// <param name="protocolErrorException">Распространяет исключение ожидаюшим потокам.</param>
-        private async Task CloseAndDisposeAsync(Exception protocolErrorException, string closeDescription)
+        private async Task TryCloseAndDisposeAsync(Exception protocolErrorException, string closeDescription)
         {
             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
             _pendingRequests.TryPropagateExceptionAndLockup(protocolErrorException);
 
-            if (await FinishSenderAsync().ConfigureAwait(false))
+            if (await TryCompleteSenderAsync().ConfigureAwait(false))
             {
                 try
                 {
@@ -1300,48 +1318,48 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Сериализует сообщение в новом потоке и добавляет в очередь на отправку.
+        /// Сериализует ответ в новом потоке и отправляет через очередь.
         /// Уменьшит <see cref="_activeRequestCount"/>.
-        /// Не должно бросать исключения(!).
         /// </summary>
-        /// <param name="responseToSend"></param>
-        private void QueueSendResponse(ResponseMessage responseToSend)
+        /// <remarks>Исключение по вине пользователеля крашнет процесс.</remarks>
+        private void PostSendResponse(ResponseMessage responseToSend)
         {
 #if NETSTANDARD2_0 || NET472
-            ThreadPool.UnsafeQueueUserWorkItem(QueueSendResponseThread, (this, responseToSend));
+            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, (this, responseToSend));
 #else
-            ThreadPool.UnsafeQueueUserWorkItem(QueueSendResponseThread, (this, responseToSend), preferLocal: false); // Предпочитаем глобальную очередь.
+            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, (this, responseToSend), preferLocal: false); // Предпочитаем глобальную очередь.
 #endif
         }
 
 #if NETSTANDARD2_0 || NET472
 
         // Точка входа потока тред-пула.
-        private static void QueueSendResponseThread(object? state)
+        /// <remarks>Не бросает исключения.</remarks>
+        private static void SerializeResponseAndTrySendThreadEntryPoint(object? state)
         {
             Debug.Assert(state != null);
             var tuple = ((ManagedConnection, ResponseMessage))state!;
 
-            QueueSendResponseThread(argState: tuple);
+            TrySendResponseThreadEntryPoint(argState: tuple);
         }
 #endif
         // Точка входа потока тред-пула.
-        private static void QueueSendResponseThread((ManagedConnection self, ResponseMessage responseToSend) argState)
+        /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
+        private static void SerializeResponseAndTrySendThreadEntryPoint((ManagedConnection self, ResponseMessage responseToSend) argState)
         {
             // Сериализуем.
-            SerializedMessageToSend serializedMessage = SerializeActionResponse(argState.responseToSend);
+            SerializedMessageToSend serializedMessage = SerializeResponse(argState.responseToSend);
 
             // Ставим в очередь.
-            argState.self.PostMessage(serializedMessage);
+            argState.self.TryPostMessage(serializedMessage);
         }
 
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
-        private static SerializedMessageToSend SerializeActionResponse(ResponseMessage responseToSend)
+        /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
+        private static SerializedMessageToSend SerializeResponse(ResponseMessage responseToSend)
         {
-            //Debug.Assert(responseToSend.ReceivedRequest != null, "Результат контроллера может быть только на основе запроса");
-
             SerializedMessageToSend serMsg = new SerializedMessageToSend(responseToSend);
             SerializedMessageToSend? serMsgToDispose = serMsg;
 
@@ -1413,10 +1431,10 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Добавляет хэдер и передает на отправку другому потоку.
-        /// Не бросает исключения.
+        /// Добавляет хэдер и передает на отправку другому потоку если канал ещё не закрыт.
         /// </summary>
-        private void PostMessage(SerializedMessageToSend serializedMessage)
+        /// <remarks>Не бросает исключения.</remarks>
+        private void TryPostMessage(SerializedMessageToSend serializedMessage)
         {
             Debug.Assert(serializedMessage != null);
             SerializedMessageToSend? serializedMessageToDispose = serializedMessage;
@@ -1798,16 +1816,16 @@ namespace DanilovSoft.vRPC
         private static void StartProcessRequestThread((ManagedConnection self, RequestToInvoke request) stateTuple)
         {
             // Не бросает исключения.
-            stateTuple.self.StartProcessRequestThread(stateTuple.request);
+            stateTuple.self.ProcessRequestThreadEntryPoint(stateTuple.request);
         }
 
         /// <summary>
         /// Выполняет запрос и отправляет результат или ошибку.
         /// </summary>
-        /// <param name="requestContext"></param>
-        private void StartProcessRequestThread(RequestToInvoke requestContext) // Точка входа потока из пула.
+        /// <remarks>Точка входа потока из пула. Необработанные исключения пользователя крашнут процесс.</remarks>
+        private void ProcessRequestThreadEntryPoint(RequestToInvoke requestContext)
         {
-            // В редких случаях сокет может быть уже закрыт, например по таймауту,
+            // Сокет может быть уже закрыт, например по таймауту,
             // в этом случае ничего выполнять не нужно.
             if (!IsDisposed)
             {
@@ -1853,64 +1871,61 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
         private void ProcessRequest(RequestToInvoke requestToInvoke)
         {
             if (requestToInvoke.Uid != null)
             {
                 // Выполняет запрос в текущем процессе и возвращает ответ.
-                ValueTask<ResponseMessage> task = InvokeControllerAndGetResponseAsync(requestToInvoke);
+                ValueTask<ResponseMessage> pendingRequestTask = InvokeControllerAndGetResponseAsync(requestToInvoke);
 
-                if (task.IsCompleted)
+                if (pendingRequestTask.IsCompleted)
                 {
                     // Не бросает исключения.
-                    ResponseMessage responseMessage = task.Result;
+                    ResponseMessage responseMessage = pendingRequestTask.Result;
 
-                    // Не бросает исключения.
-                    SerializeActionResultAndSendResponse(responseMessage);
+                    SerializeResponseAndTrySend(responseMessage);
                 }
                 else
                 {
-                    WaitResponseAndSendAsync(task);
+                    WaitResponseAndSendAsync(pendingRequestTask);
                 }
             }
             else
             // Notification
             {
-                ValueTask<object?> t = InvokeControllerAsync(requestToInvoke);
+                ValueTask<object?> pendingRequestTask = InvokeControllerAsync(requestToInvoke);
 
-                if (!t.IsCompletedSuccessfully)
+                if (!pendingRequestTask.IsCompletedSuccessfully)
                 {
-                    WaitForNotification(t);
+                    WaitForNotification(pendingRequestTask);
+                }
+
+                static async void WaitForNotification(ValueTask<object?> t)
+                {
+                    try
+                    {
+                        await t.ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    // Злая ошибка обработки запроса. Аналогично ошибке 500.
+                    {
+                        DebugOnly.Break();
+
+                        Debug.WriteLine(ex);
+                    }
                 }
             }
         }
 
-        private static async void WaitForNotification(ValueTask<object?> t)
-        {
-            try
-            {
-                await t.ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            // Злая ошибка обработки запроса. Аналогично ошибке 500.
-            {
-                // Прервать отладку.
-                DebugOnly.Break();
-
-                Debug.WriteLine(ex);
-            }
-        }
-
-        /// <summary>
-        /// Не бросает исключения.
-        /// </summary>
-        private void SerializeActionResultAndSendResponse(ResponseMessage responseMessage)
+        /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
+        private void SerializeResponseAndTrySend(ResponseMessage responseMessage)
         {
             // Не бросает исключения.
-            SerializedMessageToSend responseToSend = SerializeActionResponse(responseMessage);
+            SerializedMessageToSend responseToSend = SerializeResponse(responseMessage);
 
             // Не бросает исключения.
-            PostMessage(responseToSend);
+            TryPostMessage(responseToSend);
         }
 
         private async void WaitResponseAndSendAsync(ValueTask<ResponseMessage> task)
@@ -1920,7 +1935,7 @@ namespace DanilovSoft.vRPC
             ResponseMessage responseMessage = await task.ConfigureAwait(false);
 
             // Не бросает исключения.
-            SerializeActionResultAndSendResponse(responseMessage);
+            SerializeResponseAndTrySend(responseMessage);
         }
 
         /// <summary>
@@ -1990,8 +2005,8 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Не позволять начинать новый запрос если происходит остановка.
-        /// AggressiveInlining.
         /// </summary>
+        /// <remarks>AggressiveInlining.</remarks>
         /// <exception cref="WasShutdownException"/>
         [DebuggerStepThrough]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2007,6 +2022,7 @@ namespace DanilovSoft.vRPC
         /// Потокобезопасно освобождает ресурсы соединения. Вызывается при закрытии соединения.
         /// Взводит <see cref="Completion"/> и оповещает все ожидающие потоки.
         /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
         /// <param name="possibleReason">Одна из возможных причин обрыва соединения.</param>
         private void TryDispose(CloseReason possibleReason)
         {
@@ -2040,14 +2056,24 @@ namespace DanilovSoft.vRPC
                     _disconnected = null;
                 }
 
-                // Сообщить об обрыве.
-                disconnected?.Invoke(this, new SocketDisconnectedEventArgs(this, possibleReason));
+                try
+                {
+                    // Сообщить об обрыве.
+                    disconnected?.Invoke(this, new SocketDisconnectedEventArgs(this, possibleReason));
+                }
+                catch (Exception ex)
+                // Нужна защита от пользовательских ошибок в обработчике события.
+                {
+                    // Нужно проглотить исключение потому что его некому обработать.
+                    Debug.Fail($"Exception occurred in {nameof(Disconnected)} event handler", ex.ToString());
+                }
 
                 // Установить Task Completion.
                 TrySetCompletion(possibleReason);
             }
         }
 
+        /// <remarks>Не бросает исключения.</remarks>
         private void TrySetCompletion(CloseReason closeReason)
         {
             // Установить Task Completion.

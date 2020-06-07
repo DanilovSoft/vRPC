@@ -811,7 +811,7 @@
         </member>
         <member name="F:DanilovSoft.vRPC.ManagedConnection._sendChannel">
             <summary>
-            Отправка сообщения <see cref="T:DanilovSoft.vRPC.SerializedMessageToSend"/> должна выполняться только через этот канал.
+            Отправка сообщений <see cref="T:DanilovSoft.vRPC.SerializedMessageToSend"/> должна выполняться только через этот канал.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.ManagedConnection._shutdownRequest">
@@ -846,10 +846,11 @@
         </member>
         <member name="P:DanilovSoft.vRPC.ManagedConnection.IsConnected">
             <summary>
-            Является <see langword="volatile"/>. Если значение – <see langword="false"/>, то можно узнать причину через свойство <see cref="P:DanilovSoft.vRPC.ManagedConnection.DisconnectReason"/>.
+            Если значение – <see langword="false"/>, то можно узнать причину через свойство <see cref="P:DanilovSoft.vRPC.ManagedConnection.DisconnectReason"/>.
             Когда значение становится <see langword="false"/>, то вызывается событие <see cref="E:DanilovSoft.vRPC.ManagedConnection.Disconnected"/>.
             После разъединения текущий экземпляр не может быть переподключен.
             </summary>
+            <remarks><see langword="volatile"/>.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.#ctor(DanilovSoft.WebSockets.ManagedWebSocket,System.Boolean,Microsoft.Extensions.DependencyInjection.ServiceProvider,DanilovSoft.vRPC.InvokeActionsDictionary)">
             <summary>
@@ -886,17 +887,17 @@
             Потокобезопасно.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.DisposeOnCloseReceived">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDisposeOnCloseReceived">
             <summary>
             Устанавливает причину закрытия соединения для текущего экземпляра и закрывает соединение.
-            Не бросает исключения.
             </summary>
+            <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.PrivateBeginClose(System.String)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryPrivateBeginClose(System.String)">
             <summary>
             Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
-            Не бросает исключения.
             </summary>
+            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.BeginSendCloseBeforeShutdown">
             <summary>
@@ -995,56 +996,89 @@
             Здесь не должно быть глубокого async стека для сохранения высокой производительности.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessPayload(DanilovSoft.vRPC.HeaderDto,System.Memory{System.Byte})">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryNonBinaryTypeCloseAndDisposeAsync(DanilovSoft.WebSockets.ValueWebSocketReceiveResult)">
+            <summary>При получении Close или сообщения типа Text — отправляет Close и делает Dispose.</summary>
+            <remarks>Не бросает исключения.</remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryProcessPayload(DanilovSoft.vRPC.HeaderDto,System.Memory{System.Byte})">
             <summary>
             Обработка Payload. Если возвращает false то нужно завершить поток чтения.
             </summary>
             <param name="contentMem">Контент запроса целиком.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendErrorResponse(DanilovSoft.vRPC.HeaderDto,System.Exception)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryIncreaseActiveRequestsCount(DanilovSoft.vRPC.HeaderDto)">
+            <summary>
+            Увеличивает счётчик активных запросов.
+            </summary>
+            <param name="header"></param>
+            <returns>true если разрешено продолжить выполнение запроса, 
+            false если требуется остановить сервис.</returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryPostSendErrorResponse(DanilovSoft.vRPC.HeaderDto,System.Exception)">
             <summary>
             Если запрос ожидает результат то отправляет ошибку как результат.
             </summary>
             <param name="header">Заголовок запроса.</param>
             <param name="exception">Ошибка произошедшая при разборе запроса.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.FinishSenderAsync">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryCloseReceivedAsync">
+            <summary>Отправляет Close и делает Dispose.</summary>
+            <remarks>Не бросает исключения.</remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryFinishSenderAndSendCloseAsync">
+            <remarks>Не бросает исключения.</remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TrySendNotSupportedTypeAndCloseAsync">
+            <summary>
+            Отправляет Close и делает Dispose.
+            </summary>
+            <remarks>Не бросает исключения.</remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryCompleteSenderAsync">
             <summary>
             Гарантирует что ничего больше не будет отправлено через веб-сокет. 
             Дожидается завершения отправляющего потока.
-            Не бросает исключения.
             Атомарно возвращает true означающее что поток должен выполнить Close.
             </summary>
+            <remarks>Не бросает исключения.</remarks>
+            <returns>true если текущий поток запрыл канал, false если канал уже был закрыт другим потоком.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.CloseAndDisposeAsync(System.Exception,System.String)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryCloseAndDisposeAsync(System.Exception,System.String)">
             <summary>
-            Отправляет Close и выполняет Dispose.
+            Отправляет Close если канал ещё не закрыт и выполняет Dispose.
             </summary>
+            <remarks>Не бросает исключения.</remarks>
             <param name="protocolErrorException">Распространяет исключение ожидаюшим потокам.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.QueueSendResponse(DanilovSoft.vRPC.ResponseMessage)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.PostSendResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
             Сериализует сообщение в новом потоке и добавляет в очередь на отправку.
             Уменьшит <see cref="F:DanilovSoft.vRPC.ManagedConnection._activeRequestCount"/>.
-            Не должно бросать исключения(!).
             </summary>
-            <param name="responseToSend"></param>
+            <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeActionResponse(DanilovSoft.vRPC.ResponseMessage)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TrySendResponseThreadEntryPoint(System.Object)">
+            <remarks>Не бросает исключения.</remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TrySendResponseThreadEntryPoint(System.ValueTuple{DanilovSoft.vRPC.ManagedConnection,DanilovSoft.vRPC.ResponseMessage})">
+            <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
             Сериализует сообщение в память. Может бросить исключение сериализации.
             </summary>
+            <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.AppendHeader(DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
             Сериализует хэдер в стрим сообщения. Не бросает исключения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.PostMessage(DanilovSoft.vRPC.SerializedMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryPostMessage(DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
-            Добавляет хэдер и передает на отправку другому потоку.
-            Не бросает исключения.
+            Добавляет хэдер и передает на отправку другому потоку если канал ещё не закрыт.
             </summary>
+            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.LoopSendAsync">
             <summary>
@@ -1081,11 +1115,11 @@
             В новом потоке выполняет запрос и отправляет ему результат или ошибку.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.StartProcessRequestThread(DanilovSoft.vRPC.RequestToInvoke)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessRequestThreadEntryPoint(DanilovSoft.vRPC.RequestToInvoke)">
             <summary>
             Выполняет запрос и отправляет результат или ошибку.
             </summary>
-            <param name="requestContext"></param>
+            <remarks>Точка входа потока из пула. Необработанные исключения пользователя крашнут процесс.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.IncreaseActiveRequestsCount">
             <summary>
@@ -1099,10 +1133,11 @@
             </summary>
             <returns>True если можно продолжить получение запросов иначе нужно закрыть соединение.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeActionResultAndSendResponse(DanilovSoft.vRPC.ResponseMessage)">
-            <summary>
-            Не бросает исключения.
-            </summary>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessRequest(DanilovSoft.vRPC.RequestToInvoke)">
+            <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySend(DanilovSoft.vRPC.ResponseMessage)">
+            <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.InvokeControllerAndGetResponseAsync(DanilovSoft.vRPC.RequestToInvoke)">
             <summary>
@@ -1119,8 +1154,8 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ThrowIfShutdownRequired">
             <summary>
             Не позволять начинать новый запрос если происходит остановка.
-            AggressiveInlining.
             </summary>
+            <remarks>AggressiveInlining.</remarks>
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDispose(DanilovSoft.vRPC.CloseReason)">
@@ -1128,7 +1163,11 @@
             Потокобезопасно освобождает ресурсы соединения. Вызывается при закрытии соединения.
             Взводит <see cref="P:DanilovSoft.vRPC.ManagedConnection.Completion"/> и оповещает все ожидающие потоки.
             </summary>
+            <remarks>Не бросает исключения.</remarks>
             <param name="possibleReason">Одна из возможных причин обрыва соединения.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TrySetCompletion(DanilovSoft.vRPC.CloseReason)">
+            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.Dispose">
             <summary>
@@ -1986,6 +2025,7 @@
             <summary>
             Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет провоцировать это исключение.
             </summary>
+            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
             <summary>
