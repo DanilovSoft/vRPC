@@ -936,64 +936,50 @@ namespace DanilovSoft.vRPC
                     {
                         if (TryGetRequestMethod(header, out ControllerActionMeta? action))
                         {
-                            IActionResult? error;
-                            RequestToInvoke? requestToInvoke;
-                            bool deserialized;
-
-                            #region Десериализация запроса
-
-                            if (header.ContentEncoding != KnownEncoding.MultipartEncoding)
+                            RequestToInvoke? requestToInvoke = null;
+                            try
                             {
-                                try
+                                #region Десериализация запроса
+
+                                if (RequestContentParser.TryDeserializeRequest(payload, action, header, out requestToInvoke, out IActionResult? error))
                                 {
-                                    // Десериализуем запрос.
-                                    deserialized = RequestContentParser.TryDeserializeRequestJson(payload.Span, _invokeActions, header, out requestToInvoke, out error);
+                                    #region Выполнение запроса
+
+                                    Debug.Assert(requestToInvoke != null, "Не может быть Null когда success");
+
+                                    // Начать выполнение запроса в отдельном потоке.
+                                    StartProcessRequest(requestToInvoke);
+
+                                    requestToInvoke = null; // Предотвратить Dispose.
+
+                                    #endregion
                                 }
-                                catch (JsonException ex)
-                                // Ошибка десериализации запроса.
+                                else
+                                // Не удалось десериализовать запрос.
                                 {
-                                    // Игнорируем этот запрос и отправляем обратно ошибку.
-                                    TryPostSendErrorResponse(header, ex);
+                                    #region Игнорируем запрос
 
-                                    return true; // Завершать поток чтения не нужно (вернуться к чтению заголовка).
+                                    if (header.IsResponseRequired)
+                                    // Запрос ожидает ответ.
+                                    {
+                                        Debug.Assert(error != null, "Не может быть Null когда !success");
+                                        Debug.Assert(header.Uid != null, "Не может быть Null когда IsResponseRequired");
+
+                                        // Передать на отправку результат с ошибкой через очередь.
+                                        PostSendResponse(new ResponseMessage(header.Uid.Value, error));
+                                    }
+
+                                    // Вернуться к чтению следующего сообщения.
+                                    return true;
+
+                                    #endregion
                                 }
-                            }
-                            else
-                            {
-                                deserialized = RequestContentParser.TryDeserializeMultipart(payload, action, header, out requestToInvoke, out error);
-                            }
-                            #endregion
-
-                            #region Выполнение запроса
-
-                            if (deserialized)
-                            {
-                                Debug.Assert(requestToInvoke != null, "Не может быть Null когда success");
-
-                                // Начать выполнение запроса в отдельном потоке.
-                                StartProcessRequest(requestToInvoke);
-                            }
-                            else
-                            // Не удалось десериализовать запрос.                                    
-                            {
-                                #region Игнорируем запрос
-
-                                if (header.IsResponseRequired)
-                                // Запрос ожидает ответ.
-                                {
-                                    Debug.Assert(error != null, "Не может быть Null когда !success");
-                                    Debug.Assert(header.Uid != null, "Не может быть Null когда IsResponseRequired");
-
-                                    // Передать на отправку результат с ошибкой через очередь.
-                                    PostSendResponse(new ResponseMessage(header.Uid.Value, error));
-                                }
-
-                                // Вернуться к чтению следующего сообщения.
-                                return true;
-
                                 #endregion
                             }
-                            #endregion
+                            finally
+                            {
+                                requestToInvoke?.Dispose();
+                            }
                         }
                         else
                         {
@@ -1208,24 +1194,6 @@ namespace DanilovSoft.vRPC
             else
             {
                 return true;
-            }
-        }
-
-        /// <summary>
-        /// Если запрос ожидает результат то отправляет ошибку как результат.
-        /// </summary>
-        /// <param name="header">Заголовок запроса.</param>
-        /// <param name="exception">Ошибка произошедшая при разборе запроса.</param>
-        private void TryPostSendErrorResponse(HeaderDto header, Exception exception)
-        {
-            if (header.Uid != null)
-            // Запрос ожидает ответ.
-            {
-                // Подготовить ответ с ошибкой.
-                var errorResponse = new ResponseMessage(header.Uid.Value, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{exception.Message}\"."));
-
-                // Передать на отправку результат с ошибкой через очередь.
-                PostSendResponse(errorResponse);
             }
         }
 
@@ -1452,7 +1420,7 @@ namespace DanilovSoft.vRPC
                 if (responseToSend.ActionResult is IActionResult actionResult)
                 // Метод контроллера вернул специальный тип.
                 {
-                    var actionContext = new ActionContext(responseToSend.ReceivedRequest, serMsg.MemPoolStream);
+                    var actionContext = new ActionContext(responseToSend.ActionMeta, serMsg.MemPoolStream);
 
                     // Сериализуем ответ.
                     actionResult.ExecuteResult(actionContext);
@@ -1468,9 +1436,9 @@ namespace DanilovSoft.vRPC
                     // Сериализуем контент если он есть (у void его нет).
                     if (responseToSend.ActionResult != null)
                     {
-                        Debug.Assert(responseToSend.ReceivedRequest != null, "RAW результат может быть только на основе запроса");
-                        responseToSend.ReceivedRequest.ActionToInvoke.SerializerDelegate(serMsg.MemPoolStream, responseToSend.ActionResult);
-                        serMsg.ContentEncoding = responseToSend.ReceivedRequest.ActionToInvoke.ProducesEncoding;
+                        Debug.Assert(responseToSend.ActionMeta != null, "RAW результат может быть только на основе запроса");
+                        responseToSend.ActionMeta.SerializerDelegate(serMsg.MemPoolStream, responseToSend.ActionResult);
+                        serMsg.ContentEncoding = responseToSend.ActionMeta.ProducesEncoding;
                     }
                 }
                 serMsgToDispose = null; // Предотвратить Dispose.
@@ -1790,22 +1758,26 @@ namespace DanilovSoft.vRPC
         /// Вызывает запрошенный метод контроллера и возвращает результат.
         /// Результатом может быть IActionResult или Raw объект или исключение.
         /// </summary>
-        /// <exception cref="BadRequestException"/>
+        /// <exception cref="Exception">Исключение пользователя.</exception>
+        /// <returns><see cref="IActionResult"/> или любой объект.</returns>
         private ValueTask<object?> InvokeControllerAsync(RequestToInvoke receivedRequest)
         {
-            // Проверить доступ к функции.
-            if (ActionPermissionCheck(receivedRequest.ActionToInvoke, out IActionResult? permissionError, out ClaimsPrincipal? user))
+            RequestToInvoke? requestToDispose = receivedRequest;
+            IServiceScope? scopeToDispose = null;
+            try
             {
-                IServiceScope scope = ServiceProvider.CreateScope();
-                IServiceScope? scopeToDispose = scope;
-                try
+                // Проверить доступ к функции.
+                if (ActionPermissionCheck(receivedRequest.ActionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user))
                 {
+                    IServiceScope scope = ServiceProvider.CreateScope();
+                    scopeToDispose = scope;
+
                     // Инициализируем Scope текущим соединением.
                     var getProxyScope = scope.ServiceProvider.GetService<GetProxyScope>();
                     getProxyScope.GetProxy = this;
 
                     // Активируем контроллер через IoC.
-                    var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.ActionToInvoke.ControllerType) as Controller;
+                    var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.ActionMeta.ControllerType) as Controller;
                     Debug.Assert(controller != null);
 
                     // Подготавливаем контроллер.
@@ -1814,16 +1786,17 @@ namespace DanilovSoft.vRPC
                     //BeforeInvokeController(controller);
 
                     // Вызов метода контроллера.
-                    object? actionResult = receivedRequest.ActionToInvoke.FastInvokeDelegate(controller, receivedRequest.Args);
+                    // (!) Результатом может быть не завершённый Task.
+                    object? actionResult = receivedRequest.ActionMeta.FastInvokeDelegate(controller, receivedRequest.Args);
 
-                    // Может быть не завершённый Task.
                     if (actionResult != null)
                     {
-                        ValueTask<object?> actionResultAsTask = DynamicAwaiter.WaitAsync(actionResult);
+                        // Может бросить исключение.
+                        ValueTask<object?> actionResultAsTask = DynamicAwaiter.ConvertToTask(actionResult);
 
                         if (actionResultAsTask.IsCompletedSuccessfully)
                         {
-                            // Извлекает результат из Task'а.
+                            // Извлекаем результат из Task'а.
                             actionResult = actionResultAsTask.Result;
 
                             // Результат успешно получен без исключения.
@@ -1834,8 +1807,9 @@ namespace DanilovSoft.vRPC
                         {
                             // Предотвратить Dispose.
                             scopeToDispose = null;
+                            requestToDispose = null;
 
-                            return WaitForControllerActionAsync(actionResultAsTask, scope);
+                            return WaitForControllerActionAsync(actionResultAsTask, scope, receivedRequest);
                         }
                     }
                     else
@@ -1843,21 +1817,24 @@ namespace DanilovSoft.vRPC
                         return new ValueTask<object?>(result: null);
                     }
                 }
-                finally
+                else
+                // Нет доступа к методу контроллера.
                 {
-                    // ServiceScope выполнит Dispose всем созданным экземплярам.
-                    scopeToDispose?.Dispose();
+                    return new ValueTask<object?>(result: permissionError);
                 }
             }
-            else
-            // Нет доступа к методу контроллера.
+            finally
             {
-                return new ValueTask<object?>(result: permissionError);
+                requestToDispose?.Dispose();
+
+                // ServiceScope выполнит Dispose всем созданным экземплярам.
+                scopeToDispose?.Dispose();
             }
 
-            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> task, IServiceScope scope)
+            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> task, IServiceScope scope, RequestToInvoke pendingRequest)
             {
                 using (scope)
+                using (pendingRequest)
                 {
                     object? result = await task.ConfigureAwait(false);
 
@@ -1871,9 +1848,8 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Проверяет доступность запрашиваемого метода для удаленного пользователя.
-        /// Не бросает исключения.
         /// </summary>
-        /// <exception cref="BadRequestException"/>
+        /// <remarks>Не бросает исключения.</remarks>
         private protected abstract bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user);
 
         /// <summary>
@@ -1900,9 +1876,9 @@ namespace DanilovSoft.vRPC
 #endif
 
         // Точка входа для потока из пула.
+        [DebuggerStepThrough]
         private static void StartProcessRequestThread((ManagedConnection self, RequestToInvoke request) stateTuple)
         {
-            // Не бросает исключения.
             stateTuple.self.ProcessRequestThreadEntryPoint(stateTuple.request);
         }
 
@@ -1917,6 +1893,10 @@ namespace DanilovSoft.vRPC
             if (!IsDisposed)
             {
                 ProcessRequest(requestContext);
+            }
+            else
+            {
+                requestContext.Dispose();
             }
         }
 
@@ -1961,46 +1941,149 @@ namespace DanilovSoft.vRPC
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
         private void ProcessRequest(RequestToInvoke requestToInvoke)
         {
-            if (requestToInvoke.Uid != null)
+            if (requestToInvoke.IsResponseRequired)
             {
-                // Выполняет запрос в текущем процессе и возвращает ответ.
-                ValueTask<ResponseMessage> pendingRequestTask = InvokeControllerAndGetResponseAsync(requestToInvoke);
+                Debug.Assert(requestToInvoke.Uid != null);
 
-                if (pendingRequestTask.IsCompleted)
+                ValueTask<object?> pendingRequestTask;
+
+                // Этот блок Try должен быть идентичен тому который чуть ниже — для асинхронной обработки.
+                try
+                {
+                    // Выполняет запрос и возвращает результат.
+                    // Может быть исключение пользователя.
+                    pendingRequestTask = InvokeControllerAsync(requestToInvoke);
+                }
+                catch (BadRequestException ex)
+                {
+                    // Вернуть результат с ошибкой.
+                    SendBadRequest(requestToInvoke, ex);
+                    return;
+                }
+                catch (Exception ex)
+                // Злая ошибка обработки запроса. Аналогично ошибке 500.
+                {
+                    // Прервать отладку.
+                    //DebugOnly.Break();
+
+                    // Вернуть результат с ошибкой.
+                    SendInternalerverError(requestToInvoke, ex);
+                    return;
+                }
+
+                if (pendingRequestTask.IsCompletedSuccessfully)
+                // Результат контроллера получен синхронно.
                 {
                     // Не бросает исключения.
-                    ResponseMessage responseMessage = pendingRequestTask.Result;
+                    object? actionResult = pendingRequestTask.Result;
 
-                    SerializeResponseAndTrySend(responseMessage);
+                    SendOkResponse(requestToInvoke, actionResult);
                 }
                 else
+                // Результат контроллера — асинхронный таск.
                 {
-                    WaitResponseAndSendAsync(pendingRequestTask);
+                    WaitResponseAndSendAsync(pendingRequestTask, requestToInvoke);
+
+                    // TO THINK ошибки в таске можно обработать и не провоцируя исключения.
+                    async void WaitResponseAndSendAsync(ValueTask<object?> task, RequestToInvoke requestToInvoke)
+                    {
+                        Debug.Assert(requestToInvoke.Uid != null);
+
+                        object? actionResult;
+                        // Этот блок Try должен быть идентичен тому который чуть выше — для синхронной обработки.
+                        try
+                        {
+                            actionResult = await task.ConfigureAwait(false);
+                        }
+                        catch (BadRequestException ex)
+                        {
+                            // Вернуть результат с ошибкой.
+                            SendBadRequest(requestToInvoke, ex);
+                            return;
+                        }
+                        catch (Exception ex)
+                        // Злая ошибка обработки запроса. Аналогично ошибке 500.
+                        {
+                            // Прервать отладку.
+                            //DebugOnly.Break();
+
+                            // Вернуть результат с ошибкой.
+                            SendInternalerverError(requestToInvoke, ex);
+                            return;
+                        }
+                        SendOkResponse(requestToInvoke, actionResult);
+                    }
                 }
             }
             else
-            // Notification
+            // Выполнить запрос без отправки ответа.
             {
-                ValueTask<object?> pendingRequestTask = InvokeControllerAsync(requestToInvoke);
+                // Не бросает исключения.
+                ProcessNotificationRequest(requestToInvoke);
+            }
+        }
 
-                if (!pendingRequestTask.IsCompletedSuccessfully)
+        private void SendOkResponse(RequestToInvoke requestToInvoke, object? actionResult)
+        {
+            Debug.Assert(requestToInvoke.Uid != null);
+
+            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, actionResult));
+        }
+
+        private void SendInternalerverError(RequestToInvoke requestToInvoke, Exception exception)
+        {
+            Debug.Assert(requestToInvoke.Uid != null);
+
+            // Вернуть результат с ошибкой.
+            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, new InternalErrorResult("Internal Server Error")));
+        }
+
+        private void SendBadRequest(RequestToInvoke requestToInvoke, BadRequestException exception)
+        {
+            Debug.Assert(requestToInvoke.Uid != null);
+
+            // Вернуть результат с ошибкой.
+            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, new BadRequestResult(exception.Message)));
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
+        private void ProcessNotificationRequest(RequestToInvoke notificationRequest)
+        {
+            Debug.Assert(notificationRequest.IsResponseRequired == false);
+
+            ValueTask<object?> pendingRequestTask;
+            try
+            {
+                // Может быть исключение пользователя.
+                pendingRequestTask = InvokeControllerAsync(notificationRequest);
+            }
+            catch (Exception ex)
+            // Исключение пользователя.
+            {
+                DebugOnly.Break();
+                Debug.WriteLine(ex);
+                return;
+            }
+
+            if (!pendingRequestTask.IsCompletedSuccessfully)
+            {
+                WaitForNotification(pendingRequestTask);
+            }
+
+            static async void WaitForNotification(ValueTask<object?> t)
+            {
+                try
                 {
-                    WaitForNotification(pendingRequestTask);
+                    await t.ConfigureAwait(false);
                 }
-
-                static async void WaitForNotification(ValueTask<object?> t)
+                catch (Exception ex)
+                // Злая ошибка обработки запроса. Аналогично ошибке 500.
                 {
-                    try
-                    {
-                        await t.ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    // Злая ошибка обработки запроса. Аналогично ошибке 500.
-                    {
-                        DebugOnly.Break();
-
-                        Debug.WriteLine(ex);
-                    }
+                    DebugOnly.Break();
+                    Debug.WriteLine(ex);
                 }
             }
         }
@@ -2008,73 +2091,45 @@ namespace DanilovSoft.vRPC
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
         private void SerializeResponseAndTrySend(ResponseMessage responseMessage)
         {
-            // Не бросает исключения.
             SerializedMessageToSend responseToSend = SerializeResponse(responseMessage);
 
             // Не бросает исключения.
             TryPostMessage(responseToSend);
         }
 
-        private async void WaitResponseAndSendAsync(ValueTask<ResponseMessage> task)
-        {
-            // Не бросает исключения.
-            // Выполняет запрос и возвращает ответ.
-            ResponseMessage responseMessage = await task.ConfigureAwait(false);
+        ///// <summary>
+        ///// Выполняет запрос и инкапсулирует результат в <see cref="ResponseMessage"/>.
+        ///// </summary>
+        ///// <exception cref="Exception">Могут быть исключения пользователя.</exception>
+        //private ValueTask<ResponseMessage> InvokeControllerAndGetResponseAsync(RequestToInvoke requestToInvoke)
+        //{
+        //    Debug.Assert(requestToInvoke.Uid != null);
 
-            // Не бросает исключения.
-            SerializeResponseAndTrySend(responseMessage);
-        }
+        //    // Может быть исключение пользователя.
+        //    ValueTask<object?> pendingRequestTask = InvokeControllerAsync(requestToInvoke);
 
-        /// <summary>
-        /// Выполняет запрос клиента и инкапсулирует результат в <see cref="ResponseMessage"/>.
-        /// Не бросает исключения.
-        /// </summary>
-        private ValueTask<ResponseMessage> InvokeControllerAndGetResponseAsync(RequestToInvoke requestContext)
-        {
-            // Не должно бросать исключения.
-            ValueTask<object?> task = InvokeControllerAsync(requestContext);
+        //    if (pendingRequestTask.IsCompletedSuccessfully)
+        //    // Синхронно только в случае успеха.
+        //    {
+        //        // Результат контроллера.
+        //        object? actionResult = pendingRequestTask.Result;
 
-            if (task.IsCompletedSuccessfully)
-            // Синхронно только в случае успеха.
-            {
-                // Результат контроллера.
-                object? actionResult = task.Result;
+        //        return new ValueTask<ResponseMessage>(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, actionResult));
+        //    }
+        //    else
+        //    {
+        //        return WaitForInvokeControllerAsync(pendingRequestTask, requestToInvoke);
 
-                return new ValueTask<ResponseMessage>(new ResponseMessage(requestContext, actionResult));
-            }
-            else
-            {
-                return WaitForInvokeControllerAsync(task, requestContext);
-            }
-        }
+        //        static async ValueTask<ResponseMessage> WaitForInvokeControllerAsync(ValueTask<object?> task, RequestToInvoke requestToInvoke)
+        //        {
+        //            Debug.Assert(requestToInvoke.Uid != null);
 
-        private static async ValueTask<ResponseMessage> WaitForInvokeControllerAsync(ValueTask<object?> task, RequestToInvoke requestContext)
-        {
-            object? rawResult;
-            try
-            {
-                // Находит и выполняет запрашиваемую функцию.
-                rawResult = await task.ConfigureAwait(false);
-            }
-            catch (BadRequestException ex)
-            {
-                // Вернуть результат с ошибкой.
-                return new ResponseMessage(requestContext, new BadRequestResult(ex.Message));
-            }
-            catch (Exception ex)
-            // Злая ошибка обработки запроса. Аналогично ошибке 500.
-            {
-                // Прервать отладку.
-                DebugOnly.Break();
-
-                Debug.WriteLine(ex);
-
-                // Вернуть результат с ошибкой.
-                return new ResponseMessage(requestContext, new InternalErrorResult("Internal Server Error"));
-            }
-
-            return new ResponseMessage(requestContext, rawResult);
-        }
+        //            object? actionResult = await task.ConfigureAwait(false);
+                    
+        //            return new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, actionResult: actionResult);
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// AggressiveInlining.

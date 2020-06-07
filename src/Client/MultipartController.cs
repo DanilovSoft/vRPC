@@ -4,15 +4,21 @@ using System.Text;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC;
 using DanilovSoft.vRPC.Content;
+using Microsoft.IO;
 
 namespace Client
 {
     [AllowAnonymous]
-    public class MultipartController : ServerController
+    internal class MultipartController : ServerController
     {
-        public int TcpData(int connectionId, byte[] data)
+        public async ValueTask<int> TcpData(int connectionId, RentedMemory memory)
         {
-            return connectionId;
+            await Task.Delay(5000);
+
+            throw new InvalidOperationException("test");
+
+            memory.Dispose();
+            //return connectionId;
         }
     }
 }

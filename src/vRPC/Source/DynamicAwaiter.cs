@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
@@ -9,9 +10,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Асинхронно ожидает завершение задачи если <paramref name="actionResult"/> является <see cref="Task"/>'ом.
         /// </summary>
+        /// <exception cref="Exception">Инкапсулированное в Task.</exception>
         /// <param name="actionResult"><see cref="Task"/> или любой объект.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ValueTask<object?> WaitAsync(object actionResult)
+        public static ValueTask<object?> ConvertToTask(object actionResult)
         {
             // Все методы InnerConvert должны возвращать одинаковый тип.
             return InnerConvert((dynamic)actionResult);

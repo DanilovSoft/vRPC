@@ -22,13 +22,13 @@ namespace DanilovSoft.vRPC
             // Нет необходимости отправлять Null.
             if (Value != null)
             {
-                Debug.Assert(context.RequestContext != null, "ObjectResult можно получить только из контекста запроса");
+                Debug.Assert(context.ActionMeta != null, "ObjectResult можно получить только из контекста метода");
 
                 // Сериализуем в стрим.
-                context.RequestContext.ActionToInvoke.SerializerDelegate(context.ResponseStream, Value);
+                context.ActionMeta.SerializerDelegate(context.ResponseStream, Value);
 
                 // Устанавливаем формат.
-                context.ProducesEncoding = context.RequestContext.ActionToInvoke.ProducesEncoding;
+                context.ProducesEncoding = context.ActionMeta.ProducesEncoding;
             }
         }
     }

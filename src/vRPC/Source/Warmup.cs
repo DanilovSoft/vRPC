@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
             System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(ManagedConnection).TypeHandle);
 
 #pragma warning disable CA2012 // Используйте ValueTasks правильно
-            DynamicAwaiter.WaitAsync(new ValueTask());
+            DynamicAwaiter.ConvertToTask(new ValueTask());
 #pragma warning restore CA2012 // Используйте ValueTasks правильно
         }
     }

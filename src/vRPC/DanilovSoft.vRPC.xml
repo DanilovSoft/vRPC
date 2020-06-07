@@ -9,7 +9,7 @@
             Контекст запроса.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.ActionContext.RequestContext">
+        <member name="P:DanilovSoft.vRPC.ActionContext.ActionMeta">
             <summary>
             Может быть <see langword="null"/> если не удалось разобрать запрос.
             </summary>
@@ -1018,13 +1018,6 @@
             <returns>true если разрешено продолжить выполнение запроса, 
             false если требуется остановить сервис.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryPostSendErrorResponse(DanilovSoft.vRPC.HeaderDto,System.Exception)">
-            <summary>
-            Если запрос ожидает результат то отправляет ошибку как результат.
-            </summary>
-            <param name="header">Заголовок запроса.</param>
-            <param name="exception">Ошибка произошедшая при разборе запроса.</param>
-        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryCloseReceivedAsync">
             <summary>Отправляет Close и делает Dispose.</summary>
             <remarks>Не бросает исключения.</remarks>
@@ -1105,14 +1098,14 @@
             Вызывает запрошенный метод контроллера и возвращает результат.
             Результатом может быть IActionResult или Raw объект или исключение.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
+            <exception cref="T:System.Exception">Исключение пользователя.</exception>
+            <returns><see cref="T:DanilovSoft.vRPC.IActionResult"/> или любой объект.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ActionPermissionCheck(DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.IActionResult@,System.Security.Claims.ClaimsPrincipal@)">
             <summary>
             Проверяет доступность запрашиваемого метода для удаленного пользователя.
-            Не бросает исключения.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
+            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.StartProcessRequest(DanilovSoft.vRPC.RequestToInvoke)">
             <summary>
@@ -1140,14 +1133,14 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessRequest(DanilovSoft.vRPC.RequestToInvoke)">
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
         </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessNotificationRequest(DanilovSoft.vRPC.RequestToInvoke)">
+            <summary>
+            
+            </summary>
+            <remarks>Не бросает исключения.</remarks>
+        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySend(DanilovSoft.vRPC.ResponseMessage)">
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.InvokeControllerAndGetResponseAsync(DanilovSoft.vRPC.RequestToInvoke)">
-            <summary>
-            Выполняет запрос клиента и инкапсулирует результат в <see cref="T:DanilovSoft.vRPC.ResponseMessage"/>.
-            Не бросает исключения.
-            </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ThrowIfDisposed">
             <summary>
@@ -1195,22 +1188,21 @@
             Может быть Null если результат контроллера - void.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.ResponseMessage.ReceivedRequest">
+        <member name="P:DanilovSoft.vRPC.ResponseMessage.ActionMeta">
             <summary>
-            Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
+            Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.Int32,System.Object)">
             <summary>
             Конструктор ответа в случае ошибки десериализации запроса.
             </summary>
+            <param name="rawResult">Может быть <see cref="T:DanilovSoft.vRPC.IActionResult"/> или произвольный объект пользователя.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(DanilovSoft.vRPC.RequestToInvoke,System.Object)">
+        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.Int32,DanilovSoft.vRPC.ControllerActionMeta,System.Object)">
             <summary>
             Ответ на основе запроса.
             </summary>
-            <param name="receivedRequest"></param>
-            <param name="actionResult"></param>
         </member>
         <member name="T:DanilovSoft.vRPC.SerializedMessageToSend">
             <summary>
@@ -1350,7 +1342,7 @@
         </member>
         <member name="P:DanilovSoft.vRPC.HeaderDto.IsResponseRequired">
             <summary>
-            True если задан <see cref="P:DanilovSoft.vRPC.HeaderDto.Uid"/>.
+            true если задан <see cref="P:DanilovSoft.vRPC.HeaderDto.Uid"/>.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.HeaderDto.IsRequest">
@@ -1588,7 +1580,12 @@
             Содержит разобранный запрос с параметрами полученный от удалённой стороны.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RequestToInvoke.ActionToInvoke">
+        <member name="P:DanilovSoft.vRPC.RequestToInvoke.IsResponseRequired">
+            <summary>
+            Когда Uid не Null.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestToInvoke.ActionMeta">
             <summary>
             Запрашиваемый метод контроллера.
             </summary>
@@ -1877,10 +1874,11 @@
             Контроллер для активации через IoC.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.DynamicAwaiter.WaitAsync(System.Object)">
+        <member name="M:DanilovSoft.vRPC.DynamicAwaiter.ConvertToTask(System.Object)">
             <summary>
             Асинхронно ожидает завершение задачи если <paramref name="actionResult"/> является <see cref="T:System.Threading.Tasks.Task"/>'ом.
             </summary>
+            <exception cref="T:System.Exception">Инкапсулированное в Task.</exception>
             <param name="actionResult"><see cref="T:System.Threading.Tasks.Task"/> или любой объект.</param>
         </member>
         <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectJson(System.IO.Stream,System.Object)">
@@ -1996,12 +1994,18 @@
             Словарь используемый только для чтения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.InvokeActionsDictionary,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.RequestToInvoke@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeRequest(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.RequestToInvoke@,DanilovSoft.vRPC.IActionResult@)">
+            <remarks>Не бросает исключения.</remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.RequestToInvoke@,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
             </summary>
             <exception cref="T:System.Text.Json.JsonException"/>
             <returns>True если успешно десериализовали.</returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeMultipart(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.RequestToInvoke@,DanilovSoft.vRPC.IActionResult@)">
+            <exception cref="T:System.Exception"/>
         </member>
         <member name="T:DanilovSoft.vRPC.LockedDictionary`2">
             <summary>

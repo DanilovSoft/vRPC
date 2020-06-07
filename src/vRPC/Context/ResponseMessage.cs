@@ -21,35 +21,40 @@ namespace DanilovSoft.vRPC
         /// Может быть Null если результат контроллера - void.
         /// </summary>
         public object? ActionResult { get; }
+        ///// <summary>
+        ///// Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
+        ///// </summary>
+        //public RequestToInvoke? ReceivedRequest { get; private set; }
         /// <summary>
-        /// Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
+        /// Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
         /// </summary>
-        public RequestToInvoke? ReceivedRequest { get; private set; }
+        public ControllerActionMeta? ActionMeta { get; private set; }
+
         public bool IsRequest => false;
         public bool IsNotificationRequest => false;
 
         /// <summary>
         /// Конструктор ответа в случае ошибки десериализации запроса.
         /// </summary>
+        /// <param name="rawResult">Может быть <see cref="IActionResult"/> или произвольный объект пользователя.</param>
         public ResponseMessage(int uid, object rawResult)
         {
             Uid = uid;
             ActionResult = rawResult;
-            ReceivedRequest = null;
+            ActionMeta = null;
         }
 
         /// <summary>
         /// Ответ на основе запроса.
         /// </summary>
-        /// <param name="receivedRequest"></param>
-        /// <param name="actionResult"></param>
         [DebuggerStepThrough]
-        public ResponseMessage(RequestToInvoke receivedRequest, object? actionResult)
+        public ResponseMessage(int uid, ControllerActionMeta actionMeta, object? actionResult)
         {
-            Debug.Assert(receivedRequest.Uid != null);
+            //Debug.Assert(receivedRequest.Uid != null);
 
-            ReceivedRequest = receivedRequest;
-            Uid = receivedRequest.Uid!.Value;
+            ActionMeta = actionMeta;
+            //ReceivedRequest = receivedRequest;
+            Uid = uid;
             ActionResult = actionResult;
         }
     }

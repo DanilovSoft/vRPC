@@ -35,7 +35,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// True если задан <see cref="Uid"/>.
+        /// true если задан <see cref="Uid"/>.
         /// </summary>
         [ProtoIgnore]
         public bool IsResponseRequired => Uid != null;
