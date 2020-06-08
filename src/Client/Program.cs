@@ -23,14 +23,13 @@ namespace Client
             var controller = client.GetProxy<IMultipart>();
 
             var mem = MemoryPool<byte>.Shared.Rent(-1);
-            new Random().NextBytes(mem.Memory.Span);
-            using var data = new PooledMemoryContent(mem);
-
+            //new Random().NextBytes(mem.Memory.Span);
+            using var data = new PooledMemoryContent(mem, mem.Memory.Slice(0, 10));
             using var connectionId = new ProtobufValueContent(123);
 
             try
             {
-                int n = controller.TcpData(123);
+                await controller.TcpData(connectionId, data);
             }
             catch (Exception ex)
             {
@@ -53,15 +52,15 @@ namespace Client
     public interface IMultipart
     {
         int TcpData(int connectionData);
-        Task<int> TcpDataAsync(int connectionData);
-        void TcpData(VRpcContent connectionId, VRpcContent data);
+        Task<int> TcpDataAsync(int connectionData, byte[] data);
+        Task TcpData(VRpcContent connectionId, PooledMemoryContent data);
     }
 
-    internal class PooledMemoryContent : ReadOnlyMemoryContent
+    public class PooledMemoryContent : ReadOnlyMemoryContent
     {
         private IMemoryOwner<byte> _mem;
 
-        public PooledMemoryContent(IMemoryOwner<byte> mem) : base (mem.Memory)
+        public PooledMemoryContent(IMemoryOwner<byte> mem, ReadOnlyMemory<byte> slice) : base (slice)
         {
             _mem = mem;
         }

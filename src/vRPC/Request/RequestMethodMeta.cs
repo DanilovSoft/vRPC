@@ -76,11 +76,11 @@ namespace DanilovSoft.vRPC
         /// <exception cref="InvalidOperationException"/>
         private static bool IsAllParametersIsSpecialType(MethodInfo interfaceMethod)
         {
-            var prms = interfaceMethod.GetParameters();
-            var allIsContentType = prms.All(x => x.ParameterType.IsAssignableFrom(typeof(VRpcContent)));
+            ParameterInfo[]? prms = interfaceMethod.GetParameters();
+            bool allIsContentType = prms.All(x => typeof(VRpcContent).IsAssignableFrom(x.ParameterType));
             if (!allIsContentType)
             {
-                if (prms.Any(x => x.ParameterType.IsAssignableFrom(typeof(VRpcContent))))
+                if (prms.Any(x => typeof(VRpcContent).IsAssignableFrom(x.ParameterType)))
                 {
                     throw new InvalidOperationException($"Все параметры должны быть либо производными типа {nameof(VRpcContent)} либо любыми другими типами");
                 }

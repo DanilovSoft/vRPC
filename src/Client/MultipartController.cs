@@ -21,10 +21,9 @@ namespace Client
         //    //return connectionId;
         //}
 
-        [ProducesProtoBuf]
-        public int TcpData(int n)
+        public void TcpData(int id, byte[] data)
         {
-            return n;
+            
         }
     }
 }
