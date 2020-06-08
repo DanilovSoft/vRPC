@@ -547,7 +547,7 @@
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.Connect">
             <summary>
-            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
+            Производит предварительное по� повторного переподключения.
             Потокобезопасно.
             </summary>
             <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
@@ -623,7 +623,7 @@
             </summary>
             <typeparam name="T">Интерфейс.</typeparam>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.OnInterfaceMethodCall(System.Reflection.MethodInfo,System.Object[],System.String)">
+        <member name="M:DanilovSoft.vRPC.RpcClient.OnInterfaceMethodCall(System.Reflection.MethodInfo,System.String,System.Object[])">
             <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.Shutdown(System.TimeSpan,System.String)">
@@ -656,6 +656,7 @@
             Возвращает существующее подключение или создаёт новое если это разрешает свойство <see cref="P:DanilovSoft.vRPC.RpcClient.IsAutoConnectAllowed"/>.
             </summary>
             <exception cref="T:System.Net.Sockets.SocketException"/>
+            <exception   <exception cref="T:System.Net.Sockets.SocketException"/>
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:DanilovSoft.vRPC.ConnectionNotOpenException"/>
         </member>
@@ -912,7 +913,7 @@
             <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.OnClientInterfaceCall(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},System.Reflection.MethodInfo,System.Object[],System.String)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.OnClientInterfaceCall(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},System.Reflection.MethodInfo,System.String,System.Object[])">
             <summary>
             Происходит при обращении к проксирующему интерфейсу.
             Возвращает Task или готовый результат если был вызван синхронный метод.
@@ -1214,7 +1215,7 @@
         </member>
         <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.MemPoolStream">
             <summary>
-            Содержит сериализованное сообщение типа <see cref="T:DanilovSoft.vRPC.RequestMessageDto"/> или любой 
+            Содержит сериализованное сообщение типа <see cref="!:RequestMessageDto"/> или любой 
             другой тип если это ответ на запрос.
             Заголовок располагается в конце этого стрима, так как мы не можем сформировать заголовок 
             до сериализации тела сообщения.
@@ -1396,22 +1397,6 @@
         <member name="M:DanilovSoft.vRPC.HeaderDto.ToString">
             <summary>
             Используется только для отладки и логирования.
-            </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.RequestMessageDto">
-            <summary>
-            Сериализуемое сообщение для передачи через сокет. 
-            На данный момент сериализуется только в Json.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.RequestMessageDto.ActionName">
-            <summary>
-            Вызываемый метод.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.RequestMessageDto.Args">
-            <summary>
-            Аргументы вызываемого метода.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.StatusCode">
@@ -1631,27 +1616,7 @@
         </member>
         <member name="P:DanilovSoft.vRPC.Resources.SR.ProtocolError">
             <summary>
-              Ищет локализованную строку, похожую на An error has occurred during header deserialization from the remote side and connection will be closed. Error: {0}.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.Resources.SR.TextMessageTypeNotSupported">
-            <summary>
-              Ищет локализованную строку, похожую на WebSocket messages type should be Binary but we&apos;ve got Text.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStarted">
-            <summary>
-            Triggered when the application host has fully started.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStopping">
-            <summary>
-            Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.RpcListener._applicationStopped">
-            <summary>
-            Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
+              Ищет локализованную строку, похожую на An error has occutdown. Shutdown will block until this event completes.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.RpcListener.InvokeActions">
@@ -1703,6 +1668,19 @@
             <exception cref="T:System.ArgumentNullException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.Configure(System.Action{Microsoft.Extensions.DependencyInjection.ServiceProvider})">
+            <exception cref="T:System.ArgumentNullException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.Shutdown(System.TimeSpan,System.String)">
+            <summary>
+            Выполняет грациозную остановку сервиса. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
+            Потокобезопасно.
+            </summary>
+            <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
+            <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcListener.BeginShutdown(System.TimeSpan,System.String)">
+            <summary>
+          <member name="M:DanilovSoft.vRPC.RpcListener.Configure(System.Action{Microsoft.Extensions.DependencyInjection.ServiceProvider})">
             <exception cref="T:System.ArgumentNullException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.Shutdown(System.TimeSpan,System.String)">

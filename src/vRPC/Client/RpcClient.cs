@@ -407,12 +407,12 @@ namespace DanilovSoft.vRPC
 
         // Когда выполняют вызов метода через интерфейс.
         /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
-        internal object? OnInterfaceMethodCall(MethodInfo targetMethod, object[] args, string? controllerName)
+        internal object? OnInterfaceMethodCall(MethodInfo targetMethod, string? controllerName, object[] args)
         {
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
 
-            return ManagedConnection.OnClientInterfaceCall(connectionTask, targetMethod, args, controllerName);
+            return ManagedConnection.OnClientInterfaceCall(connectionTask, targetMethod, controllerName, args);
         }
 
         /// <summary>

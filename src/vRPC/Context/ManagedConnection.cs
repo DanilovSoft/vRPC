@@ -426,7 +426,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="Exception"/>
         /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         [SuppressMessage("Reliability", "CA2000:Ликвидировать объекты перед потерей области", Justification = "Анализатор не видит смену ответственности на Channel")]
-        internal static object? OnClientInterfaceCall(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, object[] args, string? controllerName)
+        internal static object? OnClientInterfaceCall(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, string? controllerName, object[] args)
         {
             // Создаём запрос для отправки.
             RequestMethodMeta methodMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, 
@@ -1985,6 +1985,7 @@ namespace DanilovSoft.vRPC
                     WaitResponseAndSendAsync(pendingRequestTask, requestToInvoke);
 
                     // TO THINK ошибки в таске можно обработать и не провоцируя исключения.
+                    // ContinueWith должно быть в 5 раз быстрее. https://stackoverflow.com/questions/51923100/try-catchoperationcanceledexception-vs-continuewith
                     async void WaitResponseAndSendAsync(ValueTask<object?> task, RequestToInvoke requestToInvoke)
                     {
                         Debug.Assert(requestToInvoke.Uid != null);

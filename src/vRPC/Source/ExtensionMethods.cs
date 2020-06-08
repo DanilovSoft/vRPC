@@ -156,11 +156,11 @@ namespace DanilovSoft.vRPC
 
         public static void WarmupRequestMessageJson()
         {
-            var dto = new RequestMessageDto("Home/Hello", new object[] { 1 });
+            //var dto = new RequestMessageDto("Home/Hello", new object[] { 1 });
 
             using (var mem = new MemoryStream())
             {
-                SerializeObjectJson(mem, dto);
+                SerializeObjectJson(mem, Array.Empty<object>());
                 //mem.Position = 0;
                 //DeserializeJson<RequestMessageDto>(mem.GetBuffer().AsSpan(0, (int)mem.Length));
                 //using (var reader = new StreamReader(mem))

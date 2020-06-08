@@ -11,14 +11,20 @@ namespace Client
     [AllowAnonymous]
     internal class MultipartController : ServerController
     {
-        public async ValueTask<int> TcpData(int connectionId, RentedMemory memory)
+        //public async ValueTask<int> TcpData(int connectionId, RentedMemory memory)
+        //{
+        //    await Task.Delay(5000);
+
+        //    throw new InvalidOperationException("test");
+
+        //    memory.Dispose();
+        //    //return connectionId;
+        //}
+
+        [ProducesProtoBuf]
+        public int TcpData(int n)
         {
-            await Task.Delay(5000);
-
-            throw new InvalidOperationException("test");
-
-            memory.Dispose();
-            //return connectionId;
+            return n;
         }
     }
 }

@@ -201,8 +201,7 @@ namespace DanilovSoft.vRPC
             SerializedMessageToSend? toDispose = serializedMessage;
             try
             {
-                ExtensionMethods.SerializeObjectJson(serializedMessage.MemPoolStream, new RequestMessageDto(ActionFullName, args));
-
+                ExtensionMethods.SerializeObjectJson(serializedMessage.MemPoolStream, args);
                 toDispose = null;
                 return serializedMessage;
             }

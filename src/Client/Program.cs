@@ -30,7 +30,7 @@ namespace Client
 
             try
             {
-                controller.TcpData(connectionId, data);
+                int n = controller.TcpData(123);
             }
             catch (Exception ex)
             {
@@ -52,6 +52,7 @@ namespace Client
 
     public interface IMultipart
     {
+        int TcpData(int connectionData);
         Task<int> TcpDataAsync(int connectionData);
         void TcpData(VRpcContent connectionId, VRpcContent data);
     }

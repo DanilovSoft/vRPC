@@ -101,129 +101,56 @@ namespace DanilovSoft.vRPC
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
 #endif
-            //string? actionName = null;
-            object[]? args = null;
-            ParameterInfo[]? targetArguments = null;
-            bool hasArguments = false;
+            object[] args = action.Parametergs.Length == 0
+                ? Array.Empty<object>()
+                : (new object[action.Parametergs.Length]);
 
-            do
+            // Считаем сколько аргументов есть в json'е.
+            short argsInJsonCounter = 0;
+
+            var reader = new Utf8JsonReader(utf8Json);
+            while (reader.Read())
             {
-                var reader = new Utf8JsonReader(utf8Json);
-                while (reader.Read())
+                if (reader.TokenType == JsonTokenType.StartArray)
                 {
-                    if (reader.TokenType == JsonTokenType.PropertyName)
+                    while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
                     {
-                        //if (action == null && reader.ValueTextEquals("n"))
-                        //{
-                        //    if (reader.Read())
-                        //    {
-                        //        if (reader.TokenType == JsonTokenType.String)
-                        //        {
-                        //            actionName = reader.GetString();
-                        //            if (invokeActions.TryGetAction(actionName, out action))
-                        //            {
-                        //                targetArguments = action.Parametergs;
-                        //            }
-                        //            else
-                        //            // Не найден метод контроллера.
-                        //            {
-                        //                return MethodNotFound(actionName, out result, out error);
-                        //            }
-                        //        }
-                        //    }
-                        //}
-                        //else 
-                        if (reader.ValueTextEquals("a"))
-                        // В json'е есть параметры для метода.
+                        if (action.Parametergs.Length > argsInJsonCounter)
                         {
-                            hasArguments = true;
+                            Type paramType = action.Parametergs[argsInJsonCounter].ParameterType;
 
-                            if (targetArguments != null)
+                            try
                             {
-                                //Debug.Assert(actionName != null, "Не может быть Null потому что targetArguments не Null");
-
-                                if (reader.Read())
-                                {
-                                    if (reader.TokenType == JsonTokenType.StartArray)
-                                    {
-                                        args = targetArguments.Length == 0 
-                                            ? Array.Empty<object>() 
-                                            : (new object[targetArguments.Length]);
-
-                                        // Считаем сколько аргументов есть в json'е.
-                                        short argsInJsonCounter = 0;
-
-                                        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
-                                        {
-                                            if (targetArguments.Length > argsInJsonCounter)
-                                            {
-                                                Type paramType = targetArguments[argsInJsonCounter].ParameterType;
-
-                                                try
-                                                {
-                                                    args[argsInJsonCounter] = JsonSerializer.Deserialize(ref reader, paramType);
-                                                }
-                                                catch (JsonException)
-                                                {
-                                                    result = null;
-                                                    error = ErrorDeserializingArgument(action.ActionFullName, argIndex: argsInJsonCounter, paramType);
-                                                    return false;
-                                                }
-                                                argsInJsonCounter++;
-                                            }
-                                            else
-                                            // Выход за границы массива.
-                                            {
-                                                result = null;
-                                                return ArgumentsCountMismatchError(action.ActionFullName, targetArguments.Length, out error);
-                                            }
-                                        }
-
-                                        if (!ValidateArgumentsCount(targetArguments, argsInJsonCounter, action.ActionFullName, out error))
-                                        // Не соответствует число аргументов.
-                                        {
-                                            result = null;
-                                            return false;
-                                        }
-                                    }
-                                }
+                                args[argsInJsonCounter] = JsonSerializer.Deserialize(ref reader, paramType);
                             }
-                            else
+                            catch (JsonException)
                             {
-                                reader.Skip();
+                                result = null;
+                                error = ErrorDeserializingArgument(action.ActionFullName, argIndex: argsInJsonCounter, paramType);
+                                return false;
                             }
+                            argsInJsonCounter++;
+                        }
+                        else
+                        // Выход за границы массива.
+                        {
+                            result = null;
+                            error = ArgumentsCountMismatchError(action.ActionFullName, action.Parametergs.Length);
+                            return false;
                         }
                     }
                 }
-            } while (action != null && args == null && hasArguments);
+            }
 
-            if (action != null)
-            // В json'е был найден метод.
+            if (ValidateArgumentsCount(action.Parametergs, argsInJsonCounter, action.ActionFullName, out error))
             {
-                Debug.Assert(targetArguments != null, "Не может быть Null потому что action не Null");
-
-                if (args == null)
-                // В json'е отсутвует массив параметров.
-                {
-                    if (targetArguments.Length == 0)
-                    {
-                        args = Array.Empty<object>();
-                    }
-                    else
-                    {
-                        error = new BadRequestResult("В запросе остутствуют требуемые аргументы вызываемого метода.");
-                        result = null;
-                        return false;
-                    }
-                }
-
                 error = null;
                 result = new RequestToInvoke(header.Uid, action, args, Array.Empty<IDisposable>());
                 return true;
             }
             else
+            // Не соответствует число аргументов.
             {
-                error = new BadRequestResult("В запросе остутствует имя вызываемого метода.");
                 result = null;
                 return false;
             }
@@ -384,10 +311,9 @@ namespace DanilovSoft.vRPC
         //}
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool ArgumentsCountMismatchError(string actionName, int targetArgumentsCount, out IActionResult error)
+        private static BadRequestResult ArgumentsCountMismatchError(string actionName, int targetArgumentsCount)
         {
-            error = new BadRequestResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
-            return false;
+            return new BadRequestResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
         }
 
 #if NETSTANDARD2_0 || NET472
@@ -416,7 +342,8 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                return ArgumentsCountMismatchError(actionName, targetArguments.Length, out error);
+                error = ArgumentsCountMismatchError(actionName, targetArguments.Length);
+                return false;
             }
         }
 #endif
