@@ -39,15 +39,15 @@ namespace DanilovSoft.vRPC
 
         internal ServerInterfaceProxy<TIface> GetProxyDecorator<TIface>(ManagedConnection connection) where TIface : class
         {
-            return GetProxy<TIface, ServerInterfaceProxy<TIface>, ManagedConnection>(InitializePropxy, connection);
+            return GetProxy<ServerInterfaceProxy<TIface>, TIface, ManagedConnection>(InitializePropxy, connection);
         }
 
         internal ClientInterfaceProxy<TIface> GetProxyDecorator<TIface>(RpcClient rpcClient) where TIface : class
         {
-            return GetProxy<TIface, ClientInterfaceProxy<TIface>, RpcClient>(InitializeAsyncPropxy, rpcClient);
+            return GetProxy<ClientInterfaceProxy<TIface>, TIface, RpcClient>(InitializeAsyncPropxy, rpcClient);
         }
 
-        private TClass GetProxy<TIface, TClass, TArg1>(Action<string, TClass, TArg1> initializeClone, TArg1 arg1) 
+        private TClass GetProxy<TClass, TIface, TArg1>(Action<string, TClass, TArg1> initializeClone, TArg1 arg1) 
             where TClass : class, IInterfaceDecorator<TIface>, IInterfaceProxy where TIface : class
         {
             Type interfaceType = typeof(TIface);

@@ -24,11 +24,24 @@ namespace Server.Controllers
             _proxy = proxy.Proxy;
         }
 
-        [ProducesProtoBuf]
-        public void DummyCall(int n)
+        public void PlainByteArray(int n, byte[] data)
         {
             Interlocked.Increment(ref Program.ReqCount);
-            //await Task.Delay(3000);
+        }
+        
+        public void MultipartByteArray(int n, RentedMemory data)
+        {
+            Interlocked.Increment(ref Program.ReqCount);
+        }
+
+        public void MultipartOnlyInt(int n)
+        {
+
+        }
+
+        public void JsonOnlyInt(int n)
+        {
+
         }
 
         public void Test()

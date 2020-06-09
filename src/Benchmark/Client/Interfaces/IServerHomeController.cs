@@ -1,5 +1,6 @@
 ﻿using Client.DTO;
 using DanilovSoft.vRPC;
+using DanilovSoft.vRPC.Content;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,7 +12,10 @@ namespace Client
     [ControllerContract("Home")]
     public interface IServerHomeController
     {
-        void DummyCall(int n);
+        void JsonOnlyInt(int id);
+        void MultipartOnlyInt(VRpcContent id);
+        void PlainByteArray(int id, byte[] data);
+        void MultipartByteArray(VRpcContent id, VRpcContent data);
         Task DummyCallAsync(int n);
         Task Test3Async();
         Task<int> Test4Async();

@@ -20,16 +20,10 @@ namespace Client
             using var client = new RpcClient("127.0.0.1", 1234, false, true);
             client.Connect();
 
-            var controller = client.GetProxy<IMultipart>();
-
-            var mem = MemoryPool<byte>.Shared.Rent(-1);
-            //new Random().NextBytes(mem.Memory.Span);
-            using var data = new PooledMemoryContent(mem, mem.Memory.Slice(0, 10));
-            using var connectionId = new ProtobufValueContent(123);
-
+            var controller = client.GetProxy<IHome>();
             try
             {
-                await controller.TcpData(connectionId, data);
+                controller.Test();
             }
             catch (Exception ex)
             {
@@ -47,6 +41,11 @@ namespace Client
     public interface IAdmin
     {
         void TestAdmin();
+    }
+
+    public interface IHome
+    {
+        Task<int> Test();
     }
 
     public interface IMultipart
@@ -72,6 +71,14 @@ namespace Client
             {
                 Interlocked.Exchange(ref _mem, null)?.Dispose();
             }
+        }
+    }
+
+    public class Proxy : ClientInterfaceProxy<IHome>
+    {
+        public Task<int> Test()
+        {
+            return Invoke<Task<int>>(null, null);   
         }
     }
 }

@@ -11,11 +11,11 @@ namespace DynamicMethodsLib
     internal static class ProxyBuilder<TClass>
     {
         private const BindingFlags _visibilityFlags = BindingFlags.Public | BindingFlags.Instance;
-        private static readonly MethodInfo? _invokeMethod = typeof(TClass).GetMethod("Invoke",
+        private static readonly MethodInfo _invokeMethod = typeof(TClass).GetMethod("Invoke",
                 BindingFlags.NonPublic | BindingFlags.Instance,
                 null,
                 new[] { typeof(MethodInfo), typeof(object[]) },
-                modifiers: null);
+                modifiers: null)!;
 
         static ProxyBuilder()
         {

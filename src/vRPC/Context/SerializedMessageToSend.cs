@@ -91,6 +91,9 @@ namespace DanilovSoft.vRPC
         public void Dispose()
         {
             Interlocked.Exchange(ref _memPoolStream, null)?.Dispose();
+#if DEBUG
+            GC.SuppressFinalize(this);
+#endif
         }
 
 #if DEBUG

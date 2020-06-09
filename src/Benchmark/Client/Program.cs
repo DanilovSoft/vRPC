@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC;
 using System.Resources;
+using System.Buffers;
 
 namespace Client
 {
@@ -50,30 +51,30 @@ namespace Client
             long reqCount = 0;
             int activeThreads = 0;
 
-            var threads = new List<Thread>(Threads);
+            var threads = new List<Task>(Threads);
             for (int i = 0; i < Threads; i++)
             {
-                var t = new Thread(_ =>
+                var t = Task.Run(() =>
                 {
-                    if (_appExit)
-                        return;
+                if (_appExit)
+                    return;
 
-                    Interlocked.Increment(ref activeThreads);
+                Interlocked.Increment(ref activeThreads);
 
-                    using (var client = new RpcClient(new Uri($"ws://{ipAddress}:{Port}"), true))
+                using (var client = new RpcClient(new Uri($"ws://{ipAddress}:{Port}"), true))
+                {
+                    Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client);
+
+                    client.ConfigureService(ioc =>
                     {
-                        Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client);
-
-                        client.ConfigureService(ioc =>
+                        ioc.AddLogging(loggingBuilder =>
                         {
-                            ioc.AddLogging(loggingBuilder =>
-                            {
-                                loggingBuilder
-                                    .AddConsole();
-                            });
+                            loggingBuilder
+                                .AddConsole();
                         });
+                    });
 
-                        var homeController = client.GetProxy<IServerHomeController>();
+                    var homeController = client.GetProxy<IServerHomeController>();
                         //homeController.DummyCall(0);
 
                         while (true)
@@ -89,21 +90,28 @@ namespace Client
 
                             while (true)
                             {
-                                try
+                                var m = MemoryPool<byte>.Shared.Rent(8192);
+                                using (var content = new ReadOnlyMemoryContent(m.Memory.Slice(0, 8192)))
                                 {
-                                    homeController.DummyCall(1);
+                                    try
+                                    {
+                                        //homeController.JsonOnlyInt(1);
+                                        //homeController.MultipartOnlyInt(new ProtobufValueContent(1));
+                                        homeController.PlainByteArray(1, new byte[8192]);
+                                        //homeController.MultipartByteArray(new ProtobufValueContent(1), content);
+                                    }
+                                    catch (WasShutdownException)
+                                    {
+                                        return;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Thread.Sleep(new Random().Next(2000, 3000));
+                                        Debug.WriteLine(ex);
+                                        break;
+                                    }
+                                    Interlocked.Increment(ref reqCount);
                                 }
-                                catch (WasShutdownException)
-                                {
-                                    return;
-                                }
-                                catch (Exception ex)
-                                {
-                                    Thread.Sleep(new Random().Next(2000, 3000));
-                                    Debug.WriteLine(ex);
-                                    break;
-                                }
-                                Interlocked.Increment(ref reqCount);
                             }
                         }
                         // Подождать грациозное закрытие.
@@ -111,15 +119,13 @@ namespace Client
                     }
                     Interlocked.Decrement(ref activeThreads);
                 });
-                t.Name = $"Client №{i+1}";
-                t.Start();
                 threads.Add(t);
             }
 
             long prev = 0;
             Console.Clear();
             var sw = Stopwatch.StartNew();
-            while (threads.TrueForAll(x => x.IsAlive))
+            while (threads.TrueForAll(x => x.Status != TaskStatus.RanToCompletion))
             {
                 Thread.Sleep(1000);
                 long elapsedMs = sw.ElapsedMilliseconds;
