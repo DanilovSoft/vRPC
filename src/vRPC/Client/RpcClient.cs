@@ -154,6 +154,7 @@ namespace DanilovSoft.vRPC
         /// Позволяет настроить IoC контейнер.
         /// Выполняется единожды при инициализации подключения.
         /// </summary>
+        /// <exception cref="VRpcException"/>
         /// <exception cref="ArgumentNullException"/>
         /// <exception cref="ObjectDisposedException"/>
         public void ConfigureService(Action<ServiceCollection> configure)
@@ -164,30 +165,32 @@ namespace DanilovSoft.vRPC
                 throw new ArgumentNullException(nameof(configure));
 
             if (ServiceProvider != null)
-                throw new InvalidOperationException("Service already configured.");
+                throw new VRpcException("Service already configured.");
 
             configure(_serviceCollection);
             ServiceProvider = _serviceCollection.BuildServiceProvider();
         }
 
+        /// <exception cref="VRpcException"/>
         /// <exception cref="ObjectDisposedException"/>
         public void Configure(Action<ApplicationBuilder> configureApp)
         {
             ThrowIfDisposed();
             
             if (_configureApp != null)
-                throw new InvalidOperationException("RpcClient already configured.");
+                throw new VRpcException("RpcClient already configured.");
 
             _configureApp = configureApp ?? throw new ArgumentNullException(nameof(configureApp));
         }
 
+        /// <exception cref="VRpcException"/>
         /// <exception cref="ObjectDisposedException"/>
         public void ConfigureAutoAuthentication(Func<AccessToken> configure)
         {
             ThrowIfDisposed();
 
             if (_autoAuthentication != null)
-                throw new InvalidOperationException("Auto authentication already configured.");
+                throw new VRpcException("Auto authentication already configured.");
 
             _autoAuthentication = configure ?? throw new ArgumentNullException(nameof(configure));
         }
@@ -236,7 +239,10 @@ namespace DanilovSoft.vRPC
                         connectResult.SocketError.Value.ToException(), VRpcErrorCode.ConnectionError);
 
                 case ConnectionState.ShutdownRequest:
-                    throw connectResult.ShutdownRequest.ToException();
+                    {
+                        Debug.Assert(connectResult.ShutdownRequest != null);
+                        throw connectResult.ShutdownRequest.ToException();
+                    }
             }
         }
 
@@ -407,12 +413,12 @@ namespace DanilovSoft.vRPC
 
         // Когда выполняют вызов метода через интерфейс.
         /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
-        internal object? OnInterfaceMethodCall(MethodInfo targetMethod, string? controllerName, object[] args)
+        internal Task<T> OnInterfaceMethodCall<T>(MethodInfo targetMethod, string? controllerName, object[] args)
         {
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
 
-            return ManagedConnection.OnClientInterfaceCall(connectionTask, targetMethod, controllerName, args);
+            return ManagedConnection.OnClientInterfaceCall<T>(connectionTask, targetMethod, controllerName, args);
         }
 
         /// <summary>

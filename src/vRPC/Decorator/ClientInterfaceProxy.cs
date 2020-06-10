@@ -22,6 +22,7 @@ namespace DanilovSoft.vRPC.Decorator
     /// </summary>
     /// <remarks>Тип должен быть публичным и не запечатанным.</remarks>
     [DebuggerDisplay(@"\{Proxy to remote controller {ControllerName}, ConnectionState = {Client}\}")]
+    [SuppressMessage("Design", "CA1062:Проверить аргументы или открытые методы", Justification = "Логически не может быть Null")]
     public class ClientInterfaceProxy<TIface> : ClientInterfaceProxy, IInterfaceProxy, IInterfaceDecorator<TIface> where TIface : class
     {
         public TIface? Proxy { get; private set; }
@@ -46,36 +47,74 @@ namespace DanilovSoft.vRPC.Decorator
             return self;
         }
 
-        //[SuppressMessage("Design", "CA1062:Проверить аргументы или открытые методы", Justification = "Логически не может быть Null")]
-        //[return: MaybeNull]
-        //protected Task<T> TaskInvoke<T>(MethodInfo targetMethod, object[] args)
-        //{
-        //    Debug.Assert(Client != null);
-        //    Debug.Assert(targetMethod != null);
-
-        //    // Может вернуть незавершённый таск.
-        //    object? returnValue = Client.OnInterfaceMethodCall(targetMethod, ControllerName, args);
-
-        //    DebugOnly.ValidateIsInstanceOfType(returnValue, targetMethod.ReturnType);
-
-        //    return default;
-        //    //return (T)returnValue;
-        //}
-
-        // Вызывается через рефлексию.
-        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
-        [SuppressMessage("Design", "CA1062:Проверить аргументы или открытые методы", Justification = "Логически не может быть Null")]
-        protected object? Invoke(MethodInfo targetMethod, object[] args)
+        // Вызывается через рефлексию — не переименовывать.
+        protected Task EmptyTaskInvoke(MethodInfo targetMethod, object[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            // Может вернуть незавершённый таск.
-            object? returnValue = Client.OnInterfaceMethodCall(targetMethod, ControllerName, args);
+            Task<object?> task = Client.OnInterfaceMethodCall<object?>(targetMethod, ControllerName, args);
+            Debug.Assert(task != null);
+            return task;
+        }
 
-            DebugOnly.ValidateIsInstanceOfType(returnValue, targetMethod.ReturnType);
+        // Вызывается через рефлексию — не переименовывать.
+        protected ValueTask EmptyValueTaskInvoke(MethodInfo targetMethod, object[] args)
+        {
+            Debug.Assert(Client != null);
+            Debug.Assert(targetMethod != null);
 
-            return returnValue;
+            Task<object?> task = Client.OnInterfaceMethodCall<object?>(targetMethod, ControllerName, args);
+            Debug.Assert(task != null);
+            return new ValueTask(task: task);
+        }
+
+        // Вызывается через рефлексию — не переименовывать.
+        protected ValueTask<T> ValueTaskInvoke<T>(MethodInfo targetMethod, object[] args)
+        {
+            Debug.Assert(Client != null);
+            Debug.Assert(targetMethod != null);
+
+            Task<T> task = Client.OnInterfaceMethodCall<T>(targetMethod, ControllerName, args);
+            Debug.Assert(task != null);
+            return new ValueTask<T>(task: task);
+        }
+
+        // Вызывается через рефлексию — не переименовывать.
+        protected Task<T> TaskInvoke<T>(MethodInfo targetMethod, object[] args)
+        {
+            Debug.Assert(Client != null);
+            Debug.Assert(targetMethod != null);
+
+            Task<T> task = Client.OnInterfaceMethodCall<T>(targetMethod, ControllerName, args);
+            Debug.Assert(task != null);
+            return task;
+        }
+
+        // Вызывается через рефлексию — не переименовывать.
+        protected T Invoke<T>(MethodInfo targetMethod, object[] args)
+        {
+            Debug.Assert(Client != null);
+            Debug.Assert(targetMethod != null);
+
+            Task<T> task = Client.OnInterfaceMethodCall<T>(targetMethod, ControllerName, args);
+            Debug.Assert(task != null);
+
+            // Результатом может быть исключение.
+            return task.GetAwaiter().GetResult();
+        }
+
+        // Вызывается через рефлексию — не переименовывать.
+        protected void NoResultInvoke(MethodInfo targetMethod, object[] args)
+        {
+            Debug.Assert(Client != null);
+            Debug.Assert(targetMethod != null);
+
+            Task<object?> task = Client.OnInterfaceMethodCall<object?>(targetMethod, ControllerName, args);
+            Debug.Assert(task != null);
+
+            // Результатом может быть исключение.
+            task.GetAwaiter().GetResult();
         }
     }
 }

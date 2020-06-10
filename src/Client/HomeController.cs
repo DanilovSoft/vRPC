@@ -5,6 +5,7 @@ using System.Text;
 
 namespace Client
 {
+    [AllowAnonymous]
     public class HomeController : ClientController
     {
         public HomeController()

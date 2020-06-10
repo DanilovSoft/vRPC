@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class SyncDictionary<TKey, TValue>
+    internal sealed class SyncDictionary<TKey, TValue> where TKey : notnull
     {
         private readonly Dictionary<TKey, TValue> _dict = new Dictionary<TKey, TValue>();
 

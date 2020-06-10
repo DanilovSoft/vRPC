@@ -18,7 +18,7 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{Request = {ActionFullName}\}")]
     internal sealed class RequestMethodMeta : IMessageMeta
     {
-        public Type ReturnType { get; }
+        //public Type ReturnType { get; }
         /// <summary>
         /// Инкапсулированный в Task тип результата функции.
         /// </summary>
@@ -28,12 +28,11 @@ namespace DanilovSoft.vRPC
         /// и соответственно не возвращает результат.
         /// </summary>
         public bool IsNotificationRequest { get; }
-        //public bool IsRequiredAuthentication { get; }
-        /// <summary>
-        /// Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="Task"/> (<see cref="Task{TResult}"/>)
-        /// или <see cref="ValueTask"/> (<see cref="ValueTask{TResult}"/>).
-        /// </summary>
-        public bool IsAsync { get; }
+        ///// <summary>
+        ///// Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="Task"/> (<see cref="Task{TResult}"/>)
+        ///// или <see cref="ValueTask"/> (<see cref="ValueTask{TResult}"/>).
+        ///// </summary>
+        //public bool IsAsync { get; }
         /// <summary>
         /// Имя метода например 'Home/Hello' без постфикса 'Async'.
         /// </summary>
@@ -46,10 +45,12 @@ namespace DanilovSoft.vRPC
         private readonly bool _multipartStrategy;
 
         // ctor.
-        /// <exception cref="InvalidOperationException"/>
+        /// <exception cref="VRpcException"/>
         public RequestMethodMeta(MethodInfo interfaceMethod, string? controllerName)
         {
-            ReturnType = interfaceMethod.ReturnType;
+            Debug.Assert(interfaceMethod != null);
+
+            //ReturnType = interfaceMethod.ReturnType;
 
             // Метод интерфейса может быть помечен как [Notification].
             IsNotificationRequest = Attribute.IsDefined(interfaceMethod, typeof(NotificationAttribute));
@@ -67,13 +68,13 @@ namespace DanilovSoft.vRPC
             ActionFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{interfaceMethod.GetNameTrimAsync()}";
             
             // Метод считается асинхронным есть возвращаемый тип Task или ValueTask.
-            IsAsync = interfaceMethod.ReturnType.IsAsyncReturnType();
+            //IsAsync = interfaceMethod.ReturnType.IsAsyncReturnType();
 
             // Особая семантика метода — когда все параметры являются VRpcContent.
             _multipartStrategy = IsAllParametersIsSpecialType(interfaceMethod);
         }
 
-        /// <exception cref="InvalidOperationException"/>
+        /// <exception cref="VRpcException"/>
         private static bool IsAllParametersIsSpecialType(MethodInfo interfaceMethod)
         {
             ParameterInfo[]? prms = interfaceMethod.GetParameters();
@@ -82,17 +83,17 @@ namespace DanilovSoft.vRPC
             {
                 if (prms.Any(x => typeof(VRpcContent).IsAssignableFrom(x.ParameterType)))
                 {
-                    throw new InvalidOperationException($"Все параметры должны быть либо производными типа {nameof(VRpcContent)} либо любыми другими типами");
+                    throw new VRpcException($"Все параметры должны быть либо производными типа {nameof(VRpcContent)} либо любыми другими типами");
                 }
             }
             return allIsContentType;
         }
 
         // Используется для Internal вызовов таких как SignIn, SignOut.
-        /// <exception cref="InvalidOperationException"/>
+        /// <exception cref="VRpcException"/>
         public RequestMethodMeta(string controllerName, string methodName, Type returnType, bool notification)
         {
-            ReturnType = returnType;
+            //ReturnType = returnType;
             IsNotificationRequest = notification;
 
             if (notification)
@@ -102,15 +103,15 @@ namespace DanilovSoft.vRPC
 
             IncapsulatedReturnType = GetMethodReturnType(returnType);
             ActionFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{methodName}";
-            IsAsync = returnType.IsAsyncReturnType();
+            //IsAsync = returnType.IsAsyncReturnType();
         }
 
-        /// <exception cref="InvalidOperationException"/>
+        /// <exception cref="VRpcException"/>
         private static void ValidateNotification(Type returnType, string methodName)
         {
             if (returnType != typeof(void) && returnType != typeof(Task) && returnType != typeof(ValueTask))
             {
-                throw new InvalidOperationException($"Метод '{methodName}' помечен атрибутом [Notification] поэтому " +
+                throw new VRpcException($"Метод '{methodName}' помечен атрибутом [Notification] поэтому " +
                     $"возвращаемый тип метода может быть только void или Task или ValueTask.");
             }
         }
@@ -173,9 +174,9 @@ namespace DanilovSoft.vRPC
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    using (var part = args[i] as VRpcContent)
+                    using (VRpcContent? part = args[i] as VRpcContent)
                     {
-                        Debug.Assert(part != null);
+                        Debug.Assert(part != null, "Мы заранее проверяли что все аргументы являются VRpcContent.");
 
                         if (part.TryComputeLength(out int length))
                         {

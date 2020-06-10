@@ -54,7 +54,7 @@ namespace DanilovSoft.vRPC
             ExpiresAt = expiresAt;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is BearerToken other)
                 return Equals(other: other);

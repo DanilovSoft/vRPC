@@ -19,7 +19,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Имя удалённого контроллера с которым связан прокси.
         /// </summary>
-        string RemoteControllerName { get; }
+        string? RemoteControllerName { get; }
     }
 
     // Это единственная имплементация для IProxy<T>.
@@ -30,7 +30,7 @@ namespace DanilovSoft.vRPC
         /// Прозрачный прокси к удалённой стороне.
         /// </summary>
         public T Proxy { get; }
-        public string RemoteControllerName => ((IInterfaceDecorator<T>)Proxy).ControllerName;
+        public string? RemoteControllerName => ((IInterfaceDecorator<T>)Proxy).ControllerName;
 
         // Вызывается через рефлексию.
         public ProxyFactory(GetProxyScope getProxyScope)

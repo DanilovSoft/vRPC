@@ -8,12 +8,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Контекст подключения на стороне клиента.
         /// </summary>
-        public ClientSideConnection Context { get; private set; }
+        public ClientSideConnection? Context { get; private set; }
 
-        internal override void BeforeInvokeController(ManagedConnection connection, ClaimsPrincipal user)
+        internal override void BeforeInvokeController(ManagedConnection connection, ClaimsPrincipal? user)
         {
             Context = connection as ClientSideConnection;
-            Debug.Assert(Context != null);
+            Debug.Assert(Context != null, "Возможно перепутаны серверный и клиентский тип контроллера.");
         }
     }
 }

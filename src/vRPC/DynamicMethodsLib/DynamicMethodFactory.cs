@@ -70,7 +70,7 @@ namespace DynamicMethodsLib
                 il.PushInstance(method.DeclaringType);
             }
 
-            LocalBuilder localConvertible = null;
+            LocalBuilder? localConvertible = null;
             if (!skipConvertion)
                 localConvertible = il.DeclareLocal(typeof(IConvertible));
             
@@ -156,7 +156,7 @@ namespace DynamicMethodsLib
                         if (parameterType.IsPrimitive)
                         {
                             // for primitive types we need to handle type widening (e.g. short -> int)
-                            MethodInfo toParameterTypeMethod = typeof(IConvertible)
+                            MethodInfo? toParameterTypeMethod = typeof(IConvertible)
                                 .GetMethod("To" + parameterType.Name, new[] { typeof(IFormatProvider) });
 
                             if (toParameterTypeMethod != null)
@@ -273,8 +273,10 @@ namespace DynamicMethodsLib
                         if (parameterType.IsPrimitive)
                         {
                             // for primitive types we need to handle type widening (e.g. short -> int)
-                            MethodInfo toParameterTypeMethod = typeof(IConvertible)
+                            MethodInfo? toParameterTypeMethod = typeof(IConvertible)
                                 .GetMethod("To" + parameterType.Name, new[] { typeof(IFormatProvider) });
+
+                            Debug.Assert(toParameterTypeMethod != null);
 
                             if (toParameterTypeMethod != null)
                             {
@@ -356,7 +358,9 @@ namespace DynamicMethodsLib
             if (returnType != typeof(void))
             {
                 if (returnType.IsValueType)
+                {
                     il.Emit(OpCodes.Box, returnType);
+                }
                 else
                 {
                     // Не нужно кастовать если возвращаемый тип совпадает.
@@ -374,9 +378,11 @@ namespace DynamicMethodsLib
 
         private static void GenerateCreateSetPropertyIL(PropertyInfo propertyInfo, ILGenerator generator)
         {
-            MethodInfo setMethod = propertyInfo.GetSetMethod(true);
+            MethodInfo? setMethod = propertyInfo.GetSetMethod(true);
+            Debug.Assert(setMethod != null);
             if (!setMethod.IsStatic)
             {
+                Debug.Assert(propertyInfo.DeclaringType != null);
                 generator.PushInstance(propertyInfo.DeclaringType);
             }
 
@@ -390,6 +396,7 @@ namespace DynamicMethodsLib
         {
             if (!fieldInfo.IsStatic)
             {
+                Debug.Assert(fieldInfo.DeclaringType != null);
                 generator.PushInstance(fieldInfo.DeclaringType);
             }
 

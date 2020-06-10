@@ -25,5 +25,10 @@ namespace Client
         {
             
         }
+
+        public int Test2()
+        {
+            return 1;
+        }
     }
 }

@@ -1,4 +1,5 @@
-﻿using ProtoBuf;
+﻿using DanilovSoft.vRPC.Source;
+using ProtoBuf;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -149,17 +150,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        /// <summary>
-        /// Возвращает подходящий десериализатор соответственно <see cref="ContentEncoding"/>.
-        /// </summary>
-        public Func<ReadOnlyMemory<byte>, Type, object> GetDeserializer()
-        {
-            return ContentEncoding switch
-            {
-                ProducesProtoBufAttribute.Encoding => ExtensionMethods.DeserializeProtoBuf,
-                _ => ExtensionMethods.DeserializeJson, // Сериализатор по умолчанию.
-            };
-        }
+        
 
         /// <summary>
         /// Используется только для отладки и логирования.

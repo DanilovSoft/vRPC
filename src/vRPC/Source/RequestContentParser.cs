@@ -22,16 +22,9 @@ namespace DanilovSoft.vRPC
         private const string ArgumentsCountMismatch = "Argument count mismatch for action '{0}'. {1} arguments was expected.";
 
         /// <remarks>Не бросает исключения.</remarks>
-        public static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerActionMeta action,
-            HeaderDto header,
-#if !NETSTANDARD2_0 && !NET472
-            [MaybeNullWhen(false)]
-#endif
-            out RequestToInvoke? result,
-#if !NETSTANDARD2_0 && !NET472
-            [MaybeNullWhen(true)]
-#endif
-            out IActionResult? error)
+        public static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerActionMeta action, HeaderDto header, 
+            [MaybeNullWhen(false)] out RequestToInvoke? result,
+            [MaybeNullWhen(true)] out IActionResult? error)
         {
             try
             {
@@ -88,16 +81,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="JsonException"/>
         /// <returns>True если успешно десериализовали.</returns>
-        private static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, ControllerActionMeta action,
-            HeaderDto header,
-#if !NETSTANDARD2_0 && !NET472
-            [MaybeNullWhen(false)]
-#endif
-            out RequestToInvoke? result,
-#if !NETSTANDARD2_0 && !NET472
-            [MaybeNullWhen(true)]
-#endif
-            out IActionResult? error)
+        private static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, ControllerActionMeta action, HeaderDto header, 
+            [MaybeNullWhen(false)] out RequestToInvoke? result,
+            [MaybeNullWhen(true)] out IActionResult? error)
         {
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
@@ -157,16 +143,9 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="Exception"/>
-        private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerActionMeta action,
-            HeaderDto header,
-#if !NETSTANDARD2_0 && !NET472
-            [MaybeNullWhen(false)]
-#endif
-            out RequestToInvoke? result,
-#if !NETSTANDARD2_0 && !NET472
-            [MaybeNullWhen(true)]
-#endif
-            out IActionResult? error)
+        private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerActionMeta action, HeaderDto header,
+            [MaybeNullWhen(false)] out RequestToInvoke? result,
+            [MaybeNullWhen(true)] out IActionResult? error)
         {
             object[] args;
             IList<IDisposable>? disposableArgs;
@@ -213,10 +192,7 @@ namespace DanilovSoft.vRPC
         }
 
         private static bool DeserializeArgs(ReadOnlyMemory<byte> content, ControllerActionMeta action, object[] args, IList<IDisposable> disposableArgs,
-#if !NETSTANDARD2_0 && !NET472
-            [MaybeNullWhen(true)]
-#endif
-            out IActionResult? error)
+            [MaybeNullWhen(true)] out IActionResult? error)
         {
             using (var stream = new ReadOnlyMemoryStream(content))
             {

@@ -75,7 +75,7 @@ namespace DanilovSoft.vRPC
         //    return Bytes;
         //}
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is AccessToken other)
                 return Equals(other: other);

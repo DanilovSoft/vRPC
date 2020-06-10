@@ -7,9 +7,7 @@ namespace DanilovSoft.vRPC
 {
     public sealed class ActionResult<TValue> : IActionResult
     {
-#if !NETSTANDARD2_0 && !NET472
         [AllowNull]
-#endif
         public TValue Value { get; }
         public ActionResult? Result { get; }
 

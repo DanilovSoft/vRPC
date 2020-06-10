@@ -115,9 +115,7 @@
         /// exactly 16 ASCII characters long. IV value does not have to be kept
         /// in secret.
         /// </param>
-        public RijndaelEnhanced(string passPhrase,
-                                string initVector) :
-            this(passPhrase, initVector, -1)
+        public RijndaelEnhanced(string passPhrase, string? initVector) : this(passPhrase, initVector, -1)
         {
         }
 
@@ -146,9 +144,7 @@
         /// value is less than 8, the default min value will be used (currently 8
         /// bytes).
         /// </param>
-        public RijndaelEnhanced(string passPhrase,
-                                string initVector,
-                                int minSaltLen) :
+        public RijndaelEnhanced(string passPhrase, string? initVector, int minSaltLen) :
             this(passPhrase, initVector, minSaltLen, -1)
         {
         }
@@ -189,7 +185,7 @@
         /// In this case, salt will not be processed during decryption either.
         /// </param>
         public RijndaelEnhanced(string passPhrase,
-                                string initVector,
+                                string? initVector,
                                 int minSaltLen,
                                 int maxSaltLen) :
             this(passPhrase, initVector, minSaltLen, maxSaltLen, -1)
@@ -234,7 +230,7 @@
         /// Size of symmetric key (in bits): 128, 192, or 256.
         /// </param>
         public RijndaelEnhanced(string passPhrase,
-                                string initVector,
+                                string? initVector,
                                 int minSaltLen,
                                 int maxSaltLen,
                                 int keySize) :
@@ -284,11 +280,11 @@
         /// can be any string.
         /// </param>
         public RijndaelEnhanced(string passPhrase,
-                                string initVector,
+                                string? initVector,
                                 int minSaltLen,
                                 int maxSaltLen,
                                 int keySize,
-                                string saltValue) :
+                                string? saltValue) :
             this(passPhrase, initVector, minSaltLen, maxSaltLen, keySize,
                  saltValue, 1)
         {
@@ -340,11 +336,11 @@
         /// considered more secure but may take longer.
         /// </param>
         public RijndaelEnhanced(string passPhrase,
-                                string initVector,
+                                string? initVector,
                                 int minSaltLen,
                                 int maxSaltLen,
                                 int keySize,
-                                string saltValue,
+                                string? saltValue,
                                 int passwordIterations)
         {
             // Save min salt length; set it to default if invalid value is passed.
@@ -385,43 +381,41 @@
             else
                 saltValueBytes = Encoding.ASCII.GetBytes(saltValue);
 
-
-            byte[] keyBytes;
-
 #if NETSTANDARD2_0
 
             throw new NotSupportedException("NETSTANDARD 2.0 не поддерживает Rfc2898DeriveBytes с хешем SHA256");
 
-//            // Фреймворк ниже NET 4.7.2 работает только с хешем SHA-1.
+            //            // Фреймворк ниже NET 4.7.2 работает только с хешем SHA-1.
 
-//            // Generate password, which will be used to derive the key.
-//#pragma warning disable CA5379 // Не используйте слабый алгоритм функции формирования ключа.
-//            using (var password = new Rfc2898DeriveBytes(passPhrase, saltValueBytes, passwordIterations))
-//#pragma warning restore CA5379 // Не используйте слабый алгоритм функции формирования ключа.
-//            {
-//                // Convert key to a byte array adjusting the size from bits to bytes.
-//                keyBytes = password.GetBytes(keySize / 8);
-//            }
+            //            // Generate password, which will be used to derive the key.
+            //#pragma warning disable CA5379 // Не используйте слабый алгоритм функции формирования ключа.
+            //            using (var password = new Rfc2898DeriveBytes(passPhrase, saltValueBytes, passwordIterations))
+            //#pragma warning restore CA5379 // Не используйте слабый алгоритм функции формирования ключа.
+            //            {
+            //                // Convert key to a byte array adjusting the size from bits to bytes.
+            //                keyBytes = password.GetBytes(keySize / 8);
+            //            }
 
-////            using (var password = new PasswordDeriveBytes(passPhrase,
-////                                        saltValueBytes,
-////                                        HashAlgorithmName.SHA256.Name,
-////                                        passwordIterations))
-////            {
-////#pragma warning disable CA5373 // Не используйте устаревшую функцию формирования ключа.
-////                // Convert key to a byte array adjusting the size from bits to bytes.
-////                keyBytes = password.GetBytes(keySize / 8);
-////#pragma warning restore CA5373 // Не используйте устаревшую функцию формирования ключа.
-////            }
+            ////            using (var password = new PasswordDeriveBytes(passPhrase,
+            ////                                        saltValueBytes,
+            ////                                        HashAlgorithmName.SHA256.Name,
+            ////                                        passwordIterations))
+            ////            {
+            ////#pragma warning disable CA5373 // Не используйте устаревшую функцию формирования ключа.
+            ////                // Convert key to a byte array adjusting the size from bits to bytes.
+            ////                keyBytes = password.GetBytes(keySize / 8);
+            ////#pragma warning restore CA5373 // Не используйте устаревшую функцию формирования ключа.
+            ////            }
 
 #else
+            byte[] keyBytes;
+
             // Generate password, which will be used to derive the key.
             using (var password = new Rfc2898DeriveBytes(passPhrase, saltValueBytes, passwordIterations, HashAlgorithmName.SHA256))
             {
                 // Convert key to a byte array adjusting the size from bits to bytes.
                 keyBytes = password.GetBytes(keySize / 8);
             }
-#endif
 
             // Initialize Rijndael key object.
             using (var symmetricKey = new RijndaelManaged())
@@ -437,6 +431,7 @@
                 _encryptor = symmetricKey.CreateEncryptor(keyBytes, initVectorBytes);
                 _decryptor = symmetricKey.CreateDecryptor(keyBytes, initVectorBytes);
             }
+#endif
         }
         #endregion
 

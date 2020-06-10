@@ -15,10 +15,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Не Null если State = <see cref="ConnectionState.ShutdownRequest"/>.
         /// </summary>
-        public ShutdownRequest ShutdownRequest { get; }
+        public ShutdownRequest? ShutdownRequest { get; }
 
         [DebuggerStepThrough]
-        private ConnectResult(ConnectionState connectState, SocketError? socketError, ShutdownRequest shutdownRequest)
+        private ConnectResult(ConnectionState connectState, SocketError? socketError, ShutdownRequest? shutdownRequest)
         {
             State = connectState;
             SocketError = socketError;
@@ -46,7 +46,7 @@ namespace DanilovSoft.vRPC
                     && other.State == State;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if(obj is ConnectResult connectResult)
             {
@@ -57,7 +57,11 @@ namespace DanilovSoft.vRPC
 
         public override int GetHashCode()
         {
+#if NETSTANDARD2_0 || NET472
             return (State, SocketError).GetHashCode();
+#else
+            return HashCode.Combine(State, SocketError);
+#endif
         }
 
         public static bool operator ==(ConnectResult left, ConnectResult right)

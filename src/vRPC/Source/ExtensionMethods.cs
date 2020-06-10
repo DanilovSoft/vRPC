@@ -18,6 +18,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Сериализует объект в JSON.
         /// </summary>
+        /// <exception cref="VRpcException"/>
         public static void SerializeObjectJson(Stream destination, object instance)
         {
             // Сериализовать Null не нужно (Отправлять тело сообщения при этом тоже не нужно).
@@ -32,7 +33,7 @@ namespace DanilovSoft.vRPC
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
+                throw new VRpcException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
             }
         }
 
@@ -51,15 +52,6 @@ namespace DanilovSoft.vRPC
         /// Десериализует Json.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T DeserializeJson<T>(ReadOnlySpan<byte> utf8Json)
-        {
-            return System.Text.Json.JsonSerializer.Deserialize<T>(utf8Json);
-        }
-
-        /// <summary>
-        /// Десериализует Json.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static object DeserializeJson(ReadOnlySpan<byte> utf8Json, Type returnType)
         {
             return System.Text.Json.JsonSerializer.Deserialize(utf8Json, returnType);
@@ -72,7 +64,16 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static object DeserializeJson(ReadOnlyMemory<byte> utf8Json, Type returnType)
         {
-            return System.Text.Json.JsonSerializer.Deserialize(utf8Json.Span, returnType);
+            return JsonSerializer.Deserialize(utf8Json.Span, returnType);
+        }
+
+        /// <summary>
+        /// Десериализует Json.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T DeserializeJson<T>(ReadOnlySpan<byte> utf8Json)
+        {
+            return JsonSerializer.Deserialize<T>(utf8Json);
         }
 
         /// <summary>
@@ -83,50 +84,6 @@ namespace DanilovSoft.vRPC
         {
             return DeserializeJson<T>(utf8Json.Span);
         }
-
-        ///// <summary>
-        ///// Сериализует объект в JSON.
-        ///// </summary>
-        //public static void SerializeObjectJson(Stream destination, object instance)
-        //{
-        //    using (var writer = new StreamWriter(destination, _UTF8NoBOM, bufferSize: 1024, leaveOpen: true))
-        //    using (var json = new JsonTextWriter(writer))
-        //    {
-        //        var ser = new JsonSerializer();
-        //        ser.Serialize(json, instance);
-        //    }
-        //}
-
-        ///// <summary>
-        ///// Десериализует Json.
-        ///// </summary>
-        //public static T DeserializeRequestJson<T>(Stream stream)
-        //{
-        //    using (var reader = new StreamReader(stream, _UTF8NoBOM, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
-        //    using (var json = new JsonTextReader(reader))
-        //    {
-        //        var ser = new JsonSerializer();
-        //        var req = ser.Deserialize<T>(json);
-        //        if (req != null)
-        //            return req;
-
-        //        // Сюда не должны попадать.
-        //        throw new InvalidOperationException("Результатом десериализации оказался Null.");
-        //    }
-        //}
-
-        ///// <summary>
-        ///// Сериализует объект в BSON.
-        ///// </summary>
-        //public static void SerializeObjectBson(Stream stream, object instance)
-        //{
-        //    using (var bw = new BinaryWriter(stream, _UTF8NoBOM, leaveOpen: true))
-        //    using (var json = new BsonDataWriter(bw)) // Использует new UTF8Encoding(false, true)
-        //    {
-        //        var ser = new JsonSerializer();
-        //        ser.Serialize(json, instance);
-        //    }
-        //}
 
         public static bool TryReadLengthPrefix(Stream source, out int length)
         {
@@ -140,11 +97,11 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static object DeserializeProtoBuf(ReadOnlyMemory<byte> source, Type type)
+        internal static T DeserializeProtoBuf<T>(ReadOnlyMemory<byte> source)
         {
             using (var stream = new MemoryReader(source))
             {
-                return ProtoBuf.Serializer.Deserialize(type, stream);
+                return ProtoBuf.Serializer.Deserialize<T>(stream);
             }
         }
 
@@ -244,14 +201,16 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public static bool IsAsyncReturnType(this Type returnType)
         {
-            if (
-                typeof(Task).IsAssignableFrom(returnType) // Task и Task<T>
+            if (typeof(Task).IsAssignableFrom(returnType) // Task и Task<T>
                 || returnType == typeof(ValueTask)
                 || (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>)))
             {
                 return true;
             }
-            return false;
+            else
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -348,11 +307,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения. Пустую строку не возвращает.
         /// </summary>
-        private static string GetMessageFromCloseFrame(WebSocketCloseStatus? closeStatus, string closeDescription)
+        private static string GetMessageFromCloseFrame(WebSocketCloseStatus? closeStatus, string? closeDescription)
         {
             //var webSocket = _socket.WebSocket;
 
-            string exceptionMessage = null;
+            string? exceptionMessage = null;
             if (closeStatus != null)
             {
                 exceptionMessage = $"CloseStatus: {closeStatus}";
@@ -373,8 +332,11 @@ namespace DanilovSoft.vRPC
             return exceptionMessage;
         }
 
-        public static string GetControllerActionName(this MethodInfo controllerMethod)
+        internal static string GetControllerActionName(this MethodInfo controllerMethod)
         {
+            Debug.Assert(controllerMethod != null);
+            Debug.Assert(controllerMethod.DeclaringType != null);
+
             string controllerName = controllerMethod.DeclaringType.Name.TrimEnd("Controller");
             return $"{controllerName}/{controllerMethod.Name}";
         }

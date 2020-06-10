@@ -15,7 +15,7 @@ namespace DanilovSoft.vRPC
     internal sealed class PendingRequestDictionary
     {
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        private readonly Dictionary<int, ResponseAwaiter> _dict = new Dictionary<int, ResponseAwaiter>();
+        private readonly Dictionary<int, IResponseAwaiter> _dict = new Dictionary<int, IResponseAwaiter>();
         /// <summary>
         /// Не является потокобезопасным.
         /// </summary>
@@ -35,9 +35,9 @@ namespace DanilovSoft.vRPC
         /// Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
         /// </summary>
         /// <exception cref="Exception">Происходит если уже происходил обрыв соединения.</exception>
-        public ResponseAwaiter AddRequest(RequestMethodMeta requestToSend, out int uid)
+        public ResponseAwaiter<T> AddRequest<T>(RequestMethodMeta requestToSend, out int uid)
         {
-            var responseAwaiter = new ResponseAwaiter(requestToSend);
+            var responseAwaiter = new ResponseAwaiter<T>(requestToSend);
             do
             {
                 lock (_dict)
@@ -73,7 +73,7 @@ namespace DanilovSoft.vRPC
 
 
 #if NETSTANDARD2_0 || NET472
-        public bool TryRemove(int uid, out ResponseAwaiter tcs)
+        public bool TryRemove(int uid, out IResponseAwaiter tcs)
         {
             lock (_dict)
             {
@@ -84,7 +84,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Потокобезопасно удаляет запрос из словаря.
         /// </summary>
-        public bool TryRemove(int uid, [MaybeNullWhen(false)] out ResponseAwaiter tcs)
+        public bool TryRemove(int uid, [MaybeNullWhen(false)] out IResponseAwaiter tcs)
         {
             lock (_dict)
             {
@@ -106,7 +106,7 @@ namespace DanilovSoft.vRPC
                     _disconnectException = exception;
                     if (_dict.Count > 0)
                     {
-                        foreach (ResponseAwaiter tcs in _dict.Values)
+                        foreach (IResponseAwaiter tcs in _dict.Values)
                         {
                             tcs.TrySetException(exception);
                         }

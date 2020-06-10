@@ -150,7 +150,7 @@ namespace DanilovSoft.vRPC
 
             try
             {
-                pendingRequestTask = SendRequestAndWaitResponse(SignInAsyncMeta, serializedMessage);
+                pendingRequestTask = SendRequestAndWaitResponse<object?>(SignInAsyncMeta, serializedMessage);
                 toDispose = null;
             }
             finally
@@ -231,7 +231,7 @@ namespace DanilovSoft.vRPC
 
             try
             {
-                pendingRequestTask = SendRequestAndWaitResponse(SignOutAsyncMeta, binaryRequest);
+                pendingRequestTask = SendRequestAndWaitResponse<object?>(SignOutAsyncMeta, binaryRequest);
                 toDispose = null;
             }
             finally

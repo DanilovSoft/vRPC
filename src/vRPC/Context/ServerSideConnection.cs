@@ -68,7 +68,9 @@ namespace DanilovSoft.vRPC
         /// <typeparam name="T">Интерфейс.</typeparam>
         public T GetProxy<T>() where T : class
         {
-            return GetProxyDecorator<T>().Proxy;
+            T? proxy = GetProxyDecorator<T>().Proxy;
+            Debug.Assert(proxy != null);
+            return proxy;
         }
 
         /// <summary>
@@ -203,13 +205,7 @@ namespace DanilovSoft.vRPC
         /// Проверяет доступность запрашиваемого метода пользователем.
         /// </summary>
         /// <exception cref="BadRequestException"/>
-        private protected override bool ActionPermissionCheck(
-            ControllerActionMeta actionMeta,
-#if !NETSTANDARD2_0 && !NET472
-            [NotNullWhen(false)]
-#endif
-            out IActionResult? permissionError,
-            out ClaimsPrincipal user)
+        private protected override bool ActionPermissionCheck(ControllerActionMeta actionMeta, [NotNullWhen(false)] out IActionResult? permissionError, out ClaimsPrincipal user)
         {
             // Скопируем пользователя что-бы не мог измениться в пределах запроса.
             user = _user;
@@ -247,8 +243,8 @@ namespace DanilovSoft.vRPC
         public void Call(string controllerName, string actionName, params object[] args)
         {
             var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(void), false);
-            Task<object?> pendingRequest = SendRequestAndWaitResponse(requestMeta, args);
-            object? rawResult = ConvertRequestTask(requestMeta, pendingRequest);
+            Task<object?> pendingRequest = SendRequestAndWaitResponse<object?>(requestMeta, args);
+            object? rawResult = pendingRequest.GetAwaiter().GetResult(); //ConvertRequestTask(requestMeta, pendingRequest);
             if (rawResult is IDisposable disposable)
             {
                 disposable.Dispose();
@@ -258,30 +254,28 @@ namespace DanilovSoft.vRPC
         public Task CallAsync(string controllerName, string actionName, params object[] args)
         {
             var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(Task), false);
-            Task<object?> pendingRequestTask = SendRequestAndWaitResponse(requestMeta, args);
-            Task? task = ConvertRequestTask(requestMeta, pendingRequestTask) as Task;
+            Task<object?> task = SendRequestAndWaitResponse<object?>(requestMeta, args);
+            //Task? task = ConvertRequestTask(requestMeta, pendingRequestTask) as Task;
             Debug.Assert(task != null, "Здесь результат не может быть Null");
             return task;
         }
 
-#if !NETSTANDARD2_0 && ! NET472
         [return: MaybeNull]
-#endif
         public T Call<T>(string controllerName, string actionName, params object[] args)
         {
             var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(T), false);
-            Task<object?> requestTask = SendRequestAndWaitResponse(requestMeta, args);
-            T result = (T)ConvertRequestTask(requestMeta, requestTask);
+            Task<T> requestTask = SendRequestAndWaitResponse<T>(requestMeta, args);
+            T result = requestTask.GetAwaiter().GetResult(); // (T)ConvertRequestTask(requestMeta, requestTask);
             return result;
         }
 
         public Task<T> CallAsync<T>(string controllerName, string actionName, params object[] args)
         {
             var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(Task<T>), false);
-            Task<object?> requestTask = SendRequestAndWaitResponse(requestMeta, args);
-            Task<T>? task = ConvertRequestTask(requestMeta, requestTask) as Task<T>;
-            Debug.Assert(task != null, "Здесь результат не может быть Null");
-            return task;
+            Task<T> requestTask = SendRequestAndWaitResponse<T>(requestMeta, args);
+            //Task<T>? task = ConvertRequestTask(requestMeta, requestTask) as Task<T>;
+            //Debug.Assert(task != null, "Здесь результат не может быть Null");
+            return requestTask;
         }
 
         #endregion

@@ -11,11 +11,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Контекст подключения.
         /// </summary>
-        public ServerSideConnection Context { get; private set; }
+        public ServerSideConnection? Context { get; private set; }
         /// <summary>
         /// Пользователь ассоциированный с текущим запросом.
         /// </summary>
-        public ClaimsPrincipal User { get; private set; }
+        public ClaimsPrincipal? User { get; private set; }
 
         // Должен быть пустой конструктор для наследников.
         public ServerController()
@@ -23,13 +23,14 @@ namespace DanilovSoft.vRPC
             
         }
 
-        internal override void BeforeInvokeController(ManagedConnection connection, ClaimsPrincipal user)
+        internal override void BeforeInvokeController(ManagedConnection connection, ClaimsPrincipal? user)
         {
             Context = connection as ServerSideConnection;
-            Debug.Assert(Context != null);
+            Debug.Assert(Context != null, "Возможно перепутаны серверный и клиентский тип контроллера.");
             User = user;
         }
 
+        /// <exception cref="VRpcException"/>
         public BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal, TimeSpan validTime)
         {
             if (claimsPrincipal == null)
@@ -38,12 +39,21 @@ namespace DanilovSoft.vRPC
             if (validTime < TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(validTime));
 
+            if (Context == null)
+                throw new VRpcException("Current server context is Null.");
+
             return Context.CreateAccessToken(claimsPrincipal, validTime);
         }
 
         /// <summary>
         /// Сбрасывает аутентификацию соединения в изначальное состояние.
         /// </summary>
-        public void SignOut() => Context.SignOut();
+        public void SignOut()
+        {
+            if (Context == null)
+                throw new VRpcException("Current server context is Null.");
+
+            Context.SignOut();
+        }
     }
 }

@@ -5,6 +5,8 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Threading.Tasks;
+using DanilovSoft.vRPC;
 
 namespace DynamicMethodsLib
 {
@@ -13,13 +15,43 @@ namespace DynamicMethodsLib
         private const BindingFlags _visibilityFlags = BindingFlags.Public | BindingFlags.Instance;
         private static readonly MethodInfo _invokeMethod = typeof(TClass).GetMethod("Invoke",
                 BindingFlags.NonPublic | BindingFlags.Instance,
-                null,
-                new[] { typeof(MethodInfo), typeof(object[]) },
+                binder: null,
+                types: new[] { typeof(MethodInfo), typeof(object[]) },
+                modifiers: null)!;
+        private static readonly MethodInfo _noresultInvokeMethod = typeof(TClass).GetMethod("NoResultInvoke",
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                binder: null,
+                types: new[] { typeof(MethodInfo), typeof(object[]) },
+                modifiers: null)!;
+        private static readonly MethodInfo _taskInvokeMethod = typeof(TClass).GetMethod("TaskInvoke",
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                binder: null,
+                types: new[] { typeof(MethodInfo), typeof(object[]) },
+                modifiers: null)!;
+        private static readonly MethodInfo _emptyTaskInvokeMethod = typeof(TClass).GetMethod("EmptyTaskInvoke",
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                binder: null,
+                types: new[] { typeof(MethodInfo), typeof(object[]) },
+                modifiers: null)!;
+        private static readonly MethodInfo _valueTaskInvokeMethod = typeof(TClass).GetMethod("ValueTaskInvoke",
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                binder: null,
+                types: new[] { typeof(MethodInfo), typeof(object[]) },
+                modifiers: null)!;
+        private static readonly MethodInfo _emptyValueTaskInvokeMethod = typeof(TClass).GetMethod("EmptyValueTaskInvoke",
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                binder: null,
+                types: new[] { typeof(MethodInfo), typeof(object[]) },
                 modifiers: null)!;
 
         static ProxyBuilder()
         {
             Debug.Assert(_invokeMethod != null, $"У типа {typeof(TClass).FullName} должен быть метод Invoke(MethodInfo m, object[] args)");
+            Debug.Assert(_taskInvokeMethod != null, $"У типа {typeof(TClass).FullName} должен быть метод TaskInvoke<T>(MethodInfo m, object[] args)");
+            Debug.Assert(_emptyTaskInvokeMethod != null, $"У типа {typeof(TClass).FullName} должен быть метод EmptyTaskInvoke(MethodInfo m, object[] args)");
+            Debug.Assert(_valueTaskInvokeMethod != null, $"У типа {typeof(TClass).FullName} должен быть метод ValueTaskInvoke<T>(MethodInfo m, object[] args)");
+            Debug.Assert(_noresultInvokeMethod != null, $"У типа {typeof(TClass).FullName} должен быть метод NoResultInvoke(MethodInfo m, object[] args)");
+            Debug.Assert(_emptyValueTaskInvokeMethod != null, $"У типа {typeof(TClass).FullName} должен быть метод EmptyValueTaskInvoke(MethodInfo m, object[] args)");
         }
 
         private static AssemblyBuilder DefineDynamicAssembly(string name)
@@ -39,19 +71,20 @@ namespace DynamicMethodsLib
         /// <typeparam name="TIface"></typeparam>
         /// <param name="source"></param>
         /// <param name="instance">Параметр который будет передан в конструктор <typeparamref name="TClass"/></param>
+        /// <exception cref="VRpcException"/>
         /// <returns></returns>
         public static TClass CreateProxy<TIface>(TClass source = default, object? instance = null)
         {
             var ifaceType = typeof(TIface);
             if (!ifaceType.IsPublic)
             {
-                throw new InvalidOperationException($"Интерфейс {ifaceType.FullName} должен быть публичным и должен быть видимым для других сборок.");
+                throw new VRpcException($"Интерфейс {ifaceType.FullName} должен быть публичным и должен быть видимым для других сборок.");
             }
             Debug.Assert(ifaceType.IsInterface, "Ожидался интерфейс");
 
             var proxyParentClassType = typeof(TClass);
             if(proxyParentClassType.IsSealed)
-                throw new InvalidOperationException($"Родительский класс {proxyParentClassType.FullName} не должен быть запечатанным.");
+                throw new VRpcException($"Родительский класс {proxyParentClassType.FullName} не должен быть запечатанным.");
 
             //var genericProxyParentClass = proxyParentClassType.MakeGenericType(typeof(TIface));
 
@@ -87,10 +120,9 @@ namespace DynamicMethodsLib
                             break;
                         }
                     }
-
                 }
                 if (baseCtor == null)
-                    throw new InvalidOperationException($"Не найден конструктор принимающий один параметр типа {typeof(TIface).FullName}.");
+                    throw new VRpcException($"Не найден конструктор принимающий один параметр типа {typeof(TIface).FullName}.");
 
                 // Конструктор наследника с параметром.
                 ConstructorBuilder constructor = classType.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, parameterTypes: new[] { instanceType });
@@ -108,7 +140,7 @@ namespace DynamicMethodsLib
             {
                 ConstructorInfo? baseDefaultCtor = proxyParentClassType.GetConstructor(Type.EmptyTypes);
                 if (baseDefaultCtor == null)
-                    throw new InvalidOperationException($"У типа {proxyParentClassType.FullName} должен быть пустой и открытый конструктор.");
+                    throw new VRpcException($"У типа {proxyParentClassType.FullName} должен быть пустой и открытый конструктор.");
             }
 
             int methodCount = 0;
@@ -183,7 +215,7 @@ namespace DynamicMethodsLib
                 }
             }
 
-            foreach (MethodInfo method in ifaceType.GetMethods())
+            foreach (MethodInfo ifaceMethod in ifaceType.GetMethods())
             {
                 //    const MethodAttributes ExplicitImplementation =
                 //MethodAttributes.Private |
@@ -199,26 +231,65 @@ namespace DynamicMethodsLib
                     MethodAttributes.HideBySig |
                     MethodAttributes.NewSlot;
 
-                if (!method.IsSpecialName)
+                if (!ifaceMethod.IsSpecialName)
                 {
-                    ParameterInfo[] parameters = method.GetParameters();
+                    if (ifaceMethod.IsGenericMethod)
+                        throw new VRpcException($"Generic methods are not supported. Method name: '{ifaceMethod.Name}'");
+
+                    Type returnType = ifaceMethod.ReturnType;
+
+                    ParameterInfo[] parameters = ifaceMethod.GetParameters();
                     Type[] returnTypes = parameters.Select(x => x.ParameterType).ToArray();
-                    MethodBuilder methodBuilder = classType.DefineMethod(method.Name, ImplicitImplementation, method.ReturnType, returnTypes);
+                    MethodBuilder ifaceMethodImpl = classType.DefineMethod(ifaceMethod.Name, ImplicitImplementation, returnType, returnTypes);
 
                     int methodId = methodCount++;
                     FieldBuilder fieldMethodInfo = classType.DefineField($"_method{methodId}", typeof(MethodInfo), FieldAttributes.Private | FieldAttributes.InitOnly);
 
-                    fields.Add(new FieldMethodInfo(fieldMethodInfo.Name, method));
-                    methodsDict.Add(methodId, method);
+                    fields.Add(new FieldMethodInfo(fieldMethodInfo.Name, ifaceMethod));
+                    methodsDict.Add(methodId, ifaceMethod);
 
-                    ILGenerator il = methodBuilder.GetILGenerator();
-                    GenerateMethod(il, method, fieldMethodInfo);
+                    ILGenerator il = ifaceMethodImpl.GetILGenerator();
+
+                    if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>))
+                    {
+                        // Тип результата задачи.
+                        Type taskReturnType = returnType.GenericTypeArguments[0];
+                        var invokeMethod = _taskInvokeMethod.MakeGenericMethod(taskReturnType);
+                        GenerateMethod(il, ifaceMethod, fieldMethodInfo, invokeMethod);
+                    }
+                    else if (returnType == typeof(Task))
+                    {
+                        GenerateMethod(il, ifaceMethod, fieldMethodInfo, _emptyTaskInvokeMethod);
+                    }
+                    else if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>))
+                    {
+                        // Тип результата задачи.
+                        Type taskReturnType = returnType.GenericTypeArguments[0];
+                        var invokeMethod = _valueTaskInvokeMethod.MakeGenericMethod(taskReturnType);
+                        GenerateMethod(il, ifaceMethod, fieldMethodInfo, invokeMethod);
+                    }
+                    else if (returnType == typeof(ValueTask))
+                    {
+                        GenerateMethod(il, ifaceMethod, fieldMethodInfo, _emptyValueTaskInvokeMethod);
+                    }
+                    else if (returnType == typeof(void))
+                    // Метод синхронный.
+                    {
+                        GenerateMethod(il, ifaceMethod, fieldMethodInfo, _noresultInvokeMethod);
+                    }
+                    else
+                    // Метод синхронный.
+                    {
+                        var invokeMethod = _invokeMethod.MakeGenericMethod(returnType);
+                        GenerateMethod(il, ifaceMethod, fieldMethodInfo, invokeMethod);
+                    }
 
                     //classType.DefineMethodOverride(methodBuilder, method);
                 }
             }
 
             TypeInfo? ti = classType.CreateTypeInfo();
+            Debug.Assert(ti != null);
             //Type dynamicType = classType.CreateType();
 
             TClass proxy;
@@ -234,17 +305,18 @@ namespace DynamicMethodsLib
             foreach (var item in fields)
             {
                 FieldInfo? field = ti.GetField(item.FieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+                Debug.Assert(field != null);
                 field.SetValue(proxy, item.MethodInfo);
             }
 
             return source == null ? proxy : CopyValues(source, proxy);
         }
 
-        private static void GenerateMethod(ILGenerator il, MethodInfo method, FieldInfo methodInfoField)
+        private static void GenerateMethod(ILGenerator il, MethodInfo method, FieldInfo methodInfoField, MethodInfo proxyMethod)
         {
             ParameterInfo[] parameters = method.GetParameters();
 
-            // Объявить переменную args.
+            // Объявить переменную object[] args.
             LocalBuilder localVariable = il.DeclareLocal(typeof(object[]));
 
             // Загрузить инстанс this.
@@ -257,7 +329,7 @@ namespace DynamicMethodsLib
             // Размер массива args.
             il.Emit_Ldc_I4(parameters.Length);
 
-            // Объявляем object[] args.
+            // Объявляем object[] args = new object[x];
             il.Emit(OpCodes.Newarr, typeof(object));
 
             bool hasOutArgs = parameters.Any(x => x.ParameterType.IsByRef);
@@ -338,7 +410,7 @@ namespace DynamicMethodsLib
                 il.Emit(OpCodes.Ldloc_0);
 
                 // Вызвать метод.
-                il.Emit(OpCodes.Callvirt, _invokeMethod);
+                il.Emit(OpCodes.Callvirt, proxyMethod);
 
                 #region Копирование Out и Ref параметров
 
@@ -377,29 +449,29 @@ namespace DynamicMethodsLib
             else
             {
                 // Вызвать метод.
-                il.CallMethod(_invokeMethod);
+                il.CallMethod(proxyMethod);
             }
 
             // Возврат результата.
             if (method.ReturnType == typeof(void))
             {
                 // Удалить результат функции из стека.
-                il.Emit(OpCodes.Pop);
+                //il.Emit(OpCodes.Pop);
             }
             else
             {
                 if (method.ReturnType.IsValueType)
                 {
                     // Распаковать возвращённый результат что-бы вернуть как object.
-                    il.Emit(OpCodes.Unbox_Any, method.ReturnType);
+                    //il.Emit(OpCodes.Unbox_Any, method.ReturnType);
                 }
                 else
                 {
                     // Не нужно кастовать если возвращаемый тип интерфейса тоже object.
-                    if (method.ReturnType != typeof(object))
-                    {
-                        il.Emit(OpCodes.Isinst, method.ReturnType); // Каст с помощью as.
-                    }
+                    //if (method.ReturnType != typeof(object))
+                    //{
+                        //il.Emit(OpCodes.Isinst, method.ReturnType); // Каст с помощью as.
+                    //}
                 }
             }
             il.Emit(OpCodes.Ret);

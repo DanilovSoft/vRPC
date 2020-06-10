@@ -2,11 +2,13 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
 namespace DanilovSoft.vRPC
 {
     [ProtoContract]
+    [StructLayout(LayoutKind.Auto)]
     internal readonly struct ServerAccessToken
     {
         [ProtoMember(1)]
@@ -17,7 +19,7 @@ namespace DanilovSoft.vRPC
 
         public ServerAccessToken(byte[] claimsPrincipal, DateTime validity)
         {
-            Debug.Assert(claimsPrincipal != default);
+            Debug.Assert(claimsPrincipal != null);
 
             ClaimsPrincipal = claimsPrincipal;
             Validity = validity;

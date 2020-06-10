@@ -1,16 +1,26 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC
 {
+    internal interface IResponseAwaiter
+    {
+        void TrySetException(Exception exception);
+        RequestMethodMeta Request { get; }
+        void DeserializeResponse(ReadOnlyMemory<byte> payload, string? contentEncoding);
+        void TrySetDefaultResult();
+    }
+
     /// <summary>
-    /// Атомарный <see langword="await"/>'ер. Связывает запрос с его результатом.
+    /// Атомарный <see langword="await"/>'ер. Связывает результат с запросом.
     /// </summary>
     [DebuggerDisplay(@"\{Request = {Request.ActionName}\}")]
-    internal sealed class ResponseAwaiter : INotifyCompletion
+    internal sealed class ResponseAwaiter<TResult> : IResponseAwaiter, INotifyCompletion
     {
         public RequestMethodMeta Request { get; }
         /// <summary>
@@ -19,7 +29,8 @@ namespace DanilovSoft.vRPC
         private volatile bool _isCompleted;
         [DebuggerNonUserCode]
         public bool IsCompleted => _isCompleted;
-        private volatile object? _responseValue;
+        [AllowNull]
+        private TResult _responseValue;
         private volatile Exception? _exception;
         private Action? _continuationAtomic;
 
@@ -30,7 +41,7 @@ namespace DanilovSoft.vRPC
             {
                 if (_isCompleted)
                 {
-                    return _exception ?? _responseValue;
+                    return _exception ?? _responseValue as object;
                 }
                 else
                 {
@@ -44,13 +55,13 @@ namespace DanilovSoft.vRPC
         public ResponseAwaiter(RequestMethodMeta requestToSend)
         {
             Request = requestToSend;
+            _responseValue = default;
         }
 
         [DebuggerStepThrough]
-        public ResponseAwaiter GetAwaiter() => this;
+        public ResponseAwaiter<TResult> GetAwaiter() => this;
 
-        //[DebuggerNonUserCode]
-        public object? GetResult()
+        public TResult GetResult()
         {
             if (_exception == null)
             {
@@ -75,11 +86,38 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передает результат ожидающему потоку.
         /// </summary>
-        public void TrySetResult(object? rawResult)
+        private void TrySetResult([AllowNull] TResult result)
         {
-            _responseValue = rawResult;
+            _responseValue = result;
             WakeContinuation();
         }
+
+        public void DeserializeResponse(ReadOnlyMemory<byte> payload, string? contentEncoding)
+        {
+            TResult result = contentEncoding switch
+            {
+                KnownEncoding.ProtobufEncoding => ExtensionMethods.DeserializeProtoBuf<TResult>(payload),
+                _ => ExtensionMethods.DeserializeJson<TResult>(payload.Span), // Сериализатор по умолчанию.
+            };
+            TrySetResult(result);
+        }
+
+        public void TrySetDefaultResult()
+        {
+            TrySetResult(default);
+        }
+
+        ///// <summary>
+        ///// Возвращает подходящий десериализатор соответственно <see cref="ContentEncoding"/>.
+        ///// </summary>
+        //private Func<ReadOnlyMemory<byte>, TResult> GetDeserializer(HeaderDto responseHeader)
+        //{
+        //    return responseHeader.ContentEncoding switch
+        //    {
+        //        KnownEncoding.ProtobufEncoding => ExtensionMethods.DeserializeProtoBuf<TResult>,
+        //        _ => ExtensionMethods.DeserializeJson<TResult>, // Сериализатор по умолчанию.
+        //    };
+        //}
 
         private void WakeContinuation()
         {

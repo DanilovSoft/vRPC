@@ -132,7 +132,7 @@ namespace DanilovSoft.vRPC
         public void ConfigureService(Action<ServiceCollection> configure)
         {
             if (_started)
-                throw new InvalidOperationException($"Конфигурация должна осуществляться до начала приёма соединений.");
+                throw new VRpcException($"Конфигурация должна осуществляться до начала приёма соединений.");
 
             if (configure == null)
                 throw new ArgumentNullException(nameof(configure));
@@ -150,11 +150,11 @@ namespace DanilovSoft.vRPC
             return _serviceCollection.BuildServiceProvider();
         }
 
-        /// <exception cref="ArgumentNullException"/>
+        /// <exception cref="VRpcException"/>
         public void Configure(Action<ServiceProvider> configureApp)
         {
             if (_started)
-                throw new InvalidOperationException($"Конфигурация должна осуществляться до начала приёма соединений.");
+                throw new VRpcException($"Конфигурация должна осуществляться до начала приёма соединений.");
 
             _configureApp = configureApp;
         }
@@ -296,7 +296,7 @@ namespace DanilovSoft.vRPC
         /// Повторный вызов не допускается.
         /// Потокобезопасно.
         /// </summary>
-        /// <exception cref="InvalidOperationException"/>
+        /// <exception cref="VRpcException"/>
         public Task<bool> RunAsync()
         {
             TrySyncStart(shouldThrow: true);
@@ -314,7 +314,7 @@ namespace DanilovSoft.vRPC
         /// <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
         /// Может быть <see langword="null"/>.</param>
         /// <param name="cancellationToken">Токен служащий для остановки сервиса.</param>
-        /// <exception cref="InvalidOperationException"/>
+        /// <exception cref="VRpcException"/>
         /// <exception cref="OperationCanceledException"/>
         public Task<bool> RunAsync(TimeSpan disconnectTimeout, string closeDescription, CancellationToken cancellationToken)
         {
@@ -350,6 +350,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Потокобезопасно запускает сервер. Только первый поток получит True.
         /// </summary>
+        /// <exception cref="VRpcException"/>
         private bool TrySyncStart(bool shouldThrow)
         {
             bool success;
@@ -369,8 +370,8 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Предотвращает повторный запуск сервера.
         /// </summary>
+        /// <exception cref="VRpcException"/>
         /// <exception cref="WasShutdownException"/>
-        /// <exception cref="InvalidOperationException"/>
         private bool InnerTryStart(bool shouldThrow)
         {
             Debug.Assert(Monitor.IsEntered(StartLock));
@@ -395,7 +396,7 @@ namespace DanilovSoft.vRPC
                 else
                 {
                     if (shouldThrow)
-                        throw new InvalidOperationException("A server is already running");
+                        throw new VRpcException("A server is already running");
                 }
             }
             else

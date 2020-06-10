@@ -1,4 +1,5 @@
-﻿using Microsoft.IO;
+﻿using DanilovSoft.vRPC.Source;
+using Microsoft.IO;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -10,16 +11,21 @@ namespace DanilovSoft.vRPC
     internal static class GlobalVars
     {
         internal const char ControllerNameSplitter = '/';
-        public static readonly Action SentinelAction = delegate { Debug.Assert(false); throw new Exception(nameof(ResponseAwaiter)); };
+        public static readonly Action SentinelAction = delegate 
+        { 
+            Debug.Assert(false, "Рассинхронизация потоков! Часовой не должен срабатывать."); 
+            throw new Exception(nameof(IResponseAwaiter)); 
+        };
         private static RecyclableMemoryStreamManager? _memoryManager;
         public static RecyclableMemoryStreamManager RecyclableMemory => LazyInitializer.EnsureInitialized(ref _memoryManager, () => new RecyclableMemoryStreamManager());
 
         public static void Initialize(RecyclableMemoryStreamManager memoryManager)
         {
             if (Interlocked.CompareExchange(ref _memoryManager, memoryManager, null) != null)
-                throw new InvalidOperationException("MemoryManager уже инициализирован");
+                throw new VRpcException("MemoryManager уже инициализирован");
         }
 
+        /// <exception cref="VRpcException"/>
         public static Dictionary<string, Type> FindAllControllers(Assembly assembly)
         {
             var controllers = new Dictionary<string, Type>(StringComparer.InvariantCultureIgnoreCase);
@@ -39,7 +45,7 @@ namespace DanilovSoft.vRPC
                         }
                         else
                         {
-                            throw new InvalidOperationException($"Контроллер типа {controllerType.FullName} должен заканчиваться словом 'Controller'.");
+                            throw new VRpcException($"Контроллер типа {controllerType.FullName} должен заканчиваться словом 'Controller'.");
                         }
                     }
                 }
