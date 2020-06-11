@@ -68,7 +68,6 @@ namespace DanilovSoft.vRPC
         /// Подключенный TCP сокет.
         /// </summary>
         private readonly ManagedWebSocket _ws;
-        //private readonly Pipe _pipe;
         /// <summary>
         /// Коллекция запросов ожидающие ответ от удалённой стороны.
         /// </summary>
@@ -282,9 +281,8 @@ namespace DanilovSoft.vRPC
         /// Запрещает отправку новых запросов; Ожидает когда завершатся текущие запросы 
         /// и отправляет удалённой стороне сообщение о закрытии соединения с ожиданием подтверджения.
         /// Затем выполняет Dispose и взводит <see cref="Completion"/>.
-        /// Не бросает исключения.
-        /// Потокобезопасно.
         /// </summary>
+        /// <remarks>Не бросает исключения. Потокобезопасно.</remarks>
         internal async Task<CloseReason> InnerShutdownAsync(ShutdownRequest stopRequired)
         {
             bool firstTime;
@@ -425,7 +423,6 @@ namespace DanilovSoft.vRPC
         /// Возвращает Task или готовый результат если был вызван синхронный метод.
         /// </summary>
         /// <exception cref="Exception"/>
-        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         [SuppressMessage("Reliability", "CA2000:Ликвидировать объекты перед потерей области", Justification = "Анализатор не видит смену ответственности на Channel")]
         internal static Task<T> OnClientInterfaceCall<T>(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, string? controllerName, object[] args)
         {
@@ -470,7 +467,6 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
         /// </summary>
-        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         private static Task<T> ExecuteRequestStatic<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
         {
             if (!requestMeta.IsNotificationRequest)
@@ -488,7 +484,6 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
         /// </summary>
-        /// <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         private static Task<T> SendRequestAndGetResultStatic<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
@@ -505,7 +500,6 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос как уведомление не ожидая ответа.
         /// </summary>
-        /// <returns>Может быть Null или незавершённый таск в соответствии с сигнатурой <paramref name="methodMeta"/>.</returns>
         private static Task<T> SendNotificationStatic<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta methodMeta)
         {
             Debug.Assert(methodMeta.IsNotificationRequest);
@@ -721,7 +715,7 @@ namespace DanilovSoft.vRPC
         /// <remarks>Происходит при обращении к прокси-интерфейсу.</remarks>
         /// <exception cref="WasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        /// <returns>Таск с RAW объектом от сервера.</returns>
+        /// <returns>Таск с результатом от сервера.</returns>
         private protected Task<T> SendRequestAndWaitResponse<T>(RequestMethodMeta requestMeta, SerializedMessageToSend serMsg)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
@@ -1913,9 +1907,9 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Уменьшает счётчик на 1 при получении ответа на запрос или при отправке ответа на запрос.
+        /// Уменьшает счётчик активных запросов на 1 при получении ответа на запрос или при отправке ответа на запрос.
         /// </summary>
-        /// <returns>True если можно продолжить получение запросов иначе нужно закрыть соединение.</returns>
+        /// <returns>True если можно продолжить получение запросов иначе нужно остановить сервис.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool DecreaseActiveRequestsCount()
         {

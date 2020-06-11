@@ -54,27 +54,27 @@ namespace Client
             var threads = new List<Task>(Threads);
             for (int i = 0; i < Threads; i++)
             {
-                var t = Task.Run(() =>
+                var t = Task.Factory.StartNew(() =>
                 {
-                if (_appExit)
-                    return;
+                    if (_appExit)
+                        return;
 
-                Interlocked.Increment(ref activeThreads);
+                    Interlocked.Increment(ref activeThreads);
 
-                using (var client = new RpcClient(new Uri($"ws://{ipAddress}:{Port}"), true))
-                {
-                    Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client);
-
-                    client.ConfigureService(ioc =>
+                    using (var client = new RpcClient(new Uri($"ws://{ipAddress}:{Port}"), true))
                     {
-                        ioc.AddLogging(loggingBuilder =>
-                        {
-                            loggingBuilder
-                                .AddConsole();
-                        });
-                    });
+                        Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client);
 
-                    var homeController = client.GetProxy<IServerHomeController>();
+                        client.ConfigureService(ioc =>
+                        {
+                            ioc.AddLogging(loggingBuilder =>
+                            {
+                                loggingBuilder
+                                    .AddConsole();
+                            });
+                        });
+
+                        var homeController = client.GetProxy<IServerHomeController>();
                         //homeController.DummyCall(0);
 
                         while (true)
@@ -90,15 +90,14 @@ namespace Client
 
                             while (true)
                             {
-                                var m = MemoryPool<byte>.Shared.Rent(8192);
-                                using (var content = new ReadOnlyMemoryContent(m.Memory.Slice(0, 8192)))
+                                var m = MemoryPool<byte>.Shared.Rent(4096);
+                                using (var content = new ReadOnlyMemoryContent(m.Memory.Slice(0, 4096)))
                                 {
                                     try
                                     {
-                                        //homeController.JsonOnlyInt(1);
-                                        //homeController.MultipartOnlyInt(new ProtobufValueContent(1));
-                                        homeController.PlainByteArray(1, new byte[8192]);
-                                        //homeController.MultipartByteArray(new ProtobufValueContent(1), content);
+                                        homeController.Test();
+                                        //homeController.PlainByteArray(new byte[4096]);
+                                        //homeController.MultipartByteArray(content);
                                     }
                                     catch (WasShutdownException)
                                     {
@@ -118,7 +117,7 @@ namespace Client
                         CloseReason closeReason = client.WaitCompletion();
                     }
                     Interlocked.Decrement(ref activeThreads);
-                });
+                }, TaskCreationOptions.LongRunning);
                 threads.Add(t);
             }
 

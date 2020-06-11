@@ -72,7 +72,6 @@ namespace DynamicMethodsLib
         /// <param name="source"></param>
         /// <param name="instance">Параметр который будет передан в конструктор <typeparamref name="TClass"/></param>
         /// <exception cref="VRpcException"/>
-        /// <returns></returns>
         public static TClass CreateProxy<TIface>(TClass source = default, object? instance = null)
         {
             var ifaceType = typeof(TIface);

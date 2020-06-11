@@ -14,9 +14,10 @@ namespace Client
     {
         void JsonOnlyInt(int id);
         void MultipartOnlyInt(VRpcContent id);
-        void PlainByteArray(int id, byte[] data);
-        void MultipartByteArray(VRpcContent id, VRpcContent data);
+        void PlainByteArray(byte[] data);
+        void MultipartByteArray(VRpcContent data);
         Task DummyCallAsync(int n);
+        void Test();
         Task Test3Async();
         Task<int> Test4Async();
         Task<int> Test2Async();

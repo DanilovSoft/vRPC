@@ -20,7 +20,6 @@ namespace DanilovSoft.vRPC.Resources
         /// </summary>
         /// <param name="message"></param>
         /// <param name="args"></param>
-        /// <returns></returns>
         public static string GetString(string message, params object[] args)
         {
             return string.Format(CultureInfo.CurrentCulture, message, args);

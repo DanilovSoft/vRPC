@@ -24,14 +24,14 @@ namespace Server.Controllers
             _proxy = proxy.Proxy;
         }
 
-        public void PlainByteArray(int n, byte[] data)
+        public void PlainByteArray(byte[] data)
         {
-            Interlocked.Increment(ref Program.ReqCount);
+            //Interlocked.Increment(ref Program.ReqCount);
         }
         
-        public void MultipartByteArray(int n, RentedMemory data)
+        public void MultipartByteArray(RentedMemory data)
         {
-            Interlocked.Increment(ref Program.ReqCount);
+            //Interlocked.Increment(ref Program.ReqCount);
         }
 
         public void MultipartOnlyInt(int n)

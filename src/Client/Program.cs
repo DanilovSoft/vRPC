@@ -76,12 +76,4 @@ namespace Client
             }
         }
     }
-
-    //public class Proxy : ClientInterfaceProxy<IHome>
-    //{
-    //    public Task<int> Test()
-    //    {
-    //        return Invoke(null, null);   
-    //    }
-    //}
 }
