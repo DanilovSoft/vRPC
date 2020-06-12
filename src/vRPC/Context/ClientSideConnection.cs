@@ -29,7 +29,7 @@ namespace DanilovSoft.vRPC
         /// что-бы синхронизироваться со свойством IsAuthenticated.
         /// </summary>
         private readonly object _authLock = new object();
-        public RpcClient Client { get; }
+        public VRpcClient Client { get; }
         /// <summary>
         /// Установка свойства только через блокировку <see cref="_authLock"/>.
         /// Перед чтением этого значения нужно дождаться завершения <see cref="_lastAuthTask"/> — этот таск может модифицировать значение минуя захват блокировки.
@@ -47,7 +47,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Принимает открытое соединение Web-Socket.
         /// </summary>
-        internal ClientSideConnection(RpcClient client, ClientWebSocket ws, ServiceProvider serviceProvider, InvokeActionsDictionary controllers)
+        internal ClientSideConnection(VRpcClient client, ClientWebSocket ws, ServiceProvider serviceProvider, InvokeActionsDictionary controllers)
             : base(ws.ManagedWebSocket, isServer: false, serviceProvider, controllers)
         {
             Client = client;

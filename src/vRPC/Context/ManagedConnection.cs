@@ -944,7 +944,7 @@ namespace DanilovSoft.vRPC
                     {
                         if (TryGetRequestMethod(header, out ControllerActionMeta? action))
                         {
-                            RequestToInvoke? requestToInvoke = null;
+                            RequestContext? requestToInvoke = null;
                             try
                             {
                                 #region Десериализация запроса
@@ -1690,9 +1690,9 @@ namespace DanilovSoft.vRPC
         /// <exception cref="ObjectDisposedException"/>
         /// <param name="receivedRequest">Гарантированно выполнит Dispose.</param>
         /// <returns><see cref="IActionResult"/> или любой объект.</returns>
-        private ValueTask<object?> InvokeControllerAsync(RequestToInvoke receivedRequest)
+        private ValueTask<object?> InvokeControllerAsync(RequestContext receivedRequest)
         {
-            RequestToInvoke? requestToDispose = receivedRequest;
+            RequestContext? requestToDispose = receivedRequest;
             IServiceScope? scopeToDispose = null;
             try
             {
@@ -1703,14 +1703,15 @@ namespace DanilovSoft.vRPC
                     scopeToDispose = scope;
 
                     // Инициализируем Scope текущим соединением.
-                    var getProxyScope = scope.ServiceProvider.GetService<GetProxyScope>();
-                    getProxyScope.GetProxy = this;
+                    var getProxyScope = scope.ServiceProvider.GetService<RequestContextScope>();
+                    getProxyScope.ConnectionContext = this;
 
                     // Активируем контроллер через IoC.
                     var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.ActionMeta.ControllerType) as Controller;
                     Debug.Assert(controller != null);
 
                     // Подготавливаем контроллер.
+                    controller.BeforeInvokeController(receivedRequest);
                     controller.BeforeInvokeController(this, user);
 
                     //BeforeInvokeController(controller);
@@ -1761,7 +1762,7 @@ namespace DanilovSoft.vRPC
                 scopeToDispose?.Dispose();
             }
 
-            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> task, IServiceScope scope, RequestToInvoke pendingRequest)
+            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> task, IServiceScope scope, RequestContext pendingRequest)
             {
                 using (scope)
                 using (pendingRequest)
@@ -1785,7 +1786,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// В новом потоке выполняет запрос и отправляет ему результат или ошибку.
         /// </summary>
-        private void StartProcessRequest(RequestToInvoke request)
+        private void StartProcessRequest(RequestContext request)
         {
 #if NETSTANDARD2_0 || NET472
             ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestThread, (this, request)); // Без замыкания.
@@ -1799,7 +1800,7 @@ namespace DanilovSoft.vRPC
         private static void StartProcessRequestThread(object? state)
         {
             Debug.Assert(state != null);
-            var tuple = ((ManagedConnection, RequestToInvoke))state;
+            var tuple = ((ManagedConnection, RequestContext))state;
 
             StartProcessRequestThread(stateTuple: tuple);
         }  
@@ -1807,7 +1808,7 @@ namespace DanilovSoft.vRPC
 
         // Точка входа для потока из пула.
         [DebuggerStepThrough]
-        private static void StartProcessRequestThread((ManagedConnection self, RequestToInvoke request) stateTuple)
+        private static void StartProcessRequestThread((ManagedConnection self, RequestContext request) stateTuple)
         {
             stateTuple.self.ProcessRequestThreadEntryPoint(stateTuple.request);
         }
@@ -1816,7 +1817,7 @@ namespace DanilovSoft.vRPC
         /// Выполняет запрос и отправляет результат или ошибку.
         /// </summary>
         /// <remarks>Точка входа потока из пула. Необработанные исключения пользователя крашнут процесс.</remarks>
-        private void ProcessRequestThreadEntryPoint(RequestToInvoke requestContext)
+        private void ProcessRequestThreadEntryPoint(RequestContext requestContext)
         {
             // Сокет может быть уже закрыт, например по таймауту,
             // в этом случае ничего выполнять не нужно.
@@ -1869,7 +1870,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
-        private void ProcessRequest(RequestToInvoke requestToInvoke)
+        private void ProcessRequest(RequestContext requestToInvoke)
         {
             if (requestToInvoke.IsResponseRequired)
             {
@@ -1916,7 +1917,7 @@ namespace DanilovSoft.vRPC
 
                     // TO THINK ошибки в таске можно обработать и не провоцируя исключения.
                     // ContinueWith должно быть в 5 раз быстрее. https://stackoverflow.com/questions/51923100/try-catchoperationcanceledexception-vs-continuewith
-                    async void WaitResponseAndSendAsync(ValueTask<object?> task, RequestToInvoke requestToInvoke)
+                    async void WaitResponseAndSendAsync(ValueTask<object?> task, RequestContext requestToInvoke)
                     {
                         Debug.Assert(requestToInvoke.Uid != null);
 
@@ -1954,14 +1955,14 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private void SendOkResponse(RequestToInvoke requestToInvoke, object? actionResult)
+        private void SendOkResponse(RequestContext requestToInvoke, object? actionResult)
         {
             Debug.Assert(requestToInvoke.Uid != null);
 
             SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, actionResult));
         }
 
-        private void SendInternalerverError(RequestToInvoke requestToInvoke, Exception exception)
+        private void SendInternalerverError(RequestContext requestToInvoke, Exception exception)
         {
             Debug.Assert(requestToInvoke.Uid != null);
 
@@ -1969,7 +1970,7 @@ namespace DanilovSoft.vRPC
             SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, new InternalErrorResult("Internal Server Error")));
         }
 
-        private void SendBadRequest(RequestToInvoke requestToInvoke, VRpcBadRequestException exception)
+        private void SendBadRequest(RequestContext requestToInvoke, VRpcBadRequestException exception)
         {
             Debug.Assert(requestToInvoke.Uid != null);
 
@@ -1981,7 +1982,7 @@ namespace DanilovSoft.vRPC
         /// 
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        private void ProcessNotificationRequest(RequestToInvoke notificationRequest)
+        private void ProcessNotificationRequest(RequestContext notificationRequest)
         {
             Debug.Assert(notificationRequest.IsResponseRequired == false);
 

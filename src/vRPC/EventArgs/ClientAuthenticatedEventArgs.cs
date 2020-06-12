@@ -8,7 +8,7 @@ namespace DanilovSoft.vRPC
     {
         public ServerSideConnection Connection { get; }
         public ClaimsPrincipal User { get; }
-        public RpcListener Listener => Connection.Listener;
+        public VRpcListener Listener => Connection.Listener;
 
         [DebuggerStepThrough]
         internal ClientAuthenticatedEventArgs(ServerSideConnection connection, ClaimsPrincipal user)

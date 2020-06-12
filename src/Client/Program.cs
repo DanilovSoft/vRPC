@@ -15,9 +15,9 @@ namespace Client
     {
         static async Task Main()
         {
-            using var listener = new RpcListener(IPAddress.Any, 1234);
+            using var listener = new VRpcListener(IPAddress.Any, 1002);
             listener.Start();
-            using var client = new RpcClient("127.0.0.1", 1234, false, true);
+            using var client = new VRpcClient("127.0.0.1", 1002, false, true);
             client.Connect();
 
             var controller = client.GetProxy<IMultipart>();

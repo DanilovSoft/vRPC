@@ -27,9 +27,10 @@ namespace DanilovSoft.vRPC
         {
             Context = connection as ServerSideConnection;
             Debug.Assert(Context != null, "Возможно перепутаны серверный и клиентский тип контроллера.");
+
             User = user;
         }
-
+        
         /// <exception cref="VRpcException"/>
         public BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal, TimeSpan validTime)
         {

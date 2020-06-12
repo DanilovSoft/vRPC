@@ -10,7 +10,7 @@ namespace DanilovSoft.vRPC
     internal sealed class ClientConnections : ICollection<ServerSideConnection>
     {
         /// <summary>
-        /// Модификация коллекции <see cref="RpcListener._connections"/> допускается с захватом этой блокировки.
+        /// Модификация коллекции <see cref="VRpcListener._connections"/> допускается с захватом этой блокировки.
         /// </summary>
         public readonly object SyncObj = new object();
         private readonly List<ServerSideConnection> _list;

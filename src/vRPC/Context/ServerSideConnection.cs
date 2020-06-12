@@ -43,11 +43,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Сервер который принял текущее соединение.
         /// </summary>
-        public RpcListener Listener { get; }
+        public VRpcListener Listener { get; }
 
         // ctor.
         // Только Listener может создать этот класс.
-        internal ServerSideConnection(ManagedWebSocket clientConnection, ServiceProvider serviceProvider, RpcListener listener)
+        internal ServerSideConnection(ManagedWebSocket clientConnection, ServiceProvider serviceProvider, VRpcListener listener)
             : base(clientConnection, isServer: true, serviceProvider, listener.InvokeActions)
         {
             Listener = listener;

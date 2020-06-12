@@ -23,7 +23,7 @@ namespace DanilovSoft.vRPC
 
         /// <remarks>Не бросает исключения.</remarks>
         public static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerActionMeta action, HeaderDto header, 
-            [MaybeNullWhen(false)] out RequestToInvoke? result,
+            [MaybeNullWhen(false)] out RequestContext? result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
             try
@@ -82,7 +82,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="JsonException"/>
         /// <returns>True если успешно десериализовали.</returns>
         private static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, ControllerActionMeta action, HeaderDto header, 
-            [MaybeNullWhen(false)] out RequestToInvoke? result,
+            [MaybeNullWhen(false)] out RequestContext? result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
 #if DEBUG
@@ -131,7 +131,7 @@ namespace DanilovSoft.vRPC
             if (ValidateArgumentsCount(action.Parametergs, argsInJsonCounter, action.ActionFullName, out error))
             {
                 error = null;
-                result = new RequestToInvoke(header.Uid, action, args, Array.Empty<IDisposable>());
+                result = new RequestContext(header.Uid, action, args, Array.Empty<IDisposable>());
                 return true;
             }
             else
@@ -144,7 +144,7 @@ namespace DanilovSoft.vRPC
 
         /// <exception cref="Exception"/>
         private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerActionMeta action, HeaderDto header,
-            [MaybeNullWhen(false)] out RequestToInvoke? result,
+            [MaybeNullWhen(false)] out RequestContext? result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
             object[] args;
@@ -170,7 +170,7 @@ namespace DanilovSoft.vRPC
             {
                 if (DeserializeArgs(content, action, args, disposableArgs, out error))
                 {
-                    result = new RequestToInvoke(header.Uid, action, args, disposableArgs);
+                    result = new RequestContext(header.Uid, action, args, disposableArgs);
                     disposableArgs = null; // Предотвратить Dispose.
                     error = null;
                     return true;

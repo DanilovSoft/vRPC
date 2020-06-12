@@ -9,7 +9,7 @@ namespace XUnitTest
         [Fact]
         public void TestInterfaceNaming()
         {
-            var rpc = new RpcClient("127.0.0.1", 1234);
+            var rpc = new VRpcClient("127.0.0.1", 1234, false, true);
 
             var decorator = rpc.GetProxyDecorator<IHomeController>();
             Assert.Equal("Home", decorator.ControllerName);

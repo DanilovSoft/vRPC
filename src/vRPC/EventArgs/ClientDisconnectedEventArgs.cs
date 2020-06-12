@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
         /// Причина закрытия соединения.
         /// </summary>
         public CloseReason CloseReason { get; }
-        public RpcListener Listener => Connection.Listener;
+        public VRpcListener Listener => Connection.Listener;
 
         [DebuggerStepThrough]
         internal ClientDisconnectedEventArgs(ServerSideConnection clientContext, CloseReason closeReason)

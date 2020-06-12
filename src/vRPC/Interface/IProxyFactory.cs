@@ -33,9 +33,11 @@ namespace DanilovSoft.vRPC
         public string? RemoteControllerName => ((IInterfaceDecorator<T>)Proxy).ControllerName;
 
         // Вызывается через рефлексию.
-        public ProxyFactory(GetProxyScope getProxyScope)
+        public ProxyFactory(RequestContextScope getProxyScope)
         {
-            Proxy = getProxyScope.GetProxy.GetProxy<T>();
+            Debug.Assert(getProxyScope.ConnectionContext != null);
+
+            Proxy = getProxyScope.ConnectionContext.GetProxy<T>();
         }
     }
 }

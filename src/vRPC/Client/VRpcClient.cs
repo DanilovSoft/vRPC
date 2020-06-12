@@ -18,7 +18,7 @@ namespace DanilovSoft.vRPC
     /// Контекст клиентского соединения.
     /// </summary>
     [DebuggerDisplay(@"\{{DebugDisplay,nq}\}")]
-    public sealed class RpcClient : IDisposable, IGetProxy
+    public sealed class VRpcClient : IDisposable, IGetProxy
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay
@@ -26,7 +26,7 @@ namespace DanilovSoft.vRPC
             get
             {
                 var state = State;
-                if (state == RpcState.Open && IsAuthenticated)
+                if (state == VRpcState.Open && IsAuthenticated)
                 {
                     return $"{state}, Authenticated";
                 }
@@ -70,14 +70,14 @@ namespace DanilovSoft.vRPC
         /// Не бросает исключения.
         /// </summary>
         public Task<CloseReason> Completion => _completion ?? CloseReason.NoConnectionCompletion;
-        public RpcState State
+        public VRpcState State
         {
             get
             {
                 if (_shutdownRequest != null)
-                    return RpcState.ShutdownRequest;
+                    return VRpcState.ShutdownRequest;
 
-                return _connection != null ? RpcState.Open : RpcState.Closed;
+                return _connection != null ? VRpcState.Open : VRpcState.Closed;
             }
         }
         /// <summary>
@@ -108,7 +108,7 @@ namespace DanilovSoft.vRPC
         public System.Net.EndPoint? RemoteEndPoint => _connection?.RemoteEndPoint;
 
         // ctor.
-        static RpcClient()
+        static VRpcClient()
         {
             Warmup.DoWarmup();
         }
@@ -118,7 +118,7 @@ namespace DanilovSoft.vRPC
         /// Создаёт контекст клиентского соединения.
         /// </summary>
         /// <param name="allowAutoConnect">Разрешено ли интерфейсам самостоятельно устанавливать и повторно переподключаться к серверу.</param>
-        public RpcClient(Uri serverAddress, bool allowAutoConnect = true) 
+        public VRpcClient(Uri serverAddress, bool allowAutoConnect) 
             : this(Assembly.GetCallingAssembly(), serverAddress, allowAutoConnect)
         {
 
@@ -129,7 +129,7 @@ namespace DanilovSoft.vRPC
         /// Создаёт контекст клиентского соединения.
         /// </summary>
         /// <param name="allowAutoConnect">Разрешено ли интерфейсам самостоятельно устанавливать и повторно переподключаться к серверу.</param>
-        public RpcClient(string host, int port, bool ssl = false, bool allowAutoConnect = true) 
+        public VRpcClient(string host, int port, bool ssl, bool allowAutoConnect) 
             : this(Assembly.GetCallingAssembly(), new Uri($"{(ssl ? "wss" : "ws")}://{host}:{port}"), allowAutoConnect)
         {
             
@@ -141,7 +141,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="controllersAssembly">Сборка в которой осуществляется поиск контроллеров.</param>
         /// <param name="serverAddress">Адрес сервера.</param>
-        private RpcClient(Assembly controllersAssembly, Uri serverAddress, bool allowAutoConnect)
+        private VRpcClient(Assembly controllersAssembly, Uri serverAddress, bool allowAutoConnect)
         {
             Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
 
@@ -821,7 +821,7 @@ namespace DanilovSoft.vRPC
             foreach (Type controllerType in controllers)
                 _serviceCollection.AddScoped(controllerType);
 
-            _serviceCollection.AddScoped<GetProxyScope>();
+            _serviceCollection.AddScoped<RequestContextScope>();
             _serviceCollection.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
 
             //ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();

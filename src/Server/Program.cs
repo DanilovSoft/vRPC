@@ -15,7 +15,7 @@ namespace Server
     {
         static void Main()
         {
-            var listener = new RpcListener(IPAddress.Any, 1234);
+            var listener = new VRpcListener(IPAddress.Any, 1234);
             listener.ClientConnected += Listener_ClientConnected;
             listener.ClientAuthenticated += Listener_ClientAuthenticated;
             listener.ClientSignedOut += Listener_ClientSignedOut;

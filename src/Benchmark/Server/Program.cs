@@ -27,7 +27,7 @@ namespace Server
             Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
 
             RpcInitializer.Initialize(_memoryManager);
-            using (var listener = new RpcListener(IPAddress.Any, Port))
+            using (var listener = new VRpcListener(IPAddress.Any, Port))
             {
                 listener.ConfigureService(ioc =>
                 {

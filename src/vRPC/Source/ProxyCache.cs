@@ -32,7 +32,7 @@ namespace DanilovSoft.vRPC
         }
 
         //[DebuggerStepThrough]
-        private static void InitializeAsyncPropxy<T>(string controllerName, ClientInterfaceProxy<T> p, RpcClient rpcClient) where T : class
+        private static void InitializeAsyncPropxy<T>(string controllerName, ClientInterfaceProxy<T> p, VRpcClient rpcClient) where T : class
         {
             p.InitializeClone(rpcClient, controllerName);
         }
@@ -42,9 +42,9 @@ namespace DanilovSoft.vRPC
             return GetProxy<ServerInterfaceProxy<TIface>, TIface, ManagedConnection>(InitializePropxy, connection);
         }
 
-        internal ClientInterfaceProxy<TIface> GetProxyDecorator<TIface>(RpcClient rpcClient) where TIface : class
+        internal ClientInterfaceProxy<TIface> GetProxyDecorator<TIface>(VRpcClient rpcClient) where TIface : class
         {
-            return GetProxy<ClientInterfaceProxy<TIface>, TIface, RpcClient>(InitializeAsyncPropxy, rpcClient);
+            return GetProxy<ClientInterfaceProxy<TIface>, TIface, VRpcClient>(InitializeAsyncPropxy, rpcClient);
         }
 
         private TClass GetProxy<TClass, TIface, TArg1>(Action<string, TClass, TArg1> initializeClone, TArg1 arg1) 

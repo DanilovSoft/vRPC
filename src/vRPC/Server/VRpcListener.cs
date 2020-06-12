@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    public sealed class RpcListener : IHostApplicationLifetime, IDisposable
+    public sealed class VRpcListener : IHostApplicationLifetime, IDisposable
     {
         /// <summary>
         /// Triggered when the application host has fully started.
@@ -89,13 +89,13 @@ namespace DanilovSoft.vRPC
         public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
         public TimeSpan ClientReceiveTimeout { get => _wsServ.ClientReceiveTimeout; set => _wsServ.ClientReceiveTimeout = value; }
 
-        static RpcListener()
+        static VRpcListener()
         {
             Warmup.DoWarmup();
         }
 
         // ctor.
-        public RpcListener(IPAddress ipAddress, int port)
+        public VRpcListener(IPAddress ipAddress, int port)
         {
             _wsServ.HandshakeTimeout = TimeSpan.FromSeconds(30);
             _wsServ.Bind(new IPEndPoint(ipAddress, port));
@@ -143,7 +143,7 @@ namespace DanilovSoft.vRPC
 
         private ServiceProvider BuildServiceCollection()
         {
-            _serviceCollection.AddScoped<GetProxyScope>();
+            _serviceCollection.AddScoped<RequestContextScope>();
             _serviceCollection.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
             _serviceCollection.AddSingleton< IHostApplicationLifetime>(this);
 

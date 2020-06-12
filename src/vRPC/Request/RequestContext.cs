@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
     /// Содержит разобранный запрос с параметрами полученный от удалённой стороны.
     /// </summary>
     [DebuggerDisplay("{" + nameof(ActionMeta) + "}")]
-    internal sealed class RequestToInvoke : IDisposable
+    internal sealed class RequestContext : IDisposable
     {
         private IList<IDisposable>? _disposableArgs;
 
@@ -34,7 +34,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public object[] Args { get; }
 
-        public RequestToInvoke(int? uid, ControllerActionMeta invokeAction, object[] args, IList<IDisposable> disposableArgs)
+        public RequestContext(int? uid, ControllerActionMeta invokeAction, object[] args, IList<IDisposable> disposableArgs)
         {
             Uid = uid;
             ActionMeta = invokeAction;

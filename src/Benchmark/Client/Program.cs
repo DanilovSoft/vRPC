@@ -61,7 +61,7 @@ namespace Client
 
                     Interlocked.Increment(ref activeThreads);
 
-                    using (var client = new RpcClient(new Uri($"ws://{ipAddress}:{Port}"), true))
+                    using (var client = new VRpcClient(new Uri($"ws://{ipAddress}:{Port}"), true))
                     {
                         Console.CancelKeyPress += (__, e) => Console_CancelKeyPress(e, client);
 
@@ -150,7 +150,7 @@ namespace Client
             }
         }
 
-        private static void Console_CancelKeyPress(ConsoleCancelEventArgs e, RpcClient client)
+        private static void Console_CancelKeyPress(ConsoleCancelEventArgs e, VRpcClient client)
         {
             _appExit = true;
 

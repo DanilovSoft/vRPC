@@ -15,7 +15,7 @@ namespace DanilovSoft.vRPC.Decorator
     public abstract class ClientInterfaceProxy
     {
         public string? ControllerName { get; protected set; }
-        public RpcClient? Client { get; protected set; }
+        public VRpcClient? Client { get; protected set; }
     }
 
     /// <summary>
@@ -34,7 +34,7 @@ namespace DanilovSoft.vRPC.Decorator
             
         }
 
-        internal void InitializeClone(RpcClient rpcClient, string? controllerName)
+        internal void InitializeClone(VRpcClient rpcClient, string? controllerName)
         {
             Proxy = this as TIface;
             Client = rpcClient;
@@ -93,6 +93,7 @@ namespace DanilovSoft.vRPC.Decorator
         }
 
         // Вызывается через рефлексию — не переименовывать.
+        [DebuggerHidden]
         protected T Invoke<T>(MethodInfo targetMethod, object[] args)
         {
             Debug.Assert(Client != null);
@@ -102,7 +103,8 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(task != null);
 
             // Результатом может быть исключение.
-            return task.GetAwaiter().GetResult();
+            T result = task.GetAwaiter().GetResult();
+            return result;
         }
 
         // Вызывается через рефлексию — не переименовывать.
