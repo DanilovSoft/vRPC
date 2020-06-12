@@ -371,7 +371,7 @@ namespace DanilovSoft.vRPC
         /// Предотвращает повторный запуск сервера.
         /// </summary>
         /// <exception cref="VRpcException"/>
-        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         private bool InnerTryStart(bool shouldThrow)
         {
             Debug.Assert(Monitor.IsEntered(StartLock));
@@ -402,7 +402,7 @@ namespace DanilovSoft.vRPC
             else
             {
                 if (shouldThrow)
-                    throw new WasShutdownException(_stopRequired);
+                    throw new VRpcWasShutdownException(_stopRequired);
             }
 
             // Сервер уже запущен или находится в остановленном состоянии.

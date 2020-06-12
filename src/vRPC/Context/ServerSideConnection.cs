@@ -1,4 +1,5 @@
 ﻿using DanilovSoft.vRPC.Decorator;
+using DanilovSoft.vRPC.Source;
 using DanilovSoft.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -204,7 +205,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Проверяет доступность запрашиваемого метода пользователем.
         /// </summary>
-        /// <exception cref="BadRequestException"/>
+        /// <exception cref="VRpcBadRequestException"/>
         private protected override bool ActionPermissionCheck(ControllerActionMeta actionMeta, [NotNullWhen(false)] out IActionResult? permissionError, out ClaimsPrincipal user)
         {
             // Скопируем пользователя что-бы не мог измениться в пределах запроса.
@@ -240,41 +241,37 @@ namespace DanilovSoft.vRPC
 
         #region Call Helpers
 
+        /// <exception cref="VRpcException"/>
         public void Call(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(void), false);
-            Task<object?> pendingRequest = SendRequestAndWaitResponse<object?>(requestMeta, args);
-            object? rawResult = pendingRequest.GetAwaiter().GetResult(); //ConvertRequestTask(requestMeta, pendingRequest);
-            if (rawResult is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
+            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(VoidStruct), false);
+            Task<VoidStruct> requestTask = SendRequestAndWaitResponse<VoidStruct>(requestMeta, args);
+            requestTask.GetAwaiter().GetResult();
         }
 
+        /// <exception cref="VRpcException"/>
         public Task CallAsync(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(Task), false);
-            Task<object?> task = SendRequestAndWaitResponse<object?>(requestMeta, args);
-            //Task? task = ConvertRequestTask(requestMeta, pendingRequestTask) as Task;
-            Debug.Assert(task != null, "Здесь результат не может быть Null");
-            return task;
+            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(VoidStruct), false);
+            Task<VoidStruct> requestTask = SendRequestAndWaitResponse<VoidStruct>(requestMeta, args);
+            return requestTask;
         }
 
+        /// <exception cref="VRpcException"/>
         [return: MaybeNull]
-        public T Call<T>(string controllerName, string actionName, params object[] args)
+        public TResult Call<TResult>(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(T), false);
-            Task<T> requestTask = SendRequestAndWaitResponse<T>(requestMeta, args);
-            T result = requestTask.GetAwaiter().GetResult(); // (T)ConvertRequestTask(requestMeta, requestTask);
+            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(TResult), false);
+            Task<TResult> requestTask = SendRequestAndWaitResponse<TResult>(requestMeta, args);
+            TResult result = requestTask.GetAwaiter().GetResult();
             return result;
         }
 
-        public Task<T> CallAsync<T>(string controllerName, string actionName, params object[] args)
+        /// <exception cref="VRpcException"/>
+        public Task<TResult> CallAsync<TResult>(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(Task<T>), false);
-            Task<T> requestTask = SendRequestAndWaitResponse<T>(requestMeta, args);
-            //Task<T>? task = ConvertRequestTask(requestMeta, requestTask) as Task<T>;
-            //Debug.Assert(task != null, "Здесь результат не может быть Null");
+            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(TResult), false);
+            Task<TResult> requestTask = SendRequestAndWaitResponse<TResult>(requestMeta, args);
             return requestTask;
         }
 

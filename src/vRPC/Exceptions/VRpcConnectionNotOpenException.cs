@@ -9,26 +9,26 @@ namespace DanilovSoft.vRPC
     /// Исключение которое происходит при обращении к закрытому соединению.
     /// </summary>
     [Serializable]
-    public sealed class ConnectionNotOpenException : Exception
+    public sealed class VRpcConnectionNotOpenException : VRpcException
     {
         internal const string ConnectionClosedMessage = "Соединение не установлено.";
 
-        public ConnectionNotOpenException() : base(ConnectionClosedMessage)
+        public VRpcConnectionNotOpenException() : base(ConnectionClosedMessage)
         {
 
         }
 
-        internal ConnectionNotOpenException(string сloseDescription) : base(сloseDescription)
+        internal VRpcConnectionNotOpenException(string сloseDescription) : base(сloseDescription)
         {
 
         }
 
-        public ConnectionNotOpenException(string message, Exception innerException) : base(message, innerException)
+        public VRpcConnectionNotOpenException(string message, Exception innerException) : base(message, innerException)
         {
         }
 
 #pragma warning disable CA1801
-        private ConnectionNotOpenException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        private VRpcConnectionNotOpenException(SerializationInfo serializationInfo, StreamingContext streamingContext)
         {
 
         }

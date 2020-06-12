@@ -255,34 +255,34 @@ namespace DanilovSoft.vRPC
             return new SocketException((int)socketError);
         }
 
-        // TODO закэшировать?
-        /// <summary>
-        /// Возвращает инкапсулированный в <see cref="Task"/> тип результата функции.
-        /// </summary>
-        public static Type GetMethodReturnType(this MethodInfo method)
-        {
-            // Если возвращаемый тип функции — Task.
-            if (method.IsAsyncMethod())
-            {
-                // Если у задачи есть результат.
-                if (method.ReturnType.IsGenericType)
-                {
-                    // Тип результата задачи.
-                    Type resultType = method.ReturnType.GenericTypeArguments[0];
-                    return resultType;
-                }
-                else
-                {
-                    // Возвращаемый тип Task(без результата).
-                    return typeof(void);
-                }
-            }
-            else
-            // Была вызвана синхронная функция.
-            {
-                return method.ReturnType;
-            }
-        }
+        //// TODO закэшировать?
+        ///// <summary>
+        ///// Возвращает инкапсулированный в <see cref="Task"/> тип результата функции.
+        ///// </summary>
+        //public static Type GetMethodReturnType(this MethodInfo method)
+        //{
+        //    // Если возвращаемый тип функции — Task.
+        //    if (method.IsAsyncMethod())
+        //    {
+        //        // Если у задачи есть результат.
+        //        if (method.ReturnType.IsGenericType)
+        //        {
+        //            // Тип результата задачи.
+        //            Type resultType = method.ReturnType.GenericTypeArguments[0];
+        //            return resultType;
+        //        }
+        //        else
+        //        {
+        //            // Возвращаемый тип Task(без результата).
+        //            return typeof(void);
+        //        }
+        //    }
+        //    else
+        //    // Была вызвана синхронная функция.
+        //    {
+        //        return method.ReturnType;
+        //    }
+        //}
 
         public static Exception ToException(this CloseReason closeReason)
         {
@@ -291,11 +291,11 @@ namespace DanilovSoft.vRPC
             {
                 if(closeReason.CloseStatus == WebSocketCloseStatus.NormalClosure)
                 {
-                    return new ConnectionClosedException(closeReason.CloseDescription ?? ConnectionClosedException.ConnectionClosedNormallyMessage);
+                    return new VRpcConnectionClosedException(closeReason.CloseDescription ?? VRpcConnectionClosedException.ConnectionClosedNormallyMessage);
                 }
                 else
                 {
-                    return new ConnectionClosedException(GetMessageFromCloseFrame(closeReason.CloseStatus, closeReason.CloseDescription));
+                    return new VRpcConnectionClosedException(GetMessageFromCloseFrame(closeReason.CloseStatus, closeReason.CloseDescription));
                 }
             }
             else
@@ -327,7 +327,7 @@ namespace DanilovSoft.vRPC
             }
 
             if (exceptionMessage == null)
-                exceptionMessage = ConnectionClosedException.ConnectionClosedNormallyMessage;
+                exceptionMessage = VRpcConnectionClosedException.ConnectionClosedNormallyMessage;
 
             return exceptionMessage;
         }
@@ -397,9 +397,9 @@ namespace DanilovSoft.vRPC
                 throw new ArgumentOutOfRangeException(arguemntName, "AccessToken is empty");
         }
 
-        internal static WasShutdownException ToException(this ShutdownRequest shutdownRequest)
+        internal static VRpcWasShutdownException ToException(this ShutdownRequest shutdownRequest)
         {
-            return new WasShutdownException(shutdownRequest);
+            return new VRpcWasShutdownException(shutdownRequest);
         }
     }
 }

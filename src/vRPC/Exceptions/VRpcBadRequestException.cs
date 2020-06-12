@@ -8,31 +8,31 @@ namespace DanilovSoft.vRPC
     /// Исключение этого типа прозрачно транслируется на удаленное подключение.
     /// </summary>
     [Serializable]
-    public sealed class BadRequestException : Exception, ISerializable
+    public sealed class VRpcBadRequestException : VRpcException, ISerializable
     {
         public StatusCode ErrorCode { get; }
 
-        public BadRequestException()
+        public VRpcBadRequestException()
         {
 
         }
 
-        public BadRequestException(string message) : base(message)
+        public VRpcBadRequestException(string message) : base(message)
         {
 
         }
 
-        public BadRequestException(string message, StatusCode errorCode) : base(message)
+        public VRpcBadRequestException(string message, StatusCode errorCode) : base(message)
         {
             ErrorCode = errorCode;
         }
 
-        public BadRequestException(string message, Exception innerException) : base(message, innerException)
+        public VRpcBadRequestException(string message, Exception innerException) : base(message, innerException)
         {
         }
 
 #pragma warning disable CA1801
-        private BadRequestException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        private VRpcBadRequestException(SerializationInfo serializationInfo, StreamingContext streamingContext)
         {
 
         }

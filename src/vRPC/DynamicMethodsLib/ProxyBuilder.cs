@@ -451,28 +451,28 @@ namespace DynamicMethodsLib
                 il.CallMethod(proxyMethod);
             }
 
-            // Возврат результата.
-            if (method.ReturnType == typeof(void))
-            {
-                // Удалить результат функции из стека.
-                //il.Emit(OpCodes.Pop);
-            }
-            else
-            {
-                if (method.ReturnType.IsValueType)
-                {
-                    // Распаковать возвращённый результат что-бы вернуть как object.
-                    //il.Emit(OpCodes.Unbox_Any, method.ReturnType);
-                }
-                else
-                {
-                    // Не нужно кастовать если возвращаемый тип интерфейса тоже object.
-                    //if (method.ReturnType != typeof(object))
-                    //{
-                        //il.Emit(OpCodes.Isinst, method.ReturnType); // Каст с помощью as.
-                    //}
-                }
-            }
+            //// Возврат результата.
+            //if (method.ReturnType == typeof(void))
+            //{
+            //    // Удалить результат функции из стека.
+            //    il.Emit(OpCodes.Pop);
+            //}
+            //else
+            //{
+            //    if (method.ReturnType.IsValueType)
+            //    {
+            //        // Распаковать возвращённый результат что-бы вернуть как object.
+            //        il.Emit(OpCodes.Unbox_Any, method.ReturnType);
+            //    }
+            //    else
+            //    {
+            //        // Не нужно кастовать если возвращаемый тип интерфейса тоже object.
+            //        if (method.ReturnType != typeof(object))
+            //        {
+            //            il.Emit(OpCodes.Isinst, method.ReturnType); // Каст с помощью as.
+            //        }
+            //    }
+            //}
             il.Emit(OpCodes.Ret);
         }
 

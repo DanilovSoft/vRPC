@@ -21,7 +21,7 @@ namespace XUnitTest
             }
             catch (VRpcException)
             {
-                
+                // OK
             }
 
             try
@@ -31,7 +31,7 @@ namespace XUnitTest
             }
             catch (VRpcException)
             {
-
+                // OK
             }
 
             try
@@ -41,14 +41,14 @@ namespace XUnitTest
             }
             catch (VRpcException)
             {
-
-            }   
+                // OK
+            }
         }
 
         [Fact]
         public void TestDebugValidator()
         {
-            DanilovSoft.vRPC.Decorator.DebugOnly.ValidateIsInstanceOfType(TimeSpan.Zero, typeof(TimeSpan));
+            //DanilovSoft.vRPC.Decorator.DebugOnly.ValidateIsInstanceOfType(TimeSpan.Zero, typeof(TimeSpan));
         }
     }
 

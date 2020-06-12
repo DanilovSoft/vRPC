@@ -301,7 +301,7 @@ namespace DanilovSoft.vRPC
                     {
                         // Можно безопасно остановить сокет.
                         // Не бросает исключения.
-                        TryPrivateBeginClose(stopRequired.CloseDescription);
+                        TryBeginClose(stopRequired.CloseDescription);
                     }
                     // Иначе другие потоки уменьшив переменную увидят что флаг стал -1
                     // Это будет соглашением о необходимости остановки.
@@ -324,7 +324,7 @@ namespace DanilovSoft.vRPC
                 }
 
                 // Не бросает исключения.
-                TryDispose(CloseReason.FromException(new WasShutdownException(stopRequired)));
+                TryDispose(CloseReason.FromException(new VRpcWasShutdownException(stopRequired)));
 
                 CloseReason closeReason = _completionTcs.Task.Result;
 
@@ -353,7 +353,7 @@ namespace DanilovSoft.vRPC
         /// Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        private async void TryPrivateBeginClose(string? closeDescription)
+        private async void TryBeginClose(string? closeDescription)
         {
             // Эту функцию вызывает тот поток который поймал флаг о необходимости завершения сервиса.
             // Благодаря событию WebSocket.Disconnect у нас гарантированно вызовется AtomicDispose.
@@ -381,31 +381,31 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
-        /// Не бросает исключения.
         /// </summary>
-        private void BeginSendCloseBeforeShutdown()
+        /// <remarks>Не бросает исключения.</remarks>
+        private void TryBeginSendCloseBeforeShutdown()
         {
             Debug.Assert(_shutdownRequest != null);
 
-            TryPrivateBeginClose(_shutdownRequest.CloseDescription);
+            TryBeginClose(_shutdownRequest.CloseDescription);
         }
 
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
-        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         internal Task<T> OnInterfaceMethodCall<T>(MethodInfo targetMethod, string? controllerName, object[] args)
         {
             // Создаём запрос для отправки.
-            RequestMethodMeta requestMeta = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, cn), controllerName);
+            var requestMeta = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, typeof(T), cn), controllerName);
 
             // Сериализуем запрос в память.
             SerializedMessageToSend serMsg = requestMeta.SerializeRequest(args);
             if (!requestMeta.IsNotificationRequest)
             {
                 // Отправляем запрос.
-                Task<T> pendingRequestTask = SendRequestAndWaitResponse<T>(requestMeta, serMsg);
+                Task<T> pendingRequestTask = SendSerializedRequestAndWaitResponse<T>(requestMeta, serMsg);
                 return pendingRequestTask;
                 //return ConvertRequestTask(requestMeta, pendingRequestTask);
             }
@@ -427,8 +427,8 @@ namespace DanilovSoft.vRPC
         internal static Task<T> OnClientInterfaceCall<T>(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, string? controllerName, object[] args)
         {
             // Создаём запрос для отправки.
-            RequestMethodMeta methodMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, 
-                factory: (mi, cn) => new RequestMethodMeta(mi, cn), controllerName);
+            var methodMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, 
+                factory: (mi, cn) => new RequestMethodMeta(mi, typeof(T), cn), controllerName);
 
             // Сериализуем запрос в память. Лучше выполнить до завершения подключения.
             SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
@@ -527,7 +527,7 @@ namespace DanilovSoft.vRPC
         /// Может бросить исключение.
         /// Чаще всего возвращает <see cref="Task.CompletedTask"/>.
         /// </summary>
-        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         private static Task SendNotificationStaticAsync(ValueTask<ClientSideConnection> connectingTask, SerializedMessageToSend serializedMessage)
         {
@@ -566,7 +566,7 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = connectionTask.Result;
 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendRequestAndWaitResponse<T>(requestMetadata, serMsg);
+                return connection.SendSerializedRequestAndWaitResponse<T>(requestMetadata, serMsg);
             }
             else
             {
@@ -578,7 +578,7 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendRequestAndWaitResponse<T>(requestMetadata, serMsg);
+                return connection.SendSerializedRequestAndWaitResponse<T>(requestMetadata, serMsg);
             }
         }
 
@@ -673,7 +673,7 @@ namespace DanilovSoft.vRPC
         /// Происходит при обращении к проксирующему интерфейсу. 
         /// Добавляет запрос-уведомление в очередь на отправку (выполнит отправку текущим потоком если очередь пуста).
         /// </summary>
-        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         internal void PostNotification(SerializedMessageToSend serializedMessage)
         {
@@ -688,7 +688,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос и ожидает его ответ.
         /// </summary>
-        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         private protected Task<T> SendRequestAndWaitResponse<T>(RequestMethodMeta requestMeta, object[] args)
         {
@@ -698,7 +698,7 @@ namespace DanilovSoft.vRPC
             SerializedMessageToSend? serMsgToDispose = serMsgRequest;
             try
             {
-                Task<T> pendingRequestTask = SendRequestAndWaitResponse<T>(requestMeta, serMsgRequest);
+                Task<T> pendingRequestTask = SendSerializedRequestAndWaitResponse<T>(requestMeta, serMsgRequest);
                 serMsgToDispose = null;
                 return pendingRequestTask;
             }
@@ -713,14 +713,15 @@ namespace DanilovSoft.vRPC
         /// Передаёт владение объектом <paramref name="serMsg"/> другому потоку.
         /// </summary>
         /// <remarks>Происходит при обращении к прокси-интерфейсу.</remarks>
-        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="SocketException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <returns>Таск с результатом от сервера.</returns>
-        private protected Task<T> SendRequestAndWaitResponse<T>(RequestMethodMeta requestMeta, SerializedMessageToSend serMsg)
+        private protected Task<T> SendSerializedRequestAndWaitResponse<T>(RequestMethodMeta requestMeta, SerializedMessageToSend serMsg)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
-            SerializedMessageToSend? serMsgToDispose = serMsg;
 
+            SerializedMessageToSend? serMsgToDispose = serMsg;
             try
             {
                 ThrowIfDisposed();
@@ -1018,65 +1019,7 @@ namespace DanilovSoft.vRPC
                 if (header.Uid != null && _pendingRequests.TryRemove(header.Uid.Value, out IResponseAwaiter? respAwaiter))
                 // Передать ответ ожидающему потоку.
                 {
-                    #region Передать ответ ожидающему потоку
-
-                    if (header.StatusCode == StatusCode.Ok)
-                    // Запрос на удалённой стороне был выполнен успешно.
-                    {
-                        #region Передать успешный результат
-
-                        if (respAwaiter.Request.IncapsulatedReturnType != typeof(void))
-                        // Поток ожидает некий объект как результат.
-                        {
-                            if (!payload.IsEmpty)
-                            {
-                                // Десериализатор в соответствии с ContentEncoding.
-                                //Func<ReadOnlyMemory<byte>, Type, object> deserializer = header.GetDeserializer();
-                                try
-                                {
-                                    respAwaiter.DeserializeResponse(payload, header.ContentEncoding);
-                                }
-                                catch (Exception deserializationException)
-                                {
-                                    // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
-                                    respAwaiter.TrySetException(new RpcProtocolErrorException(
-                                        $"Ошибка десериализации ответа на запрос \"{respAwaiter.Request.ActionFullName}\".", deserializationException));
-                                }
-                            }
-                            else
-                            // У ответа отсутствует контент — это равнозначно Null.
-                            {
-                                if (respAwaiter.Request.IncapsulatedReturnType.CanBeNull())
-                                // Результат запроса поддерживает Null.
-                                {
-                                    respAwaiter.TrySetDefaultResult();
-                                }
-                                else
-                                // Результатом этого запроса не может быть Null.
-                                {
-                                    // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
-                                    respAwaiter.TrySetException(new RpcProtocolErrorException(
-                                        $"Ожидался не пустой результат запроса но был получен ответ без результата."));
-                                }
-                            }
-                        }
-                        else
-                        // void.
-                        {
-                            respAwaiter.TrySetDefaultResult();
-                        }
-                        #endregion
-                    }
-                    else
-                    // Сервер прислал код ошибки.
-                    {
-                        // Телом ответа в этом случае будет строка.
-                        string errorMessage = payload.ReadAsString();
-
-                        // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
-                        respAwaiter.TrySetException(new BadRequestException(errorMessage, header.StatusCode));
-                    }
-                    #endregion
+                    respAwaiter.SetResponse(header, payload);
 
                     // Получен ожидаемый ответ на запрос.
                     if (DecreaseActiveRequestsCount())
@@ -1087,7 +1030,7 @@ namespace DanilovSoft.vRPC
                     // Пользователь запросил остановку сервиса.
                     {
                         // Не бросает исключения.
-                        BeginSendCloseBeforeShutdown();
+                        TryBeginSendCloseBeforeShutdown();
 
                         // Завершить поток.
                         return false;
@@ -1227,7 +1170,7 @@ namespace DanilovSoft.vRPC
         private Task SendCloseContentSizeErrorAsync()
         {
             // Размер данных оказался больше чем заявлено в ContentLength.
-            var protocolErrorException = new RpcProtocolErrorException("Размер сообщения оказался больше чем заявлено в заголовке");
+            var protocolErrorException = new VRpcProtocolErrorException("Размер сообщения оказался больше чем заявлено в заголовке");
 
             // Отправка Close.
             return TryCloseAndDisposeAsync(protocolErrorException, "Web-Socket message size was larger than specified in the header's 'ContentLength'");
@@ -1240,7 +1183,7 @@ namespace DanilovSoft.vRPC
         private Task TrySendNotSupportedTypeAndCloseAsync()
         {
             // Тип фрейма должен быть Binary.
-            var protocolErrorException = new RpcProtocolErrorException(SR.TextMessageTypeNotSupported);
+            var protocolErrorException = new VRpcProtocolErrorException(SR.TextMessageTypeNotSupported);
 
             // Отправка Close.
             return TryCloseAndDisposeAsync(protocolErrorException, SR.TextMessageTypeNotSupported);
@@ -1249,14 +1192,14 @@ namespace DanilovSoft.vRPC
         private Task SendCloseHeaderErrorAsync(int webSocketMessageCount, Exception headerException)
         {
             // Отправка Close.
-            var propagateException = new RpcProtocolErrorException(SR2.GetString(SR.ProtocolError, headerException.Message), headerException);
+            var propagateException = new VRpcProtocolErrorException(SR2.GetString(SR.ProtocolError, headerException.Message), headerException);
             return TryCloseAndDisposeAsync(propagateException, $"Unable to deserialize header. Count of bytes was {webSocketMessageCount}");
         }
 
         private Task SendCloseHeaderErrorAsync(int webSocketMessageCount)
         {
             // Отправка Close.
-            var protocolException = new RpcProtocolErrorException("Не удалось десериализовать полученный заголовок сообщения.");
+            var protocolException = new VRpcProtocolErrorException("Не удалось десериализовать полученный заголовок сообщения.");
             return TryCloseAndDisposeAsync(protocolException, $"Unable to deserialize header. Count of bytes was {webSocketMessageCount}");
         }
 
@@ -1477,8 +1420,8 @@ namespace DanilovSoft.vRPC
         private void TryPostMessage(SerializedMessageToSend serializedMessage)
         {
             Debug.Assert(serializedMessage != null);
-            SerializedMessageToSend? serializedMessageToDispose = serializedMessage;
 
+            SerializedMessageToSend? serializedMessageToDispose = serializedMessage;
             try
             {
                 // На текущем этапе сокет может быть уже уничтожен другим потоком.
@@ -1655,7 +1598,7 @@ namespace DanilovSoft.vRPC
                 // Пользователь запросил остановку сервиса.
                 {
                     // Не бросает исключения.
-                    BeginSendCloseBeforeShutdown();
+                    TryBeginSendCloseBeforeShutdown();
 
                     // Завершить поток.
                     return false;
@@ -1941,7 +1884,7 @@ namespace DanilovSoft.vRPC
                     // Может быть исключение пользователя.
                     pendingRequestTask = InvokeControllerAsync(requestToInvoke);
                 }
-                catch (BadRequestException ex)
+                catch (VRpcBadRequestException ex)
                 {
                     // Вернуть результат с ошибкой.
                     SendBadRequest(requestToInvoke, ex);
@@ -1983,7 +1926,7 @@ namespace DanilovSoft.vRPC
                         {
                             actionResult = await task.ConfigureAwait(false);
                         }
-                        catch (BadRequestException ex)
+                        catch (VRpcBadRequestException ex)
                         {
                             // Вернуть результат с ошибкой.
                             SendBadRequest(requestToInvoke, ex);
@@ -2026,7 +1969,7 @@ namespace DanilovSoft.vRPC
             SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, new InternalErrorResult("Internal Server Error")));
         }
 
-        private void SendBadRequest(RequestToInvoke requestToInvoke, BadRequestException exception)
+        private void SendBadRequest(RequestToInvoke requestToInvoke, VRpcBadRequestException exception)
         {
             Debug.Assert(requestToInvoke.Uid != null);
 
@@ -2137,7 +2080,7 @@ namespace DanilovSoft.vRPC
         /// Не позволять начинать новый запрос если происходит остановка.
         /// </summary>
         /// <remarks>AggressiveInlining.</remarks>
-        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         [DebuggerStepThrough]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowIfShutdownRequired()
@@ -2145,7 +2088,7 @@ namespace DanilovSoft.vRPC
             if (_shutdownRequest == null)
                 return;
 
-            throw new WasShutdownException(_shutdownRequest);
+            throw new VRpcWasShutdownException(_shutdownRequest);
         }
 
         /// <summary>

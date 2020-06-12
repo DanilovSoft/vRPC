@@ -18,21 +18,15 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{Request = {ActionFullName}\}")]
     internal sealed class RequestMethodMeta : IMessageMeta
     {
-        //public Type ReturnType { get; }
         /// <summary>
         /// Инкапсулированный в Task тип результата функции.
         /// </summary>
-        public Type IncapsulatedReturnType { get; }
+        public Type ReturnType { get; }
         /// <summary>
         /// True если метод интерфейса был помечен атрибутом <see cref="NotificationAttribute"/> 
         /// и соответственно не возвращает результат.
         /// </summary>
         public bool IsNotificationRequest { get; }
-        ///// <summary>
-        ///// Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="Task"/> (<see cref="Task{TResult}"/>)
-        ///// или <see cref="ValueTask"/> (<see cref="ValueTask{TResult}"/>).
-        ///// </summary>
-        //public bool IsAsync { get; }
         /// <summary>
         /// Имя метода например 'Home/Hello' без постфикса 'Async'.
         /// </summary>
@@ -46,11 +40,11 @@ namespace DanilovSoft.vRPC
 
         // ctor.
         /// <exception cref="VRpcException"/>
-        public RequestMethodMeta(MethodInfo interfaceMethod, string? controllerName)
+        public RequestMethodMeta(MethodInfo interfaceMethod, Type returnType, string? controllerName)
         {
             Debug.Assert(interfaceMethod != null);
 
-            //ReturnType = interfaceMethod.ReturnType;
+            ReturnType = returnType;
 
             // Метод интерфейса может быть помечен как [Notification].
             IsNotificationRequest = Attribute.IsDefined(interfaceMethod, typeof(NotificationAttribute));
@@ -58,17 +52,14 @@ namespace DanilovSoft.vRPC
             if (IsNotificationRequest)
             {
                 // Метод интерфейса не должен возвращать значения.
-                ValidateNotification(interfaceMethod.ReturnType, interfaceMethod.Name);
+                ValidateNotification(interfaceMethod.Name);
             }
 
             // Возвращаемый тип без учёта обвёртки Task<>.
-            IncapsulatedReturnType = GetMethodReturnType(interfaceMethod.ReturnType);
+            //IncapsulatedReturnType = GetMethodReturnType(interfaceMethod.ReturnType);
             
             // Нормализованное имя метода.
             ActionFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{interfaceMethod.GetNameTrimAsync()}";
-            
-            // Метод считается асинхронным есть возвращаемый тип Task или ValueTask.
-            //IsAsync = interfaceMethod.ReturnType.IsAsyncReturnType();
 
             // Особая семантика метода — когда все параметры являются VRpcContent.
             _multipartStrategy = IsAllParametersIsSpecialType(interfaceMethod);
@@ -91,58 +82,63 @@ namespace DanilovSoft.vRPC
 
         // Используется для Internal вызовов таких как SignIn, SignOut.
         /// <exception cref="VRpcException"/>
-        public RequestMethodMeta(string controllerName, string methodName, Type returnType, bool notification)
+        public RequestMethodMeta(string controllerName, string methodName, Type returnType, bool isNotification)
         {
-            //ReturnType = returnType;
-            IsNotificationRequest = notification;
+            ReturnType = returnType;
 
-            if (notification)
+            if (isNotification)
             {
-                ValidateNotification(returnType, methodName);
+                IsNotificationRequest = true;
+                ValidateNotification(methodName);
             }
-
-            IncapsulatedReturnType = GetMethodReturnType(returnType);
+            else
+            {
+                IsNotificationRequest = false;
+            }
             ActionFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{methodName}";
-            //IsAsync = returnType.IsAsyncReturnType();
         }
 
         /// <exception cref="VRpcException"/>
-        private static void ValidateNotification(Type returnType, string methodName)
+        private void ValidateNotification(string methodName)
         {
-            if (returnType != typeof(void) && returnType != typeof(Task) && returnType != typeof(ValueTask))
+            Debug.Assert(IsNotificationRequest);
+
+            if (ReturnType != typeof(VoidStruct)
+                && ReturnType != typeof(Task)
+                && ReturnType != typeof(ValueTask))
             {
                 throw new VRpcException($"Метод '{methodName}' помечен атрибутом [Notification] поэтому " +
                     $"возвращаемый тип метода может быть только void или Task или ValueTask.");
             }
         }
 
-        /// <summary>
-        /// Возвращает инкапсулированный в <see cref="Task"/> тип результата функции.
-        /// </summary>
-        private static Type GetMethodReturnType(Type returnType)
-        {
-            // Если возвращаемый тип функции — Task.
-            if (returnType.IsAsyncReturnType())
-            {
-                // Если у задачи есть результат.
-                if (returnType.IsGenericType)
-                {
-                    // Тип результата задачи.
-                    Type resultType = returnType.GenericTypeArguments[0];
-                    return resultType;
-                }
-                else
-                {
-                    // Возвращаемый тип Task(без результата).
-                    return typeof(void);
-                }
-            }
-            else
-            // Была вызвана синхронная функция.
-            {
-                return returnType;
-            }
-        }
+        ///// <summary>
+        ///// Возвращает инкапсулированный в <see cref="Task"/> тип результата функции.
+        ///// </summary>
+        //private static Type GetMethodReturnType(Type returnType)
+        //{
+        //    // Если возвращаемый тип функции — Task.
+        //    if (returnType.IsAsyncReturnType())
+        //    {
+        //        // Если у задачи есть результат.
+        //        if (returnType.IsGenericType)
+        //        {
+        //            // Тип результата задачи.
+        //            Type resultType = returnType.GenericTypeArguments[0];
+        //            return resultType;
+        //        }
+        //        else
+        //        {
+        //            // Возвращаемый тип Task(без результата).
+        //            return typeof(void);
+        //        }
+        //    }
+        //    else
+        //    // Была вызвана синхронная функция.
+        //    {
+        //        return returnType;
+        //    }
+        //}
 
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.

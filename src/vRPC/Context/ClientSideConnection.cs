@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DanilovSoft.vRPC.Source;
 using DanilovSoft.WebSockets;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,9 +20,9 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Internal запрос для аутентификации.
         /// </summary>
-        private static readonly RequestMethodMeta SignInAsyncMeta = new RequestMethodMeta("", "SignIn", returnType: typeof(Task), notification: false);
-        private static readonly RequestMethodMeta SignOutAsyncMeta = new RequestMethodMeta("", "SignOut", returnType: typeof(Task), notification: false);
-        //internal static readonly ServerConcurrentDictionary<MethodInfo, RequestMeta> InterfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestMeta>();
+        private static readonly RequestMethodMeta SignInAsyncMeta = new RequestMethodMeta("", "SignIn", typeof(VoidStruct), isNotification: false);
+        private static readonly RequestMethodMeta SignOutAsyncMeta = new RequestMethodMeta("", "SignOut", typeof(VoidStruct), isNotification: false);
+        //internal static readonly ServerConcurrentDictionary<MethodInfo, IRequestMethodMeta> InterfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, IRequestMethodMeta>();
         internal static readonly LockedDictionary<MethodInfo, RequestMethodMeta> InterfaceMethodsInfo = new LockedDictionary<MethodInfo, RequestMethodMeta>();
         /// <summary>
         /// Методы SignIn, SignOut (async) должны выполняться последовательно
@@ -69,40 +71,17 @@ namespace DanilovSoft.vRPC
         /// Выполняет аутентификацию соединения.
         /// </summary>
         /// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+        /// <exception cref="SocketException"/>
         internal void SignIn(AccessToken accessToken)
         {
             SignInAsync(accessToken).GetAwaiter().GetResult();
-            //lock (_authLock)
-            //{
-            //    if (!_lastAuthTask.IsCompleted)
-            //    // Кто-то уже выполняет SignIn/Out — нужно дождаться завершения.
-            //    {
-            //        // ВНИМАНИЕ опасность дедлока — _lastAuthTask не должен делать lock.
-            //        // Не бросает исключения.
-            //        _lastAuthTask.GetAwaiter().GetResult();
-            //    }
-                
-            //    // Создаём запрос для отправки.
-            //    BinaryMessageToSend binaryRequest = SignInMeta.SerializeRequest(new object[] { accessToken });
-            //    try
-            //    {
-            //        var requestResult = SendRequestAndGetResult(binaryRequest, SignInMeta);
-            //        binaryRequest = null;
-            //        Debug.Assert(requestResult == null);
-            //    }
-            //    finally
-            //    {
-            //        binaryRequest?.Dispose();
-            //    }
-
-            //    _isAuthenticated = true;
-            //}
         }
 
         /// <summary>
         /// Выполняет аутентификацию соединения.
         /// </summary>
         /// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+        /// <exception cref="SocketException"/>
         internal async Task SignInAsync(AccessToken accessToken)
         {
             bool retryRequired;
@@ -140,17 +119,17 @@ namespace DanilovSoft.vRPC
             } while (retryRequired);
         }
 
+        /// <exception cref="SocketException"/>
         internal async Task PrivateSignInAsync(AccessToken accessToken)
         {
             Task pendingRequestTask;
 
             // Создаём запрос для отправки.
-            SerializedMessageToSend serializedMessage = SignInAsyncMeta.SerializeRequest(new object[] { accessToken });
-            SerializedMessageToSend? toDispose = serializedMessage;
-
+            SerializedMessageToSend serMsg = SignInAsyncMeta.SerializeRequest(new object[] { accessToken });
+            SerializedMessageToSend? toDispose = serMsg;
             try
             {
-                pendingRequestTask = SendRequestAndWaitResponse<object?>(SignInAsyncMeta, serializedMessage);
+                pendingRequestTask = SendSerializedRequestAndWaitResponse<VoidStruct>(SignInAsyncMeta, serMsg);
                 toDispose = null;
             }
             finally
@@ -176,6 +155,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// 
         /// </summary>
+        /// <exception cref="SocketException"/>
         internal async Task SignOutAsync()
         {
             bool retryRequired;
@@ -221,17 +201,17 @@ namespace DanilovSoft.vRPC
             } while (retryRequired);
         }
 
+        /// <exception cref="SocketException"/>
         private async Task PrivateSignOutAsync()
         {
             Task pendingRequestTask;
 
             // Создаём запрос для отправки.
-            SerializedMessageToSend binaryRequest = SignOutAsyncMeta.SerializeRequest(Array.Empty<object>());
-            SerializedMessageToSend? toDispose = binaryRequest;
-
+            SerializedMessageToSend serMsg = SignOutAsyncMeta.SerializeRequest(Array.Empty<object>());
+            SerializedMessageToSend? toDispose = serMsg;
             try
             {
-                pendingRequestTask = SendRequestAndWaitResponse<object?>(SignOutAsyncMeta, binaryRequest);
+                pendingRequestTask = SendSerializedRequestAndWaitResponse<VoidStruct>(SignOutAsyncMeta, serMsg);
                 toDispose = null;
             }
             finally

@@ -99,7 +99,7 @@ namespace Client
                                         //homeController.PlainByteArray(new byte[4096]);
                                         //homeController.MultipartByteArray(content);
                                     }
-                                    catch (WasShutdownException)
+                                    catch (VRpcWasShutdownException)
                                     {
                                         return;
                                     }

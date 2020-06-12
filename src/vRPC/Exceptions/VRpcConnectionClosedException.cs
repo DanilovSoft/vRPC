@@ -8,27 +8,27 @@ namespace DanilovSoft.vRPC
     /// Исключение которое происходит при грациозном закрытии соединения одной из сторон.
     /// </summary>
     [Serializable]
-    public sealed class ConnectionClosedException : Exception
+    public sealed class VRpcConnectionClosedException : VRpcException
     {
         // "Удалённая сторона закрыла соединение без объяснения причины."
         internal const string ConnectionClosedNormallyMessage = "Произошло грациозное разъединение без указания причины.";
 
-        public ConnectionClosedException() : base(ConnectionClosedNormallyMessage)
+        public VRpcConnectionClosedException() : base(ConnectionClosedNormallyMessage)
         {
             
         }
 
-        internal ConnectionClosedException(string сloseDescription) : base(сloseDescription)
+        internal VRpcConnectionClosedException(string сloseDescription) : base(сloseDescription)
         {
             
         }
 
-        public ConnectionClosedException(string message, Exception innerException) : base(message, innerException)
+        public VRpcConnectionClosedException(string message, Exception innerException) : base(message, innerException)
         {
         }
 
 #pragma warning disable CA1801
-        private ConnectionClosedException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        private VRpcConnectionClosedException(SerializationInfo serializationInfo, StreamingContext streamingContext)
         {
             
         }

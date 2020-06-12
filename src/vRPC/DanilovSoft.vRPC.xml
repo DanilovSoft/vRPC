@@ -473,6 +473,13 @@
         <member name="F:DanilovSoft.vRPC.RpcClient._connection">
             <summary>
             Устанавливается в блокировке <see cref="P:DanilovSoft.vRPC.RpcClient.StateLock"/>.
+            Устанавливается в Null при обрыве соединения.
+            </summary>
+            <remarks><see langword="volatile"/></remarks>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RpcClient.Connection">
+            <summary>
+            Активное соединение. Может быть Null если соединение отсутствует.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.RpcClient.Completion">
@@ -483,8 +490,9 @@
         </member>
         <member name="F:DanilovSoft.vRPC.RpcClient._shutdownRequest">
             <summary>
-            volatile требуется лишь для публичного доступа. Запись через блокировку <see cref="P:DanilovSoft.vRPC.RpcClient.StateLock"/>.
+            Запись через блокировку <see cref="P:DanilovSoft.vRPC.RpcClient.StateLock"/>.
             </summary>
+            <remarks><see langword="volatile"/> служит для публичного доступа.</remarks>
         </member>
         <member name="P:DanilovSoft.vRPC.RpcClient.StopRequiredState">
             <summary>
@@ -550,40 +558,40 @@
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.Connect">
             <summary>
-            Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-            Потокобезопасно.
+            Производит предварительное подключение к серверу. Может использоваться для повторного подключения.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <remarks>Потокобезопасно.</remarks>
+            <exception cref="T:DanilovSoft.vRPC.VRpcConnectException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.ConnectAsync">
             <summary>
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-            Потокобезопасно.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <remarks>Потокобезопасно.</remarks>
+            <exception cref="T:DanilovSoft.vRPC.VRpcConnectException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.ConnectEx">
             <summary>
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-            Помимо кода возврата может бросить исключение типа <see cref="T:DanilovSoft.vRPC.VRpcException"/>.
-            Потокобезопасно.
+            Помимо кода возврата может бросить исключение типа <see cref="T:DanilovSoft.vRPC.VRpcConnectException"/>.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <remarks>Потокобезопасно.</remarks>
+            <exception cref="T:DanilovSoft.vRPC.VRpcConnectException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.ConnectExAsync">
             <summary>
             Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-            Помимо кода возврата может бросить исключение типа <see cref="T:DanilovSoft.vRPC.VRpcException"/>.
-            Потокобезопасно.
+            Помимо кода возврата может бросить исключение типа <see cref="T:DanilovSoft.vRPC.VRpcConnectException"/>.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <remarks>Потокобезопасно.</remarks>
+            <exception cref="T:DanilovSoft.vRPC.VRpcConnectException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.SignIn(DanilovSoft.vRPC.AccessToken)">
@@ -591,20 +599,27 @@
             Выполняет аутентификацию текущего соединения.
             </summary>
             <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
-            <exception cref="T:DanilovSoft.vRPC.ConnectionNotOpenException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcConnectionNotOpenException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.SignInAsync(DanilovSoft.vRPC.AccessToken)">
             <summary>
             Выполняет аутентификацию текущего соединения.
             </summary>
             <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
-            <exception cref="T:DanilovSoft.vRPC.ConnectionNotOpenException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcConnectionNotOpenException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.SignOut">
             <summary>
             
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.ConnectionNotOpenException"/>
+            <exception cref="T:System.ObjectDisposedException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcConnectionNotOpenException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RpcClient.SignOutAsync">
+            <exception cref="T:System.ObjectDisposedException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcConnectionNotOpenException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.AuthenticateAsync(DanilovSoft.vRPC.AccessToken)">
             <summary>
@@ -625,9 +640,6 @@
             Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
             </summary>
             <typeparam name="T">Интерфейс.</typeparam>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.OnInterfaceMethodCall``1(System.Reflection.MethodInfo,System.String,System.Object[])">
-            <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.Shutdown(System.TimeSpan,System.String)">
             <summary>
@@ -659,8 +671,8 @@
             Возвращает существующее подключение или создаёт новое если это разрешает свойство <see cref="P:DanilovSoft.vRPC.RpcClient.IsAutoConnectAllowed"/>.
             </summary>
             <exception cref="T:System.Net.Sockets.SocketException"/>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
-            <exception cref="T:DanilovSoft.vRPC.ConnectionNotOpenException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcConnectionNotOpenException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.OnDisconnected(System.Object,DanilovSoft.vRPC.SocketDisconnectedEventArgs)">
             <summary>
@@ -672,8 +684,8 @@
             Выполнить подключение сокета если еще не подключен.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RpcClient.LockAquiredConnectAsync(System.Threading.ChannelLock.Releaser,DanilovSoft.vRPC.AccessToken)">
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+        <member name="M:DanilovSoft.vRPC.RpcClient.LockAquiredConnectAsync(System.Threading.AsyncLock.Releaser,DanilovSoft.vRPC.AccessToken)">
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.InnerConfigureIoC(System.Collections.Generic.IEnumerable{System.Type})">
@@ -688,7 +700,7 @@
             <summary>
             Проверяет установку волатильного свойства <see cref="F:DanilovSoft.vRPC.RpcClient._shutdownRequest"/>.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcClient.TryGetShutdownException``1(System.Threading.Tasks.ValueTask{``0}@)">
             <summary>
@@ -734,12 +746,17 @@
             Выполняет аутентификацию соединения.
             </summary>
             <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+            <exception cref="T:System.Net.Sockets.SocketException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ClientSideConnection.SignInAsync(DanilovSoft.vRPC.AccessToken)">
             <summary>
             Выполняет аутентификацию соединения.
             </summary>
             <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+            <exception cref="T:System.Net.Sockets.SocketException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ClientSideConnection.PrivateSignInAsync(DanilovSoft.vRPC.AccessToken)">
+            <exception cref="T:System.Net.Sockets.SocketException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ClientSideConnection.SignOut">
             <summary>
@@ -750,6 +767,10 @@
             <summary>
             
             </summary>
+            <exception cref="T:System.Net.Sockets.SocketException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ClientSideConnection.PrivateSignOutAsync">
+            <exception cref="T:System.Net.Sockets.SocketException"/>
         </member>
         <member name="P:DanilovSoft.vRPC.IMessageMeta.IsRequest">
             <summary>
@@ -886,9 +907,8 @@
             Запрещает отправку новых запросов; Ожидает когда завершатся текущие запросы 
             и отправляет удалённой стороне сообщение о закрытии соединения с ожиданием подтверджения.
             Затем выполняет Dispose и взводит <see cref="P:DanilovSoft.vRPC.ManagedConnection.Completion"/>.
-            Не бросает исключения.
-            Потокобезопасно.
             </summary>
+            <remarks>Не бросает исключения. Потокобезопасно.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDisposeOnCloseReceived">
             <summary>
@@ -896,23 +916,23 @@
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryPrivateBeginClose(System.String)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryBeginClose(System.String)">
             <summary>
             Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.BeginSendCloseBeforeShutdown">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryBeginSendCloseBeforeShutdown">
             <summary>
             Отправляет сообщение Close и ожидает ответный Close. Затем закрывает соединение.
-            Не бросает исключения.
             </summary>
+            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.OnInterfaceMethodCall``1(System.Reflection.MethodInfo,System.String,System.Object[])">
             <summary>
             Происходит при обращении к проксирующему интерфейсу.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.OnClientInterfaceCall``1(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},System.Reflection.MethodInfo,System.String,System.Object[])">
@@ -921,25 +941,21 @@
             Возвращает Task или готовый результат если был вызван синхронный метод.
             </summary>
             <exception cref="T:System.Exception"/>
-            <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ExecuteRequestStatic``1(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestMethodMeta)">
             <summary>
             Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
             </summary>
-            <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndGetResultStatic``1(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestMethodMeta)">
             <summary>
             Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
             </summary>
-            <returns>Может быть незавершённый таск или RAW результат или Null.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationStatic``1(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestMethodMeta)">
             <summary>
             Отправляет запрос как уведомление не ожидая ответа.
             </summary>
-            <returns>Может быть Null или незавершённый таск в соответствии с сигнатурой <paramref name="methodMeta"/>.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationStaticAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
@@ -947,7 +963,7 @@
             Может бросить исключение.
             Чаще всего возвращает <see cref="P:System.Threading.Tasks.Task.CompletedTask"/>.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.PostNotification(DanilovSoft.vRPC.SerializedMessageToSend)">
@@ -955,25 +971,26 @@
             Происходит при обращении к проксирующему интерфейсу. 
             Добавляет запрос-уведомление в очередь на отправку (выполнит отправку текущим потоком если очередь пуста).
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndWaitResponse``1(DanilovSoft.vRPC.RequestMethodMeta,System.Object[])">
             <summary>
             Отправляет запрос и ожидает его ответ.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndWaitResponse``1(DanilovSoft.vRPC.RequestMethodMeta,DanilovSoft.vRPC.SerializedMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendSerializedRequestAndWaitResponse``1(DanilovSoft.vRPC.RequestMethodMeta,DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
             Отправляет запрос и ожидает ответ.
             Передаёт владение объектом <paramref name="serMsg"/> другому потоку.
             </summary>
             <remarks>Происходит при обращении к прокси-интерфейсу.</remarks>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:System.Net.Sockets.SocketException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
-            <returns>Таск с RAW объектом от сервера.</returns>
+            <returns>Таск с результатом от сервера.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ReceiveLoop">
             <summary>
@@ -1112,9 +1129,9 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.DecreaseActiveRequestsCount">
             <summary>
-            Уменьшает счётчик на 1 при получении ответа на запрос или при отправке ответа на запрос.
+            Уменьшает счётчик активных запросов на 1 при получении ответа на запрос или при отправке ответа на запрос.
             </summary>
-            <returns>True если можно продолжить получение запросов иначе нужно закрыть соединение.</returns>
+            <returns>True если можно продолжить получение запросов иначе нужно остановить сервис.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessRequest(DanilovSoft.vRPC.RequestToInvoke)">
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
@@ -1139,7 +1156,7 @@
             Не позволять начинать новый запрос если происходит остановка.
             </summary>
             <remarks>AggressiveInlining.</remarks>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDispose(DanilovSoft.vRPC.CloseReason)">
             <summary>
@@ -1276,7 +1293,19 @@
             <summary>
             Проверяет доступность запрашиваемого метода пользователем.
             </summary>
-            <exception cref="T:DanilovSoft.vRPC.BadRequestException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcBadRequestException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.Call(System.String,System.String,System.Object[])">
+            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.CallAsync(System.String,System.String,System.Object[])">
+            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.Call``1(System.String,System.String,System.Object[])">
+            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.CallAsync``1(System.String,System.String,System.Object[])">
+            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
         </member>
         <member name="P:DanilovSoft.vRPC.ClientController.Context">
             <summary>
@@ -1411,23 +1440,23 @@
             Причина обрыва соединения.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.BadRequestException">
+        <member name="T:DanilovSoft.vRPC.VRpcBadRequestException">
             <summary>
             Исключение для передачи информации об ошибке удаленному подключению.
             Исключение этого типа прозрачно транслируется на удаленное подключение.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.ConnectionClosedException">
+        <member name="T:DanilovSoft.vRPC.VRpcConnectionClosedException">
             <summary>
             Исключение которое происходит при грациозном закрытии соединения одной из сторон.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.ConnectionNotOpenException">
+        <member name="T:DanilovSoft.vRPC.VRpcConnectionNotOpenException">
             <summary>
             Исключение которое происходит при обращении к закрытому соединению.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.WasShutdownException">
+        <member name="T:DanilovSoft.vRPC.VRpcWasShutdownException">
             <summary>
             Происходит при обращении к выключенному экземпляру или находящемуся в процессе отключения по запросу пользователя.
             </summary>
@@ -1491,7 +1520,7 @@
             Потокобезопасен.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RequestMethodMeta.IncapsulatedReturnType">
+        <member name="P:DanilovSoft.vRPC.RequestMethodMeta.ReturnType">
             <summary>
             Инкапсулированный в Task тип результата функции.
             </summary>
@@ -1513,7 +1542,7 @@
             по отдельному сценарию.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestMethodMeta.#ctor(System.Reflection.MethodInfo,System.String)">
+        <member name="M:DanilovSoft.vRPC.RequestMethodMeta.#ctor(System.Reflection.MethodInfo,System.Type,System.String)">
             <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RequestMethodMeta.IsAllParametersIsSpecialType(System.Reflection.MethodInfo)">
@@ -1522,13 +1551,8 @@
         <member name="M:DanilovSoft.vRPC.RequestMethodMeta.#ctor(System.String,System.String,System.Type,System.Boolean)">
             <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestMethodMeta.ValidateNotification(System.Type,System.String)">
+        <member name="M:DanilovSoft.vRPC.RequestMethodMeta.ValidateNotification(System.String)">
             <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestMethodMeta.GetMethodReturnType(System.Type)">
-            <summary>
-            Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
-            </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.RequestMethodMeta.SerializeRequest(System.Object[])">
             <summary>
@@ -1567,7 +1591,6 @@
             </summary>
             <param name="message"></param>
             <param name="args"></param>
-            <returns></returns>
         </member>
         <member name="T:DanilovSoft.vRPC.Resources.SR">
             <summary>
@@ -1744,7 +1767,7 @@
             Предотвращает повторный запуск сервера.
             </summary>
             <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.RpcListener.GetConnections">
             <summary>
@@ -1918,11 +1941,6 @@
             <exception cref="T:System.IO.IOException"/>
             <exception cref="T:System.Net.Sockets.SocketException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetMethodReturnType(System.Reflection.MethodInfo)">
-            <summary>
-            Возвращает инкапсулированный в <see cref="T:System.Threading.Tasks.Task"/> тип результата функции.
-            </summary>
-        </member>
         <member name="M:DanilovSoft.vRPC.ExtensionMethods.GetMessageFromCloseFrame(System.Nullable{System.Net.WebSockets.WebSocketCloseStatus},System.String)">
             <summary>
             Формирует сообщение ошибки из фрейма веб-сокета информирующем о закрытии соединения. Пустую строку не возвращает.
@@ -1946,14 +1964,14 @@
             Может бросить исключение.
             </summary>
             <exception cref="T:System.Net.Sockets.SocketException"/>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.InnerConnectionResult.ToManagedConnectionTask">
             <summary>
             Может бросить исключение.
             </summary>
             <exception cref="T:System.Net.Sockets.SocketException"/>
-            <exception cref="T:DanilovSoft.vRPC.WasShutdownException"/>
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
         </member>
         <member name="F:DanilovSoft.vRPC.InvokeActionsDictionary._actionsDict">
             <summary>
@@ -1989,9 +2007,9 @@
         </member>
         <member name="M:DanilovSoft.vRPC.PendingRequestDictionary.TryPropagateExceptionAndLockup(System.Exception)">
             <summary>
-            Потокобезопасно распространяет исключение всем ожидающим потокам. Дальнейшее создание запросов будет провоцировать это исключение.
+            Распространяет исключение всем ожидающим запросам. Дальнейшее создание запросов будет провоцировать это исключение.
             </summary>
-            <remarks>Не бросает исключения.</remarks>
+            <remarks>Не бросает исключения. Потокобезопасно.</remarks>
         </member>
         <member name="F:DanilovSoft.vRPC.ProxyCache._staticDict">
             <summary>
@@ -2034,6 +2052,11 @@
         <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.TrySetResult(`0)">
             <summary>
             Передает результат ожидающему потоку.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetResponse(DanilovSoft.vRPC.HeaderDto,System.ReadOnlyMemory{System.Byte})">
+            <summary>
+            Передаёт ответ ожидающему потоку.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.ShutdownRequest.CloseDescription">
@@ -2097,7 +2120,6 @@
             <param name="source"></param>
             <param name="instance">Параметр который будет передан в конструктор <typeparamref name="TClass"/></param>
             <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
-            <returns></returns>
         </member>
         <member name="T:System.IO.ReadOnlyMemoryStream">
             <summary>Provides a <see cref="T:System.IO.Stream"/> for the contents of a <see cref="T:System.ReadOnlyMemory`1"/>.</summary>
@@ -2170,10 +2192,154 @@
         <member name="P:System.Threading.Tasks.TaskToApm.TaskAsyncResult.AsyncWaitHandle">
             <summary>Gets a <see cref="T:System.Threading.WaitHandle"/> that is used to wait for an asynchronous operation to complete.</summary>
         </member>
-        <member name="M:System.Threading.ChannelLock.LockAsync">
+        <member name="M:System.Threading.AsyncLock.LockAsync">
             <summary>
             Не бросает исключения.
             </summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.AllowNullAttribute">
+            <summary>
+                Specifies that <see langword="null"/> is allowed as an input even if the
+                corresponding type disallows it.
+            </summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.AllowNullAttribute.#ctor">
+            <summary>
+                Initializes a new instance of the <see cref="T:System.Diagnostics.CodeAnalysis.AllowNullAttribute"/> class.
+            </summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.DisallowNullAttribute">
+            <summary>
+                Specifies that <see langword="null"/> is disallowed as an input even if the
+                corresponding type allows it.
+            </summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.DisallowNullAttribute.#ctor">
+            <summary>
+                Initializes a new instance of the <see cref="T:System.Diagnostics.CodeAnalysis.DisallowNullAttribute"/> class.
+            </summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute">
+            <summary>
+                Specifies that a method that will never return under any circumstance.
+            </summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute.#ctor">
+             <summary>
+                 Initializes a new instance of the <see cref="T:System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute"/> class.
+             </summary>
+            
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute">
+            <summary>
+                Specifies that the method will not return if the associated <see cref="T:System.Boolean"/>
+                parameter is passed the specified value.
+            </summary>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute.ParameterValue">
+            <summary>
+                Gets the condition parameter value.
+                Code after the method is considered unreachable by diagnostics if the argument
+                to the associated parameter matches this value.
+            </summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute.#ctor(System.Boolean)">
+            <summary>
+                Initializes a new instance of the <see cref="T:System.Diagnostics.CodeAnalysis.DoesNotReturnIfAttribute"/>
+                class with the specified parameter value.
+            </summary>
+            <param name="parameterValue">
+                The condition parameter value.
+                Code after the method is considered unreachable by diagnostics if the argument
+                to the associated parameter matches this value.
+            </param>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.MaybeNullAttribute">
+            <summary>
+                Specifies that an output may be <see langword="null"/> even if the
+                corresponding type disallows it.
+            </summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.MaybeNullAttribute.#ctor">
+            <summary>
+                Initializes a new instance of the <see cref="T:System.Diagnostics.CodeAnalysis.MaybeNullAttribute"/> class.
+            </summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute">
+            <summary>
+                Specifies that when a method returns <see cref="P:System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute.ReturnValue"/>, 
+                the parameter may be <see langword="null"/> even if the corresponding type disallows it.
+            </summary>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute.ReturnValue">
+            <summary>
+                Gets the return value condition.
+                If the method returns this value, the associated parameter may be <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.MaybeNullWhenAttribute.#ctor(System.Boolean)">
+            <summary>
+                 Initializes the attribute with the specified return value condition.
+            </summary>
+            <param name="returnValue">
+                The return value condition.
+                If the method returns this value, the associated parameter may be <see langword="null"/>.
+            </param>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.NotNullAttribute">
+            <summary>
+                Specifies that an output is not <see langword="null"/> even if the
+                corresponding type allows it.
+            </summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.NotNullAttribute.#ctor">
+            <summary>
+                Initializes a new instance of the <see cref="T:System.Diagnostics.CodeAnalysis.NotNullAttribute"/> class.
+            </summary>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.NotNullIfNotNullAttribute">
+            <summary>
+                Specifies that the output will be non-<see langword="null"/> if the
+                named parameter is non-<see langword="null"/>.
+            </summary>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.NotNullIfNotNullAttribute.ParameterName">
+            <summary>
+                Gets the associated parameter name.
+                The output will be non-<see langword="null"/> if the argument to the
+                parameter specified is non-<see langword="null"/>.
+            </summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.NotNullIfNotNullAttribute.#ctor(System.String)">
+            <summary>
+                Initializes the attribute with the associated parameter name.
+            </summary>
+            <param name="parameterName">
+                The associated parameter name.
+                The output will be non-<see langword="null"/> if the argument to the
+                parameter specified is non-<see langword="null"/>.
+            </param>
+        </member>
+        <member name="T:System.Diagnostics.CodeAnalysis.NotNullWhenAttribute">
+            <summary>
+                Specifies that when a method returns <see cref="P:System.Diagnostics.CodeAnalysis.NotNullWhenAttribute.ReturnValue"/>,
+                the parameter will not be <see langword="null"/> even if the corresponding type allows it.
+            </summary>
+        </member>
+        <member name="P:System.Diagnostics.CodeAnalysis.NotNullWhenAttribute.ReturnValue">
+            <summary>
+                Gets the return value condition.
+                If the method returns this value, the associated parameter will not be <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="M:System.Diagnostics.CodeAnalysis.NotNullWhenAttribute.#ctor(System.Boolean)">
+            <summary>
+                Initializes the attribute with the specified return value condition.
+            </summary>
+            <param name="returnValue">
+                The return value condition.
+                If the method returns this value, the associated parameter will not be <see langword="null"/>.
+            </param>
         </member>
     </members>
 </doc>

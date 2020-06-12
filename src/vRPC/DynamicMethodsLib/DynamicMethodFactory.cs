@@ -67,12 +67,15 @@ namespace DynamicMethodsLib
 
             if (!method.IsConstructor && !method.IsStatic)
             {
+                Debug.Assert(method.DeclaringType != null);
                 il.PushInstance(method.DeclaringType);
             }
 
             LocalBuilder? localConvertible = null;
             if (!skipConvertion)
+            {
                 localConvertible = il.DeclareLocal(typeof(IConvertible));
+            }
             
             LocalBuilder localObject = il.DeclareLocal(typeof(object));
 
@@ -82,13 +85,14 @@ namespace DynamicMethodsLib
             for (int i = 0; i < parameters.Length; i++)
             {
                 ParameterInfo parameter = parameters[i];
-                Type parameterType = parameter.ParameterType;
+                Type? parameterType = parameter.ParameterType;
 
                 if(hasOutArgs)
                 {
                     if (parameterType.IsByRef)
                     {
                         parameterType = parameterType.GetElementType();
+                        Debug.Assert(parameterType != null);
                         LocalBuilder localVariable = il.DeclareLocal(parameterType);
 
                         outVarList.Add(new OutRefArg(parameter, i, localVariable));
@@ -161,6 +165,8 @@ namespace DynamicMethodsLib
 
                             if (toParameterTypeMethod != null)
                             {
+                                Debug.Assert(localConvertible != null);
+
                                 Label skipConvertible = il.DefineLabel();
 
                                 // check if argument type is an exact match for parameter type
@@ -206,6 +212,7 @@ namespace DynamicMethodsLib
                     if (parameterType.IsByRef)
                     {
                         parameterType = parameterType.GetElementType();
+                        Debug.Assert(parameterType != null);
                         LocalBuilder localVariable = il.DeclareLocal(parameterType);
 
                         outVarList.Add(new OutRefArg(parameter, i, localVariable));
@@ -280,6 +287,8 @@ namespace DynamicMethodsLib
 
                             if (toParameterTypeMethod != null)
                             {
+                                Debug.Assert(localConvertible != null);
+
                                 Label skipConvertible = il.DefineLabel();
 
                                 // check if argument type is an exact match for parameter type
@@ -323,7 +332,9 @@ namespace DynamicMethodsLib
             }
 
             if (method.IsConstructor)
-                il.Emit(OpCodes.Newobj, (ConstructorInfo)method);
+            {
+                il.Emit(OpCodes.Newobj, (method as ConstructorInfo)!);
+            }
             else
             {
                 var methodInfo = (MethodInfo)method;
@@ -344,9 +355,12 @@ namespace DynamicMethodsLib
                     il.Emit(OpCodes.Ldloc_S, outVar.Local);
 
                     // ref Type => Type (System.Int32& => System.Int32).
-                    Type type = outVar.Param.ParameterType.GetElementType();
+                    Type? type = outVar.Param.ParameterType.GetElementType();
+                    Debug.Assert(type != null);
                     if (type.IsValueType)
+                    {
                         il.Emit(OpCodes.Box, type);
+                    }
 
                     // Записать локальную переменную в массив.
                     il.Emit(OpCodes.Stelem_Ref);
@@ -354,7 +368,9 @@ namespace DynamicMethodsLib
                 #endregion
             }
 
-            Type returnType = method.IsConstructor ? method.DeclaringType : ((MethodInfo)method).ReturnType;
+            Type? returnType = method.IsConstructor ? method.DeclaringType : ((MethodInfo)method).ReturnType;
+            Debug.Assert(returnType != null);
+
             if (returnType != typeof(void))
             {
                 if (returnType.IsValueType)
@@ -365,7 +381,9 @@ namespace DynamicMethodsLib
                 {
                     // Не нужно кастовать если возвращаемый тип совпадает.
                     if (returnType != typeof(object))
+                    {
                         il.Emit(OpCodes.Isinst, returnType);
+                    }
                 }
             }
             else

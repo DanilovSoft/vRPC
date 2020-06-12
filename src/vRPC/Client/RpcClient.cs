@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,7 +36,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Используется для синхронизации установки соединения.
         /// </summary>
-        private readonly ChannelLock _connectLock;
+        private readonly AsyncLock _connectLock;
         /// <summary>
         /// Адрес для подключения к серверу.
         /// </summary>
@@ -54,8 +55,14 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Устанавливается в блокировке <see cref="StateLock"/>.
+        /// Устанавливается в Null при обрыве соединения.
         /// </summary>
+        /// <remarks><see langword="volatile"/></remarks>
         private volatile ClientSideConnection? _connection;
+        /// <summary>
+        /// Активное соединение. Может быть Null если соединение отсутствует.
+        /// </summary>
+        public ClientSideConnection? Connection => _connection;
 
         private Task<CloseReason>? _completion;
         /// <summary>
@@ -74,8 +81,9 @@ namespace DanilovSoft.vRPC
             }
         }
         /// <summary>
-        /// volatile требуется лишь для публичного доступа. Запись через блокировку <see cref="StateLock"/>.
+        /// Запись через блокировку <see cref="StateLock"/>.
         /// </summary>
+        /// <remarks><see langword="volatile"/> служит для публичного доступа.</remarks>
         private volatile ShutdownRequest? _shutdownRequest;
         /// <summary>
         /// Если был начат запрос на остновку, то это свойство будет содержать переданную причину остановки.
@@ -143,7 +151,7 @@ namespace DanilovSoft.vRPC
             // Словарь с методами контроллеров.
             _invokeActions = new InvokeActionsDictionary(controllerTypes);
             ServerAddress = serverAddress;
-            _connectLock = new ChannelLock();
+            _connectLock = new AsyncLock();
             IsAutoConnectAllowed = allowAutoConnect;
             _proxyCache = new ProxyCache();
 
@@ -206,11 +214,11 @@ namespace DanilovSoft.vRPC
         #region Public Connect
 
         /// <summary>
-        /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-        /// Потокобезопасно.
+        /// Производит предварительное подключение к серверу. Может использоваться для повторного подключения.
         /// </summary>
-        /// <exception cref="VRpcException"/>
-        /// <exception cref="WasShutdownException"/>
+        /// <remarks>Потокобезопасно.</remarks>
+        /// <exception cref="VRpcConnectException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         public void Connect()
         {
@@ -219,10 +227,10 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-        /// Потокобезопасно.
         /// </summary>
-        /// <exception cref="VRpcException"/>
-        /// <exception cref="WasShutdownException"/>
+        /// <remarks>Потокобезопасно.</remarks>
+        /// <exception cref="VRpcConnectException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         public async Task ConnectAsync()
         {
@@ -233,11 +241,13 @@ namespace DanilovSoft.vRPC
                 case ConnectionState.Connected:
                     return;
                 case ConnectionState.SocketError:
+                    {
+                        Debug.Assert(connectResult.SocketError != null);
 
-                    Debug.Assert(connectResult.SocketError != null);
-                    throw new VRpcException($"Unable to connect to the remote server. Error: {(int)connectResult.SocketError}", 
-                        connectResult.SocketError.Value.ToException(), VRpcErrorCode.ConnectionError);
-
+                        throw new VRpcConnectException(
+                            message: $"Unable to connect to the remote server. Error: {(int)connectResult.SocketError}",
+                            innerException: connectResult.SocketError.Value.ToException());
+                    }
                 case ConnectionState.ShutdownRequest:
                     {
                         Debug.Assert(connectResult.ShutdownRequest != null);
@@ -248,11 +258,11 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-        /// Помимо кода возврата может бросить исключение типа <see cref="VRpcException"/>.
-        /// Потокобезопасно.
+        /// Помимо кода возврата может бросить исключение типа <see cref="VRpcConnectException"/>.
         /// </summary>
-        /// <exception cref="VRpcException"/>
-        /// <exception cref="WasShutdownException"/>
+        /// <remarks>Потокобезопасно.</remarks>
+        /// <exception cref="VRpcConnectException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         public ConnectResult ConnectEx()
         {
@@ -261,11 +271,11 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Производит предварительное подключение к серверу. Может использоваться для повторного переподключения.
-        /// Помимо кода возврата может бросить исключение типа <see cref="VRpcException"/>.
-        /// Потокобезопасно.
+        /// Помимо кода возврата может бросить исключение типа <see cref="VRpcConnectException"/>.
         /// </summary>
-        /// <exception cref="VRpcException"/>
-        /// <exception cref="WasShutdownException"/>
+        /// <remarks>Потокобезопасно.</remarks>
+        /// <exception cref="VRpcConnectException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         public Task<ConnectResult> ConnectExAsync()
         {
@@ -293,15 +303,15 @@ namespace DanilovSoft.vRPC
                 }
                 catch (SocketException ex)
                 {
-                    throw new VRpcException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex, VRpcErrorCode.ConnectionError);
+                    throw new VRpcConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
                 }
                 catch (System.Net.WebSockets.WebSocketException ex)
                 {
-                    throw new VRpcException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex, VRpcErrorCode.ConnectionError);
+                    throw new VRpcConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
                 }
                 catch (HttpHandshakeException ex)
                 {
-                    throw new VRpcException($"Unable to connect to the remote server due to handshake error", ex, VRpcErrorCode.ConnectionError);
+                    throw new VRpcConnectException($"Unable to connect to the remote server due to handshake error", ex);
                 }
                 return conRes.ToPublicConnectResult();
             }
@@ -312,7 +322,7 @@ namespace DanilovSoft.vRPC
         /// Выполняет аутентификацию текущего соединения.
         /// </summary>
         /// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
-        /// <exception cref="ConnectionNotOpenException"/>
+        /// <exception cref="VRpcConnectionNotOpenException"/>
         public void SignIn(AccessToken accessToken)
         {
             SignInAsync(accessToken).GetAwaiter().GetResult();
@@ -322,7 +332,7 @@ namespace DanilovSoft.vRPC
         /// Выполняет аутентификацию текущего соединения.
         /// </summary>
         /// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
-        /// <exception cref="ConnectionNotOpenException"/>
+        /// <exception cref="VRpcConnectionNotOpenException"/>
         public Task SignInAsync(AccessToken accessToken)
         {
             accessToken.ValidateAccessToken(nameof(accessToken));
@@ -354,12 +364,17 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// 
         /// </summary>
-        /// <exception cref="ConnectionNotOpenException"/>
+        /// <exception cref="ObjectDisposedException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcConnectionNotOpenException"/>
         public void SignOut()
         {
             SignOutAsync().GetAwaiter().GetResult();
         }
 
+        /// <exception cref="ObjectDisposedException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcConnectionNotOpenException"/>
         public Task SignOutAsync()
         {
             ThrowIfDisposed();
@@ -515,8 +530,8 @@ namespace DanilovSoft.vRPC
         /// Возвращает существующее подключение или создаёт новое если это разрешает свойство <see cref="IsAutoConnectAllowed"/>.
         /// </summary>
         /// <exception cref="SocketException"/>
-        /// <exception cref="WasShutdownException"/>
-        /// <exception cref="ConnectionNotOpenException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcConnectionNotOpenException"/>
         internal ValueTask<ClientSideConnection> GetOrOpenConnection(AccessToken accessToken)
         {
             // Копия volatile.
@@ -554,7 +569,7 @@ namespace DanilovSoft.vRPC
                 }
                 else
                 {
-                    return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(new ConnectionNotOpenException()));
+                    return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(new VRpcConnectionNotOpenException()));
                 }
             }
 
@@ -595,10 +610,10 @@ namespace DanilovSoft.vRPC
             // Подключение отсутствует.
             {
                 // Захватить блокировку.
-                ValueTask<ChannelLock.Releaser> t = _connectLock.LockAsync();
+                ValueTask<AsyncLock.Releaser> t = _connectLock.LockAsync();
                 if (t.IsCompletedSuccessfully)
                 {
-                    ChannelLock.Releaser releaser = t.Result;
+                    AsyncLock.Releaser releaser = t.Result;
                     return LockAquiredConnectAsync(releaser, accessToken);
                 }
                 else
@@ -607,16 +622,16 @@ namespace DanilovSoft.vRPC
                 }
             }
 
-            async ValueTask<InnerConnectionResult> WaitForLockAndConnectAsync(ValueTask<ChannelLock.Releaser> t, AccessToken accessToken)
+            async ValueTask<InnerConnectionResult> WaitForLockAndConnectAsync(ValueTask<AsyncLock.Releaser> t, AccessToken accessToken)
             {
-                ChannelLock.Releaser releaser = await t.ConfigureAwait(false);
+                AsyncLock.Releaser releaser = await t.ConfigureAwait(false);
                 return await LockAquiredConnectAsync(releaser, accessToken).ConfigureAwait(false);
             }
         }
 
-        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(ChannelLock.Releaser conLock, AccessToken accessToken)
+        private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(AsyncLock.Releaser conLock, AccessToken accessToken)
         {
             InnerConnectionResult conResult;
             using (conLock)
@@ -814,6 +829,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="ObjectDisposedException"/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowIfDisposed()
         {
             if (!_disposed)
@@ -825,7 +841,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Проверяет установку волатильного свойства <see cref="_shutdownRequest"/>.
         /// </summary>
-        /// <exception cref="WasShutdownException"/>
+        /// <exception cref="VRpcWasShutdownException"/>
         private void ThrowIfWasShutdown()
         {
             // volatile копия.
@@ -838,7 +854,7 @@ namespace DanilovSoft.vRPC
             else
             // В этом экземпляре уже был запрос на остановку.
             {
-                throw new WasShutdownException(shutdownRequired);
+                throw new VRpcWasShutdownException(shutdownRequired);
             }
         }
 
@@ -858,7 +874,7 @@ namespace DanilovSoft.vRPC
             else
             // В этом экземпляре уже был запрос на остановку.
             {
-                exceptionTask = new ValueTask<T>(Task.FromException<T>(new WasShutdownException(stopRequired)));
+                exceptionTask = new ValueTask<T>(Task.FromException<T>(new VRpcWasShutdownException(stopRequired)));
                 return true;
             }
         }

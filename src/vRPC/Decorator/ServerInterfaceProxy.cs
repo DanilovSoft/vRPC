@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC.Decorator
 {
@@ -53,7 +54,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            Task<object?> task = Connection.OnInterfaceMethodCall<object?>(targetMethod, ControllerName, args);
+            Task<VoidStruct> task = Connection.OnInterfaceMethodCall<VoidStruct>(targetMethod, ControllerName, args);
             Debug.Assert(task != null);
             return task;
         }
@@ -64,7 +65,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            Task<object?> task = Connection.OnInterfaceMethodCall<object?>(targetMethod, ControllerName, args);
+            Task<VoidStruct> task = Connection.OnInterfaceMethodCall<VoidStruct>(targetMethod, ControllerName, args);
             Debug.Assert(task != null);
             return new ValueTask(task: task);
         }
@@ -110,7 +111,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            Task<object?> task = Connection.OnInterfaceMethodCall<object?>(targetMethod, ControllerName, args);
+            Task<VoidStruct> task = Connection.OnInterfaceMethodCall<VoidStruct>(targetMethod, ControllerName, args);
             Debug.Assert(task != null);
 
             // Результатом может быть исключение.

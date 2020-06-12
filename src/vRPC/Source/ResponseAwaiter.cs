@@ -11,9 +11,7 @@ namespace DanilovSoft.vRPC
     internal interface IResponseAwaiter
     {
         void TrySetException(Exception exception);
-        RequestMethodMeta Request { get; }
-        void DeserializeResponse(ReadOnlyMemory<byte> payload, string? contentEncoding);
-        void TrySetDefaultResult();
+        void SetResponse(HeaderDto header, ReadOnlyMemory<byte> payload);
     }
 
     /// <summary>
@@ -107,21 +105,9 @@ namespace DanilovSoft.vRPC
             TrySetResult(default);
         }
 
-        ///// <summary>
-        ///// Возвращает подходящий десериализатор соответственно <see cref="ContentEncoding"/>.
-        ///// </summary>
-        //private Func<ReadOnlyMemory<byte>, TResult> GetDeserializer(HeaderDto responseHeader)
-        //{
-        //    return responseHeader.ContentEncoding switch
-        //    {
-        //        KnownEncoding.ProtobufEncoding => ExtensionMethods.DeserializeProtoBuf<TResult>,
-        //        _ => ExtensionMethods.DeserializeJson<TResult>, // Сериализатор по умолчанию.
-        //    };
-        //}
-
         private void WakeContinuation()
         {
-            // Результат уже установлен. Можно установить fast-path.
+            // Результат уже установлен. Можно разрешить fast-path.
             _isCompleted = true;
 
             // Атомарно записать заглушку или вызвать оригинальный continuation.
@@ -133,7 +119,6 @@ namespace DanilovSoft.vRPC
 #if NETSTANDARD2_0 || NET472
                 ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
 #else
-                // Через глобальную очередь.
                 ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: false); // Через глобальную очередь.
 #endif
             }
@@ -180,6 +165,71 @@ namespace DanilovSoft.vRPC
         private static void QueueUserWorkItem(Action action)
         {
             Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        }
+
+        /// <summary>
+        /// Передаёт ответ ожидающему потоку.
+        /// </summary>
+        public void SetResponse(HeaderDto header, ReadOnlyMemory<byte> payload)
+        {
+            Debug.Assert(header.IsRequest == false);
+
+            if (header.StatusCode == StatusCode.Ok)
+            // Запрос на удалённой стороне был выполнен успешно.
+            {
+                #region Передать успешный результат
+
+                if (typeof(TResult) != typeof(VoidStruct))
+                // Поток ожидает некий объект как результат.
+                {
+                    if (!payload.IsEmpty)
+                    {
+                        // Десериализатор в соответствии с ContentEncoding.
+                        //Func<ReadOnlyMemory<byte>, Type, object> deserializer = header.GetDeserializer();
+                        try
+                        {
+                            DeserializeResponse(payload, header.ContentEncoding);
+                        }
+                        catch (Exception deserializationException)
+                        {
+                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
+                            TrySetException(new VRpcProtocolErrorException(
+                                $"Ошибка десериализации ответа на запрос \"{Request.ActionFullName}\".", deserializationException));
+                        }
+                    }
+                    else
+                    // У ответа отсутствует контент — это равнозначно Null.
+                    {
+                        if (typeof(TResult).CanBeNull())
+                        // Результат запроса поддерживает Null.
+                        {
+                            TrySetDefaultResult();
+                        }
+                        else
+                        // Результатом этого запроса не может быть Null.
+                        {
+                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
+                            TrySetException(new VRpcProtocolErrorException(
+                                $"Ожидался не пустой результат запроса но был получен ответ без результата."));
+                        }
+                    }
+                }
+                else
+                // void.
+                {
+                    TrySetDefaultResult();
+                }
+                #endregion
+            }
+            else
+            // Сервер прислал код ошибки.
+            {
+                // Телом ответа в этом случае будет строка.
+                string errorMessage = payload.ReadAsString();
+
+                // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
+                TrySetException(new VRpcBadRequestException(errorMessage, header.StatusCode));
+            }
         }
     }
 }

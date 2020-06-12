@@ -1,4 +1,5 @@
-﻿using DynamicMethodsLib;
+﻿using DanilovSoft.vRPC.Source;
+using DynamicMethodsLib;
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -53,7 +54,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<object?> task = Client.OnInterfaceMethodCall<object?>(targetMethod, ControllerName, args);
+            Task<VoidStruct> task = Client.OnInterfaceMethodCall<VoidStruct>(targetMethod, ControllerName, args);
             Debug.Assert(task != null);
             return task;
         }
@@ -64,7 +65,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<object?> task = Client.OnInterfaceMethodCall<object?>(targetMethod, ControllerName, args);
+            Task<VoidStruct> task = Client.OnInterfaceMethodCall<VoidStruct>(targetMethod, ControllerName, args);
             Debug.Assert(task != null);
             return new ValueTask(task: task);
         }
@@ -110,7 +111,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<object?> task = Client.OnInterfaceMethodCall<object?>(targetMethod, ControllerName, args);
+            Task<VoidStruct> task = Client.OnInterfaceMethodCall<VoidStruct>(targetMethod, ControllerName, args);
             Debug.Assert(task != null);
 
             // Результатом может быть исключение.

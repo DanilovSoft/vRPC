@@ -11,13 +11,13 @@ using DanilovSoft.vRPC.Source;
 namespace System.Threading
 {
     [DebuggerDisplay(@"\{{_channel.Writer}\}")]
-    internal sealed class ChannelLock
+    internal sealed class AsyncLock
     {
         private readonly Channel<VoidStruct> _channel;
         private readonly Releaser _releaser;
         private readonly ValueTask<Releaser> _releaserTask;
 
-        public ChannelLock()
+        public AsyncLock()
         {
             _channel = Channel.CreateUnbounded<VoidStruct>(new UnboundedChannelOptions
             {
@@ -26,14 +26,14 @@ namespace System.Threading
                 SingleWriter = true,
             });
 
-            _channel.Writer.TryWrite(VoidStruct.Instance);
+            _channel.Writer.TryWrite(default);
             _releaser = new Releaser(this);
             _releaserTask = new ValueTask<Releaser>(_releaser);
         }
 
         public bool TryLock(out Releaser releaser)
         {
-            if(_channel.Reader.TryRead(out _))
+            if (_channel.Reader.TryRead(out _))
             {
                 releaser = _releaser;
                 return true;
@@ -65,18 +65,19 @@ namespace System.Threading
             return _releaser;
         }
 
+        [StructLayout(LayoutKind.Auto)]
         internal readonly struct Releaser : IDisposable
         {
-            private readonly ChannelLock _self;
+            private readonly AsyncLock _self;
 
-            public Releaser(ChannelLock self)
+            public Releaser(AsyncLock self)
             {
                 _self = self;
             }
 
             public void Dispose()
             {
-                _self._channel.Writer.TryWrite(VoidStruct.Instance);
+                _self._channel.Writer.TryWrite(default);
             }
         }
     }
