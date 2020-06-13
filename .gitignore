@@ -338,5 +338,5 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
-/vRPC/*.local.*
+src/vRPC/*.local.*
 /FeatureTest
