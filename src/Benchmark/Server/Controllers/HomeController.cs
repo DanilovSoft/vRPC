@@ -29,6 +29,11 @@ namespace Server.Controllers
             //Interlocked.Increment(ref Program.ReqCount);
         }
         
+        public int Sum(int x1, int x2)
+        {
+            return unchecked(x1 + x2);
+        }
+
         public void MultipartByteArray(RentedMemory data)
         {
             //Interlocked.Increment(ref Program.ReqCount);

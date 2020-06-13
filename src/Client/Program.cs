@@ -51,6 +51,7 @@ namespace Client
 
     public interface IMultipart
     {
+        [Notification]
         void Test2();
         //int Test2();
         int TcpData(int connectionData);

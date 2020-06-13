@@ -75,8 +75,7 @@ namespace Client
                         });
 
                         var homeController = client.GetProxy<IServerHomeController>();
-                        //homeController.DummyCall(0);
-
+                        
                         while (true)
                         {
                             ConnectResult conResult;
@@ -95,7 +94,7 @@ namespace Client
                                 {
                                     try
                                     {
-                                        homeController.Test();
+                                        homeController.Sum(1, 2);
                                         //homeController.PlainByteArray(new byte[4096]);
                                         //homeController.MultipartByteArray(content);
                                     }

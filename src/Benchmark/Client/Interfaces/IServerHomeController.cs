@@ -18,12 +18,13 @@ namespace Client
         void MultipartByteArray(VRpcContent data);
         Task DummyCallAsync(int n);
         void Test();
+        int Sum(int x1, int x2);
         Task Test3Async();
         Task<int> Test4Async();
         Task<int> Test2Async();
         Task<int> Test0Async();
 
-        //[Notification]
+        [Notification]
         void NotifyTest();
 
         DateTime Test(TestDto testDto);

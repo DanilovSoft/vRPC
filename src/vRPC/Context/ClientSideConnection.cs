@@ -22,8 +22,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private static readonly RequestMethodMeta SignInAsyncMeta = new RequestMethodMeta("", "SignIn", typeof(VoidStruct), isNotification: false);
         private static readonly RequestMethodMeta SignOutAsyncMeta = new RequestMethodMeta("", "SignOut", typeof(VoidStruct), isNotification: false);
-        //internal static readonly ServerConcurrentDictionary<MethodInfo, IRequestMethodMeta> InterfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, IRequestMethodMeta>();
-        internal static readonly LockedDictionary<MethodInfo, RequestMethodMeta> InterfaceMethodsInfo = new LockedDictionary<MethodInfo, RequestMethodMeta>();
+        internal static readonly LockedDictionary<MethodInfo, RequestMethodMeta> MethodDict = new LockedDictionary<MethodInfo, RequestMethodMeta>();
         /// <summary>
         /// Методы SignIn, SignOut (async) должны выполняться последовательно
         /// что-бы синхронизироваться со свойством IsAuthenticated.
@@ -41,8 +40,7 @@ namespace DanilovSoft.vRPC
         /// Этот таск настроен не провоцировать исключения.
         /// </summary>
         private Task _lastAuthTask = Task.CompletedTask;
-        private protected override IConcurrentDictionary<MethodInfo, RequestMethodMeta> InterfaceMethods => InterfaceMethodsInfo;
-
+        
         // ctor.
         /// <summary>
         /// Принимает открытое соединение Web-Socket.

@@ -31,10 +31,10 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public abstract class ManagedConnection : IDisposable, IGetProxy
     {
-        /// <summary>
-        /// Содержит имена методов прокси интерфейса без постфикса Async.
-        /// </summary>
-        private protected abstract IConcurrentDictionary<MethodInfo, RequestMethodMeta> InterfaceMethods { get; }
+        ///// <summary>
+        ///// Содержит имена методов прокси интерфейса без постфикса Async.
+        ///// </summary>
+        //private protected abstract IConcurrentDictionary<MethodInfo, RequestMethodMeta> InterfaceMethods { get; }
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
@@ -393,59 +393,74 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
+        /// <remarks>Со стороны сервера.</remarks>
         /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal Task<T> OnInterfaceMethodCall<T>(MethodInfo targetMethod, string? controllerName, object[] args)
+        /// <returns>Может быть Null если метод является Notification и завершился синхронно.</returns>
+        internal Task<T>? OnServerMethodCall<T>(MethodInfo targetMethod, string? controllerName, object[] args)
         {
-            // Создаём запрос для отправки.
-            var requestMeta = InterfaceMethods.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, typeof(T), cn), controllerName);
+            // Метаданные метода.
+            var requestMeta = ServerSideConnection.MethodDict.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, typeof(T), cn), controllerName);
 
+            return OnServerMethodCall<T>(requestMeta, args);
+        }
+
+        /// <summary>
+        /// Происходит при обращении к проксирующему интерфейсу.
+        /// </summary>
+        /// <remarks>Со стороны сервера.</remarks>
+        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="ObjectDisposedException"/>
+        /// <returns>Может быть Null если метод является Notification и завершился синхронно.</returns>
+        internal Task<T>? OnServerMethodCall<T>(RequestMethodMeta requestMeta, object[] args)
+        {
             // Сериализуем запрос в память.
             SerializedMessageToSend serMsg = requestMeta.SerializeRequest(args);
+
             if (!requestMeta.IsNotificationRequest)
             {
                 // Отправляем запрос.
-                Task<T> pendingRequestTask = SendSerializedRequestAndWaitResponse<T>(requestMeta, serMsg);
-                return pendingRequestTask;
-                //return ConvertRequestTask(requestMeta, pendingRequestTask);
+                return SendSerializedRequestAndWaitResponse<T>(requestMeta, serMsg);
             }
             else
             {
                 PostNotification(serMsg);
-                return ConvertTaskToDefaultResultTask<T>(Task.CompletedTask);
-                //return ConvertNotificationTask(requestMeta, Task.CompletedTask);
+                return null;
             }
         }
 
+        /// <summary>
+        /// Происходит при обращении к проксирующему интерфейсу.
+        /// </summary>
+        /// <remarks>Со стороны клиента.</remarks>
+        /// <exception cref="Exception">Могут быть исключения не инкапсулированные в Task.</exception>
+        /// <returns>Может быть Null если метод является Notification и завершился синхронно.</returns>
+        internal static Task<T>? OnClientMethodCall<T>(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, string? controllerName, object[] args)
+        {
+            // Метаданные запроса.
+            var methodMeta = ClientSideConnection.MethodDict.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, typeof(T), cn), controllerName);
+
+            return OnClientMethodCall<T>(connectionTask, methodMeta, args);
+        }
 
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
-        /// Возвращает Task или готовый результат если был вызван синхронный метод.
         /// </summary>
-        /// <exception cref="Exception"/>
-        [SuppressMessage("Reliability", "CA2000:Ликвидировать объекты перед потерей области", Justification = "Анализатор не видит смену ответственности на Channel")]
-        internal static Task<T> OnClientInterfaceCall<T>(ValueTask<ClientSideConnection> connectionTask, MethodInfo targetMethod, string? controllerName, object[] args)
+        /// <remarks>Со стороны клиента.</remarks>
+        /// <exception cref="Exception">Могут быть исключения не инкапсулированные в Task.</exception>
+        /// <returns>Может быть Null если метод является Notification и завершился синхронно.</returns>
+        [SuppressMessage("Reliability", "CA2000:Ликвидировать объекты перед потерей области", Justification = "Анализатор не понимает смену ответственности на Channel")]
+        internal static Task<T>? OnClientMethodCall<T>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta methodMeta, object[] args)
         {
-            // Создаём запрос для отправки.
-            var methodMeta = ClientSideConnection.InterfaceMethodsInfo.GetOrAdd(targetMethod, 
-                factory: (mi, cn) => new RequestMethodMeta(mi, typeof(T), cn), controllerName);
-
             // Сериализуем запрос в память. Лучше выполнить до завершения подключения.
             SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
             SerializedMessageToSend? serMsgToDispose = serMsg;
-
             try
             {
-                // Результатом может быть незавершённый таск.
                 // Может начать отправку текущим потоком. Диспозит serMsg в случае ошибки.
-                Task<T> task = ExecuteRequestStatic<T>(connectionTask, serMsg, methodMeta);
-
+                Task<T>? pendingRequestTask = ExecuteClientRequest<T>(connectionTask, serMsg, methodMeta);
                 serMsgToDispose = null; // Предотвратить Dispose.
-
-                // Преждевременно проверим что возвращаемый тип подходит для типа интерфейса.
-                //DebugOnlyValidateIfaceTypeMatch<T>(targetMethod, task);
-
-                return task;
+                return pendingRequestTask;
             }
             finally
             {
@@ -455,24 +470,17 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        //[Conditional("DEBUG")]
-        //private static void DebugOnlyValidateIfaceTypeMatch<T>(MethodInfo targetMethod, Task<T> activeCall)
-        //{
-        //    if (targetMethod.ReturnType != typeof(void) && activeCall != null)
-        //    {
-        //        Debug.Assert(targetMethod.ReturnType.IsInstanceOfType(activeCall), "Тип результата не соответствует возвращаемому типу интерфейса");
-        //    }
-        //}
-
         /// <summary>
-        /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
+        /// Отправляет запрос и возвращает результат.
         /// </summary>
-        private static Task<T> ExecuteRequestStatic<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
+        /// <remarks>Со стороны клиента.</remarks>
+        /// <returns>Может быть Null если метод является Notification и завершился синхронно.</returns>
+        private static Task<T>? ExecuteClientRequest<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
         {
             if (!requestMeta.IsNotificationRequest)
             // Запрос должен получить ответ.
             {
-                return SendRequestAndGetResultStatic<T>(connectionTask, serMsg, requestMeta);
+                return SendClientRequestAndGetResultStatic<T>(connectionTask, serMsg, requestMeta);
             }
             else
             // Отправляем запрос как уведомление которое не ждёт ответ.
@@ -482,38 +490,29 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Отправляет запрос и возвращает результат. Результатом может быть Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt; или готовый результат.
-        /// </summary>
-        private static Task<T> SendRequestAndGetResultStatic<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
-        {
-            Debug.Assert(!requestMeta.IsNotificationRequest);
-
-            // Отправляем запрос.
-            Task<T> pendingRequestTask = SendRequestAndGetResultAsync<T>(connectionTask, serMsg, requestMeta);
-
-            return pendingRequestTask;
-
-            // Результатом может быть не завершённый Task или готовый результат.
-            //return ConvertRequestTask(requestMeta, pendingRequestTask);
-        }
-
-        /// <summary>
         /// Отправляет запрос как уведомление не ожидая ответа.
         /// </summary>
-        private static Task<T> SendNotificationStatic<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta methodMeta)
+        /// <returns>Может быть Null если метод завершился синхронно.</returns>
+        private static Task<T>? SendNotificationStatic<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta methodMeta)
         {
             Debug.Assert(methodMeta.IsNotificationRequest);
 
             // Может бросить исключение.
             // Добавляет сообщение в очередь на отправку.
-            Task sendNotificationTask = SendNotificationStaticAsync(connectionTask, serMsg);
-            
-            return ConvertTaskToDefaultResultTask<T>(sendNotificationTask);
+            Task? pendingSendTask = WaitConnectionAndSendNotification(connectionTask, serMsg);
 
-            // Конвертируем Task в ValueTask если это требует интерфейс.
-            //return ConvertNotificationTask(methodMeta, sendNotificationTask);
+            // Нотификации чаще всего завершаются синхронно.
+            if (pendingSendTask == null)
+            {
+                return null;
+            }
+            else
+            {
+                return ConvertTaskToDefaultResultTask<T>(pendingSendTask);
+            }
         }
 
+        // Небольшая аллокация.
         private static Task<T> ConvertTaskToDefaultResultTask<T>(Task task)
         {
             return task.ContinueWith<T>(_ => default!,
@@ -529,7 +528,8 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private static Task SendNotificationStaticAsync(ValueTask<ClientSideConnection> connectingTask, SerializedMessageToSend serializedMessage)
+        /// <returns>Может быть Null если метод завершился синхронно.</returns>
+        private static Task? WaitConnectionAndSendNotification(ValueTask<ClientSideConnection> connectingTask, SerializedMessageToSend serializedMessage)
         {
             if (connectingTask.IsCompleted)
             {
@@ -540,7 +540,7 @@ namespace DanilovSoft.vRPC
                 connection.PostNotification(serializedMessage);
 
                 // Нотификации не возвращают результат.
-                return Task.CompletedTask;
+                return null;
             }
             else
             // Подключение к серверу ещё не завершено.
@@ -558,119 +558,37 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static Task<T> SendRequestAndGetResultAsync<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMetadata)
+        /// <summary>
+        /// Отправляет запрос и возвращает результат.
+        /// </summary>
+        /// <remarks>Со стороны клиента.</remarks>
+        private static Task<T> SendClientRequestAndGetResultStatic<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
         {
+            Debug.Assert(!requestMeta.IsNotificationRequest);
+
             if (connectionTask.IsCompleted)
             {
                 // Может быть исключение если не удалось подключиться.
                 ClientSideConnection connection = connectionTask.Result;
 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendSerializedRequestAndWaitResponse<T>(requestMetadata, serMsg);
+                return connection.SendSerializedRequestAndWaitResponse<T>(requestMeta, serMsg);
             }
             else
             {
-                return WaitForConnectAndSendRequest(connectionTask, serMsg, requestMetadata).Unwrap();
+                return WaitForConnectAndSendRequest(connectionTask, serMsg, requestMeta).Unwrap();
             }
 
-            static async Task<Task<T>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, SerializedMessageToSend serMsg, RequestMethodMeta requestMetadata)
+            static async Task<Task<T>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
             {
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendSerializedRequestAndWaitResponse<T>(requestMetadata, serMsg);
+                return connection.SendSerializedRequestAndWaitResponse<T>(requestMeta, serMsg);
             }
         }
 
-        ///// <summary>
-        ///// Может вернуть Null или Task или ValueTask.
-        ///// </summary>
-        //private static object? ConvertNotificationTask(RequestMethodMeta requestActionMeta, Task sendNotificationTask)
-        //{
-        //    if (requestActionMeta.IsAsync)
-        //    // Возвращаемый тип функции интерфейса — Task или ValueTask.
-        //    {
-        //        // Сконвертировать в ValueTask если такой тип у интерфейса.
-        //        // Не бросает исключения.
-        //        object convertedTask = EncapsulateValueTask(sendNotificationTask, requestActionMeta.ReturnType);
-
-        //        // Результатом может быть не завершённый Task (или ValueTask).
-        //        return convertedTask;
-        //    }
-        //    else
-        //    // Была вызвана синхронная функция.
-        //    {
-        //        // Результатом может быть исключение.
-        //        sendNotificationTask.GetAwaiter().GetResult();
-
-        //        // У уведомлений нет результата.
-        //        return null;
-        //    }
-        //}
-
-        ///// <summary>
-        ///// Преобразует <see cref="Task"/><see langword="&lt;object?&gt;"/> в строгий тип <see cref="Task{T}"/>
-        ///// или извлекает TResult из таска если метод интерфейса является синхронной функцией.
-        ///// </summary>
-        ///// <returns>Может быть незавершённый таск или TResult или Null.</returns>
-        //private protected static object? ConvertRequestTask(RequestMethodMeta requestMeta, Task<object?> pendingRequestTask)
-        //{
-        //    if (requestMeta.IsAsync)
-        //    // Возвращаемый тип функции интерфейса — Task.
-        //    {
-        //        if (requestMeta.ReturnType.IsGenericType)
-        //        // У задачи есть результат.
-        //        {
-        //            // Task<object> должен быть преобразован в Task<T> иначе не получится вернуть через интерфейс.
-        //            // Не бросает исключения.
-        //            return TaskConverter.ConvertTask(pendingRequestTask, requestMeta.IncapsulatedReturnType, requestMeta.ReturnType);
-        //        }
-        //        else
-        //        {
-        //            if (requestMeta.ReturnType != typeof(ValueTask))
-        //            // Возвращаемый тип интерфейса – Task.
-        //            {
-        //                // Можно вернуть как Task<object>.
-        //                return pendingRequestTask;
-        //            }
-        //            else
-        //            // Возвращаемый тип интерфейса – ValueTask.
-        //            {
-        //                return new ValueTask(task: pendingRequestTask);
-        //            }
-        //        }
-        //    }
-        //    else
-        //    // Была вызвана синхронная функция.
-        //    {
-        //        // Результатом может быть исключение.
-        //        object? finalResult = pendingRequestTask.GetAwaiter().GetResult();
-        //        return finalResult;
-        //    }
-        //}
-
-        ///// <summary>
-        ///// Возвращает Task или ValueTask для соответствия типу <paramref name="returnType"/>.
-        ///// Не бросает исключения.
-        ///// </summary>
-        ///// <param name="voidTask">Такс без результата (<see langword="void"/>).</param>
-        //private static object EncapsulateValueTask(Task voidTask, Type returnType)
-        //{
-        //    if (returnType != typeof(ValueTask))
-        //    // Возвращаемый тип интерфейса – Task.
-        //    {
-        //        // Конвертировать не нужно.
-        //        return voidTask;
-        //    }
-        //    else
-        //    // Возвращаемый тип интерфейса – ValueTask.
-        //    {
-        //        return new ValueTask(voidTask);
-        //    }
-        //}
-
         /// <summary>
-        /// Происходит при обращении к проксирующему интерфейсу. 
         /// Добавляет запрос-уведомление в очередь на отправку (выполнит отправку текущим потоком если очередь пуста).
         /// </summary>
         /// <exception cref="VRpcWasShutdownException"/>
@@ -801,7 +719,7 @@ namespace DanilovSoft.vRPC
                 {
                     try
                     {
-                        header = HeaderDto.DeserializeProtobuf(headerBuffer, 0, webSocketMessage.Count);
+                        header = HeaderDto.DeserializeProtoBuf(headerBuffer, 0, webSocketMessage.Count);
                     }
                     catch (Exception headerException)
                     // Не удалось десериализовать заголовок.
@@ -1647,7 +1565,7 @@ namespace DanilovSoft.vRPC
             var headerSpan = streamBuffer.AsSpan(contentSize, serializedMessage.HeaderSize);
             //var contentSpan = streamBuffer.AsSpan(0, contentSize);
 
-            var header = HeaderDto.DeserializeProtobuf(headerSpan.ToArray(), 0, headerSpan.Length);
+            var header = HeaderDto.DeserializeProtoBuf(headerSpan.ToArray(), 0, headerSpan.Length);
             //string header = HeaderDto.DeserializeProtobuf(headerSpan.ToArray(), 0, headerSpan.Length).ToString();
 
             //string header = Encoding.UTF8.GetString(headerSpan.ToArray());

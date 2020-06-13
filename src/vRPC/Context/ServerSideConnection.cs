@@ -26,8 +26,7 @@ namespace DanilovSoft.vRPC
         private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
         private const string Salt = "M6PgwzAnHy02Jv8z5FPIoOn5NeJP7bx7";
 
-        internal static readonly ServerConcurrentDictionary<MethodInfo, string> ProxyMethodName = new ServerConcurrentDictionary<MethodInfo, string>();
-        private static readonly ServerConcurrentDictionary<MethodInfo, RequestMethodMeta> _interfaceMethodsInfo = new ServerConcurrentDictionary<MethodInfo, RequestMethodMeta>();
+        internal static readonly ServerConcurrentDictionary<MethodInfo, RequestMethodMeta> MethodDict = new ServerConcurrentDictionary<MethodInfo, RequestMethodMeta>();
         private readonly ProxyCache _proxyCache = new ProxyCache();
 
         private RijndaelEnhanced? _jwt;
@@ -38,8 +37,7 @@ namespace DanilovSoft.vRPC
         /// Пользователь ассоциированный с текущим соединением.
         /// </summary>
         public ClaimsPrincipal User => _user;
-        private protected override IConcurrentDictionary<MethodInfo, RequestMethodMeta> InterfaceMethods => _interfaceMethodsInfo;
-
+       
         /// <summary>
         /// Сервер который принял текущее соединение.
         /// </summary>

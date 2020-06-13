@@ -128,7 +128,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Может вернуть <see langword="null"/> если не удалось десериализовать.
         /// </summary>
-        public static HeaderDto? DeserializeProtobuf(byte[] buffer, int offset, int count)
+        public static HeaderDto? DeserializeProtoBuf(byte[] buffer, int offset, int count)
         {
             using (var mem = new MemoryStream(buffer, offset, count))
             {

@@ -76,15 +76,6 @@ namespace DanilovSoft.vRPC
             return JsonSerializer.Deserialize<T>(utf8Json);
         }
 
-        /// <summary>
-        /// Десериализует Json.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T DeserializeJson<T>(ReadOnlyMemory<byte> utf8Json)
-        {
-            return DeserializeJson<T>(utf8Json.Span);
-        }
-
         public static bool TryReadLengthPrefix(Stream source, out int length)
         {
             return ProtoBuf.Serializer.TryReadLengthPrefix(source, ProtoBuf.PrefixStyle.Base128, out length);

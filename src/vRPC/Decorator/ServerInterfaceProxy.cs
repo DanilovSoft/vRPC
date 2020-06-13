@@ -54,9 +54,9 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            Task<VoidStruct> task = Connection.OnInterfaceMethodCall<VoidStruct>(targetMethod, ControllerName, args);
-            Debug.Assert(task != null);
-            return task;
+            Task<VoidStruct>? pendingRequest = Connection.OnServerMethodCall<VoidStruct>(targetMethod, ControllerName, args);
+
+            return pendingRequest ?? Task.CompletedTask;
         }
 
         // Вызывается через рефлексию — не переименовывать.
@@ -65,9 +65,16 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            Task<VoidStruct> task = Connection.OnInterfaceMethodCall<VoidStruct>(targetMethod, ControllerName, args);
-            Debug.Assert(task != null);
-            return new ValueTask(task: task);
+            Task<VoidStruct>? pendingRequest = Connection.OnServerMethodCall<VoidStruct>(targetMethod, ControllerName, args);
+
+            if (pendingRequest != null)
+            {
+                return new ValueTask(task: pendingRequest);
+            }
+            else
+            {
+                return default;
+            }
         }
 
         // Вызывается через рефлексию — не переименовывать.
@@ -76,9 +83,9 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            Task<T> task = Connection.OnInterfaceMethodCall<T>(targetMethod, ControllerName, args);
-            Debug.Assert(task != null);
-            return new ValueTask<T>(task: task);
+            Task<T>? pendingRequest = Connection.OnServerMethodCall<T>(targetMethod, ControllerName, args);
+            Debug.Assert(pendingRequest != null);
+            return new ValueTask<T>(task: pendingRequest);
         }
 
         // Вызывается через рефлексию — не переименовывать.
@@ -87,9 +94,9 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            Task<T> task = Connection.OnInterfaceMethodCall<T>(targetMethod, ControllerName, args);
-            Debug.Assert(task != null);
-            return task;
+            Task<T>? pendingRequest = Connection.OnServerMethodCall<T>(targetMethod, ControllerName, args);
+            Debug.Assert(pendingRequest != null);
+            return pendingRequest;
         }
 
         // Вызывается через рефлексию — не переименовывать.
@@ -98,11 +105,11 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            Task<T> task = Connection.OnInterfaceMethodCall<T>(targetMethod, ControllerName, args);
-            Debug.Assert(task != null);
+            Task<T>? pendingRequest = Connection.OnServerMethodCall<T>(targetMethod, ControllerName, args);
+            Debug.Assert(pendingRequest != null);
 
             // Результатом может быть исключение.
-            return task.GetAwaiter().GetResult();
+            return pendingRequest.GetAwaiter().GetResult();
         }
 
         // Вызывается через рефлексию — не переименовывать.
@@ -111,11 +118,13 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            Task<VoidStruct> task = Connection.OnInterfaceMethodCall<VoidStruct>(targetMethod, ControllerName, args);
-            Debug.Assert(task != null);
+            Task<VoidStruct>? pendingRequest = Connection.OnServerMethodCall<VoidStruct>(targetMethod, ControllerName, args);
 
-            // Результатом может быть исключение.
-            task.GetAwaiter().GetResult();
+            if (pendingRequest != null)
+            {
+                // Результатом может быть исключение.
+                pendingRequest.GetAwaiter().GetResult();
+            }
         }
     }
 }
