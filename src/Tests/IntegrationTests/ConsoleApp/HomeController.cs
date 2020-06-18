@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Client
+namespace ConsoleApp
 {
     [AllowAnonymous]
     public class HomeController : ClientController

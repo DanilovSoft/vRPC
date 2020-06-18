@@ -6,15 +6,14 @@ using DanilovSoft.vRPC;
 using DanilovSoft.vRPC.Content;
 using Microsoft.IO;
 
-namespace Client
+namespace ConsoleApp
 {
     [AllowAnonymous]
     internal class MyServerController : ServerController
     {
-        [ProducesProtoBuf]
-        public TestStruct Test2()
+        public void TestNotification()
         {
-            return new TestStruct(123);
+            
         }
     }
 }
