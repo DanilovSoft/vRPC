@@ -427,13 +427,32 @@ namespace DanilovSoft.vRPC
         }
 
         // Когда выполняют вызов метода через интерфейс.
-        /// <returns>Может быть Null если метод завершился синхронно и является Notification.</returns>
-        internal Task<T>? OnClientMethodCall<T>(MethodInfo targetMethod, string? controllerName, object[] args)
+        internal Task<T> OnClientMethodCall<T>(RequestMethodMeta methodMeta, object[] args)
+        {
+            Debug.Assert(!methodMeta.IsNotificationRequest);
+
+            // Начать соединение или взять существующее.
+            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
+
+            return ManagedConnection.OnClientMethodCall<T>(connectionTask, methodMeta, args);
+        }
+
+        //// Когда выполняют вызов метода через интерфейс.
+        //internal Task<T> OnClientMethodCall<T>(MethodInfo targetMethod, string? controllerName, object[] args)
+        //{
+        //    // Начать соединение или взять существующее.
+        //    ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
+
+        //    return ManagedConnection.OnClientMethodCall<T>(connectionTask, targetMethod, controllerName, args);
+        //}
+
+        // Когда выполняют вызов метода через интерфейс.
+        internal ValueTask OnClientNotificationCall(RequestMethodMeta methodMeta, object[] args)
         {
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
 
-            return ManagedConnection.OnClientMethodCall<T>(connectionTask, targetMethod, controllerName, args);
+            return ManagedConnection.OnClientNotificationCall(connectionTask, methodMeta, args);
         }
 
         /// <summary>

@@ -94,7 +94,7 @@ namespace Client
                                 {
                                     try
                                     {
-                                        homeController.Sum(1, 2);
+                                        homeController.Test();
                                         //homeController.PlainByteArray(new byte[4096]);
                                         //homeController.MultipartByteArray(content);
                                     }

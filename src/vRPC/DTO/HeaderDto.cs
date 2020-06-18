@@ -125,16 +125,14 @@ namespace DanilovSoft.vRPC
             throw new ApplicationException(HeaderSizeExceededException);
         }
 
-        /// <summary>
-        /// Может вернуть <see langword="null"/> если не удалось десериализовать.
-        /// </summary>
+        /// <returns>Может быть Null если не удалось десериализовать.</returns>
         public static HeaderDto? DeserializeProtoBuf(byte[] buffer, int offset, int count)
         {
             using (var mem = new MemoryStream(buffer, offset, count))
             {
                 HeaderDto? header = ProtoBufSerializer.Deserialize<HeaderDto>(mem);
                 ValidateDeserializedHeader(header);
-                return header; // может быть null если не удалось десериализовать.
+                return header;
             }
         }
 
@@ -149,8 +147,6 @@ namespace DanilovSoft.vRPC
                 }
             }
         }
-
-        
 
         /// <summary>
         /// Используется только для отладки и логирования.

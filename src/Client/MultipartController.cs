@@ -9,26 +9,12 @@ using Microsoft.IO;
 namespace Client
 {
     [AllowAnonymous]
-    internal class MultipartController : ServerController
+    internal class MyServerController : ServerController
     {
-        //public async ValueTask<int> TcpData(int connectionId, RentedMemory memory)
-        //{
-        //    await Task.Delay(5000);
-
-        //    throw new InvalidOperationException("test");
-
-        //    memory.Dispose();
-        //    //return connectionId;
-        //}
-
-        public void TcpData(int id, byte[] data)
+        [ProducesProtoBuf]
+        public TestStruct Test2()
         {
-            
-        }
-
-        public int Test2()
-        {
-            return 1;
+            return new TestStruct(123);
         }
     }
 }

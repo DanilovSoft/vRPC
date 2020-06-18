@@ -9,7 +9,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         bool IsRequest { get; }
         /// <summary>
-        /// Может быть True если IsRequest тоже является True.
+        /// Может быть True когда IsRequest тоже является True.
         /// </summary>
         bool IsNotificationRequest { get; }
     }

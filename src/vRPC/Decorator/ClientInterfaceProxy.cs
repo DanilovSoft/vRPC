@@ -34,6 +34,14 @@ namespace DanilovSoft.vRPC.Decorator
             
         }
 
+        private RequestMethodMeta GetMeta<T>(MethodInfo targetMethod)
+        {
+            // Метаданные запроса.
+            var methodMeta = ClientSideConnection.MethodDict.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, typeof(T), cn), ControllerName);
+
+            return methodMeta;
+        }
+
         internal void InitializeClone(VRpcClient rpcClient, string? controllerName)
         {
             Proxy = this as TIface;
@@ -54,9 +62,18 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<VoidStruct>? pendingRequest = Client.OnClientMethodCall<VoidStruct>(targetMethod, ControllerName, args);
+            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
 
-            return pendingRequest ?? Task.CompletedTask;
+            if (!methodMeta.IsNotificationRequest)
+            {
+                Task<VoidStruct> task = Client.OnClientMethodCall<VoidStruct>(methodMeta, args);
+                return task;
+            }
+            else
+            {
+                ValueTask valueTask = Client.OnClientNotificationCall(methodMeta, args);
+                return valueTask.AsTask();
+            }
         }
 
         // Вызывается через рефлексию — не переименовывать.
@@ -65,15 +82,17 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<VoidStruct>? pendingRequest = Client.OnClientMethodCall<VoidStruct>(targetMethod, ControllerName, args);
+            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
 
-            if (pendingRequest != null)
+            if (!methodMeta.IsNotificationRequest)
             {
+                Task<VoidStruct> pendingRequest = Client.OnClientMethodCall<VoidStruct>(methodMeta, args);
                 return new ValueTask(task: pendingRequest);
             }
             else
             {
-                return default;
+                ValueTask valueTask = Client.OnClientNotificationCall(methodMeta, args);
+                return valueTask;
             }
         }
 
@@ -83,8 +102,9 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<T>? pendingRequest = Client.OnClientMethodCall<T>(targetMethod, ControllerName, args);
-            Debug.Assert(pendingRequest != null);
+            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
+
+            Task<T> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
             return new ValueTask<T>(task: pendingRequest);
         }
 
@@ -94,20 +114,21 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<T>? pendingRequest = Client.OnClientMethodCall<T>(targetMethod, ControllerName, args);
-            Debug.Assert(pendingRequest != null);
+            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
+
+            Task<T> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
             return pendingRequest;
         }
 
         // Вызывается через рефлексию — не переименовывать.
-        //[DebuggerHidden]
         protected T Invoke<T>(MethodInfo targetMethod, object[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<T>? pendingRequest = Client.OnClientMethodCall<T>(targetMethod, ControllerName, args);
-            Debug.Assert(pendingRequest != null);
+            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
+
+            Task<T> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
 
             // Результатом может быть исключение.
             T result = pendingRequest.GetAwaiter().GetResult();
@@ -120,12 +141,22 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<VoidStruct>? pendingRequest = Client.OnClientMethodCall<VoidStruct>(targetMethod, ControllerName, args);
+            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
 
-            if (pendingRequest != null)
+            if (!methodMeta.IsNotificationRequest)
             {
+                Task<VoidStruct> pendingRequest = Client.OnClientMethodCall<VoidStruct>(methodMeta, args);
+
                 // Результатом может быть исключение.
                 pendingRequest.GetAwaiter().GetResult();
+            }
+            else
+            {
+                ValueTask valueTask = Client.OnClientNotificationCall(methodMeta, args);
+                if (!valueTask.IsCompletedSuccessfully)
+                {
+                    valueTask.AsTask().GetAwaiter().GetResult();
+                }
             }
         }
     }

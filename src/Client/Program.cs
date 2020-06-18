@@ -20,16 +20,27 @@ namespace Client
             using var client = new VRpcClient("127.0.0.1", 1002, false, true);
             client.Connect();
 
-            var controller = client.GetProxy<IMultipart>();
+            var controller = client.GetProxy<IMyServer>();
             try
             {
-                controller.Test2();
+                await controller.Test2();
+                await controller.Test2();
+                await controller.Test2();
+                await controller.Test2();
+
+                //var t1 = Task.Run(() => controller.Test2().AsTask());
+                //var t3 = Task.Run(() => controller.Test2().AsTask());
+                //var t4 = Task.Run(() => controller.Test2().AsTask());
+
+                //await Task.WhenAll(t1, t2);
             }
             catch (Exception ex)
             {
                 Debugger.Break();
                 throw;
             }
+
+            listener.Shutdown(TimeSpan.FromSeconds(2));
         }
     }
 
@@ -49,11 +60,11 @@ namespace Client
         Task Test2();
     }
 
-    public interface IMultipart
+    public interface IMyServer
     {
         [Notification]
-        void Test2();
-        //int Test2();
+        ValueTask Test2();
+        
         int TcpData(int connectionData);
         Task<int> TcpDataAsync(int connectionData, byte[] data);
         Task TcpData(VRpcContent connectionId, PooledMemoryContent data);
@@ -75,6 +86,16 @@ namespace Client
             {
                 Interlocked.Exchange(ref _mem, null)?.Dispose();
             }
+        }
+    }
+
+    public readonly struct TestStruct
+    {
+        public int Value { get; }
+
+        public TestStruct(int value)
+        {
+            Value = value;
         }
     }
 }
