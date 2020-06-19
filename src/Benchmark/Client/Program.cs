@@ -74,7 +74,7 @@ namespace Client
                             });
                         });
 
-                        var homeController = client.GetProxy<IServerHomeController>();
+                        var controller = client.GetProxy<IBenchmarkController>();
                         
                         while (true)
                         {
@@ -89,27 +89,21 @@ namespace Client
 
                             while (true)
                             {
-                                var m = MemoryPool<byte>.Shared.Rent(4096);
-                                using (var content = new ReadOnlyMemoryContent(m.Memory.Slice(0, 4096)))
+                                try
                                 {
-                                    try
-                                    {
-                                        homeController.Test();
-                                        //homeController.PlainByteArray(new byte[4096]);
-                                        //homeController.MultipartByteArray(content);
-                                    }
-                                    catch (VRpcWasShutdownException)
-                                    {
-                                        return;
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Thread.Sleep(new Random().Next(2000, 3000));
-                                        Debug.WriteLine(ex);
-                                        break;
-                                    }
-                                    Interlocked.Increment(ref reqCount);
+                                    controller.VoidNoArgs();
                                 }
+                                catch (VRpcWasShutdownException)
+                                {
+                                    return;
+                                }
+                                catch (Exception ex)
+                                {
+                                    Thread.Sleep(new Random().Next(2000, 3000));
+                                    Debug.WriteLine(ex);
+                                    break;
+                                }
+                                Interlocked.Increment(ref reqCount);
                             }
                         }
                         // Подождать грациозное закрытие.
