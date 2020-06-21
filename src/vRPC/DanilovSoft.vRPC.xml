@@ -626,12 +626,6 @@
             <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
             <exception cref="T:DanilovSoft.vRPC.VRpcConnectionNotOpenException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.VRpcClient.AuthenticateAsync(DanilovSoft.vRPC.AccessToken)">
-            <summary>
-            Выполняет аутентификацию соединения.
-            </summary>
-            <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
-        </member>
         <member name="M:DanilovSoft.vRPC.VRpcClient.GetProxy``1">
             <summary>
             Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.

@@ -7,3 +7,5 @@ using System.Diagnostics.CodeAnalysis;
 
 [assembly: SuppressMessage("Reliability", "CA2007:Попробуйте вызвать ConfigureAwait для ожидаемой задачи", Justification = "<Ожидание>")]
 [assembly: SuppressMessage("Performance", "CA1822:Пометьте члены как статические", Justification = "<Ожидание>")]
+[assembly: SuppressMessage("Reliability", "CA2000:Ликвидировать объекты перед потерей области", Justification = "<Ожидание>")]
+[assembly: SuppressMessage("Globalization", "CA1303:Не передавать литералы в качестве локализованных параметров", Justification = "<Ожидание>")]

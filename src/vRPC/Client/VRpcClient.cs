@@ -394,14 +394,14 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        /// <summary>
-        /// Выполняет аутентификацию соединения.
-        /// </summary>
-        /// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
-        public Task AuthenticateAsync(AccessToken accessToken)
-        {
-            throw new NotImplementedException();
-        }
+        ///// <summary>
+        ///// Выполняет аутентификацию соединения.
+        ///// </summary>
+        ///// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
+        //public Task AuthenticateAsync(AccessToken accessToken)
+        //{
+        //    throw new NotImplementedException();
+        //}
 
         /// <summary>
         /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
@@ -436,15 +436,6 @@ namespace DanilovSoft.vRPC
 
             return ManagedConnection.OnClientMethodCall<T>(connectionTask, methodMeta, args);
         }
-
-        //// Когда выполняют вызов метода через интерфейс.
-        //internal Task<T> OnClientMethodCall<T>(MethodInfo targetMethod, string? controllerName, object[] args)
-        //{
-        //    // Начать соединение или взять существующее.
-        //    ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
-
-        //    return ManagedConnection.OnClientMethodCall<T>(connectionTask, targetMethod, controllerName, args);
-        //}
 
         // Когда выполняют вызов метода через интерфейс.
         internal ValueTask OnClientNotificationCall(RequestMethodMeta methodMeta, object[] args)

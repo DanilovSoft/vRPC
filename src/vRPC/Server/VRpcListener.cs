@@ -161,6 +161,7 @@ namespace DanilovSoft.vRPC
 
         internal void OnConnectionAuthenticated(ServerSideConnection connection, ClaimsPrincipal user)
         {
+            Debug.Assert(user.Identity != null);
             Debug.Assert(user.Identity.IsAuthenticated);
 
             ClientAuthenticated?.Invoke(this, new ClientAuthenticatedEventArgs(connection, user));
