@@ -40,6 +40,11 @@
             Возвращаемый тип метода должен быть void или Task или ValueTask.
             </summary>
         </member>
+        <member name="T:DanilovSoft.vRPC.TcpNoDelayAttribute">
+            <summary>
+            Отключает алгоритм Нейгла при отправке запроса или ответа.
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.BearerToken.AccessToken">
             <summary>
             Зашифрованное тело токена.
@@ -798,6 +803,11 @@
             Для Completion.
             </summary>
         </member>
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._cts">
+            <summary>
+            Взводится при обрыве соединения.
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.ManagedConnection.CompletionToken">
             <summary>
             Срабатывает когда соединение переходит в закрытое состояние.
@@ -1081,9 +1091,9 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.LoopSendAsync">
             <summary>
-            Принимает заказы на отправку и отправляет в сокет. Запускается из конструктора. Не бросает исключения.
+            Ждёт сообщения через очередь и отправляет в сокет.
             </summary>
-            <remarks>Как и для ReceiveLoop здесь не должно быть глубокого async стека.</remarks>
+            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDecreaseActiveRequestsCount(DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
@@ -1195,16 +1205,16 @@
             Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.Int32,DanilovSoft.vRPC.ControllerActionMeta,System.Object)">
+            <summary>
+            Ответ на основе запроса.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.Int32,System.Object)">
             <summary>
             Конструктор ответа в случае ошибки десериализации запроса.
             </summary>
             <param name="rawResult">Может быть <see cref="T:DanilovSoft.vRPC.IActionResult"/> или произвольный объект пользователя.</param>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.Int32,DanilovSoft.vRPC.ControllerActionMeta,System.Object)">
-            <summary>
-            Ответ на основе запроса.
-            </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.SerializedMessageToSend">
             <summary>
@@ -1546,7 +1556,7 @@
             Когда Uid не Null.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RequestContext.ActionMeta">
+        <member name="P:DanilovSoft.vRPC.RequestContext.ControllerActionMeta">
             <summary>
             Запрашиваемый метод контроллера.
             </summary>

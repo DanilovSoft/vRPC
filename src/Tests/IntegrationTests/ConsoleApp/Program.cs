@@ -15,15 +15,18 @@ namespace ConsoleApp
     {
         static async Task Main()
         {
-            using var listener = new VRpcListener(IPAddress.Any, 1002);
+            using var listener = new VRpcListener(IPAddress.Any, 65125);
             listener.Start();
-            using var client = new VRpcClient("127.0.0.1", 1002, false, true);
+            using var client = new VRpcClient("localhost", 65125, false, true);
             client.Connect();
 
             var controller = client.GetProxy<IMyServer>();
             try
             {
-                await controller.TestNotification();
+                while (true)
+                {
+                    controller.VoidOneArg(123);
+                }
             }
             catch (Exception ex)
             {
@@ -35,10 +38,14 @@ namespace ConsoleApp
         }
     }
 
+    [ControllerContract("Benchmark")]
     public interface IMyServer
     {
-        [Notification]
-        ValueTask TestNotification();
+        [TcpNoDelay]
+        void VoidOneArg(int n);
+
+        //[Notification]
+        void TestNotification();
         
         int TcpData(int connectionData);
         Task<int> TcpDataAsync(int connectionData, byte[] data);

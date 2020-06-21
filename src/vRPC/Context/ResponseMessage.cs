@@ -21,17 +21,26 @@ namespace DanilovSoft.vRPC
         /// Может быть Null если результат контроллера - void.
         /// </summary>
         public object? ActionResult { get; }
-        ///// <summary>
-        ///// Связанный запрос. Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
-        ///// </summary>
-        //public RequestToInvoke? ReceivedRequest { get; private set; }
         /// <summary>
         /// Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
         /// </summary>
         public ControllerActionMeta? ActionMeta { get; private set; }
-
         public bool IsRequest => false;
         public bool IsNotificationRequest => false;
+        public bool TcpNoDelay => ActionMeta?.TcpNoDelay ?? false;
+
+        #region Ctor
+
+        /// <summary>
+        /// Ответ на основе запроса.
+        /// </summary>
+        [DebuggerStepThrough]
+        public ResponseMessage(int uid, ControllerActionMeta actionMeta, object? actionResult)
+        {
+            ActionMeta = actionMeta;
+            Uid = uid;
+            ActionResult = actionResult;
+        }
 
         /// <summary>
         /// Конструктор ответа в случае ошибки десериализации запроса.
@@ -43,19 +52,6 @@ namespace DanilovSoft.vRPC
             ActionResult = rawResult;
             ActionMeta = null;
         }
-
-        /// <summary>
-        /// Ответ на основе запроса.
-        /// </summary>
-        [DebuggerStepThrough]
-        public ResponseMessage(int uid, ControllerActionMeta actionMeta, object? actionResult)
-        {
-            //Debug.Assert(receivedRequest.Uid != null);
-
-            ActionMeta = actionMeta;
-            //ReceivedRequest = receivedRequest;
-            Uid = uid;
-            ActionResult = actionResult;
-        }
+        #endregion
     }
 }

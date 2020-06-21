@@ -9,11 +9,17 @@ using Microsoft.IO;
 namespace ConsoleApp
 {
     [AllowAnonymous]
-    internal class MyServerController : ServerController
+    internal class BenchmarkController : ServerController
     {
         public void TestNotification()
         {
             
+        }
+        
+        [TcpNoDelay]
+        public int VoidOneArg(int n)
+        {
+            return 123;
         }
     }
 }

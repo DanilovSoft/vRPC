@@ -29,6 +29,11 @@ namespace Server.Controllers
 
         }
 
+        public void VoidOneArg(int n)
+        {
+
+        }
+
         public void PlainByteArray(byte[] data)
         {
             //Interlocked.Increment(ref Program.ReqCount);

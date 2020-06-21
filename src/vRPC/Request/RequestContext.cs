@@ -11,7 +11,7 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Содержит разобранный запрос с параметрами полученный от удалённой стороны.
     /// </summary>
-    [DebuggerDisplay("{" + nameof(ActionMeta) + "}")]
+    [DebuggerDisplay("{" + nameof(ControllerActionMeta) + "}")]
     internal sealed class RequestContext : IDisposable
     {
         private IList<IDisposable>? _disposableArgs;
@@ -20,14 +20,12 @@ namespace DanilovSoft.vRPC
         /// Когда Uid не Null.
         /// </summary>
         public bool IsResponseRequired => Uid != null;
-
-        //[NotNullIfNotNull("IsResponseRequired")]
         public int? Uid { get; }
 
         /// <summary>
         /// Запрашиваемый метод контроллера.
         /// </summary>
-        public ControllerActionMeta ActionMeta { get; }
+        public ControllerActionMeta ControllerActionMeta { get; }
 
         /// <summary>
         /// Аргументы для вызываемого метода.
@@ -37,7 +35,7 @@ namespace DanilovSoft.vRPC
         public RequestContext(int? uid, ControllerActionMeta invokeAction, object[] args, IList<IDisposable> disposableArgs)
         {
             Uid = uid;
-            ActionMeta = invokeAction;
+            ControllerActionMeta = invokeAction;
             Args = args;
             _disposableArgs = disposableArgs;
         }

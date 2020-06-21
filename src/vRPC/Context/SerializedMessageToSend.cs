@@ -22,21 +22,20 @@ namespace DanilovSoft.vRPC
     {
 #if DEBUG
         // Что-бы видеть контент в режиме отладки.
-        private string? DebugJson
+        private string? DebugJson => GetDebugJson();
+
+        internal string? GetDebugJson()
         {
-            get
+            if ((ContentEncoding == null || ContentEncoding == "json") && MemPoolStream?.Length > 0 && HeaderSize > 0)
             {
-                if ((ContentEncoding == null || ContentEncoding == "json") && MemPoolStream?.Length > 0)
-                {
-                    byte[] copy = MemPoolStream.ToArray();
-                    string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
-                    var element = JsonDocument.Parse(j).RootElement;
-                    return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
-                }
-                else
-                {
-                    return null;
-                }
+                byte[] copy = MemPoolStream.ToArray();
+                string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
+                var element = JsonDocument.Parse(j).RootElement;
+                return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
+            }
+            else
+            {
+                return null;
             }
         }
 #endif

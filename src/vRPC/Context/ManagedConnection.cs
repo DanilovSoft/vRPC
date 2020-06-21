@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Linq;
 using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
@@ -13,7 +9,6 @@ using DanilovSoft.WebSockets;
 using System.Net.Sockets;
 using System.Net;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Buffers;
 using Ms = System.Net.WebSockets;
 using DanilovSoft.vRPC.Resources;
@@ -21,6 +16,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using DanilovSoft.vRPC.DTO;
 using DanilovSoft.vRPC.Source;
+using DanilovSoft.vRPC.Utils;
 using System.Text.Json;
 
 namespace DanilovSoft.vRPC
@@ -31,10 +27,6 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public abstract class ManagedConnection : IDisposable, IGetProxy
     {
-        ///// <summary>
-        ///// Содержит имена методов прокси интерфейса без постфикса Async.
-        ///// </summary>
-        //private protected abstract IConcurrentDictionary<MethodInfo, RequestMethodMeta> InterfaceMethods { get; }
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
@@ -43,6 +35,9 @@ namespace DanilovSoft.vRPC
         /// Для Completion.
         /// </summary>
         private readonly TaskCompletionSource<CloseReason> _completionTcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
+        /// <summary>
+        /// Взводится при обрыве соединения.
+        /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         /// <summary>
@@ -152,6 +147,7 @@ namespace DanilovSoft.vRPC
         public bool IsConnected => _isConnected;
         public abstract bool IsAuthenticated { get; }
         private Task? _senderTask;
+        private bool _tcpNoDelay;
 
         // static ctor.
         static ManagedConnection()
@@ -176,15 +172,16 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Принимает открытое соединение Web-Socket.
         /// </summary>
-        internal ManagedConnection(ManagedWebSocket clientConnection, bool isServer, ServiceProvider serviceProvider, InvokeActionsDictionary actions)
+        internal ManagedConnection(ManagedWebSocket webSocket, bool isServer, ServiceProvider serviceProvider, InvokeActionsDictionary actions)
         {
             IsServer = isServer;
 
-            Debug.Assert(clientConnection.State == Ms.WebSocketState.Open);
+            Debug.Assert(webSocket.State == Ms.WebSocketState.Open);
 
-            LocalEndPoint = clientConnection.LocalEndPoint;
-            RemoteEndPoint = clientConnection.RemoteEndPoint;
-            _ws = clientConnection;
+            LocalEndPoint = webSocket.LocalEndPoint;
+            RemoteEndPoint = webSocket.RemoteEndPoint;
+            _ws = webSocket;
+            _tcpNoDelay = webSocket.Socket.NoDelay;
             //_pipe = new Pipe();
 
             _pendingRequests = new PendingRequestDictionary();
@@ -1307,10 +1304,11 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        // Как и для ReceiveLoop здесь не должно быть глубокого async стека.
         /// <summary>
-        /// Принимает заказы на отправку и отправляет в сокет. Запускается из конструктора. Не бросает исключения.
+        /// Ждёт сообщения через очередь и отправляет в сокет.
         /// </summary>
-        /// <remarks>Как и для ReceiveLoop здесь не должно быть глубокого async стека.</remarks>
+        /// <remarks>Не бросает исключения.</remarks>
         private async Task LoopSendAsync() // Точка входа нового потока.
         {
             // Ждём сообщение для отправки.
@@ -1336,12 +1334,17 @@ namespace DanilovSoft.vRPC
                             // Размер сообщения без заголовка.
                             int messageSize = (int)serializedMessage.MemPoolStream.Length - serializedMessage.HeaderSize;
 
+                            if (serializedMessage.MessageToSend.TcpNoDelay != _tcpNoDelay)
+                            {
+                                _ws.Socket.NoDelay = _tcpNoDelay = serializedMessage.MessageToSend.TcpNoDelay;
+                            }
+
                             #region Отправка заголовка
 
                             try
                             {
                                 // Заголовок лежит в конце стрима.
-                                await SendBufferAsync(streamBuffer.AsMemory(messageSize, serializedMessage.HeaderSize), true).ConfigureAwait(false);
+                                await SendBufferAsync(streamBuffer.AsMemory(messageSize, serializedMessage.HeaderSize), endOfMessage: true).ConfigureAwait(false);
                             }
                             catch (Exception ex)
                             // Обрыв соединения.
@@ -1547,7 +1550,7 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Проверить доступ к функции.
-                if (ActionPermissionCheck(receivedRequest.ActionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user))
+                if (ActionPermissionCheck(receivedRequest.ControllerActionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user))
                 {
                     IServiceScope scope = ServiceProvider.CreateScope();
                     scopeToDispose = scope;
@@ -1557,7 +1560,7 @@ namespace DanilovSoft.vRPC
                     getProxyScope.ConnectionContext = this;
 
                     // Активируем контроллер через IoC.
-                    var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.ActionMeta.ControllerType) as Controller;
+                    var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.ControllerActionMeta.ControllerType) as Controller;
                     Debug.Assert(controller != null);
 
                     // Подготавливаем контроллер.
@@ -1568,7 +1571,7 @@ namespace DanilovSoft.vRPC
 
                     // Вызов метода контроллера.
                     // (!) Результатом может быть не завершённый Task.
-                    object? actionResult = receivedRequest.ActionMeta.FastInvokeDelegate(controller, receivedRequest.Args);
+                    object? actionResult = receivedRequest.ControllerActionMeta.FastInvokeDelegate.Invoke(controller, receivedRequest.Args);
 
                     if (actionResult != null)
                     {
@@ -1807,7 +1810,7 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(requestToInvoke.Uid != null);
 
-            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, actionResult));
+            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ControllerActionMeta, actionResult));
         }
 
         private void SendInternalerverError(RequestContext requestToInvoke, Exception exception)
@@ -1815,7 +1818,7 @@ namespace DanilovSoft.vRPC
             Debug.Assert(requestToInvoke.Uid != null);
 
             // Вернуть результат с ошибкой.
-            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, new InternalErrorResult("Internal Server Error")));
+            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ControllerActionMeta, new InternalErrorResult("Internal Server Error")));
         }
 
         private void SendBadRequest(RequestContext requestToInvoke, VRpcBadRequestException exception)
@@ -1823,7 +1826,7 @@ namespace DanilovSoft.vRPC
             Debug.Assert(requestToInvoke.Uid != null);
 
             // Вернуть результат с ошибкой.
-            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ActionMeta, new BadRequestResult(exception.Message)));
+            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ControllerActionMeta, new BadRequestResult(exception.Message)));
         }
 
         /// <summary>

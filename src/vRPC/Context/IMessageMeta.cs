@@ -12,5 +12,6 @@ namespace DanilovSoft.vRPC
         /// Может быть True когда IsRequest тоже является True.
         /// </summary>
         bool IsNotificationRequest { get; }
+        bool TcpNoDelay { get; }
     }
 }

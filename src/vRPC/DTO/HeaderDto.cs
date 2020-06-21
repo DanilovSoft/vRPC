@@ -114,7 +114,7 @@ namespace DanilovSoft.vRPC
             
             // Сериализуем хедэр.
             ProtoBufSerializer.Serialize(stream, this);
-
+            
             headerSize = (int)stream.Position - initialPos;
 
             Debug.Assert(headerSize <= HeaderMaxSize);
