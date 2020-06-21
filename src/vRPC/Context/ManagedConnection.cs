@@ -16,8 +16,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using DanilovSoft.vRPC.DTO;
 using DanilovSoft.vRPC.Source;
-using DanilovSoft.vRPC.Utils;
-using System.Text.Json;
 
 namespace DanilovSoft.vRPC
 {

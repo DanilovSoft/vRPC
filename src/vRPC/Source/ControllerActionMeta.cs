@@ -17,8 +17,6 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{{TargetMethod.GetControllerActionName()}\}")]
     internal sealed class ControllerActionMeta
     {
-        public delegate void TestMethodDelegate<T>();
-
         public Action<Stream, object> SerializerDelegate { get; }
         public MethodInfo TargetMethod { get; }
         public ParameterInfo[] Parametergs { get; }
@@ -60,24 +58,6 @@ namespace DanilovSoft.vRPC
             }
 
             FastInvokeDelegate = DynamicMethodFactory.CreateMethodCall(methodInfo, skipConvertion: true);
-
-            var method = GetType().GetMethod("TestMe");
-
-            var genericMethod = method.MakeGenericMethod(typeof(int));
-
-            Delegate.CreateDelegate(typeof(Action), genericMethod);
-
-            //var deleg = genericMethod.CreateDelegate
-        }
-
-        private void DynamicMethod()
-        {
-            TestMe<int>();
-        }
-
-        public void TestMe<T>()
-        {
-
         }
     }
 }
