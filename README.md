@@ -160,6 +160,45 @@ class AccountController : ServerController
 }
 ```
 
+# Error handling
+##### Client side
+
+```csharp
+try
+{
+    string response = chat.GetUserName(-1);
+}
+catch (VRpcBadRequestException ex)
+{
+    Console.WriteLine(ex.Message); // "Invalid userId"
+}
+```
+##### Server side
+```csharp
+class ChatController : ServerController
+{
+    // An easier way.
+    public string GetUserName(int userId)
+    {
+        if (userId < 0)
+            throw new VRpcBadRequestException("Invalid userId");
+
+        // ...
+        return "John Doe";
+    }
+
+    // More preferable way.
+    public ActionResult<string> GetUserName(int userId)
+    {
+        if (userId < 0)
+            return BadRequest("Invalid userId");
+
+        // ...
+        return "John Doe";
+    }
+}
+
+
 # Advanced Connection Establishment
 
 To maintain a long-live connections to the server, it is better to use overload that does not cause exceptions.
@@ -228,42 +267,3 @@ class ChatController : ServerController
     public MyClass GetData() => new MyClass();
 }
 ```
-
-
-# Error handling
-##### Client side
-
-```csharp
-try
-{
-    string response = chat.GetUserName(-1);
-}
-catch (VRpcBadRequestException ex)
-{
-    Console.WriteLine(ex.Message); // "Invalid userId"
-}
-```
-##### Server side
-```csharp
-class ChatController : ServerController
-{
-    // An easier way.
-    public string GetUserName(int userId)
-    {
-        if (userId < 0)
-            throw new VRpcBadRequestException("Invalid userId");
-
-        // ...
-        return "John Doe";
-    }
-
-    // More preferable way.
-    public ActionResult<string> GetUserName(int userId)
-    {
-        if (userId < 0)
-            return BadRequest("Invalid userId");
-
-        // ...
-        return "John Doe";
-    }
-}
