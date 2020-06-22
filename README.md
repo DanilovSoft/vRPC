@@ -197,7 +197,7 @@ class ChatController : ServerController
         return "John Doe";
     }
 }
-
+```
 
 # Advanced Connection Establishment
 
