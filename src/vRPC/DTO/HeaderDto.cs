@@ -3,6 +3,7 @@ using ProtoBuf;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using ProtoBufSerializer = ProtoBuf.Serializer;
 
@@ -12,8 +13,9 @@ namespace DanilovSoft.vRPC
     /// Заголовок запроса или ответа. Бинарный размер — динамический. Сериализуется всегда через ProtoBuf.
     /// </summary>
     [ProtoContract]
+    [StructLayout(LayoutKind.Auto)]
     [DebuggerDisplay("{DebugDisplay,nq}")]
-    internal sealed class HeaderDto
+    internal readonly struct HeaderDto : IEquatable<HeaderDto>
     {
         public const int HeaderMaxSize = 64;
         private const string HeaderSizeExceededException = "Размер заголовка сообщения превысил максимально допустимый размер в 64 байта.";
@@ -50,7 +52,7 @@ namespace DanilovSoft.vRPC
         [ProtoMember(1, IsRequired = false)]
         public int? Uid { get; }
 
-        [ProtoMember(2)]
+        [ProtoMember(2, IsRequired = true)]
         public StatusCode StatusCode { get; }
 
         [ProtoMember(3, IsRequired = false)]
@@ -69,11 +71,11 @@ namespace DanilovSoft.vRPC
         [ProtoMember(5, IsRequired = false)]
         public string? ActionName { get; }
 
-        // Требуется для десериализатора. Если структура то не используется.
-        private HeaderDto()
-        {
+        //Требуется для десериализатора.Если структура то не используется.
+        //private HeaderDto()
+        //{
 
-        }
+        //}
 
         /// <summary>
         /// Создаёт заголовок ответа на запрос.
@@ -126,25 +128,22 @@ namespace DanilovSoft.vRPC
         }
 
         /// <returns>Может быть Null если не удалось десериализовать.</returns>
-        public static HeaderDto? DeserializeProtoBuf(byte[] buffer, int offset, int count)
+        public static HeaderDto DeserializeProtoBuf(byte[] buffer, int offset, int count)
         {
+            HeaderDto header;
             using (var mem = new MemoryStream(buffer, offset, count))
-            {
-                HeaderDto? header = ProtoBufSerializer.Deserialize<HeaderDto>(mem);
-                ValidateDeserializedHeader(header);
-                return header;
-            }
+                header = ProtoBufSerializer.Deserialize<HeaderDto>(mem);
+            
+            header.ValidateDeserializedHeader();
+            return header;
         }
 
         [Conditional("DEBUG")]
-        private static void ValidateDeserializedHeader(HeaderDto? header)
+        internal void ValidateDeserializedHeader()
         {
-            if (header != null)
+            if (IsRequest)
             {
-                if (header.IsRequest)
-                {
-                    Debug.Assert(!string.IsNullOrEmpty(header.ActionName), "У запроса должно быть имя запрашиваемого метода");
-                }
+                Debug.Assert(!string.IsNullOrEmpty(ActionName), "У запроса должно быть имя запрашиваемого метода");
             }
         }
 
@@ -163,6 +162,31 @@ namespace DanilovSoft.vRPC
                 s += $" '{ActionName}'";
             }
             return s;
+        }
+
+        public override int GetHashCode()
+        {
+            return 0;
+        }
+
+        public static bool operator ==(in HeaderDto left, in HeaderDto right)
+        {
+            return left.StatusCode == right.StatusCode;
+        }
+
+        public static bool operator !=(in HeaderDto left, in HeaderDto right)
+        {
+            return !(left == right);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return false;
+        }
+
+        public bool Equals(HeaderDto other)
+        {
+            return StatusCode == other.StatusCode;
         }
     }
 }

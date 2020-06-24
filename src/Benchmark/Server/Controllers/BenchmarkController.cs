@@ -24,6 +24,7 @@ namespace Server.Controllers
             _proxy = proxy.Proxy;
         }
 
+        [TcpNoDelay]
         public void VoidNoArgs()
         {
 

@@ -21,20 +21,21 @@ namespace DanilovSoft.vRPC
     {
         private const string ArgumentsCountMismatch = "Argument count mismatch for action '{0}'. {1} arguments was expected.";
 
+        /// <param name="result">Не Null когда True.</param>
         /// <remarks>Не бросает исключения.</remarks>
-        public static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerActionMeta action, HeaderDto header, 
-            [MaybeNullWhen(false)] out RequestContext? result,
+        public static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerActionMeta action, in HeaderDto header, 
+            [MaybeNullWhen(false)] ref RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
             try
             {
                 if (header.ContentEncoding != KnownEncoding.MultipartEncoding)
                 {
-                    return TryDeserializeRequestJson(content.Span, action, header, out result, out error);
+                    return TryDeserializeRequestJson(content.Span, action, header, ref result, out error);
                 }
                 else
                 {
-                    return TryDeserializeMultipart(content, action, header, out result, out error);
+                    return TryDeserializeMultipart(content, action, header, ref result, out error);
                 }
             }
             catch (Exception ex)
@@ -46,13 +47,13 @@ namespace DanilovSoft.vRPC
                 {
                     // Подготовить ответ с ошибкой.
                     error = new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\".");
-                    result = null;
+                    //result = null;
                     return false;
                 }
                 else
                 {
                     error = null;
-                    result = null;
+                    //result = null;
                     return false;
                 }
             }
@@ -82,7 +83,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="JsonException"/>
         /// <returns>True если успешно десериализовали.</returns>
         private static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, ControllerActionMeta action, HeaderDto header, 
-            [MaybeNullWhen(false)] out RequestContext? result,
+            [MaybeNullWhen(false)] ref RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
 #if DEBUG
@@ -111,7 +112,7 @@ namespace DanilovSoft.vRPC
                             }
                             catch (JsonException)
                             {
-                                result = null;
+                                //result = null;
                                 error = ErrorDeserializingArgument(action.ActionFullName, argIndex: argsInJsonCounter, paramType);
                                 return false;
                             }
@@ -120,7 +121,7 @@ namespace DanilovSoft.vRPC
                         else
                         // Выход за границы массива.
                         {
-                            result = null;
+                            //result = null;
                             error = ArgumentsCountMismatchError(action.ActionFullName, action.Parametergs.Length);
                             return false;
                         }
@@ -131,68 +132,56 @@ namespace DanilovSoft.vRPC
             if (ValidateArgumentsCount(action.Parametergs, argsInJsonCounter, action.ActionFullName, out error))
             {
                 error = null;
-                result = new RequestContext(header.Uid, action, args, Array.Empty<IDisposable>());
+                result = new RequestContext(header.Uid, action, args);
                 return true;
             }
             else
             // Не соответствует число аргументов.
             {
-                result = null;
+                //result = null;
                 return false;
             }
         }
 
         /// <exception cref="Exception"/>
         private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerActionMeta action, HeaderDto header,
-            [MaybeNullWhen(false)] out RequestContext? result,
+            [MaybeNullWhen(false)] ref RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
-            object[] args;
-            IList<IDisposable>? disposableArgs;
-
+            object[]? args;
             if (action.Parametergs.Length == 0)
             {
                 args = Array.Empty<object>();
-                disposableArgs = Array.Empty<IDisposable>();
             }
             else
             {
                 args = new object[action.Parametergs.Length];
-
-                int disposableArgsCount = action.Parametergs.Count(x => typeof(IDisposable).IsAssignableFrom(x.ParameterType));
-
-                disposableArgs = disposableArgsCount == 0 
-                    ? (IList<IDisposable>)Array.Empty<IDisposable>() 
-                    : new List<IDisposable>(disposableArgsCount);
             }
-
             try
             {
-                if (DeserializeArgs(content, action, args, disposableArgs, out error))
+                if (DeserializeArgs(content, action, args, out error))
                 {
-                    result = new RequestContext(header.Uid, action, args, disposableArgs);
-                    disposableArgs = null; // Предотвратить Dispose.
+                    result = new RequestContext(header.Uid, action, args);
+                    args = null; // Предотвратить Dispose.
                     error = null;
                     return true;
                 }
                 else
                 {
-                    result = null;
+                    //result = null;
                     return false;
                 }
             }
             finally
             {
-                if (disposableArgs != null)
+                if (args != null)
                 {
-                    for (int i = 0; i < disposableArgs.Count; i++)
-                        disposableArgs[i].Dispose();
+                    action.DisposeArgs(args);
                 }
             }
         }
 
-        private static bool DeserializeArgs(ReadOnlyMemory<byte> content, ControllerActionMeta action, object[] args, IList<IDisposable> disposableArgs,
-            [MaybeNullWhen(true)] out IActionResult? error)
+        private static bool DeserializeArgs(ReadOnlyMemory<byte> content, ControllerActionMeta action, object[] args, [MaybeNullWhen(true)] out IActionResult? error)
         {
             using (var stream = new ReadOnlyMemoryStream(content))
             {
@@ -221,7 +210,7 @@ namespace DanilovSoft.vRPC
                     {
                         ReadOnlyMemory<byte> raw = content.Slice((int)stream.Position, partHeader.Size);
 
-                        if (!RawEncodingArg(raw, ref args[i], argType, disposableArgs))
+                        if (!RawEncodingArg(raw, ref args[i], argType))
                         {
                             error = ErrorDeserializingArgument(action.ActionFullName, argIndex: i, argType);
                             return false;
@@ -234,14 +223,13 @@ namespace DanilovSoft.vRPC
             return true;
         }
 
-        private static bool RawEncodingArg(ReadOnlyMemory<byte> raw, ref object argv, Type argType, IList<IDisposable> disposableArgs)
+        private static bool RawEncodingArg(ReadOnlyMemory<byte> raw, ref object argv, Type argType)
         {
             if (argType == typeof(RentedMemory))
             {
                 IMemoryOwner<byte>? shared = MemoryPool<byte>.Shared.Rent(raw.Length);
                 raw.CopyTo(shared.Memory);
                 var disposableMemory = new RentedMemory(shared, raw.Length);
-                disposableArgs.Add(disposableMemory);
                 argv = disposableMemory;
             }
             else if (argType == typeof(byte[]))

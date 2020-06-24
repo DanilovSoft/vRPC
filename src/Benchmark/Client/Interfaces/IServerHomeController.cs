@@ -11,6 +11,7 @@ namespace Client
     [ControllerContract("Benchmark")]
     public interface IBenchmarkController
     {
+        [TcpNoDelay]
         void VoidNoArgs();
         void JsonOnlyInt(int id);
         void MultipartOnlyInt(VRpcContent id);

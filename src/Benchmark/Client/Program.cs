@@ -99,8 +99,8 @@ namespace Client
                                 }
                                 catch (Exception ex)
                                 {
+                                    Console.Error.WriteLine(ex);
                                     Thread.Sleep(new Random().Next(2000, 3000));
-                                    Debug.WriteLine(ex);
                                     break;
                                 }
                                 Interlocked.Increment(ref reqCount);

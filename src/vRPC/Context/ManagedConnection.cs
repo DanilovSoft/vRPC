@@ -16,6 +16,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using DanilovSoft.vRPC.DTO;
 using DanilovSoft.vRPC.Source;
+using System.IO;
 
 namespace DanilovSoft.vRPC
 {
@@ -154,7 +155,7 @@ namespace DanilovSoft.vRPC
             //Console.WriteLine(proto);
 
             //ManagedWebSocket.DefaultNoDelay = true;
-            //Debug.Assert(Marshal.SizeOf<HeaderDto>() <= 16, $"Структуру {nameof(HeaderDto)} лучше заменить на класс");
+            //Debug.Assert(System.Runtime.InteropServices.Marshal.SizeOf<HeaderDto>() <= 32, $"Структуру {nameof(HeaderDto)} лучше заменить на класс");
             //Debug.Assert(Marshal.SizeOf<RequestMessageDto>() <= 16, $"Структуру {nameof(RequestMessageDto)} лучше заменить на класс");
             //Debug.Assert(Marshal.SizeOf<RequestMessage>() <= 16, $"Структуру {nameof(RequestMessage)} лучше заменить на класс");
             //Debug.Assert(Marshal.SizeOf<ValueWebSocketReceiveExResult>() <= 16, $"Структуру {nameof(ValueWebSocketReceiveExResult)} лучше заменить на класс");
@@ -690,12 +691,15 @@ namespace DanilovSoft.vRPC
 
                 #region Десериализуем хедер
 
-                HeaderDto? header;
+                HeaderDto header;
                 if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
                 {
                     try
                     {
-                        header = HeaderDto.DeserializeProtoBuf(headerBuffer, 0, webSocketMessage.Count);
+                        using (var mem = new MemoryStream(headerBuffer, 0, webSocketMessage.Count))
+                            header = ProtoBuf.Serializer.Deserialize<HeaderDto>(mem);
+
+                        header.ValidateDeserializedHeader();
                     }
                     catch (Exception headerException)
                     // Не удалось десериализовать заголовок.
@@ -713,7 +717,7 @@ namespace DanilovSoft.vRPC
                 }
                 #endregion
 
-                if (header != null)
+                if (header != default)
                 {
                     #region Читаем контент
 
@@ -827,7 +831,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="payload">Контент запроса целиком.</param>
         /// <returns>false если нужно завершить поток чтения.</returns>
-        private bool TryProcessPayload(HeaderDto header, ReadOnlyMemory<byte> payload)
+        private bool TryProcessPayload(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             if (header.IsRequest)
             // Получен запрос.
@@ -838,21 +842,21 @@ namespace DanilovSoft.vRPC
                     {
                         if (TryGetRequestMethod(header, out ControllerActionMeta? action))
                         {
-                            RequestContext? requestToInvoke = null;
+                            RequestContext requestToInvoke = default;
                             try
                             {
                                 #region Десериализация запроса
 
-                                if (RequestContentParser.TryDeserializeRequest(payload, action, header, out requestToInvoke, out IActionResult? error))
+                                if (RequestContentParser.TryDeserializeRequest(payload, action, header, ref requestToInvoke, out IActionResult? error))
                                 {
                                     #region Выполнение запроса
 
-                                    Debug.Assert(requestToInvoke != null, "Не может быть Null когда success");
+                                    //Debug.Assert(requestToInvoke != null, "Не может быть Null когда success");
 
                                     // Начать выполнение запроса в отдельном потоке.
                                     StartProcessRequest(requestToInvoke);
 
-                                    requestToInvoke = null; // Предотвратить Dispose.
+                                    //requestToInvoke = null; // Предотвратить Dispose.
 
                                     #endregion
                                 }
@@ -880,7 +884,7 @@ namespace DanilovSoft.vRPC
                             }
                             finally
                             {
-                                requestToInvoke?.Dispose();
+                                //requestToInvoke?.Dispose();
                             }
                         }
                         else
@@ -935,7 +939,7 @@ namespace DanilovSoft.vRPC
             return true; // Завершать поток чтения не нужно (вернуться к чтению следующего сообщения).
         }
 
-        private bool TryGetRequestMethod(HeaderDto header, [NotNullWhen(true)] out ControllerActionMeta? action)
+        private bool TryGetRequestMethod(in HeaderDto header, [NotNullWhen(true)] out ControllerActionMeta? action)
         {
             Debug.Assert(header.ActionName != null);
 
@@ -975,7 +979,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <returns>true если хедер валиден.</returns>
-        private bool ValidateHeader(HeaderDto header)
+        private bool ValidateHeader(in HeaderDto header)
         {
             if (!header.IsRequest || !string.IsNullOrEmpty(header.ActionName))
             {
@@ -999,7 +1003,7 @@ namespace DanilovSoft.vRPC
         /// <param name="header"></param>
         /// <returns>true если разрешено продолжить выполнение запроса, 
         /// false если требуется остановить сервис.</returns>
-        private bool TryIncreaseActiveRequestsCount(HeaderDto header)
+        private bool TryIncreaseActiveRequestsCount(in HeaderDto header)
         {
             if (header.IsResponseRequired)
             {
@@ -1487,51 +1491,51 @@ namespace DanilovSoft.vRPC
             return _ws.SendAsync(buffer, Ms.WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
         }
 
-        [Conditional("LOG_RPC")]
-        private static void LogSend(SerializedMessageToSend serializedMessage)
-        {
-            byte[] streamBuffer = serializedMessage.MemPoolStream.GetBuffer();
+        //[Conditional("LOG_RPC")]
+        //private static void LogSend(SerializedMessageToSend serializedMessage)
+        //{
+        //    byte[] streamBuffer = serializedMessage.MemPoolStream.GetBuffer();
 
-            // Размер сообщения без заголовка.
-            int contentSize = (int)serializedMessage.MemPoolStream.Length - serializedMessage.HeaderSize;
+        //    // Размер сообщения без заголовка.
+        //    int contentSize = (int)serializedMessage.MemPoolStream.Length - serializedMessage.HeaderSize;
 
-            var headerSpan = streamBuffer.AsSpan(contentSize, serializedMessage.HeaderSize);
-            //var contentSpan = streamBuffer.AsSpan(0, contentSize);
+        //    var headerSpan = streamBuffer.AsSpan(contentSize, serializedMessage.HeaderSize);
+        //    //var contentSpan = streamBuffer.AsSpan(0, contentSize);
 
-            var header = HeaderDto.DeserializeProtoBuf(headerSpan.ToArray(), 0, headerSpan.Length);
-            //string header = HeaderDto.DeserializeProtobuf(headerSpan.ToArray(), 0, headerSpan.Length).ToString();
+        //    var header = HeaderDto.DeserializeProtoBuf(headerSpan.ToArray(), 0, headerSpan.Length);
+        //    //string header = HeaderDto.DeserializeProtobuf(headerSpan.ToArray(), 0, headerSpan.Length).ToString();
 
-            //string header = Encoding.UTF8.GetString(headerSpan.ToArray());
-            //string content = Encoding.UTF8.GetString(contentSpan.ToArray());
+        //    //string header = Encoding.UTF8.GetString(headerSpan.ToArray());
+        //    //string content = Encoding.UTF8.GetString(contentSpan.ToArray());
 
-            //header = Newtonsoft.Json.Linq.JToken.Parse(header).ToString(Newtonsoft.Json.Formatting.Indented);
-            Debug.WriteLine(header);
-            if (header != null)
-            {
-                if ((header.StatusCode == StatusCode.Ok || header.StatusCode == StatusCode.Request)
-                    && (serializedMessage.ContentEncoding == null || serializedMessage.ContentEncoding == "json"))
-                {
-                    if (contentSize > 0)
-                    {
-                        try
-                        {
-                            string content = System.Text.Json.JsonDocument.Parse(streamBuffer.AsMemory(0, contentSize)).RootElement.ToString();
-                            Debug.WriteLine(content);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine(ex);
-                            if (Debugger.IsAttached)
-                                Debugger.Break();
-                        }
-                    }
-                }
-                else
-                {
-                    //Debug.WriteLine(streamBuffer.AsMemory(0, contentSize).Span.Select(x => x).ToString());
-                }
-            }
-        }
+        //    //header = Newtonsoft.Json.Linq.JToken.Parse(header).ToString(Newtonsoft.Json.Formatting.Indented);
+        //    Debug.WriteLine(header);
+        //    if (header != default)
+        //    {
+        //        if ((header.StatusCode == StatusCode.Ok || header.StatusCode == StatusCode.Request)
+        //            && (serializedMessage.ContentEncoding == null || serializedMessage.ContentEncoding == "json"))
+        //        {
+        //            if (contentSize > 0)
+        //            {
+        //                try
+        //                {
+        //                    string content = System.Text.Json.JsonDocument.Parse(streamBuffer.AsMemory(0, contentSize)).RootElement.ToString();
+        //                    Debug.WriteLine(content);
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    Debug.WriteLine(ex);
+        //                    if (Debugger.IsAttached)
+        //                        Debugger.Break();
+        //                }
+        //            }
+        //        }
+        //        else
+        //        {
+        //            //Debug.WriteLine(streamBuffer.AsMemory(0, contentSize).Span.Select(x => x).ToString());
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// Вызывает запрошенный метод контроллера и возвращает результат.
@@ -1541,9 +1545,9 @@ namespace DanilovSoft.vRPC
         /// <exception cref="ObjectDisposedException"/>
         /// <param name="receivedRequest">Гарантированно выполнит Dispose.</param>
         /// <returns><see cref="IActionResult"/> или любой объект.</returns>
-        private ValueTask<object?> InvokeControllerAsync(RequestContext receivedRequest)
+        private ValueTask<object?> InvokeControllerAsync(in RequestContext receivedRequest)
         {
-            RequestContext? requestToDispose = receivedRequest;
+            bool requestToDispose = true;
             IServiceScope? scopeToDispose = null;
             try
             {
@@ -1589,7 +1593,7 @@ namespace DanilovSoft.vRPC
                         {
                             // Предотвратить Dispose.
                             scopeToDispose = null;
-                            requestToDispose = null;
+                            requestToDispose = false;
 
                             return WaitForControllerActionAsync(actionResultAsTask, scope, receivedRequest);
                         }
@@ -1607,7 +1611,8 @@ namespace DanilovSoft.vRPC
             }
             finally
             {
-                requestToDispose?.Dispose();
+                if (requestToDispose)
+                    receivedRequest.Dispose();
 
                 // ServiceScope выполнит Dispose всем созданным экземплярам.
                 scopeToDispose?.Dispose();
@@ -1635,32 +1640,31 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// В новом потоке выполняет запрос и отправляет ему результат или ошибку.
         /// </summary>
-        private void StartProcessRequest(RequestContext request)
+        /// <remarks>Не бросает исключения.</remarks>
+        private void StartProcessRequest(in RequestContext request)
         {
 #if NETSTANDARD2_0 || NET472
-            ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestThread, (this, request)); // Без замыкания.
+            ThreadPool.UnsafeQueueUserWorkItem(ProcessRequestThreadEntryPoint, request); // Без замыкания.
 #else
             // Предпочитаем глобальную очередь что-бы не замедлять читающий поток.
-            ThreadPool.UnsafeQueueUserWorkItem(StartProcessRequestThread, (this, request), preferLocal: false);
+            ThreadPool.UnsafeQueueUserWorkItem(ProcessRequestThreadEntryPoint, request, preferLocal: false);
 #endif
         }
 
 #if NETSTANDARD2_0 || NET472
-        private static void StartProcessRequestThread(object? state)
+        private void ProcessRequestThreadEntryPoint(object? state)
         {
             Debug.Assert(state != null);
-            var tuple = ((ManagedConnection, RequestContext))state;
-
-            StartProcessRequestThread(stateTuple: tuple);
+            ProcessRequestThreadEntryPoint(requestContext: (RequestContext)state);
         }  
 #endif
 
-        // Точка входа для потока из пула.
-        [DebuggerStepThrough]
-        private static void StartProcessRequestThread((ManagedConnection self, RequestContext request) stateTuple)
-        {
-            stateTuple.self.ProcessRequestThreadEntryPoint(stateTuple.request);
-        }
+        //// Точка входа для потока из пула.
+        //[DebuggerStepThrough]
+        //private void StartProcessRequestThread(RequestContext request)
+        //{
+        //    ProcessRequestThreadEntryPoint(stateTuple.request);
+        //}
 
         /// <summary>
         /// Выполняет запрос и отправляет результат или ошибку.
@@ -1719,7 +1723,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
-        private void ProcessRequest(RequestContext requestToInvoke)
+        private void ProcessRequest(in RequestContext requestToInvoke)
         {
             if (requestToInvoke.IsResponseRequired)
             {
@@ -1740,14 +1744,14 @@ namespace DanilovSoft.vRPC
                     SendBadRequest(requestToInvoke, ex);
                     return;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 // Злая ошибка обработки запроса. Аналогично ошибке 500.
                 {
                     // Прервать отладку.
                     //DebugOnly.Break();
 
                     // Вернуть результат с ошибкой.
-                    SendInternalerverError(requestToInvoke, ex);
+                    SendInternalerverError(requestToInvoke);
                     return;
                 }
 
@@ -1782,14 +1786,14 @@ namespace DanilovSoft.vRPC
                             SendBadRequest(requestToInvoke, ex);
                             return;
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         // Злая ошибка обработки запроса. Аналогично ошибке 500.
                         {
                             // Прервать отладку.
                             //DebugOnly.Break();
 
                             // Вернуть результат с ошибкой.
-                            SendInternalerverError(requestToInvoke, ex);
+                            SendInternalerverError(requestToInvoke);
                             return;
                         }
                         SendOkResponse(requestToInvoke, actionResult);
@@ -1804,14 +1808,14 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private void SendOkResponse(RequestContext requestToInvoke, object? actionResult)
+        private void SendOkResponse(in RequestContext requestToInvoke, object? actionResult)
         {
             Debug.Assert(requestToInvoke.Uid != null);
 
             SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ControllerActionMeta, actionResult));
         }
 
-        private void SendInternalerverError(RequestContext requestToInvoke, Exception exception)
+        private void SendInternalerverError(in RequestContext requestToInvoke)
         {
             Debug.Assert(requestToInvoke.Uid != null);
 
@@ -1819,7 +1823,7 @@ namespace DanilovSoft.vRPC
             SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ControllerActionMeta, new InternalErrorResult("Internal Server Error")));
         }
 
-        private void SendBadRequest(RequestContext requestToInvoke, VRpcBadRequestException exception)
+        private void SendBadRequest(in RequestContext requestToInvoke, VRpcBadRequestException exception)
         {
             Debug.Assert(requestToInvoke.Uid != null);
 
@@ -1831,7 +1835,7 @@ namespace DanilovSoft.vRPC
         /// 
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        private void ProcessNotificationRequest(RequestContext notificationRequest)
+        private void ProcessNotificationRequest(in RequestContext notificationRequest)
         {
             Debug.Assert(notificationRequest.IsResponseRequired == false);
 
