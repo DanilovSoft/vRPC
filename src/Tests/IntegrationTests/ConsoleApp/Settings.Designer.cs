@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Client {
+namespace ConsoleApp {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]

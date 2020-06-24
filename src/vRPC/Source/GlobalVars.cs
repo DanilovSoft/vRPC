@@ -14,8 +14,13 @@ namespace DanilovSoft.vRPC
         public static readonly Action SentinelAction = delegate 
         { 
             Debug.Assert(false, "Рассинхронизация потоков! Часовой не должен срабатывать."); 
-            throw new Exception(nameof(IResponseAwaiter)); 
+            throw new Exception(nameof(SentinelAction));
         };
+        //public static readonly Action<object?> CompletedSentinelAction = delegate
+        //{
+        //    Debug.Assert(false, "Рассинхронизация потоков! Часовой не должен срабатывать.");
+        //    throw new Exception(nameof(CompletedSentinelAction));
+        //};
         private static RecyclableMemoryStreamManager? _memoryManager;
         public static RecyclableMemoryStreamManager RecyclableMemory => LazyInitializer.EnsureInitialized(ref _memoryManager, () => new RecyclableMemoryStreamManager());
 

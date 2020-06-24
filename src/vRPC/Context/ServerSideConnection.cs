@@ -22,6 +22,7 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
     public sealed class ServerSideConnection : ManagedConnection, IGetProxy
     {
+        // TODO: вынести в параметры.
         private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
         private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
         private const string Salt = "M6PgwzAnHy02Jv8z5FPIoOn5NeJP7bx7";
@@ -150,22 +151,20 @@ namespace DanilovSoft.vRPC
             if (DateTime.Now < bearerToken.Validity)
             // Токен валиден.
             {
-                using (var mem = new MemoryStream(bearerToken.ClaimsPrincipal, 0, bearerToken.ClaimsPrincipal.Length, false, true))
+                using (var mem = new MemoryStream(bearerToken.ClaimsPrincipal, 0, bearerToken.ClaimsPrincipal.Length, writable: false, publiclyVisible: true))
+                using (var breader = new BinaryReader(mem, Encoding.UTF8, leaveOpen: true))
                 {
-                    using (var breader = new BinaryReader(mem, Encoding.UTF8, true))
+                    try
                     {
-                        try
-                        {
-                            user = new ClaimsPrincipal(breader);
-                        }
-                        catch (EndOfStreamException)
-                        {
-                            return new BadRequestResult("Аутентификация не работает на .NET Framework из-за бага");
-                        }
-                        catch (Exception)
-                        {
-                            return new BadRequestResult("Токен не валиден");
-                        }
+                        user = new ClaimsPrincipal(breader);
+                    }
+                    catch (EndOfStreamException)
+                    {
+                        return new BadRequestResult("Аутентификация не работает на .NET Framework из-за бага");
+                    }
+                    catch (Exception)
+                    {
+                        return new BadRequestResult("Токен не валиден");
                     }
                 }
             }

@@ -31,6 +31,7 @@ namespace DanilovSoft.vRPC
         /// Имя метода например 'Home/Hello' без постфикса 'Async'.
         /// </summary>
         public string ActionFullName { get; }
+        public bool TcpNoDelay { get; }
         public bool IsRequest => true;
         /// <summary>
         /// Когда все параметры метода являются <see cref="VRpcContent"/> то обрабатываются
@@ -48,6 +49,7 @@ namespace DanilovSoft.vRPC
 
             // Метод интерфейса может быть помечен как [Notification].
             IsNotificationRequest = Attribute.IsDefined(interfaceMethod, typeof(NotificationAttribute));
+            TcpNoDelay = Attribute.IsDefined(interfaceMethod, typeof(TcpNoDelayAttribute));
 
             if (IsNotificationRequest)
             {
@@ -69,15 +71,23 @@ namespace DanilovSoft.vRPC
         private static bool IsAllParametersIsSpecialType(MethodInfo interfaceMethod)
         {
             ParameterInfo[]? prms = interfaceMethod.GetParameters();
-            bool allIsContentType = prms.All(x => typeof(VRpcContent).IsAssignableFrom(x.ParameterType));
-            if (!allIsContentType)
+            Debug.Assert(prms != null);
+            if (prms.Length > 0)
             {
-                if (prms.Any(x => typeof(VRpcContent).IsAssignableFrom(x.ParameterType)))
+                bool allIsContentType = prms.All(x => typeof(VRpcContent).IsAssignableFrom(x.ParameterType));
+                if (!allIsContentType)
                 {
-                    throw new VRpcException($"Все параметры должны быть либо производными типа {nameof(VRpcContent)} либо любыми другими типами");
+                    if (prms.Any(x => typeof(VRpcContent).IsAssignableFrom(x.ParameterType)))
+                    {
+                        throw new VRpcException($"Все параметры должны быть либо производными типа {nameof(VRpcContent)} либо любыми другими типами");
+                    }
                 }
+                return allIsContentType;
             }
-            return allIsContentType;
+            else
+            {
+                return false;
+            }
         }
 
         // Используется для Internal вызовов таких как SignIn, SignOut.

@@ -3,10 +3,6 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <!--<PublishSingleFile>true</PublishSingleFile>-->
-    <!--<RuntimeIdentifier>win-x64</RuntimeIdentifier>-->
-    <!--<PublishReadyToRun>true</PublishReadyToRun>-->
-    <!--<PublishTrimmed>true</PublishTrimmed>-->
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">

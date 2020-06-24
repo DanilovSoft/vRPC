@@ -18,28 +18,30 @@ namespace DanilovSoft.vRPC
     /// Атомарный <see langword="await"/>'ер. Связывает результат с запросом.
     /// </summary>
     [DebuggerDisplay(@"\{Request = {Request.ActionName}\}")]
-    internal sealed class ResponseAwaiter<TResult> : IResponseAwaiter, INotifyCompletion
+    internal sealed class ResponseAwaiter<TResult> : IResponseAwaiter/*, INotifyCompletion*/
     {
+        private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         public RequestMethodMeta Request { get; }
+        public Task<TResult> Task => _tcs.Task;
         /// <summary>
         /// Флаг используется как fast-path.
         /// </summary>
-        private volatile bool _isCompleted;
-        [DebuggerNonUserCode]
-        public bool IsCompleted => _isCompleted;
-        [AllowNull]
-        private TResult _responseValue;
-        private volatile Exception? _exception;
-        private Action? _continuationAtomic;
+        //private volatile bool _isCompleted;
+        //[DebuggerNonUserCode]
+        //public bool IsCompleted => _isCompleted;
+        //[AllowNull]
+        //private TResult _responseValue;
+        //private volatile Exception? _exception;
+        //private Action? _continuationAtomic;
 
 #if DEBUG
         private object? ValueForDebugDisplay
         {
             get
             {
-                if (_isCompleted)
+                if (_tcs.Task.IsCompleted)
                 {
-                    return _exception ?? _responseValue as object;
+                    return _tcs.Task.Exception ?? _tcs.Task.Result as object;
                 }
                 else
                 {
@@ -53,32 +55,33 @@ namespace DanilovSoft.vRPC
         public ResponseAwaiter(RequestMethodMeta requestToSend)
         {
             Request = requestToSend;
-            _responseValue = default;
+            //_responseValue = default;
         }
 
-        [DebuggerStepThrough]
-        public ResponseAwaiter<TResult> GetAwaiter() => this;
+        //[DebuggerStepThrough]
+        //public ResponseAwaiter<TResult> GetAwaiter() => this;
 
-        public TResult GetResult()
-        {
-            if (_exception == null)
-            {
-                return _responseValue;
-            }
-            else
-            {
-                // Исключение является полноценным результатом.
-                throw _exception;
-            }
-        }
+        //public TResult GetResult()
+        //{
+        //    if (_exception == null)
+        //    {
+        //        return _responseValue;
+        //    }
+        //    else
+        //    {
+        //        // Исключение является полноценным результатом.
+        //        throw _exception;
+        //    }
+        //}
 
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
         public void TrySetException(Exception exception)
         {
-            _exception = exception;
-            WakeContinuation();
+            _tcs.TrySetException(exception);
+            //_exception = exception;
+            //WakeContinuation();
         }
 
         /// <summary>
@@ -86,8 +89,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private void TrySetResult([AllowNull] TResult result)
         {
-            _responseValue = result;
-            WakeContinuation();
+            _tcs.TrySetResult(result!);
+            //_responseValue = result;
+            //WakeContinuation();
         }
 
         public void DeserializeResponse(ReadOnlyMemory<byte> payload, string? contentEncoding)
@@ -105,67 +109,67 @@ namespace DanilovSoft.vRPC
             TrySetResult(default);
         }
 
-        private void WakeContinuation()
-        {
-            // Результат уже установлен. Можно разрешить fast-path.
-            _isCompleted = true;
+//        private void WakeContinuation()
+//        {
+//            // Результат уже установлен. Можно разрешить fast-path.
+//            _isCompleted = true;
 
-            // Атомарно записать заглушку или вызвать оригинальный continuation.
-            Action? continuation = Interlocked.CompareExchange(ref _continuationAtomic, GlobalVars.SentinelAction, null);
-            if (continuation != null)
-            {
-                // Нельзя делать продолжение текущим потоком т.к. это затормозит/остановит диспетчер 
-                // или произойдет побег специального потока диспетчера.
-#if NETSTANDARD2_0 || NET472
-                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
-#else
-                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: false); // Через глобальную очередь.
-#endif
-            }
-        }
+//            // Атомарно записать заглушку или вызвать оригинальный continuation.
+//            Action? continuation = Interlocked.CompareExchange(ref _continuationAtomic, GlobalVars.SentinelAction, null);
+//            if (continuation != null)
+//            {
+//                // Нельзя делать продолжение текущим потоком т.к. это затормозит/остановит диспетчер 
+//                // или произойдет побег специального потока диспетчера.
+//#if NETSTANDARD2_0 || NET472
+//                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
+//#else
+//                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: false); // Через глобальную очередь.
+//#endif
+//            }
+//        }
 
-#if NETSTANDARD2_0 || NET472
-        //[DebuggerStepThrough]
-        private static void CallContinuation(object? state)
-        {
-            var action = state as Action;
-            Debug.Assert(action != null);
-            CallContinuation(argState: action);
-        }
-#endif
+//#if NETSTANDARD2_0 || NET472
+//        //[DebuggerStepThrough]
+//        private static void CallContinuation(object? state)
+//        {
+//            var action = state as Action;
+//            Debug.Assert(action != null);
+//            CallContinuation(argState: action);
+//        }
+//#endif
 
-        private static void CallContinuation(Action argState)
-        {
-            argState.Invoke();
-        }
+//        private static void CallContinuation(Action argState)
+//        {
+//            argState.Invoke();
+//        }
 
-        public void OnCompleted(Action continuation)
-        {
-            // Атомарно передаем continuation другому потоку.
-            if (Interlocked.CompareExchange(ref _continuationAtomic, continuation, null) == null)
-            {
-                return;
-            }
-            else
-            {
-                // Шанс попасть в этот блок очень маленький.
-                // В переменной _continuationAtomic была другая ссылка, 
-                // это значит что другой поток уже установил результат и его можно забрать.
-                // Но нужно предотвратить углубление стека (stack dive) поэтому продолжение вызывается
-                // другим потоком.
+//        public void OnCompleted(Action continuation)
+//        {
+//            // Атомарно передаем continuation другому потоку.
+//            if (Interlocked.CompareExchange(ref _continuationAtomic, continuation, null) == null)
+//            {
+//                return;
+//            }
+//            else
+//            {
+//                // Шанс попасть в этот блок очень маленький.
+//                // В переменной _continuationAtomic была другая ссылка, 
+//                // это значит что другой поток уже установил результат и его можно забрать.
+//                // Но нужно предотвратить углубление стека (stack dive) поэтому продолжение вызывается
+//                // другим потоком.
 
-#if NETSTANDARD2_0 || NET472
-                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
-#else
-                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true); // Через локальную очередь.
-#endif
-            }
-        }
+//#if NETSTANDARD2_0 || NET472
+//                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
+//#else
+//                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true); // Через локальную очередь.
+//#endif
+//            }
+//        }
 
-        private static void QueueUserWorkItem(Action action)
-        {
-            Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
-        }
+        //private static void QueueUserWorkItem(Action action)
+        //{
+        //    Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
+        //}
 
         /// <summary>
         /// Передаёт ответ ожидающему потоку.

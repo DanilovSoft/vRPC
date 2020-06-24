@@ -26,13 +26,14 @@ namespace DanilovSoft.vRPC
         public string ProducesEncoding { get; }
         public string ActionFullName { get; }
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public readonly Func<object, object[], object?> FastInvokeDelegate;
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)] // Отладчик путает педали.
+        public Func<object, object[], object?> FastInvokeDelegate { get; }
         
         /// <summary>
         /// Контроллер для активации через IoC.
         /// </summary>
         public Type ControllerType { get; }
+        public bool TcpNoDelay { get; }
 
         public ControllerActionMeta(string actionFullName, Type controllerType, MethodInfo methodInfo)
         {
@@ -40,6 +41,9 @@ namespace DanilovSoft.vRPC
             ControllerType = controllerType;
             TargetMethod = methodInfo;
             Parametergs = methodInfo.GetParameters();
+
+            TcpNoDelay = Attribute.IsDefined(methodInfo, typeof(TcpNoDelayAttribute));
+
             var protobufAttrib = methodInfo.GetCustomAttribute<ProducesProtoBufAttribute>();
             if (protobufAttrib != null)
             {

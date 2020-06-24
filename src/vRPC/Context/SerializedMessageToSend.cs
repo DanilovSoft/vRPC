@@ -6,6 +6,8 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Threading.Tasks.Sources;
 using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC
@@ -16,25 +18,24 @@ namespace DanilovSoft.vRPC
     /// и сообщение для отправки удалённой стороне.
     /// Необходимо обязательно выполнить Dispose.
     /// </summary>
-    internal sealed class SerializedMessageToSend : IDisposable
+    internal sealed partial class SerializedMessageToSend : IDisposable
     {
 #if DEBUG
         // Что-бы видеть контент в режиме отладки.
-        private string? DebugJson
+        private string? DebugJson => GetDebugJson();
+
+        internal string? GetDebugJson()
         {
-            get
+            if ((ContentEncoding == null || ContentEncoding == "json") && MemPoolStream?.Length > 0 && HeaderSize > 0)
             {
-                if ((ContentEncoding == null || ContentEncoding == "json") && MemPoolStream?.Length > 0)
-                {
-                    byte[] copy = MemPoolStream.ToArray();
-                    string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
-                    var element = JsonDocument.Parse(j).RootElement;
-                    return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
-                }
-                else
-                {
-                    return null;
-                }
+                byte[] copy = MemPoolStream.ToArray();
+                string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
+                var element = JsonDocument.Parse(j).RootElement;
+                return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
+            }
+            else
+            {
+                return null;
             }
         }
 #endif
@@ -57,6 +58,7 @@ namespace DanilovSoft.vRPC
         }
         /// <summary>
         /// Запрос или ответ на запрос.
+        /// Может быть статический объект <see cref="RequestMethodMeta"/> или <see cref="ResponseMessage"/>.
         /// </summary>
         public IMessageMeta MessageToSend { get; }
         /// <summary>
@@ -70,7 +72,6 @@ namespace DanilovSoft.vRPC
         /// Размер хэдера располагающийся в конце стрима.
         /// </summary>
         public int HeaderSize { get; set; }
-
         public Multipart[]? Parts { get; set; }
 
         /// <summary>
@@ -91,6 +92,10 @@ namespace DanilovSoft.vRPC
         public void Dispose()
         {
             Interlocked.Exchange(ref _memPoolStream, null)?.Dispose();
+            if (MessageToSend.IsNotificationRequest)
+            {
+                CompleteNotification();
+            }
 #if DEBUG
             GC.SuppressFinalize(this);
 #endif

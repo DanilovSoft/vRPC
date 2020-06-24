@@ -11,17 +11,27 @@ using DanilovSoft.vRPC.Decorator;
 namespace Server.Controllers
 {
     [AllowAnonymous]
-    internal class HomeController : ServerController
+    internal class BenchmarkController : ServerController
     {
         private readonly ILogger _logger;
         private readonly Program _program;
         private readonly IClientHomeController _proxy;
 
-        public HomeController(ILogger<HomeController> logger, Program program, IProxy<IClientHomeController> proxy)
+        public BenchmarkController(ILogger<BenchmarkController> logger, Program program, IProxy<IClientHomeController> proxy)
         {
             _logger = logger;
             _program = program;
             _proxy = proxy.Proxy;
+        }
+
+        public void VoidNoArgs()
+        {
+
+        }
+
+        public void VoidOneArg(int n)
+        {
+
         }
 
         public void PlainByteArray(byte[] data)

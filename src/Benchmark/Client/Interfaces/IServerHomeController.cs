@@ -1,5 +1,4 @@
-﻿using Client.DTO;
-using DanilovSoft.vRPC;
+﻿using DanilovSoft.vRPC;
 using DanilovSoft.vRPC.Content;
 using System;
 using System.Collections.Generic;
@@ -9,11 +8,13 @@ using System.Threading.Tasks;
 
 namespace Client
 {
-    [ControllerContract("Home")]
-    public interface IServerHomeController
+    [ControllerContract("Benchmark")]
+    public interface IBenchmarkController
     {
+        void VoidNoArgs();
         void JsonOnlyInt(int id);
         void MultipartOnlyInt(VRpcContent id);
+        [Notification]
         void PlainByteArray(byte[] data);
         void MultipartByteArray(VRpcContent data);
         Task DummyCallAsync(int n);
