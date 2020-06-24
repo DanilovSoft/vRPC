@@ -7,4 +7,4 @@ dotnet_diagnostic.CA1031.severity = none
 dotnet_diagnostic.CA1303.severity = none
 
 # Default severity for analyzer diagnostics with category 'Usage'
-dotnet_analyzer_diagnostic.category-Usage.severity = none
+#dotnet_analyzer_diagnostic.category-Usage.severity = none

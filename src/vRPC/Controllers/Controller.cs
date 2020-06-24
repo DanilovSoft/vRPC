@@ -5,8 +5,7 @@ namespace DanilovSoft.vRPC
 {
     public abstract class Controller
     {
-        private RequestContext? _requestContext;
-        public bool IsNotification => !_requestContext!.IsResponseRequired;
+        public bool IsNotification { get; private set; }
 
         // Должен быть пустой конструктор для наследников.
         public Controller()
@@ -16,9 +15,9 @@ namespace DanilovSoft.vRPC
 
         internal abstract void BeforeInvokeController(ManagedConnection connection, ClaimsPrincipal? user);
 
-        internal void BeforeInvokeController(RequestContext requestContext)
+        internal void BeforeInvokeController(in RequestContext requestContext)
         {
-            _requestContext = requestContext;
+            IsNotification = !requestContext.IsResponseRequired;
         }
 
         protected static BadRequestResult BadRequest(string errorMessage)
