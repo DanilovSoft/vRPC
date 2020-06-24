@@ -192,7 +192,7 @@ namespace DanilovSoft.vRPC
                         //Func<ReadOnlyMemory<byte>, Type, object> deserializer = header.GetDeserializer();
                         try
                         {
-                            DeserializeResponse(payload, header.ContentEncoding);
+                            DeserializeResponse(payload, header.PayloadEncoding);
                         }
                         catch (Exception deserializationException)
                         {
