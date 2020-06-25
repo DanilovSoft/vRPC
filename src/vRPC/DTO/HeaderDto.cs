@@ -1,10 +1,12 @@
 ﻿using DanilovSoft.vRPC.Source;
 using ProtoBuf;
 using System;
+using System.Buffers;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using ProtoBufSerializer = ProtoBuf.Serializer;
 
@@ -18,6 +20,12 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay("{DebugDisplay,nq}")]
     internal readonly struct HeaderDto : IEquatable<HeaderDto>
     {
+        private static readonly JsonEncodedText JsonUid = JsonEncodedText.Encode("uid");
+        private static readonly JsonEncodedText JsonCode = JsonEncodedText.Encode("code");
+        private static readonly JsonEncodedText JsonPayload = JsonEncodedText.Encode("payload");
+        private static readonly JsonEncodedText JsonEncoding = JsonEncodedText.Encode("encoding");
+        private static readonly JsonEncodedText JsonMethod = JsonEncodedText.Encode("method");
+
         public const int HeaderMaxSize = 64;
         private const string HeaderSizeExceededException = "Размер заголовка сообщения превысил максимально допустимый размер в 64 байта.";
 
@@ -53,13 +61,13 @@ namespace DanilovSoft.vRPC
         [ProtoIgnore]
         public bool IsRequest => StatusCode == StatusCode.Request;
 
-        [JsonPropertyName("uid")]
-        [ProtoMember(1, IsRequired = false)]
-        public int? Uid { get; }
-
         [JsonPropertyName("code")]
-        [ProtoMember(2, IsRequired = true)]
+        [ProtoMember(1, IsRequired = true)]
         public StatusCode StatusCode { get; }
+
+        [JsonPropertyName("uid")]
+        [ProtoMember(2, IsRequired = false)]
+        public int? Uid { get; }
 
         [JsonPropertyName("payload")]
         [ProtoMember(3, IsRequired = false)]
@@ -143,6 +151,39 @@ namespace DanilovSoft.vRPC
                 return;
 
             throw new ApplicationException(HeaderSizeExceededException);
+        }
+
+        /// <summary>
+        /// Сериализует заголовок.
+        /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
+        public int SerializeJson(ArrayBufferWriter<byte> bufferWriter)
+        {
+            int initialPosition = bufferWriter.WrittenCount;
+
+            using (var writer = new Utf8JsonWriter(bufferWriter))
+            {
+                writer.WriteStartObject();
+
+                writer.WriteNumber(JsonCode, (int)StatusCode);
+
+                if (Uid != null)
+                {
+                    writer.WriteNumber(JsonUid, Uid.Value);
+                }
+                writer.WriteNumber(JsonPayload, PayloadLength);
+                if (PayloadEncoding != null)
+                {
+                    writer.WriteString(JsonEncoding, PayloadEncoding);
+                }
+                if (MethodName != null)
+                {
+                    writer.WriteString(JsonMethod, MethodName);
+                }
+                writer.WriteEndObject();
+            }
+
+            return bufferWriter.WrittenCount - initialPosition;
         }
 
         /// <returns>Может быть Null если не удалось десериализовать.</returns>

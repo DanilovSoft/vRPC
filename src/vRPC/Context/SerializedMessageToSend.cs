@@ -26,9 +26,9 @@ namespace DanilovSoft.vRPC
 
         internal string? GetDebugJson()
         {
-            if ((ContentEncoding == null || ContentEncoding == "json") && MemPoolStream?.Length > 0 && HeaderSize > 0)
+            if ((ContentEncoding == null || ContentEncoding == "json") && MemoryPoolBuffer?.WrittenCount > 0 && HeaderSize > 0)
             {
-                byte[] copy = MemPoolStream.ToArray();
+                byte[] copy = MemoryPoolBuffer.WrittenMemory.ToArray();
                 string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
                 var element = JsonDocument.Parse(j).RootElement;
                 return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
@@ -41,19 +41,19 @@ namespace DanilovSoft.vRPC
 #endif
 
         [SuppressMessage("Usage", "CA2213:Следует высвобождать высвобождаемые поля", Justification = "Dispose выполняется атомарно")]
-        private MemoryStream? _memPoolStream;
+        private ArrayBufferWriter<byte>? _memPoolBuffer;
         /// <summary>
         /// Если это сообщение является запросом то содержит сериализованные параметры для удалённого метода или любой 
         /// другой тип если это сообщение является ответом на запрос.
         /// Заголовок располагается в конце этого стрима, так как мы не можем сформировать заголовок 
         /// до сериализации тела сообщения.
         /// </summary>
-        public MemoryStream MemPoolStream
+        public ArrayBufferWriter<byte> MemoryPoolBuffer
         {
             get
             {
-                Debug.Assert(_memPoolStream != null);
-                return _memPoolStream;
+                Debug.Assert(_memPoolBuffer != null);
+                return _memPoolBuffer;
             }
         }
         /// <summary>
@@ -83,7 +83,7 @@ namespace DanilovSoft.vRPC
             MessageToSend = messageToSend;
 
             // Арендуем заранее под максимальный размер хэдера.
-            _memPoolStream = GlobalVars.RecyclableMemory.GetStream("SerializedMessageToSend", 32);
+            _memPoolBuffer = new ArrayBufferWriter<byte>(1024);
         }
 
         /// <summary>
@@ -91,7 +91,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public void Dispose()
         {
-            Interlocked.Exchange(ref _memPoolStream, null)?.Dispose();
+            Interlocked.Exchange(ref _memPoolBuffer, null)?.Dispose();
             if (MessageToSend.IsNotificationRequest)
             {
                 CompleteNotification();

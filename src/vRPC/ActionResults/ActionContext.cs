@@ -9,7 +9,7 @@ namespace DanilovSoft.vRPC
     /// </summary>
     public sealed class ActionContext
     {
-        internal Stream ResponseStream { get; }
+        internal ArrayBufferWriter<byte> ResponseStream { get; }
         /// <summary>
         /// Может быть <see langword="null"/> если не удалось разобрать запрос.
         /// </summary>
@@ -18,7 +18,7 @@ namespace DanilovSoft.vRPC
         internal string? ProducesEncoding { get; set; }
 
         //[DebuggerStepThrough]
-        internal ActionContext(ControllerActionMeta? actionMeta, Stream responseStream)
+        internal ActionContext(ControllerActionMeta? actionMeta, ArrayBufferWriter<byte> responseStream)
         {
             ActionMeta = actionMeta;
             ResponseStream = responseStream;

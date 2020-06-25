@@ -1206,7 +1206,7 @@ namespace DanilovSoft.vRPC
                 if (responseToSend.ActionResult is IActionResult actionResult)
                 // Метод контроллера вернул специальный тип.
                 {
-                    var actionContext = new ActionContext(responseToSend.ActionMeta, serMsg.MemPoolStream);
+                    var actionContext = new ActionContext(responseToSend.ActionMeta, serMsg.MemoryPoolBuffer);
 
                     // Сериализуем ответ.
                     actionResult.ExecuteResult(actionContext);
@@ -1223,7 +1223,7 @@ namespace DanilovSoft.vRPC
                     if (responseToSend.ActionResult != null)
                     {
                         Debug.Assert(responseToSend.ActionMeta != null, "RAW результат может быть только на основе запроса");
-                        responseToSend.ActionMeta.SerializerDelegate(serMsg.MemPoolStream, responseToSend.ActionResult);
+                        responseToSend.ActionMeta.SerializerDelegate(serMsg.MemoryPoolBuffer, responseToSend.ActionResult);
                         serMsg.ContentEncoding = responseToSend.ActionMeta.ProducesEncoding;
                     }
                 }
@@ -1244,7 +1244,7 @@ namespace DanilovSoft.vRPC
             HeaderDto header = CreateHeader(messageToSend);
 
             // Записать заголовок в конец стрима. Не бросает исключения.
-            header.SerializeProtoBuf(messageToSend.MemPoolStream, out int headerSize);
+            int headerSize = header.SerializeJson(messageToSend.MemoryPoolBuffer);
 
             // Запомним размер хэдера.
             messageToSend.HeaderSize = headerSize;
@@ -1259,7 +1259,7 @@ namespace DanilovSoft.vRPC
             {
                 Debug.Assert(messageToSend.StatusCode != null, "StatusCode ответа не может быть Null");
 
-                return HeaderDto.FromResponse(responseToSend.Uid, messageToSend.StatusCode.Value, (int)messageToSend.MemPoolStream.Length, messageToSend.ContentEncoding);
+                return HeaderDto.FromResponse(responseToSend.Uid, messageToSend.StatusCode.Value, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding);
             }
             else
             // Создать хедер для нового запроса.
@@ -1267,7 +1267,7 @@ namespace DanilovSoft.vRPC
                 var request = messageToSend.MessageToSend as RequestMethodMeta;
                 Debug.Assert(request != null);
 
-                return HeaderDto.CreateRequest(messageToSend.Uid, (int)messageToSend.MemPoolStream.Length, messageToSend.ContentEncoding, request.ActionFullName);
+                return HeaderDto.CreateRequest(messageToSend.Uid, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding, request.ActionFullName);
             }
         }
 
@@ -1330,10 +1330,10 @@ namespace DanilovSoft.vRPC
                         {
                             //LogSend(serializedMessage);
 
-                            byte[] streamBuffer = serializedMessage.MemPoolStream.GetBuffer();
+                            var streamBuffer = serializedMessage.MemoryPoolBuffer.WrittenMemory;
 
                             // Размер сообщения без заголовка.
-                            int messageSize = (int)serializedMessage.MemPoolStream.Length - serializedMessage.HeaderSize;
+                            int messageSize = serializedMessage.MemoryPoolBuffer.WrittenCount - serializedMessage.HeaderSize;
 
                             if (serializedMessage.MessageToSend.TcpNoDelay != _tcpNoDelay)
                             {
@@ -1345,7 +1345,7 @@ namespace DanilovSoft.vRPC
                             try
                             {
                                 // Заголовок лежит в конце стрима.
-                                await SendBufferAsync(streamBuffer.AsMemory(messageSize, serializedMessage.HeaderSize), endOfMessage: true).ConfigureAwait(false);
+                                await SendBufferAsync(streamBuffer.Slice(messageSize, serializedMessage.HeaderSize), endOfMessage: true).ConfigureAwait(false);
                             }
                             catch (Exception ex)
                             // Обрыв соединения.
@@ -1366,7 +1366,7 @@ namespace DanilovSoft.vRPC
                                 {
                                     try
                                     {
-                                        await SendBufferAsync(streamBuffer.AsMemory(0, messageSize), true).ConfigureAwait(false);
+                                        await SendBufferAsync(streamBuffer.Slice(0, messageSize), true).ConfigureAwait(false);
                                     }
                                     catch (Exception ex)
                                     // Обрыв соединения.

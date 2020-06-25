@@ -20,7 +20,7 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{{TargetMethod.GetControllerActionName()}\}")]
     internal sealed class ControllerActionMeta
     {
-        public Action<Stream, object> SerializerDelegate { get; }
+        public Action<ArrayBufferWriter<byte>, object> SerializerDelegate { get; }
         public MethodInfo TargetMethod { get; }
         public ParameterInfo[] Parametergs { get; }
         /// <summary>

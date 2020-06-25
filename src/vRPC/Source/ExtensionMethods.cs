@@ -1,6 +1,7 @@
 ﻿using DanilovSoft;
 using DanilovSoft.WebSockets;
 using System;
+using System.Buffers;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
@@ -19,7 +20,7 @@ namespace DanilovSoft.vRPC
         /// Сериализует объект в JSON.
         /// </summary>
         /// <exception cref="VRpcException"/>
-        public static void SerializeObjectJson(Stream destination, object instance)
+        public static void SerializeObjectJson(ArrayBufferWriter<byte> destination, object instance)
         {
             // Сериализовать Null не нужно (Отправлять тело сообщения при этом тоже не нужно).
             Debug.Assert(instance != null, "Сериализовать и отправлять Null не нужно");
@@ -33,9 +34,12 @@ namespace DanilovSoft.vRPC
             }
             catch (Exception ex)
             {
-                throw new VRpcException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
+                ThrowVRpcException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
             }
         }
+
+        private static void ThrowVRpcException(string message, Exception innerException) =>
+            throw new VRpcException(message, innerException);
 
         /// <summary>
         /// Сериализует объект в JSON.
@@ -97,9 +101,12 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void SerializeObjectProtobuf(Stream destination, object instance)
+        internal static void SerializeObjectProtobuf(ArrayBufferWriter<byte> destination, object instance)
         {
-            ProtoBuf.Serializer.Serialize(destination, instance);
+            using (var mem = new ReadOnlyMemoryStream(destination.WrittenMemory))
+            {
+                ProtoBuf.Serializer.Serialize(mem, instance);
+            }
         }
 
         public static void WarmupRequestMessageJson()
@@ -176,6 +183,15 @@ namespace DanilovSoft.vRPC
             using (var writer = new BinaryWriter(destination, Encoding.UTF8, leaveOpen: true))
                 writer.Write(message);
         }
+
+        ///// <summary>
+        ///// Записывает строку в формате Utf-8.
+        ///// </summary>
+        //public static void WriteStringBinary(this IBufferWriter<byte> destination, string message)
+        //{
+        //    using (var writer = new BinaryWriter(destination, Encoding.UTF8, leaveOpen: true))
+        //        writer.Write(message);
+        //}
 
         /// <summary>
         /// Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="Task"/> или <see cref="Task{TResult}"/>
@@ -385,8 +401,11 @@ namespace DanilovSoft.vRPC
         internal static void ValidateAccessToken(this AccessToken accessToken, string arguemntName)
         {
             if (accessToken.Bytes.Length == 0)
-                throw new ArgumentOutOfRangeException(arguemntName, "AccessToken is empty");
+                ThrowArgumentOutOfRangeException("AccessToken is empty", arguemntName);
         }
+
+        private static void ThrowArgumentOutOfRangeException(string message, string arguemntName) =>
+            throw new ArgumentOutOfRangeException(arguemntName, message);
 
         internal static VRpcWasShutdownException ToException(this ShutdownRequest shutdownRequest)
         {

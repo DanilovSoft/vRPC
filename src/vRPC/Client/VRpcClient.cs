@@ -5,6 +5,7 @@ using Microsoft.IO;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -303,7 +304,7 @@ namespace DanilovSoft.vRPC
                 }
                 catch (SocketException ex)
                 {
-                    throw new VRpcConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
+                    Throw($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
                 }
                 catch (System.Net.WebSockets.WebSocketException ex)
                 {
@@ -317,6 +318,9 @@ namespace DanilovSoft.vRPC
             }
         }
         #endregion
+
+        private static void Throw(string message, Exception innerException) =>
+            throw new VRpcConnectException(message, innerException);
 
         /// <summary>
         /// Выполняет аутентификацию текущего соединения.

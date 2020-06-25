@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -17,15 +18,18 @@ namespace DanilovSoft.vRPC.Content
         // that case (send chunked, buffer first, etc.).
         protected internal abstract bool TryComputeLength(out int length);
 
-        private protected abstract Multipart SerializeToStream(Stream stream);
+        private protected abstract Multipart SerializeToStream(IBufferWriter<byte> writer);
         //protected internal abstract bool TrySerializeSynchronously(Stream stream);
 
         [DebuggerStepThrough]
-        internal Multipart InnerSerializeToStream(Stream stream) => SerializeToStream(stream);
+        internal Multipart InnerSerializeToStream(IBufferWriter<byte> writer) => SerializeToStream(writer);
 
-        private protected static void SerializeHeader(Stream stream, in MultipartHeaderDto header)
+        private protected static void SerializeHeader(IBufferWriter<byte> writer, in MultipartHeaderDto header)
         {
-            Serializer.NonGeneric.SerializeWithLengthPrefix(stream, header, PrefixStyle.Base128, 1);
+            using (var stream = new ReadOnlyMemoryStream(writer.GetMemory()))
+            {
+                Serializer.NonGeneric.SerializeWithLengthPrefix(stream, header, PrefixStyle.Base128, 1);
+            }
         }
 
         public void Dispose()

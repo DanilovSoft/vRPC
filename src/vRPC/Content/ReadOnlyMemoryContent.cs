@@ -30,20 +30,21 @@ namespace DanilovSoft.vRPC
             return true;
         }
 
-        private protected override Multipart SerializeToStream(Stream stream)
+        private protected override Multipart SerializeToStream(IBufferWriter<byte> writer)
         {
-            int contentLength = (int)stream.Position;
-            CopyMemory(stream, Memory);
+            throw new NotImplementedException();
+            //int contentLength = (int)stream.Position;
+            //CopyMemory(stream, Memory);
 
-            int headerPosition = (int)stream.Position;
+            //int headerPosition = (int)stream.Position;
 
-            contentLength = headerPosition - contentLength;
+            //contentLength = headerPosition - contentLength;
 
-            SerializeHeader(stream, new MultipartHeaderDto(contentLength, KnownEncoding.RawEncoding));
+            //SerializeHeader(stream, new MultipartHeaderDto(contentLength, KnownEncoding.RawEncoding));
             
-            byte headerSize = (byte)((int)stream.Position - headerPosition);
+            //byte headerSize = (byte)((int)stream.Position - headerPosition);
 
-            return new Multipart(contentLength, headerSize);
+            //return new Multipart(contentLength, headerSize);
         }
 
 #if NETSTANDARD2_0 || NET472
