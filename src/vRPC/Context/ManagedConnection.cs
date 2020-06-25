@@ -940,9 +940,9 @@ namespace DanilovSoft.vRPC
 
         private bool TryGetRequestMethod(in HeaderDto header, [NotNullWhen(true)] out ControllerActionMeta? action)
         {
-            Debug.Assert(header.ActionName != null);
+            Debug.Assert(header.MethodName != null);
 
-            if (_invokeActions.TryGetAction(header.ActionName, out action))
+            if (_invokeActions.TryGetAction(header.MethodName, out action))
             {
                 return true;
             }
@@ -954,7 +954,7 @@ namespace DanilovSoft.vRPC
                 {
                     Debug.Assert(header.Uid != null);
 
-                    var error = MethodNotFound(header.ActionName);
+                    var error = MethodNotFound(header.MethodName);
 
                     // Передать на отправку результат с ошибкой через очередь.
                     PostSendResponse(new ResponseMessage(header.Uid.Value, error));
@@ -980,7 +980,7 @@ namespace DanilovSoft.vRPC
         /// <returns>true если хедер валиден.</returns>
         private bool ValidateHeader(in HeaderDto header)
         {
-            if (!header.IsRequest || !string.IsNullOrEmpty(header.ActionName))
+            if (!header.IsRequest || !string.IsNullOrEmpty(header.MethodName))
             {
                 return true;
             }

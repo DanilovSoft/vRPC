@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json.Serialization;
 using ProtoBufSerializer = ProtoBuf.Serializer;
 
 namespace DanilovSoft.vRPC
@@ -20,6 +21,7 @@ namespace DanilovSoft.vRPC
         public const int HeaderMaxSize = 64;
         private const string HeaderSizeExceededException = "Размер заголовка сообщения превысил максимально допустимый размер в 64 байта.";
 
+        [JsonIgnore]
         [ProtoIgnore]
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay
@@ -28,7 +30,7 @@ namespace DanilovSoft.vRPC
             {
                 if (StatusCode == StatusCode.Request)
                 {
-                    return $"'{ActionName}', Content = {PayloadLength} байт";
+                    return $"'{MethodName}', Content = {PayloadLength} байт";
                 }
                 else
                 {
@@ -40,21 +42,26 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// true если задан <see cref="Uid"/>.
         /// </summary>
+        [JsonIgnore]
         [ProtoIgnore]
         public bool IsResponseRequired => Uid != null;
 
         /// <summary>
         /// Это заголовок запроса когда статус равен <see cref="StatusCode.Request"/>.
         /// </summary>
+        [JsonIgnore]
         [ProtoIgnore]
         public bool IsRequest => StatusCode == StatusCode.Request;
 
+        [JsonPropertyName("uid")]
         [ProtoMember(1, IsRequired = false)]
         public int? Uid { get; }
 
+        [JsonPropertyName("code")]
         [ProtoMember(2, IsRequired = true)]
         public StatusCode StatusCode { get; }
 
+        [JsonPropertyName("payload")]
         [ProtoMember(3, IsRequired = false)]
         public int PayloadLength { get; }
 
@@ -62,19 +69,30 @@ namespace DanilovSoft.vRPC
         /// Формат контента. Может быть <see langword="null"/>, тогда 
         /// следует использовать формат по умолчанию.
         /// </summary>
+        [JsonPropertyName("encoding")]
         [ProtoMember(4, IsRequired = false)]
-        public string? ContentEncoding { get; }
+        public string? PayloadEncoding { get; }
 
         /// <summary>
         /// У запроса всегда должно быть имя метода.
         /// </summary>
+        [JsonPropertyName("method")]
         [ProtoMember(5, IsRequired = false)]
-        public string? ActionName { get; }
+        public string? MethodName { get; }
 
         //Требуется для десериализатора.Если структура то не используется.
         //private HeaderDto()
         //{
 
+        //}
+
+        //public HeaderDto(int? uid, StatusCode statusCode, int payloadLength, string actionName, string? contentEncoding)
+        //{
+        //    Uid = uid;
+        //    StatusCode = statusCode;
+        //    PayloadLength = payloadLength;
+        //    ActionName = actionName;
+        //    ContentEncoding = contentEncoding;
         //}
 
         /// <summary>
@@ -88,21 +106,21 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Создаёт заголовок для нового запроса.
         /// </summary>
-        public static HeaderDto CreateRequest(int? uid, int contentLength, string? contentEncoding, string actionName)
+        public static HeaderDto CreateRequest(int? uid, int payloadLength, string? contentEncoding, string actionName)
         {
-            return new HeaderDto(uid, StatusCode.Request, contentLength, contentEncoding, actionName);
+            return new HeaderDto(uid, StatusCode.Request, payloadLength, contentEncoding, actionName);
         }
 
         /// <summary>
         /// Конструктор заголовка и для ответа и для запроса.
         /// </summary>
-        private HeaderDto(int? uid, StatusCode responseCode, int contentLength, string? contentEncoding, string? actionName)
+        public HeaderDto(int? uid, StatusCode responseCode, int contentLength, string? contentEncoding, string? actionName)
         {
             Uid = uid;
             StatusCode = responseCode;
             PayloadLength = contentLength;
-            ContentEncoding = contentEncoding;
-            ActionName = actionName;
+            PayloadEncoding = contentEncoding;
+            MethodName = actionName;
         }
 
         /// <summary>
@@ -143,7 +161,7 @@ namespace DanilovSoft.vRPC
         {
             if (IsRequest)
             {
-                Debug.Assert(!string.IsNullOrEmpty(ActionName), "У запроса должно быть имя запрашиваемого метода");
+                Debug.Assert(!string.IsNullOrEmpty(MethodName), "У запроса должно быть имя запрашиваемого метода");
             }
         }
 
@@ -153,13 +171,13 @@ namespace DanilovSoft.vRPC
         public override string ToString()
         {
             string s = $"Uid = {Uid} Status = {StatusCode} Content = {PayloadLength} байт";
-            if (ContentEncoding != null)
+            if (PayloadEncoding != null)
             {
-                s += $" {nameof(ContentEncoding)} = {ContentEncoding}";
+                s += $" {nameof(PayloadEncoding)} = {PayloadEncoding}";
             }
-            if (ActionName != null)
+            if (MethodName != null)
             {
-                s += $" '{ActionName}'";
+                s += $" '{MethodName}'";
             }
             return s;
         }
