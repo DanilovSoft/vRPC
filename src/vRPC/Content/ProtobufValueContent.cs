@@ -1,4 +1,6 @@
-﻿using System.IO;
+﻿using System;
+using System.Buffers;
+using System.IO;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC.Content;
@@ -17,20 +19,21 @@ namespace DanilovSoft.vRPC
             _value = value;
         }
 
-        private protected override Multipart SerializeToStream(Stream stream)
+        private protected override Multipart SerializeToStream(IBufferWriter<byte> writer)
         {
-            int contentLength = (int)stream.Position;
-            Serializer.NonGeneric.Serialize(stream, _value);
+            throw new NotImplementedException();
+            //int contentLength = (int)stream.Position;
+            //Serializer.NonGeneric.Serialize(stream, _value);
             
-            int headerPosition = (int)stream.Position;
+            //int headerPosition = (int)stream.Position;
 
-            contentLength = headerPosition - contentLength;
+            //contentLength = headerPosition - contentLength;
 
-            SerializeHeader(stream, new MultipartHeaderDto(contentLength, KnownEncoding.ProtobufEncoding));
+            //SerializeHeader(stream, new MultipartHeaderDto(contentLength, KnownEncoding.ProtobufEncoding));
             
-            byte headerSize = (byte)((int)stream.Position - headerPosition);
+            //byte headerSize = (byte)((int)stream.Position - headerPosition);
 
-            return new Multipart(contentLength, headerSize);
+            //return new Multipart(contentLength, headerSize);
         }
 
         protected internal override bool TryComputeLength(out int length)

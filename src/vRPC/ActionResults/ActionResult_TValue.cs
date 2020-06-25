@@ -13,7 +13,10 @@ namespace DanilovSoft.vRPC
 
         public ActionResult(ActionResult result)
         {
-            Result = result ?? throw new ArgumentNullException(nameof(result));
+            if (result == null)
+                ThrowHelper.ThrowArgumentNullException(nameof(result));
+
+            Result = result;
             Value = default;
         }
 

@@ -11,7 +11,7 @@ namespace DanilovSoft.vRPC
     internal interface IResponseAwaiter
     {
         void TrySetException(Exception exception);
-        void SetResponse(HeaderDto header, ReadOnlyMemory<byte> payload);
+        void SetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
     }
 
     /// <summary>
@@ -174,7 +174,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        public void SetResponse(HeaderDto header, ReadOnlyMemory<byte> payload)
+        public void SetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             Debug.Assert(header.IsRequest == false);
 
@@ -192,7 +192,7 @@ namespace DanilovSoft.vRPC
                         //Func<ReadOnlyMemory<byte>, Type, object> deserializer = header.GetDeserializer();
                         try
                         {
-                            DeserializeResponse(payload, header.ContentEncoding);
+                            DeserializeResponse(payload, header.PayloadEncoding);
                         }
                         catch (Exception deserializationException)
                         {

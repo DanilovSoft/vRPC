@@ -26,17 +26,7 @@ namespace DanilovSoft.vRPC
         // (The Serializer invokes this constructor through reflection, so it can be private)
         protected VRpcException(SerializationInfo serializationInfo, StreamingContext streamingContext) : base(serializationInfo, streamingContext)
         {
-            //ErrorCode = serializationInfo.GetValue(nameof(ErrorCode), typeof(VRpcErrorCode)) as VRpcErrorCode? ?? VRpcErrorCode.None;
+            
         }
-
-        //[SecurityPermission(SecurityAction.Demand, SerializationFormatter = true)]
-        //public override void GetObjectData(SerializationInfo info, StreamingContext context)
-        //{
-        //    if (info == null)
-        //        throw new ArgumentNullException(nameof(info));
-
-        //    info.AddValue(nameof(ErrorCode), this.ErrorCode);
-        //    base.GetObjectData(info, context);
-        //}
     }
 }

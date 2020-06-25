@@ -30,6 +30,7 @@ namespace Server.Controllers
 
         }
 
+        [TcpNoDelay]
         public void VoidOneArg(int n)
         {
 

@@ -1219,7 +1219,7 @@
             Необходимо обязательно выполнить Dispose.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.MemPoolStream">
+        <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.MemoryPoolBuffer">
             <summary>
             Если это сообщение является запросом то содержит сериализованные параметры для удалённого метода или любой 
             другой тип если это сообщение является ответом на запрос.
@@ -1397,13 +1397,13 @@
             Это заголовок запроса когда статус равен <see cref="F:DanilovSoft.vRPC.StatusCode.Request"/>.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.HeaderDto.ContentEncoding">
+        <member name="P:DanilovSoft.vRPC.HeaderDto.PayloadEncoding">
             <summary>
             Формат контента. Может быть <see langword="null"/>, тогда 
             следует использовать формат по умолчанию.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.HeaderDto.ActionName">
+        <member name="P:DanilovSoft.vRPC.HeaderDto.MethodName">
             <summary>
             У запроса всегда должно быть имя метода.
             </summary>
@@ -1425,10 +1425,16 @@
         </member>
         <member name="M:DanilovSoft.vRPC.HeaderDto.SerializeProtoBuf(System.IO.Stream,System.Int32@)">
             <summary>
-            Сериализует заголовок. Не должно бросать исключения(!).
+            Сериализует заголовок.
             </summary>
             <param name="stream"></param>
             <param name="headerSize"></param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.HeaderDto.SerializeJson(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte})">
+            <summary>
+            Сериализует заголовок.
+            </summary>
+            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.HeaderDto.DeserializeProtoBuf(System.Byte[],System.Int32,System.Int32)">
             <returns>Может быть Null если не удалось десериализовать.</returns>
@@ -1894,7 +1900,7 @@
             <exception cref="T:System.Exception">Инкапсулированное в Task.</exception>
             <param name="actionResult"><see cref="T:System.Threading.Tasks.Task"/> или любой объект.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectJson(System.IO.Stream,System.Object)">
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.SerializeObjectJson(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte},System.Object)">
             <summary>
             Сериализует объект в JSON.
             </summary>
@@ -1936,6 +1942,11 @@
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ExtensionMethods.WriteStringBinary(System.IO.Stream,System.String)">
+            <summary>
+            Записывает строку в формате Utf-8.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ExtensionMethods.WriteStringBinary(System.Buffers.IBufferWriter{System.Byte},System.String)">
             <summary>
             Записывает строку в формате Utf-8.
             </summary>
@@ -2048,15 +2059,22 @@
             <param name="result">Не Null когда True.</param>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
             </summary>
             <exception cref="T:System.Text.Json.JsonException"/>
             <returns>True если успешно десериализовали.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeMultipart(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.HeaderDto,DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeMultipart(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <exception cref="T:System.Exception"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestContentParser.DeserializeHeader(System.ReadOnlySpan{System.Byte})">
+            <summary>
+            Десериализует json запрос.
+            </summary>
+            <exception cref="T:System.Text.Json.JsonException"/>
+            <returns>True если успешно десериализовали.</returns>
         </member>
         <member name="T:DanilovSoft.vRPC.ResponseAwaiter`1">
             <summary>
@@ -2078,7 +2096,7 @@
             Передает результат ожидающему потоку.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetResponse(DanilovSoft.vRPC.HeaderDto,System.ReadOnlyMemory{System.Byte})">
+        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>
@@ -2093,6 +2111,44 @@
             Максимальное время ожидания остановки сервиса указанное пользователем 
             после которого все соединения закрываются принудительно.
             </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.ThrowHelper">
+            <summary>
+            Для оптимизации горячих путей. Потому что JIT не встраивает методы в которых есть throw.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowConnectException(System.String,System.Exception)">
+            <exception cref="T:DanilovSoft.vRPC.VRpcConnectException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowObjectDisposedException(System.String)">
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowObjectDisposedException(System.String,System.String)">
+            <exception cref="T:System.ObjectDisposedException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowWasShutdownException(DanilovSoft.vRPC.ShutdownRequest)">
+            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowArgumentNullException(System.String)">
+            <exception cref="T:System.ArgumentNullException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowVRpcException(System.String)">
+            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowVRpcException(System.String,System.Exception)">
+            <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowArgumentOutOfRangeException(System.String)">
+            <exception cref="T:System.ArgumentOutOfRangeException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowArgumentException(System.String)">
+            <exception cref="T:System.ArgumentException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowArgumentOutOfRangeException(System.String,System.String)">
+            <exception cref="T:System.ArgumentOutOfRangeException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowInvalidOperationException(System.String)">
+            <exception cref="T:System.InvalidOperationException"/>
         </member>
         <member name="T:DanilovSoft.vRPC.UserConnectionCollection">
             <summary>

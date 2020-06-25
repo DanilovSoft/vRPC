@@ -24,18 +24,18 @@ namespace DanilovSoft.vRPC
         /// <param name="result">Не Null когда True.</param>
         /// <remarks>Не бросает исключения.</remarks>
         public static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerActionMeta action, in HeaderDto header, 
-            [MaybeNullWhen(false)] ref RequestContext result,
+            [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
             try
             {
-                if (header.ContentEncoding != KnownEncoding.MultipartEncoding)
+                if (header.PayloadEncoding != KnownEncoding.MultipartEncoding)
                 {
-                    return TryDeserializeRequestJson(content.Span, action, header, ref result, out error);
+                    return TryDeserializeRequestJson(content.Span, action, header.Uid, out result, out error);
                 }
                 else
                 {
-                    return TryDeserializeMultipart(content, action, header, ref result, out error);
+                    return TryDeserializeMultipart(content, action, header.Uid, out result, out error);
                 }
             }
             catch (Exception ex)
@@ -47,13 +47,13 @@ namespace DanilovSoft.vRPC
                 {
                     // Подготовить ответ с ошибкой.
                     error = new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\".");
-                    //result = null;
+                    result = default;
                     return false;
                 }
                 else
                 {
                     error = null;
-                    //result = null;
+                    result = default;
                     return false;
                 }
             }
@@ -82,8 +82,8 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="JsonException"/>
         /// <returns>True если успешно десериализовали.</returns>
-        private static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, ControllerActionMeta action, HeaderDto header, 
-            [MaybeNullWhen(false)] ref RequestContext result,
+        private static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, ControllerActionMeta action, int? uid, 
+            [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
 #if DEBUG
@@ -112,7 +112,7 @@ namespace DanilovSoft.vRPC
                             }
                             catch (JsonException)
                             {
-                                //result = null;
+                                result = default;
                                 error = ErrorDeserializingArgument(action.ActionFullName, argIndex: argsInJsonCounter, paramType);
                                 return false;
                             }
@@ -121,7 +121,7 @@ namespace DanilovSoft.vRPC
                         else
                         // Выход за границы массива.
                         {
-                            //result = null;
+                            result = default;
                             error = ArgumentsCountMismatchError(action.ActionFullName, action.Parametergs.Length);
                             return false;
                         }
@@ -132,20 +132,20 @@ namespace DanilovSoft.vRPC
             if (ValidateArgumentsCount(action.Parametergs, argsInJsonCounter, action.ActionFullName, out error))
             {
                 error = null;
-                result = new RequestContext(header.Uid, action, args);
+                result = new RequestContext(uid, action, args);
                 return true;
             }
             else
             // Не соответствует число аргументов.
             {
-                //result = null;
+                result = default;
                 return false;
             }
         }
 
         /// <exception cref="Exception"/>
-        private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerActionMeta action, HeaderDto header,
-            [MaybeNullWhen(false)] ref RequestContext result,
+        private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerActionMeta action, int? uid,
+            [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
             object[]? args;
@@ -161,14 +161,14 @@ namespace DanilovSoft.vRPC
             {
                 if (DeserializeArgs(content, action, args, out error))
                 {
-                    result = new RequestContext(header.Uid, action, args);
+                    result = new RequestContext(uid, action, args);
                     args = null; // Предотвратить Dispose.
                     error = null;
                     return true;
                 }
                 else
                 {
-                    //result = null;
+                    result = default;
                     return false;
                 }
             }
@@ -342,5 +342,83 @@ namespace DanilovSoft.vRPC
 #endif
         }
 #endif
+
+        /// <summary>
+        /// Десериализует json запрос.
+        /// </summary>
+        /// <exception cref="JsonException"/>
+        /// <returns>True если успешно десериализовали.</returns>
+        internal static HeaderDto DeserializeHeader(ReadOnlySpan<byte> utf8Json)
+        {
+#if DEBUG
+            var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
+#endif
+            StatusCode statusCode = StatusCode.None;
+            int? uid = null;
+            int payloadLength = -1;
+            string? actionName = null;
+            string? contentEncoding = null;
+
+            bool gotCode = false;
+            bool gotUid = false;
+            bool gotPayload = false;
+            bool gotEncoding = false;
+            bool gotMethod = false;
+
+            var reader = new Utf8JsonReader(utf8Json);
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.PropertyName)
+                {
+                    if (!gotCode && reader.ValueTextEquals("code"))
+                    {
+                        if (reader.Read())
+                        {
+                            statusCode = (StatusCode)reader.GetInt32();
+                            gotCode = true;
+                        }
+                    }
+                    else if (!gotUid && reader.ValueTextEquals("uid"))
+                    {
+                        if (reader.Read())
+                        {
+                            uid = reader.GetInt32();
+                            gotUid = true;
+                        }
+                    }
+                    else if (!gotPayload && reader.ValueTextEquals("payload"))
+                    {
+                        if (reader.Read())
+                        {
+                            payloadLength = reader.GetInt32();
+                            gotPayload = true;
+                        }
+                    }
+                    else if (!gotEncoding && reader.ValueTextEquals("encoding"))
+                    {
+                        if (reader.Read())
+                        {
+                            contentEncoding = reader.GetString();
+                            gotEncoding = true;
+                        }
+                    }
+                    else if (!gotMethod && reader.ValueTextEquals("method"))
+                    {
+                        if (reader.Read())
+                        {
+                            actionName = reader.GetString();
+                            gotMethod = true;
+                        }
+                    }
+                }
+            }
+            return new HeaderDto(uid, statusCode, payloadLength, contentEncoding, actionName);
         }
+
+        //internal static void SerializeHeader()
+        //{
+        //    JsonEncodedText.Encode("uid");
+        //    JsonEncodedText.Encode("uid");
+        //}
+    }
 }

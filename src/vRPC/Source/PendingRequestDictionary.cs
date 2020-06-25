@@ -55,7 +55,7 @@ namespace DanilovSoft.vRPC
                         }
                     }
                     else
-                        throw _disconnectException;
+                        ThrowHelper.ThrowException(_disconnectException);
 
                     // Словарь переполнен — подождать и повторить попытку.
                     _spinWait.SpinOnce();

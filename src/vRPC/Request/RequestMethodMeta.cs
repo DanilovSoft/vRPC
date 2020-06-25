@@ -79,7 +79,7 @@ namespace DanilovSoft.vRPC
                 {
                     if (prms.Any(x => typeof(VRpcContent).IsAssignableFrom(x.ParameterType)))
                     {
-                        throw new VRpcException($"Все параметры должны быть либо производными типа {nameof(VRpcContent)} либо любыми другими типами");
+                        ThrowHelper.ThrowVRpcException($"Все параметры должны быть либо производными типа {nameof(VRpcContent)} либо любыми другими типами");
                     }
                 }
                 return allIsContentType;
@@ -117,7 +117,7 @@ namespace DanilovSoft.vRPC
                 && ReturnType != typeof(Task)
                 && ReturnType != typeof(ValueTask))
             {
-                throw new VRpcException($"Метод '{methodName}' помечен атрибутом [Notification] поэтому " +
+                ThrowHelper.ThrowVRpcException($"Метод '{methodName}' помечен атрибутом [Notification] поэтому " +
                     $"возвращаемый тип метода может быть только void или Task или ValueTask.");
             }
         }
@@ -186,11 +186,12 @@ namespace DanilovSoft.vRPC
 
                         if (part.TryComputeLength(out int length))
                         {
-                            var requiredSize = (int)serMsg.MemPoolStream.Length + length;
-                            if (serMsg.MemPoolStream.Capacity < requiredSize)
-                                serMsg.MemPoolStream.Capacity = requiredSize;
+                            if (serMsg.MemoryPoolBuffer.FreeCapacity < length)
+                            {
+                                //serMsg.MemoryPoolBuffer.Advance(length);
+                            }
                         }
-                        serMsg.Parts[i] = part.InnerSerializeToStream(serMsg.MemPoolStream);
+                        serMsg.Parts[i] = part.InnerSerializeToStream(serMsg.MemoryPoolBuffer);
                     }
                 }
                 toDispose = null;
@@ -208,7 +209,7 @@ namespace DanilovSoft.vRPC
             SerializedMessageToSend? toDispose = serializedMessage;
             try
             {
-                ExtensionMethods.SerializeObjectJson(serializedMessage.MemPoolStream, args);
+                ExtensionMethods.SerializeObjectJson(serializedMessage.MemoryPoolBuffer, args);
                 toDispose = null;
                 return serializedMessage;
             }

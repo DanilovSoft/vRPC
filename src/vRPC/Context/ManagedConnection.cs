@@ -251,7 +251,7 @@ namespace DanilovSoft.vRPC
             }
             TryDispose(closeReason);
         }
-
+         
         /// <summary>
         /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="disconnectTimeout"/>.
         /// Потокобезопасно.
@@ -670,21 +670,31 @@ namespace DanilovSoft.vRPC
                 int bufferOffset = 0;
                 do
                 {
-                    try
+                    Memory<byte> slice = headerBuffer.AsMemory(bufferOffset);
+                    if (!slice.IsEmpty)
                     {
-                        // Читаем фрейм веб-сокета.
-                        webSocketMessage = await _ws.ReceiveExAsync(headerBuffer.AsMemory(bufferOffset), CancellationToken.None).ConfigureAwait(false);
+                        try
+                        {
+                            // Читаем фрейм веб-сокета.
+                            webSocketMessage = await _ws.ReceiveExAsync(slice, CancellationToken.None).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        // Обрыв соединения.
+                        {
+                            // Оповестить об обрыве и завершить поток.
+                            TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                            return;
+                        }
+                        bufferOffset += webSocketMessage.Count;
                     }
-                    catch (Exception ex)
-                    // Обрыв соединения.
+                    else
                     {
-                        // Оповестить об обрыве и завершить поток.
-                        TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                        Debug.Assert(false, "Превышен размер хедера");
+
+                        // Отправка Close и завершить поток.
+                        await SendCloseHeaderSizeErrorAsync().ConfigureAwait(false);
                         return;
                     }
-
-                    bufferOffset += webSocketMessage.Count;
-
                 } while (!webSocketMessage.EndOfMessage);
 
                 #endregion
@@ -696,9 +706,7 @@ namespace DanilovSoft.vRPC
                 {
                     try
                     {
-                        using (var mem = new MemoryStream(headerBuffer, 0, webSocketMessage.Count))
-                            header = ProtoBuf.Serializer.Deserialize<HeaderDto>(mem);
-
+                        header = RequestContentParser.DeserializeHeader(headerBuffer.AsSpan(0, webSocketMessage.Count));
                         header.ValidateDeserializedHeader();
                     }
                     catch (Exception headerException)
@@ -788,7 +796,7 @@ namespace DanilovSoft.vRPC
                         }
 
                         // У сообщения может не быть контента.
-                        if (!TryProcessPayload(header, contentMem))
+                        if (!TryProcessPayload(in header, contentMem))
                         {
                             // Завершить поток.
                             return;
@@ -836,25 +844,24 @@ namespace DanilovSoft.vRPC
             if (header.IsRequest)
             // Получен запрос.
             {
-                if (TryIncreaseActiveRequestsCount(header))
+                if (TryIncreaseActiveRequestsCount(in header))
                 {
-                    if (ValidateHeader(header))
+                    if (ValidateHeader(in header))
                     {
-                        if (TryGetRequestMethod(header, out ControllerActionMeta? action))
+                        if (TryGetRequestMethod(in header, out ControllerActionMeta? action))
                         {
-                            RequestContext requestToInvoke = default;
                             try
                             {
                                 #region Десериализация запроса
 
-                                if (RequestContentParser.TryDeserializeRequest(payload, action, header, ref requestToInvoke, out IActionResult? error))
+                                if (RequestContentParser.TryDeserializeRequest(payload, action, in header, out RequestContext requestToInvoke, out IActionResult? error))
                                 {
                                     #region Выполнение запроса
 
                                     //Debug.Assert(requestToInvoke != null, "Не может быть Null когда success");
 
                                     // Начать выполнение запроса в отдельном потоке.
-                                    StartProcessRequest(requestToInvoke);
+                                    StartProcessRequest(in requestToInvoke);
 
                                     //requestToInvoke = null; // Предотвратить Dispose.
 
@@ -917,7 +924,7 @@ namespace DanilovSoft.vRPC
                 if (header.Uid != null && _pendingRequests.TryRemove(header.Uid.Value, out IResponseAwaiter? respAwaiter))
                 // Передать ответ ожидающему потоку.
                 {
-                    respAwaiter.SetResponse(header, payload);
+                    respAwaiter.SetResponse(in header, payload);
 
                     // Получен ожидаемый ответ на запрос.
                     if (DecreaseActiveRequestsCount())
@@ -941,9 +948,9 @@ namespace DanilovSoft.vRPC
 
         private bool TryGetRequestMethod(in HeaderDto header, [NotNullWhen(true)] out ControllerActionMeta? action)
         {
-            Debug.Assert(header.ActionName != null);
+            Debug.Assert(header.MethodName != null);
 
-            if (_invokeActions.TryGetAction(header.ActionName, out action))
+            if (_invokeActions.TryGetAction(header.MethodName, out action))
             {
                 return true;
             }
@@ -955,7 +962,7 @@ namespace DanilovSoft.vRPC
                 {
                     Debug.Assert(header.Uid != null);
 
-                    var error = MethodNotFound(header.ActionName);
+                    var error = MethodNotFound(header.MethodName);
 
                     // Передать на отправку результат с ошибкой через очередь.
                     PostSendResponse(new ResponseMessage(header.Uid.Value, error));
@@ -981,7 +988,7 @@ namespace DanilovSoft.vRPC
         /// <returns>true если хедер валиден.</returns>
         private bool ValidateHeader(in HeaderDto header)
         {
-            if (!header.IsRequest || !string.IsNullOrEmpty(header.ActionName))
+            if (!header.IsRequest || !string.IsNullOrEmpty(header.MethodName))
             {
                 return true;
             }
@@ -1090,6 +1097,15 @@ namespace DanilovSoft.vRPC
             // Отправка Close.
             var protocolException = new VRpcProtocolErrorException("Не удалось десериализовать полученный заголовок сообщения.");
             return TryCloseAndDisposeAsync(protocolException, $"Unable to deserialize header. Count of bytes was {webSocketMessageCount}");
+        }
+
+        private Task SendCloseHeaderSizeErrorAsync()
+        {
+            // Отправка Close.
+            var protocolException = new VRpcProtocolErrorException($"Не удалось десериализовать полученный заголовок " +
+                $"сообщения — превышен размер заголовка в {HeaderDto.HeaderMaxSize} байт.");
+
+            return TryCloseAndDisposeAsync(protocolException, $"Unable to deserialize header. {HeaderDto.HeaderMaxSize} byte header size exceeded.");
         }
 
         /// <summary>
@@ -1207,7 +1223,7 @@ namespace DanilovSoft.vRPC
                 if (responseToSend.ActionResult is IActionResult actionResult)
                 // Метод контроллера вернул специальный тип.
                 {
-                    var actionContext = new ActionContext(responseToSend.ActionMeta, serMsg.MemPoolStream);
+                    var actionContext = new ActionContext(responseToSend.ActionMeta, serMsg.MemoryPoolBuffer);
 
                     // Сериализуем ответ.
                     actionResult.ExecuteResult(actionContext);
@@ -1224,7 +1240,7 @@ namespace DanilovSoft.vRPC
                     if (responseToSend.ActionResult != null)
                     {
                         Debug.Assert(responseToSend.ActionMeta != null, "RAW результат может быть только на основе запроса");
-                        responseToSend.ActionMeta.SerializerDelegate(serMsg.MemPoolStream, responseToSend.ActionResult);
+                        responseToSend.ActionMeta.SerializerDelegate(serMsg.MemoryPoolBuffer, responseToSend.ActionResult);
                         serMsg.ContentEncoding = responseToSend.ActionMeta.ProducesEncoding;
                     }
                 }
@@ -1245,7 +1261,7 @@ namespace DanilovSoft.vRPC
             HeaderDto header = CreateHeader(messageToSend);
 
             // Записать заголовок в конец стрима. Не бросает исключения.
-            header.SerializeProtoBuf(messageToSend.MemPoolStream, out int headerSize);
+            int headerSize = header.SerializeJson(messageToSend.MemoryPoolBuffer);
 
             // Запомним размер хэдера.
             messageToSend.HeaderSize = headerSize;
@@ -1260,7 +1276,7 @@ namespace DanilovSoft.vRPC
             {
                 Debug.Assert(messageToSend.StatusCode != null, "StatusCode ответа не может быть Null");
 
-                return HeaderDto.FromResponse(responseToSend.Uid, messageToSend.StatusCode.Value, (int)messageToSend.MemPoolStream.Length, messageToSend.ContentEncoding);
+                return HeaderDto.FromResponse(responseToSend.Uid, messageToSend.StatusCode.Value, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding);
             }
             else
             // Создать хедер для нового запроса.
@@ -1268,7 +1284,7 @@ namespace DanilovSoft.vRPC
                 var request = messageToSend.MessageToSend as RequestMethodMeta;
                 Debug.Assert(request != null);
 
-                return HeaderDto.CreateRequest(messageToSend.Uid, (int)messageToSend.MemPoolStream.Length, messageToSend.ContentEncoding, request.ActionFullName);
+                return HeaderDto.CreateRequest(messageToSend.Uid, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding, request.ActionFullName);
             }
         }
 
@@ -1331,10 +1347,10 @@ namespace DanilovSoft.vRPC
                         {
                             //LogSend(serializedMessage);
 
-                            byte[] streamBuffer = serializedMessage.MemPoolStream.GetBuffer();
+                            ReadOnlyMemory<byte> streamBuffer = serializedMessage.MemoryPoolBuffer.WrittenMemory;
 
                             // Размер сообщения без заголовка.
-                            int messageSize = (int)serializedMessage.MemPoolStream.Length - serializedMessage.HeaderSize;
+                            int messageSize = serializedMessage.MemoryPoolBuffer.WrittenCount - serializedMessage.HeaderSize;
 
                             if (serializedMessage.MessageToSend.TcpNoDelay != _tcpNoDelay)
                             {
@@ -1346,7 +1362,7 @@ namespace DanilovSoft.vRPC
                             try
                             {
                                 // Заголовок лежит в конце стрима.
-                                await SendBufferAsync(streamBuffer.AsMemory(messageSize, serializedMessage.HeaderSize), endOfMessage: true).ConfigureAwait(false);
+                                await SendBufferAsync(streamBuffer.Slice(messageSize, serializedMessage.HeaderSize), endOfMessage: true).ConfigureAwait(false);
                             }
                             catch (Exception ex)
                             // Обрыв соединения.
@@ -1367,7 +1383,7 @@ namespace DanilovSoft.vRPC
                                 {
                                     try
                                     {
-                                        await SendBufferAsync(streamBuffer.AsMemory(0, messageSize), true).ConfigureAwait(false);
+                                        await SendBufferAsync(streamBuffer.Slice(0, messageSize), true).ConfigureAwait(false);
                                     }
                                     catch (Exception ex)
                                     // Обрыв соединения.
@@ -1488,6 +1504,8 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ValueTask SendBufferAsync(ReadOnlyMemory<byte> buffer, bool endOfMessage)
         {
+            Debug.Assert(!buffer.IsEmpty, "Протокол никогда не отправляет пустые сообщения");
+
             return _ws.SendAsync(buffer, Ms.WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
         }
 
@@ -1676,7 +1694,7 @@ namespace DanilovSoft.vRPC
             // в этом случае ничего выполнять не нужно.
             if (!IsDisposed)
             {
-                ProcessRequest(requestContext);
+                ProcessRequest(in requestContext);
             }
             else
             {
@@ -1736,12 +1754,12 @@ namespace DanilovSoft.vRPC
                 {
                     // Выполняет запрос и возвращает результат.
                     // Может быть исключение пользователя.
-                    pendingRequestTask = InvokeControllerAsync(requestToInvoke);
+                    pendingRequestTask = InvokeControllerAsync(in requestToInvoke);
                 }
                 catch (VRpcBadRequestException ex)
                 {
                     // Вернуть результат с ошибкой.
-                    SendBadRequest(requestToInvoke, ex);
+                    SendBadRequest(in requestToInvoke, ex);
                     return;
                 }
                 catch (Exception)
@@ -1751,7 +1769,7 @@ namespace DanilovSoft.vRPC
                     //DebugOnly.Break();
 
                     // Вернуть результат с ошибкой.
-                    SendInternalerverError(requestToInvoke);
+                    SendInternalerverError(in requestToInvoke);
                     return;
                 }
 
@@ -1761,7 +1779,7 @@ namespace DanilovSoft.vRPC
                     // Не бросает исключения.
                     object? actionResult = pendingRequestTask.Result;
 
-                    SendOkResponse(requestToInvoke, actionResult);
+                    SendOkResponse(in requestToInvoke, actionResult);
                 }
                 else
                 // Результат контроллера — асинхронный таск.
@@ -1783,7 +1801,7 @@ namespace DanilovSoft.vRPC
                         catch (VRpcBadRequestException ex)
                         {
                             // Вернуть результат с ошибкой.
-                            SendBadRequest(requestToInvoke, ex);
+                            SendBadRequest(in requestToInvoke, ex);
                             return;
                         }
                         catch (Exception)
@@ -1793,10 +1811,10 @@ namespace DanilovSoft.vRPC
                             //DebugOnly.Break();
 
                             // Вернуть результат с ошибкой.
-                            SendInternalerverError(requestToInvoke);
+                            SendInternalerverError(in requestToInvoke);
                             return;
                         }
-                        SendOkResponse(requestToInvoke, actionResult);
+                        SendOkResponse(in requestToInvoke, actionResult);
                     }
                 }
             }
@@ -1843,7 +1861,7 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Может быть исключение пользователя.
-                pendingRequestTask = InvokeControllerAsync(notificationRequest);
+                pendingRequestTask = InvokeControllerAsync(in notificationRequest);
             }
             catch (ObjectDisposedException)
             {
@@ -1895,7 +1913,7 @@ namespace DanilovSoft.vRPC
             if (!IsDisposed)
                 return;
 
-            throw new ObjectDisposedException(GetType().FullName);
+            ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
         }
 
         /// <summary>
@@ -1910,7 +1928,7 @@ namespace DanilovSoft.vRPC
             if (_shutdownRequest == null)
                 return;
 
-            throw new VRpcWasShutdownException(_shutdownRequest);
+            ThrowHelper.ThrowWasShutdownException(_shutdownRequest);
         }
 
         /// <summary>

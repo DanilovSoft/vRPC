@@ -19,13 +19,5 @@ namespace DanilovSoft.vRPC
             context.StatusCode = DefaultStatusCode;
             context.ResponseStream.WriteStringBinary(_message);
         }
-
-        //public override void ExecuteResult(ActionContext context)
-        //{
-        //    if (context == null)
-        //        throw new ArgumentNullException(nameof(context));
-
-        //    InnerExecuteResult(context);
-        //}
     }
 }

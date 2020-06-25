@@ -35,13 +35,13 @@ namespace DanilovSoft.vRPC
         public BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal, TimeSpan validTime)
         {
             if (claimsPrincipal == null)
-                throw new ArgumentNullException(nameof(claimsPrincipal));
+                ThrowHelper.ThrowArgumentNullException(nameof(claimsPrincipal));
 
             if (validTime < TimeSpan.Zero)
-                throw new ArgumentOutOfRangeException(nameof(validTime));
+                ThrowHelper.ThrowArgumentOutOfRangeException(nameof(validTime));
 
             if (Context == null)
-                throw new VRpcException("Current server context is Null.");
+                ThrowHelper.ThrowVRpcException("Current server context is Null.");
 
             return Context.CreateAccessToken(claimsPrincipal, validTime);
         }
@@ -52,7 +52,7 @@ namespace DanilovSoft.vRPC
         public void SignOut()
         {
             if (Context == null)
-                throw new VRpcException("Current server context is Null.");
+                ThrowHelper.ThrowVRpcException("Current server context is Null.");
 
             Context.SignOut();
         }

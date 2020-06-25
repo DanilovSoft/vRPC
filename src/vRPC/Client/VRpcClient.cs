@@ -5,11 +5,13 @@ using Microsoft.IO;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using static DanilovSoft.vRPC.ThrowHelper;
 
 namespace DanilovSoft.vRPC
 {
@@ -167,13 +169,13 @@ namespace DanilovSoft.vRPC
         /// <exception cref="ObjectDisposedException"/>
         public void ConfigureService(Action<ServiceCollection> configure)
         {
+            if (configure == null)
+                ThrowHelper.ThrowArgumentNullException(nameof(configure));
+
             ThrowIfDisposed();
 
-            if (configure == null)
-                throw new ArgumentNullException(nameof(configure));
-
             if (ServiceProvider != null)
-                throw new VRpcException("Service already configured.");
+                ThrowHelper.ThrowVRpcException("Service already configured.");
 
             configure(_serviceCollection);
             ServiceProvider = _serviceCollection.BuildServiceProvider();
@@ -183,24 +185,30 @@ namespace DanilovSoft.vRPC
         /// <exception cref="ObjectDisposedException"/>
         public void Configure(Action<ApplicationBuilder> configureApp)
         {
-            ThrowIfDisposed();
-            
-            if (_configureApp != null)
-                throw new VRpcException("RpcClient already configured.");
+            if (configureApp == null)
+                ThrowHelper.ThrowArgumentNullException(nameof(configureApp));
 
-            _configureApp = configureApp ?? throw new ArgumentNullException(nameof(configureApp));
+            ThrowIfDisposed();
+
+            if (_configureApp != null)
+                ThrowHelper.ThrowVRpcException("RpcClient already configured.");
+
+            _configureApp = configureApp;
         }
 
         /// <exception cref="VRpcException"/>
         /// <exception cref="ObjectDisposedException"/>
         public void ConfigureAutoAuthentication(Func<AccessToken> configure)
         {
+            if (configure == null)
+                ThrowHelper.ThrowArgumentNullException(nameof(configure));
+
             ThrowIfDisposed();
 
             if (_autoAuthentication != null)
-                throw new VRpcException("Auto authentication already configured.");
+                ThrowHelper.ThrowVRpcException("Auto authentication already configured.");
 
-            _autoAuthentication = configure ?? throw new ArgumentNullException(nameof(configure));
+            _autoAuthentication = configure;
         }
 
         /// <summary>
@@ -244,14 +252,17 @@ namespace DanilovSoft.vRPC
                     {
                         Debug.Assert(connectResult.SocketError != null);
 
-                        throw new VRpcConnectException(
+                        ThrowHelper.ThrowConnectException(
                             message: $"Unable to connect to the remote server. Error: {(int)connectResult.SocketError}",
                             innerException: connectResult.SocketError.Value.ToException());
+
+                        break;
                     }
                 case ConnectionState.ShutdownRequest:
                     {
                         Debug.Assert(connectResult.ShutdownRequest != null);
-                        throw connectResult.ShutdownRequest.ToException();
+                        ThrowHelper.ThrowException(connectResult.ShutdownRequest.ToException());
+                        break;
                     }
             }
         }
@@ -303,15 +314,18 @@ namespace DanilovSoft.vRPC
                 }
                 catch (SocketException ex)
                 {
-                    throw new VRpcConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
+                    ThrowHelper.ThrowConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
+                    return default;
                 }
                 catch (System.Net.WebSockets.WebSocketException ex)
                 {
-                    throw new VRpcConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
+                    ThrowHelper.ThrowConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
+                    return default;
                 }
                 catch (HttpHandshakeException ex)
                 {
-                    throw new VRpcConnectException($"Unable to connect to the remote server due to handshake error", ex);
+                    ThrowHelper.ThrowConnectException($"Unable to connect to the remote server due to handshake error", ex);
+                    return default;
                 }
                 return conRes.ToPublicConnectResult();
             }
@@ -393,15 +407,6 @@ namespace DanilovSoft.vRPC
                 return Task.CompletedTask;
             }
         }
-
-        ///// <summary>
-        ///// Выполняет аутентификацию соединения.
-        ///// </summary>
-        ///// <param name="accessToken">Аутентификационный токен передаваемый серверу.</param>
-        //public Task AuthenticateAsync(AccessToken accessToken)
-        //{
-        //    throw new NotImplementedException();
-        //}
 
         /// <summary>
         /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
@@ -688,7 +693,7 @@ namespace DanilovSoft.vRPC
                     }
                     else
                     {
-                        throw new ObjectDisposedException(GetType().FullName);
+                        ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
                     }
                 }
 
@@ -730,7 +735,7 @@ namespace DanilovSoft.vRPC
                             // Другой поток вызвал Dispose.
                             {
                                 // Больше ничего делать не нужно.
-                                throw new ObjectDisposedException(GetType().FullName);
+                                ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
                             }
                         }
                     }
@@ -763,7 +768,7 @@ namespace DanilovSoft.vRPC
                             else
                             // Был выполнен Dispose в тот момент когда велась попытка установить соединение.
                             {
-                                throw new ObjectDisposedException(GetType().FullName);
+                                ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
                             }
                         }
 
@@ -844,9 +849,13 @@ namespace DanilovSoft.vRPC
         private void ThrowIfDisposed()
         {
             if (!_disposed)
+            {
                 return;
-
-            throw new ObjectDisposedException(GetType().FullName);
+            }
+            else
+            {
+                ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
+            }
         }
 
         /// <summary>
@@ -865,7 +874,7 @@ namespace DanilovSoft.vRPC
             else
             // В этом экземпляре уже был запрос на остановку.
             {
-                throw new VRpcWasShutdownException(shutdownRequired);
+                ThrowHelper.ThrowWasShutdownException(shutdownRequired);
             }
         }
 

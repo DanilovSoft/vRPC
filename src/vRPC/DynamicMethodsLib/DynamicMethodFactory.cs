@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using DanilovSoft.vRPC;
 
 namespace DynamicMethodsLib
 {
@@ -20,7 +21,7 @@ namespace DynamicMethodsLib
             return dynamicMethod;
         }
 
-        public static Func<object, object[], object?> CreateMethodCall(MethodInfo methodInfo, bool skipConvertion = false)
+        internal static Func<object, object[], object?> CreateMethodCall(MethodInfo methodInfo, bool skipConvertion = false)
         {
             if (methodInfo != null)
             {
@@ -46,10 +47,13 @@ namespace DynamicMethodsLib
                 return invokeDelagate;
             }
             else
-                throw new ArgumentNullException(nameof(methodInfo));
+            {
+                ThrowHelper.ThrowArgumentNullException(nameof(methodInfo));
+                return default;
+            }
         }
 
-        public static void GenerateIL(MethodBase method, ILGenerator il, int argsIndex, bool skipConvertion)
+        internal static void GenerateIL(MethodBase method, ILGenerator il, int argsIndex, bool skipConvertion)
         {
             ParameterInfo[] parameters = method.GetParameters();
             bool hasOutArgs = parameters.Any(x => x.ParameterType.IsByRef);

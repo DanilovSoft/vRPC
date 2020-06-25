@@ -77,13 +77,13 @@ namespace DynamicMethodsLib
             var ifaceType = typeof(TIface);
             if (!ifaceType.IsPublic)
             {
-                throw new VRpcException($"Интерфейс {ifaceType.FullName} должен быть публичным и должен быть видимым для других сборок.");
+                ThrowHelper.ThrowVRpcException($"Интерфейс {ifaceType.FullName} должен быть публичным и должен быть видимым для других сборок.");
             }
             Debug.Assert(ifaceType.IsInterface, "Ожидался интерфейс");
 
             var proxyParentClassType = typeof(TClass);
             if(proxyParentClassType.IsSealed)
-                throw new VRpcException($"Родительский класс {proxyParentClassType.FullName} не должен быть запечатанным.");
+                ThrowHelper.ThrowVRpcException($"Родительский класс {proxyParentClassType.FullName} не должен быть запечатанным.");
 
             //var genericProxyParentClass = proxyParentClassType.MakeGenericType(typeof(TIface));
 
@@ -121,7 +121,7 @@ namespace DynamicMethodsLib
                     }
                 }
                 if (baseCtor == null)
-                    throw new VRpcException($"Не найден конструктор принимающий один параметр типа {typeof(TIface).FullName}.");
+                    ThrowHelper.ThrowVRpcException($"Не найден конструктор принимающий один параметр типа {typeof(TIface).FullName}.");
 
                 // Конструктор наследника с параметром.
                 ConstructorBuilder constructor = classType.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, parameterTypes: new[] { instanceType });
@@ -139,7 +139,7 @@ namespace DynamicMethodsLib
             {
                 ConstructorInfo? baseDefaultCtor = proxyParentClassType.GetConstructor(Type.EmptyTypes);
                 if (baseDefaultCtor == null)
-                    throw new VRpcException($"У типа {proxyParentClassType.FullName} должен быть пустой и открытый конструктор.");
+                    ThrowHelper.ThrowVRpcException($"У типа {proxyParentClassType.FullName} должен быть пустой и открытый конструктор.");
             }
 
             int methodCount = 0;
@@ -233,7 +233,7 @@ namespace DynamicMethodsLib
                 if (!ifaceMethod.IsSpecialName)
                 {
                     if (ifaceMethod.IsGenericMethod)
-                        throw new VRpcException($"Generic methods are not supported. Method name: '{ifaceMethod.Name}'");
+                        ThrowHelper.ThrowVRpcException($"Generic methods are not supported. Method name: '{ifaceMethod.Name}'");
 
                     Type returnType = ifaceMethod.ReturnType;
 

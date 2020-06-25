@@ -25,34 +25,11 @@ namespace DanilovSoft.vRPC
         [SuppressMessage("Performance", "CA1819:Свойства не должны возвращать массивы", Justification = "<Ожидание>")]
         public byte[] Bytes { get; set; }
 
-        //[JsonIgnore]
-        //[IgnoreDataMember]
-        //public int Length => Bytes.Length;
-
-        //// Для десериализации через ISerializable.
-        //private AccessToken(SerializationInfo info, StreamingContext _)
-        //{
-        //    if (info == null)
-        //        throw new ArgumentNullException(nameof(info));
-
-        //    Bytes = (byte[])info.GetValue(SerializerKeyName, typeof(byte[]));
-        //}
-
         public AccessToken(byte[] bytes)
         {
             Debug.Assert(bytes != null);
             Bytes = bytes;
         }
-
-        //[SecurityPermission(SecurityAction.LinkDemand)]
-        ////[SecurityPermission(SecurityAction.Demand, Flags = SecurityPermissionFlag.SerializationFormatter)]
-        //void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
-        //{
-        //    if (info == null)
-        //        throw new ArgumentNullException(nameof(info));
-
-        //    info.AddValue(SerializerKeyName, Bytes);
-        //}
 
         public static implicit operator AccessToken(byte[] rawToken)
         {
