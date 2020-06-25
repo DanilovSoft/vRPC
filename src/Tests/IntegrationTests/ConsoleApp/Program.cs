@@ -19,21 +19,29 @@ namespace ConsoleApp
     {
         static async Task Main()
         {
-            unsafe
-            {
-                var sz = sizeof(bool);
-            }
-
             var listener = new VRpcListener(IPAddress.Any, 1234);
             listener.Start();
             var client = new VRpcClient("localhost", port: 1234, ssl: false, allowAutoConnect: true);
 
-            client.GetProxy<IBenchmark>().VoidOneArg(123);
+            var proxy = client.GetProxy<IBenchmark>();
+
+            for (int i = 0; i < Environment.ProcessorCount; i++)
+            {
+                ThreadPool.QueueUserWorkItem(delegate 
+                {
+                    while (true)
+                    {
+                        proxy.VoidOneArg(123);
+                    }
+                });
+            }
+            Thread.Sleep(-1);
         }
     }
 
     public interface IBenchmark
     {
+        [TcpNoDelay]
         int VoidOneArg(int n);
     }
 }

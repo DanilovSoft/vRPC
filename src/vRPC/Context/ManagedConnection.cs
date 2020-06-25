@@ -251,7 +251,7 @@ namespace DanilovSoft.vRPC
             }
             TryDispose(closeReason);
         }
-
+         
         /// <summary>
         /// Выполняет грациозную остановку. Блокирует выполнение не дольше чем задано в <paramref name="disconnectTimeout"/>.
         /// Потокобезопасно.
@@ -788,7 +788,7 @@ namespace DanilovSoft.vRPC
                         }
 
                         // У сообщения может не быть контента.
-                        if (!TryProcessPayload(header, contentMem))
+                        if (!TryProcessPayload(in header, contentMem))
                         {
                             // Завершить поток.
                             return;
@@ -836,25 +836,24 @@ namespace DanilovSoft.vRPC
             if (header.IsRequest)
             // Получен запрос.
             {
-                if (TryIncreaseActiveRequestsCount(header))
+                if (TryIncreaseActiveRequestsCount(in header))
                 {
-                    if (ValidateHeader(header))
+                    if (ValidateHeader(in header))
                     {
-                        if (TryGetRequestMethod(header, out ControllerActionMeta? action))
+                        if (TryGetRequestMethod(in header, out ControllerActionMeta? action))
                         {
-                            RequestContext requestToInvoke = default;
                             try
                             {
                                 #region Десериализация запроса
 
-                                if (RequestContentParser.TryDeserializeRequest(payload, action, header, ref requestToInvoke, out IActionResult? error))
+                                if (RequestContentParser.TryDeserializeRequest(payload, action, in header, out RequestContext requestToInvoke, out IActionResult? error))
                                 {
                                     #region Выполнение запроса
 
                                     //Debug.Assert(requestToInvoke != null, "Не может быть Null когда success");
 
                                     // Начать выполнение запроса в отдельном потоке.
-                                    StartProcessRequest(requestToInvoke);
+                                    StartProcessRequest(in requestToInvoke);
 
                                     //requestToInvoke = null; // Предотвратить Dispose.
 
@@ -917,7 +916,7 @@ namespace DanilovSoft.vRPC
                 if (header.Uid != null && _pendingRequests.TryRemove(header.Uid.Value, out IResponseAwaiter? respAwaiter))
                 // Передать ответ ожидающему потоку.
                 {
-                    respAwaiter.SetResponse(header, payload);
+                    respAwaiter.SetResponse(in header, payload);
 
                     // Получен ожидаемый ответ на запрос.
                     if (DecreaseActiveRequestsCount())
@@ -1676,7 +1675,7 @@ namespace DanilovSoft.vRPC
             // в этом случае ничего выполнять не нужно.
             if (!IsDisposed)
             {
-                ProcessRequest(requestContext);
+                ProcessRequest(in requestContext);
             }
             else
             {
@@ -1736,12 +1735,12 @@ namespace DanilovSoft.vRPC
                 {
                     // Выполняет запрос и возвращает результат.
                     // Может быть исключение пользователя.
-                    pendingRequestTask = InvokeControllerAsync(requestToInvoke);
+                    pendingRequestTask = InvokeControllerAsync(in requestToInvoke);
                 }
                 catch (VRpcBadRequestException ex)
                 {
                     // Вернуть результат с ошибкой.
-                    SendBadRequest(requestToInvoke, ex);
+                    SendBadRequest(in requestToInvoke, ex);
                     return;
                 }
                 catch (Exception)
@@ -1751,7 +1750,7 @@ namespace DanilovSoft.vRPC
                     //DebugOnly.Break();
 
                     // Вернуть результат с ошибкой.
-                    SendInternalerverError(requestToInvoke);
+                    SendInternalerverError(in requestToInvoke);
                     return;
                 }
 
@@ -1761,7 +1760,7 @@ namespace DanilovSoft.vRPC
                     // Не бросает исключения.
                     object? actionResult = pendingRequestTask.Result;
 
-                    SendOkResponse(requestToInvoke, actionResult);
+                    SendOkResponse(in requestToInvoke, actionResult);
                 }
                 else
                 // Результат контроллера — асинхронный таск.
@@ -1783,7 +1782,7 @@ namespace DanilovSoft.vRPC
                         catch (VRpcBadRequestException ex)
                         {
                             // Вернуть результат с ошибкой.
-                            SendBadRequest(requestToInvoke, ex);
+                            SendBadRequest(in requestToInvoke, ex);
                             return;
                         }
                         catch (Exception)
@@ -1793,10 +1792,10 @@ namespace DanilovSoft.vRPC
                             //DebugOnly.Break();
 
                             // Вернуть результат с ошибкой.
-                            SendInternalerverError(requestToInvoke);
+                            SendInternalerverError(in requestToInvoke);
                             return;
                         }
-                        SendOkResponse(requestToInvoke, actionResult);
+                        SendOkResponse(in requestToInvoke, actionResult);
                     }
                 }
             }
@@ -1843,7 +1842,7 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Может быть исключение пользователя.
-                pendingRequestTask = InvokeControllerAsync(notificationRequest);
+                pendingRequestTask = InvokeControllerAsync(in notificationRequest);
             }
             catch (ObjectDisposedException)
             {

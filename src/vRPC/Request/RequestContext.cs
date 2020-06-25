@@ -9,6 +9,42 @@ using System.Threading;
 
 namespace DanilovSoft.vRPC
 {
+    /// <summary>
+    /// Содержит разобранный запрос с параметрами полученный от удалённой стороны.
+    /// </summary>
+    [StructLayout(LayoutKind.Auto)]
+    [DebuggerDisplay(@"\{{" + nameof(ControllerActionMeta) + @" ?? default}\}")]
+    internal readonly struct RequestContext : IDisposable
+    {
+        /// <summary>
+        /// Когда Uid не Null.
+        /// </summary>
+        public bool IsResponseRequired => Uid != null;
+        public int? Uid { get; }
+
+        /// <summary>
+        /// Запрашиваемый метод контроллера.
+        /// </summary>
+        public ControllerActionMeta ControllerActionMeta { get; }
+
+        /// <summary>
+        /// Аргументы для вызываемого метода.
+        /// </summary>
+        public object[] Args { get; }
+
+        public RequestContext(int? uid, ControllerActionMeta controllerActionMeta, object[] args)
+        {
+            Uid = uid;
+            ControllerActionMeta = controllerActionMeta;
+            Args = args;
+        }
+
+        public void Dispose()
+        {
+            ControllerActionMeta.DisposeArgs(Args);
+        }
+    }
+
     ///// <summary>
     ///// Содержит разобранный запрос с параметрами полученный от удалённой стороны.
     ///// </summary>
@@ -55,40 +91,4 @@ namespace DanilovSoft.vRPC
     //        }
     //    }
     //}
-
-    /// <summary>
-    /// Содержит разобранный запрос с параметрами полученный от удалённой стороны.
-    /// </summary>
-    [StructLayout(LayoutKind.Auto)]
-    [DebuggerDisplay("{" + nameof(ControllerActionMeta) + "}")]
-    internal readonly struct RequestContext : IDisposable
-    {
-        /// <summary>
-        /// Когда Uid не Null.
-        /// </summary>
-        public bool IsResponseRequired => Uid != null;
-        public int? Uid { get; }
-
-        /// <summary>
-        /// Запрашиваемый метод контроллера.
-        /// </summary>
-        public ControllerActionMeta ControllerActionMeta { get; }
-
-        /// <summary>
-        /// Аргументы для вызываемого метода.
-        /// </summary>
-        public object[] Args { get; }
-
-        public RequestContext(int? uid, ControllerActionMeta controllerActionMeta, object[] args)
-        {
-            Uid = uid;
-            ControllerActionMeta = controllerActionMeta;
-            Args = args;
-        }
-
-        public void Dispose()
-        {
-            ControllerActionMeta.DisposeArgs(Args);
-        }
-    }
 }
