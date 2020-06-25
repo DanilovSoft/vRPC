@@ -49,9 +49,7 @@ namespace System.Threading.Tasks
         }
 
         /// <summary>Throws an argument exception for the invalid <paramref name="asyncResult"/>.</summary>
-#if !NETSTANDARD2_0 && !NET472
         [DoesNotReturn]
-#endif
         private static void ThrowArgumentException(IAsyncResult asyncResult) =>
             throw (asyncResult is null ?
                 new ArgumentNullException(nameof(asyncResult)) :

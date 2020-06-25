@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using DanilovSoft.vRPC;
 
 namespace System.IO
 {
@@ -24,7 +25,7 @@ namespace System.IO
             set
             {
                 if (value > _memory.Length)
-                    throw new ArgumentOutOfRangeException(nameof(value));
+                    ThrowHelper.ThrowArgumentOutOfRangeException(nameof(value));
 
                 _position = (int)value;
             }

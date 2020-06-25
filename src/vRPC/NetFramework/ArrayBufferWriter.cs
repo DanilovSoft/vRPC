@@ -27,7 +27,7 @@ namespace DanilovSoft.vRPC
         public ArrayBufferWriter(int initialCapacity)
         {
             if (initialCapacity <= 0)
-                throw new ArgumentException(nameof(initialCapacity));
+                ThrowHelper.ThrowArgumentException(nameof(initialCapacity));
 
             _rentedBuffer = ArrayPool<T>.Shared.Rent(initialCapacity);
             _index = 0;
@@ -105,7 +105,7 @@ namespace DanilovSoft.vRPC
         {
             if (_rentedBuffer == null)
             {
-                throw new ObjectDisposedException(nameof(ArrayBufferWriter<T>));
+                ThrowHelper.ThrowObjectDisposedException(nameof(ArrayBufferWriter<T>));
             }
         }
 
@@ -114,10 +114,10 @@ namespace DanilovSoft.vRPC
             CheckIfDisposed();
 
             if (count < 0)
-                throw new ArgumentException(nameof(count));
+                ThrowHelper.ThrowArgumentException(nameof(count));
 
             if (_index > _rentedBuffer.Length - count)
-                ThrowInvalidOperationException(_rentedBuffer.Length);
+                ThrowHelper.ThrowInvalidOperationException($"Cannot advance past the end of the buffer, which has a size of {_rentedBuffer.Length}.");
 
             _index += count;
         }
@@ -143,7 +143,7 @@ namespace DanilovSoft.vRPC
             Debug.Assert(_rentedBuffer != null);
 
             if (sizeHint < 0)
-                throw new ArgumentException(nameof(sizeHint));
+                ThrowHelper.ThrowArgumentException(nameof(sizeHint));
 
             if (sizeHint == 0)
             {
@@ -173,11 +173,6 @@ namespace DanilovSoft.vRPC
 
             Debug.Assert(_rentedBuffer.Length - _index > 0);
             Debug.Assert(_rentedBuffer.Length - _index >= sizeHint);
-        }
-
-        private static void ThrowInvalidOperationException(int capacity)
-        {
-            throw new InvalidOperationException($"Cannot advance past the end of the buffer, which has a size of {capacity}.");
         }
     }
 }

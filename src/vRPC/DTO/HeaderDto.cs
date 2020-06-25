@@ -132,7 +132,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Сериализует заголовок. Не должно бросать исключения(!).
+        /// Сериализует заголовок.
         /// </summary>
         /// <param name="stream"></param>
         /// <param name="headerSize"></param>
@@ -150,7 +150,7 @@ namespace DanilovSoft.vRPC
             if (headerSize <= HeaderMaxSize)
                 return;
 
-            throw new ApplicationException(HeaderSizeExceededException);
+            ThrowHelper.ThrowVRpcException(HeaderSizeExceededException);
         }
 
         /// <summary>

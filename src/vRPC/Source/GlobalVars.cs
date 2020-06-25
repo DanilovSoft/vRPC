@@ -16,18 +16,20 @@ namespace DanilovSoft.vRPC
             Debug.Assert(false, "Рассинхронизация потоков! Часовой не должен срабатывать."); 
             throw new Exception(nameof(SentinelAction));
         };
-        //public static readonly Action<object?> CompletedSentinelAction = delegate
-        //{
-        //    Debug.Assert(false, "Рассинхронизация потоков! Часовой не должен срабатывать.");
-        //    throw new Exception(nameof(CompletedSentinelAction));
-        //};
         private static RecyclableMemoryStreamManager? _memoryManager;
         public static RecyclableMemoryStreamManager RecyclableMemory => LazyInitializer.EnsureInitialized(ref _memoryManager, () => new RecyclableMemoryStreamManager());
 
         public static void Initialize(RecyclableMemoryStreamManager memoryManager)
         {
-            if (Interlocked.CompareExchange(ref _memoryManager, memoryManager, null) != null)
-                throw new VRpcException("MemoryManager уже инициализирован");
+            if (Interlocked.CompareExchange(ref _memoryManager, memoryManager, null) == null)
+            {
+                return;
+            }
+            else
+            {
+                Debug.Assert(false, "MemoryManager уже инициализирован");
+                ThrowHelper.ThrowVRpcException("MemoryManager уже инициализирован");
+            }
         }
 
         /// <exception cref="VRpcException"/>
@@ -50,7 +52,7 @@ namespace DanilovSoft.vRPC
                         }
                         else
                         {
-                            throw new VRpcException($"Контроллер типа {controllerType.FullName} должен заканчиваться словом 'Controller'.");
+                            ThrowHelper.ThrowVRpcException($"Контроллер типа {controllerType.FullName} должен заканчиваться словом 'Controller'.");
                         }
                     }
                 }

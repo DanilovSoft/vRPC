@@ -34,12 +34,9 @@ namespace DanilovSoft.vRPC
             }
             catch (Exception ex)
             {
-                ThrowVRpcException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
+                ThrowHelper.ThrowVRpcException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
             }
         }
-
-        private static void ThrowVRpcException(string message, Exception innerException) =>
-            throw new VRpcException(message, innerException);
 
         /// <summary>
         /// Сериализует объект в JSON.
@@ -401,11 +398,8 @@ namespace DanilovSoft.vRPC
         internal static void ValidateAccessToken(this AccessToken accessToken, string arguemntName)
         {
             if (accessToken.Bytes.Length == 0)
-                ThrowArgumentOutOfRangeException("AccessToken is empty", arguemntName);
+                ThrowHelper.ThrowArgumentOutOfRangeException("AccessToken is empty", arguemntName);
         }
-
-        private static void ThrowArgumentOutOfRangeException(string message, string arguemntName) =>
-            throw new ArgumentOutOfRangeException(arguemntName, message);
 
         internal static VRpcWasShutdownException ToException(this ShutdownRequest shutdownRequest)
         {

@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DanilovSoft.vRPC;
 
 namespace System.IO
 {
@@ -31,7 +32,7 @@ namespace System.IO
             {
                 if (value < 0 || value > int.MaxValue)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(value));
+                    ThrowHelper.ThrowArgumentOutOfRangeException(nameof(value));
                 }
                 _position = (int)value;
             }
@@ -47,7 +48,7 @@ namespace System.IO
 
             if (pos > int.MaxValue)
             {
-                throw new ArgumentOutOfRangeException(nameof(offset));
+                ThrowHelper.ThrowArgumentOutOfRangeException(nameof(offset));
             }
             else if (pos < 0)
             {
@@ -153,15 +154,15 @@ namespace System.IO
         {
             if (buffer == null)
             {
-                throw new ArgumentNullException(nameof(buffer));
+                ThrowHelper.ThrowArgumentNullException(nameof(buffer));
             }
             if (offset < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(offset));
+                ThrowHelper.ThrowArgumentOutOfRangeException(nameof(offset));
             }
             if (count < 0 || buffer.Length - offset < count)
             {
-                throw new ArgumentOutOfRangeException(nameof(count));
+                ThrowHelper.ThrowArgumentOutOfRangeException(nameof(count));
             }
         }
     }

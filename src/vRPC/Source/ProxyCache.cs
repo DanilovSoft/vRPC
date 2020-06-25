@@ -159,7 +159,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                throw new VRpcException($"Пометьте интерфейс {interfaceType.FullName} атрибутом [ControllerContract] или задайте другое имя.");
+                ThrowHelper.ThrowVRpcException($"Пометьте интерфейс {interfaceType.FullName} атрибутом [ControllerContract] или задайте другое имя.");
             }
         }
     }

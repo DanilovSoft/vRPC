@@ -131,11 +131,11 @@ namespace DanilovSoft.vRPC
         /// <exception cref="ArgumentNullException"/>
         public void ConfigureService(Action<ServiceCollection> configure)
         {
-            if (_started)
-                throw new VRpcException($"Конфигурация должна осуществляться до начала приёма соединений.");
-
             if (configure == null)
-                throw new ArgumentNullException(nameof(configure));
+                ThrowHelper.ThrowArgumentNullException(nameof(configure));
+
+            if (_started)
+                ThrowHelper.ThrowVRpcException($"Конфигурация должна осуществляться до начала приёма соединений.");
 
             configure(_serviceCollection);
             _serviceProvider = BuildServiceCollection();
@@ -154,7 +154,7 @@ namespace DanilovSoft.vRPC
         public void Configure(Action<ServiceProvider> configureApp)
         {
             if (_started)
-                throw new VRpcException($"Конфигурация должна осуществляться до начала приёма соединений.");
+                ThrowHelper.ThrowVRpcException($"Конфигурация должна осуществляться до начала приёма соединений.");
 
             _configureApp = configureApp;
         }
@@ -397,13 +397,13 @@ namespace DanilovSoft.vRPC
                 else
                 {
                     if (shouldThrow)
-                        throw new VRpcException("A server is already running");
+                        ThrowHelper.ThrowVRpcException("A server is already running");
                 }
             }
             else
             {
                 if (shouldThrow)
-                    throw new VRpcWasShutdownException(_stopRequired);
+                    ThrowHelper.ThrowWasShutdownException(_stopRequired);
             }
 
             // Сервер уже запущен или находится в остановленном состоянии.

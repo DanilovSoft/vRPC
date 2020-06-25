@@ -360,7 +360,7 @@
                 keySize = DEFAULT_KEY_SIZE;
 
             if (keySize % 8 != 0)
-                throw new ArgumentOutOfRangeException(nameof(keySize), "Размер ключа должен быть кратен 8");
+                ThrowHelper.ThrowArgumentOutOfRangeException(nameof(keySize), "Размер ключа должен быть кратен 8");
 
             // Initialization vector converted to a byte array.
             byte[] initVectorBytes;
@@ -599,7 +599,7 @@
         public byte[] DecryptToBytes(byte[] cipherTextBytes)
         {
             if (cipherTextBytes == null)
-                throw new ArgumentNullException(nameof(cipherTextBytes));
+                ThrowHelper.ThrowArgumentNullException(nameof(cipherTextBytes));
 
             int decryptedByteCount = 0;
             int saltLen = 0;

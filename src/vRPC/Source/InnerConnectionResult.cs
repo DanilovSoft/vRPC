@@ -85,13 +85,15 @@ namespace DanilovSoft.vRPC
             else if (SocketError != null)
             // Не удалось подключиться.
             {
-                throw SocketError.Value.ToException();
+                ThrowHelper.ThrowException(SocketError.Value.ToException());
+                return default;
             }
             else
             // Пользователь запросил остановку.
             {
                 Debug.Assert(ShutdownRequest != null);
-                throw new VRpcWasShutdownException(ShutdownRequest);
+                ThrowHelper.ThrowWasShutdownException(ShutdownRequest);
+                return default;
             }
         }
 

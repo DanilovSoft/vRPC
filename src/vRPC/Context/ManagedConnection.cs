@@ -1894,7 +1894,7 @@ namespace DanilovSoft.vRPC
             if (!IsDisposed)
                 return;
 
-            throw new ObjectDisposedException(GetType().FullName);
+            ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
         }
 
         /// <summary>
@@ -1909,7 +1909,7 @@ namespace DanilovSoft.vRPC
             if (_shutdownRequest == null)
                 return;
 
-            throw new VRpcWasShutdownException(_shutdownRequest);
+            ThrowHelper.ThrowWasShutdownException(_shutdownRequest);
         }
 
         /// <summary>

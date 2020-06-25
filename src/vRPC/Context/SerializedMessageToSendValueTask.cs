@@ -13,7 +13,11 @@ namespace DanilovSoft.vRPC
     partial class SerializedMessageToSend : IValueTaskSource
     {
         /// <summary>Sentinel object used to indicate that the operation has completed prior to OnCompleted being called.</summary>
-        private static readonly Action<object?> s_completedSentinel = new Action<object?>(state => throw new Exception(nameof(s_completedSentinel)));
+        private static readonly Action<object?> s_completedSentinel = new Action<object?>(state => 
+        { 
+            Debug.Assert(false, "Ошибка синхронизации потоков"); 
+            throw new Exception(nameof(s_completedSentinel)); 
+        });
 
         /// <summary>
         /// Текущее значение токена отданное ValueTask'у которое затем будет сравнено со значением переданным нам обратно.
@@ -61,7 +65,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                throw IncorrectTokenException();
+                ThrowHelper.ThrowException(IncorrectTokenException());
             }
         }
 
@@ -75,7 +79,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                throw IncorrectTokenException();
+                ThrowHelper.ThrowException(IncorrectTokenException());
             }
         }
 
@@ -138,7 +142,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                throw IncorrectTokenException();
+                ThrowHelper.ThrowException(IncorrectTokenException());
             }
         }
 
@@ -237,8 +241,9 @@ namespace DanilovSoft.vRPC
         }
 
         private static Exception IncorrectTokenException() =>
-                new InvalidOperationException("Произошла попытка многократного использования ValueTask.");
+            new InvalidOperationException("Произошла попытка многократного использования ValueTask.");
 
+        [DoesNotReturn]
         private static void ThrowMultipleContinuationsException() =>
                 throw new InvalidOperationException("Multiple continuations not allowed.");
 

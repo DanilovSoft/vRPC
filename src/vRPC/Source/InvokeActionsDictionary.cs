@@ -33,7 +33,7 @@ namespace DanilovSoft.vRPC
                     string actionFullName = $"{controller.Key}{GlobalVars.ControllerNameSplitter}{method.Name}";
                     if (!_actionsDict.TryAdd(actionFullName, new ControllerActionMeta(actionFullName, controller.Value, method)))
                     {
-                        throw new VRpcException($"Контроллер {controller.Value.Name} содержит несколько методов с одинаковым именем '{method.Name}'." +
+                        ThrowHelper.ThrowVRpcException($"Контроллер {controller.Value.Name} содержит несколько методов с одинаковым именем '{method.Name}'." +
                             $" Переименуйте методы так что-бы их имена были уникальны в пределах контроллера.");
                     }
                 }

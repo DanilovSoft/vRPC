@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using DanilovSoft.vRPC;
 
 namespace System.IO
 {
@@ -12,24 +13,24 @@ namespace System.IO
         {
             if (destination == null)
             {
-                throw new ArgumentNullException(nameof(destination));
+                ThrowHelper.ThrowArgumentNullException(nameof(destination));
             }
 
             if (bufferSize <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(bufferSize));
+                ThrowHelper.ThrowArgumentOutOfRangeException(nameof(bufferSize));
             }
 
             bool sourceCanRead = source.CanRead;
             if (!sourceCanRead && !source.CanWrite)
             {
-                throw new ObjectDisposedException(null, "StreamClosed");
+                ThrowHelper.ThrowObjectDisposedException(null, "StreamClosed");
             }
 
             bool destinationCanWrite = destination.CanWrite;
             if (!destinationCanWrite && !destination.CanRead)
             {
-                throw new ObjectDisposedException(nameof(destination), "StreamClosed");
+                ThrowHelper.ThrowObjectDisposedException(nameof(destination), "StreamClosed");
             }
 
             if (!sourceCanRead)
@@ -42,25 +43,5 @@ namespace System.IO
                 throw new NotSupportedException("NotSupported_UnwritableStream");
             }
         }
-
-        //public static void ValidateCopyToArgs(Stream source, Delegate callback, int bufferSize)
-        //{
-        //    if (callback == null)
-        //    {
-        //        throw new ArgumentNullException(nameof(callback));
-        //    }
-
-        //    if (bufferSize <= 0)
-        //    {
-        //        throw new ArgumentOutOfRangeException(nameof(bufferSize), bufferSize, SR.ArgumentOutOfRange_NeedPosNum);
-        //    }
-
-        //    if (!source.CanRead)
-        //    {
-        //        throw source.CanWrite ? (Exception)
-        //            new NotSupportedException(SR.NotSupported_UnreadableStream) :
-        //            new ObjectDisposedException(null, SR.ObjectDisposed_StreamClosed);
-        //    }
-        //}
     }
 }
