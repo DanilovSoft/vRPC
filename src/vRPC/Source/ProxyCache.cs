@@ -160,6 +160,7 @@ namespace DanilovSoft.vRPC
             else
             {
                 ThrowHelper.ThrowVRpcException($"Пометьте интерфейс {interfaceType.FullName} атрибутом [ControllerContract] или задайте другое имя.");
+                return default;
             }
         }
     }

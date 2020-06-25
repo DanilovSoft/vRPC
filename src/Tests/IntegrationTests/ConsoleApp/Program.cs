@@ -55,20 +55,13 @@ namespace ConsoleApp
             var listener = new VRpcListener(IPAddress.Any, 1234);
             listener.Start();
             var client = new VRpcClient("localhost", port: 1234, ssl: false, allowAutoConnect: true);
-
+            client.Connect();
             var proxy = client.GetProxy<IBenchmark>();
 
-            for (int i = 0; i < Environment.ProcessorCount; i++)
+            while (true)
             {
-                ThreadPool.QueueUserWorkItem(delegate 
-                {
-                    while (true)
-                    {
-                        proxy.VoidOneArg(123);
-                    }
-                });
+                proxy.VoidOneArg(123);
             }
-            Thread.Sleep(-1);
         }
     }
 

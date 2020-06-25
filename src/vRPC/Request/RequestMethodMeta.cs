@@ -188,7 +188,7 @@ namespace DanilovSoft.vRPC
                         {
                             if (serMsg.MemoryPoolBuffer.FreeCapacity < length)
                             {
-                                serMsg.MemoryPoolBuffer.Advance(length);
+                                //serMsg.MemoryPoolBuffer.Advance(length);
                             }
                         }
                         serMsg.Parts[i] = part.InnerSerializeToStream(serMsg.MemoryPoolBuffer);

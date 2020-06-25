@@ -178,17 +178,44 @@ namespace DanilovSoft.vRPC
         public static void WriteStringBinary(this Stream destination, string message)
         {
             using (var writer = new BinaryWriter(destination, Encoding.UTF8, leaveOpen: true))
+            {
                 writer.Write(message);
+            }
         }
 
-        ///// <summary>
-        ///// Записывает строку в формате Utf-8.
-        ///// </summary>
-        //public static void WriteStringBinary(this IBufferWriter<byte> destination, string message)
-        //{
-        //    using (var writer = new BinaryWriter(destination, Encoding.UTF8, leaveOpen: true))
-        //        writer.Write(message);
-        //}
+#if NETSTANDARD2_0 || NET472
+        /// <summary>
+        /// Записывает строку в формате Utf-8.
+        /// </summary>
+        public static void WriteStringBinary(this IBufferWriter<byte> destination, string message)
+        {
+            int bytesCount = Encoding.UTF8.GetByteCount(message);
+            Span<byte> span = destination.GetSpan(bytesCount);
+
+            byte[] data = ArrayPool<byte>.Shared.Rent(bytesCount);
+            try
+            {
+                int bytesWriten = Encoding.UTF8.GetBytes(message, 0, message.Length, data, 0);
+                data.AsSpan(0, bytesWriten).CopyTo(span);
+                destination.Advance(bytesWriten);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(data);
+            }
+        }
+#else
+        /// <summary>
+        /// Записывает строку в формате Utf-8.
+        /// </summary>
+        public static void WriteStringBinary(this IBufferWriter<byte> destination, string message)
+        {
+            int bytesCount = Encoding.UTF8.GetByteCount(message);
+            Span<byte> span = destination.GetSpan(bytesCount);
+            int bytesWriten = Encoding.UTF8.GetBytes(message, span);
+            destination.Advance(bytesWriten);
+        }
+#endif
 
         /// <summary>
         /// Возвращает <see langword="true"/> если функция имеет возвращаемый тип <see cref="Task"/> или <see cref="Task{TResult}"/>

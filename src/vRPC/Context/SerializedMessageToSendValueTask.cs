@@ -80,6 +80,7 @@ namespace DanilovSoft.vRPC
             else
             {
                 ThrowHelper.ThrowException(IncorrectTokenException());
+                return default;
             }
         }
 

@@ -353,14 +353,14 @@ namespace DanilovSoft.vRPC
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
 #endif
-            int? uid = null;
             StatusCode statusCode = StatusCode.None;
+            int? uid = null;
             int payloadLength = -1;
             string? actionName = null;
             string? contentEncoding = null;
 
-            bool gotUid = false;
             bool gotCode = false;
+            bool gotUid = false;
             bool gotPayload = false;
             bool gotEncoding = false;
             bool gotMethod = false;
@@ -370,20 +370,20 @@ namespace DanilovSoft.vRPC
             {
                 if (reader.TokenType == JsonTokenType.PropertyName)
                 {
-                    if (!gotUid && reader.ValueTextEquals("uid"))
-                    {
-                        if (reader.Read())
-                        {
-                            uid = reader.GetInt32();
-                            gotUid = true;
-                        }
-                    }
-                    else if (!gotCode && reader.ValueTextEquals("code"))
+                    if (!gotCode && reader.ValueTextEquals("code"))
                     {
                         if (reader.Read())
                         {
                             statusCode = (StatusCode)reader.GetInt32();
                             gotCode = true;
+                        }
+                    }
+                    else if (!gotUid && reader.ValueTextEquals("uid"))
+                    {
+                        if (reader.Read())
+                        {
+                            uid = reader.GetInt32();
+                            gotUid = true;
                         }
                     }
                     else if (!gotPayload && reader.ValueTextEquals("payload"))

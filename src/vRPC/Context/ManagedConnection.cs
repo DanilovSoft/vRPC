@@ -670,21 +670,31 @@ namespace DanilovSoft.vRPC
                 int bufferOffset = 0;
                 do
                 {
-                    try
+                    Memory<byte> slice = headerBuffer.AsMemory(bufferOffset);
+                    if (!slice.IsEmpty)
                     {
-                        // Читаем фрейм веб-сокета.
-                        webSocketMessage = await _ws.ReceiveExAsync(headerBuffer.AsMemory(bufferOffset), CancellationToken.None).ConfigureAwait(false);
+                        try
+                        {
+                            // Читаем фрейм веб-сокета.
+                            webSocketMessage = await _ws.ReceiveExAsync(slice, CancellationToken.None).ConfigureAwait(false);
+                        }
+                        catch (Exception ex)
+                        // Обрыв соединения.
+                        {
+                            // Оповестить об обрыве и завершить поток.
+                            TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                            return;
+                        }
+                        bufferOffset += webSocketMessage.Count;
                     }
-                    catch (Exception ex)
-                    // Обрыв соединения.
+                    else
                     {
-                        // Оповестить об обрыве и завершить поток.
-                        TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                        Debug.Assert(false, "Превышен размер хедера");
+
+                        // Отправка Close и завершить поток.
+                        await SendCloseHeaderSizeErrorAsync().ConfigureAwait(false);
                         return;
                     }
-
-                    bufferOffset += webSocketMessage.Count;
-
                 } while (!webSocketMessage.EndOfMessage);
 
                 #endregion
@@ -696,9 +706,7 @@ namespace DanilovSoft.vRPC
                 {
                     try
                     {
-                        using (var mem = new MemoryStream(headerBuffer, 0, webSocketMessage.Count))
-                            header = ProtoBuf.Serializer.Deserialize<HeaderDto>(mem);
-
+                        header = RequestContentParser.DeserializeHeader(headerBuffer.AsSpan(0, webSocketMessage.Count));
                         header.ValidateDeserializedHeader();
                     }
                     catch (Exception headerException)
@@ -1091,6 +1099,15 @@ namespace DanilovSoft.vRPC
             return TryCloseAndDisposeAsync(protocolException, $"Unable to deserialize header. Count of bytes was {webSocketMessageCount}");
         }
 
+        private Task SendCloseHeaderSizeErrorAsync()
+        {
+            // Отправка Close.
+            var protocolException = new VRpcProtocolErrorException($"Не удалось десериализовать полученный заголовок " +
+                $"сообщения — превышен размер заголовка в {HeaderDto.HeaderMaxSize} байт.");
+
+            return TryCloseAndDisposeAsync(protocolException, $"Unable to deserialize header. {HeaderDto.HeaderMaxSize} byte header size exceeded.");
+        }
+
         /// <summary>
         /// Гарантирует что ничего больше не будет отправлено через веб-сокет. 
         /// Дожидается завершения отправляющего потока.
@@ -1330,7 +1347,7 @@ namespace DanilovSoft.vRPC
                         {
                             //LogSend(serializedMessage);
 
-                            var streamBuffer = serializedMessage.MemoryPoolBuffer.WrittenMemory;
+                            ReadOnlyMemory<byte> streamBuffer = serializedMessage.MemoryPoolBuffer.WrittenMemory;
 
                             // Размер сообщения без заголовка.
                             int messageSize = serializedMessage.MemoryPoolBuffer.WrittenCount - serializedMessage.HeaderSize;
@@ -1487,6 +1504,8 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ValueTask SendBufferAsync(ReadOnlyMemory<byte> buffer, bool endOfMessage)
         {
+            Debug.Assert(!buffer.IsEmpty, "Протокол никогда не отправляет пустые сообщения");
+
             return _ws.SendAsync(buffer, Ms.WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
         }
 
