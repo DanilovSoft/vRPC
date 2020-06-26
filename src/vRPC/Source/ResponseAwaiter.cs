@@ -17,7 +17,7 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Атомарный <see langword="await"/>'ер. Связывает результат с запросом.
     /// </summary>
-    [DebuggerDisplay(@"\{Request = {Request.ActionName}\}")]
+    [DebuggerDisplay(@"\{Request = {Request.ActionFullName}\}")]
     internal sealed class ResponseAwaiter<TResult> : IResponseAwaiter
     {
         private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -27,7 +27,7 @@ namespace DanilovSoft.vRPC
         private static readonly JsonEncodedText JsonMethod = JsonEncodedText.Encode("method");
 
         public const int HeaderMaxSize = 256;
-        private const string HeaderSizeExceededException = "Размер заголовка сообщения превысил максимально допустимый размер в 64 байта.";
+        private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
 
         [JsonIgnore]
         [ProtoIgnore]
