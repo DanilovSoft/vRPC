@@ -12,12 +12,7 @@
 
         }
 
-        //public override void ExecuteResult(ActionContext context)
-        //{
-        //    context.StatusCode = StatusCode;
-        //}
-
-        private protected override void FinalExecuteResult(ActionContext context)
+        private protected sealed override void FinalExecuteResult(ActionContext context)
         {
             context.StatusCode = StatusCode;
         }

@@ -15,7 +15,7 @@ namespace DanilovSoft.vRPC
             Value = value;
         }
 
-        private protected override void FinalExecuteResult(ActionContext context)
+        private protected sealed override void FinalExecuteResult(ActionContext context)
         {
             context.StatusCode = StatusCode;
 

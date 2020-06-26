@@ -33,7 +33,7 @@ namespace DanilovSoft.vRPC
         private RijndaelEnhanced? _jwt;
         private RijndaelEnhanced Jwt => LazyInitializer.EnsureInitialized(ref _jwt, () => new RijndaelEnhanced(PassPhrase, InitVector, 8, 16, 256, Salt, 1000));
         private volatile ClaimsPrincipal _user;
-        public override bool IsAuthenticated => true;
+        public sealed override bool IsAuthenticated => true;
         /// <summary>
         /// Пользователь ассоциированный с текущим соединением.
         /// </summary>
@@ -203,7 +203,7 @@ namespace DanilovSoft.vRPC
         /// Проверяет доступность запрашиваемого метода пользователем.
         /// </summary>
         /// <exception cref="VRpcBadRequestException"/>
-        private protected override bool ActionPermissionCheck(ControllerActionMeta actionMeta, [NotNullWhen(false)] out IActionResult? permissionError, out ClaimsPrincipal user)
+        private protected sealed override bool ActionPermissionCheck(ControllerActionMeta actionMeta, [NotNullWhen(false)] out IActionResult? permissionError, out ClaimsPrincipal user)
         {
             // Скопируем пользователя что-бы не мог измениться в пределах запроса.
             user = _user;
@@ -234,7 +234,7 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private protected override T InnerGetProxy<T>() => GetProxy<T>();
+        private protected sealed override T InnerGetProxy<T>() => GetProxy<T>();
 
         #region Call Helpers
 

@@ -34,7 +34,7 @@ namespace DanilovSoft.vRPC
         /// Перед чтением этого значения нужно дождаться завершения <see cref="_lastAuthTask"/> — этот таск может модифицировать значение минуя захват блокировки.
         /// </summary>
         private volatile bool _isAuthenticated;
-        public override bool IsAuthenticated => _isAuthenticated;
+        public sealed override bool IsAuthenticated => _isAuthenticated;
         /// <summary>
         /// Установка свойства только через блокировку <see cref="_authLock"/>.
         /// Этот таск настроен не провоцировать исключения.
@@ -52,7 +52,7 @@ namespace DanilovSoft.vRPC
         }
 
         // Клиент всегда разрешает серверу вызывать свои методы.
-        private protected override bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user)
+        private protected sealed override bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user)
         {
             user = null;
             permissionError = null;
@@ -60,7 +60,7 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private protected override T InnerGetProxy<T>()
+        private protected sealed override T InnerGetProxy<T>()
         {
             return Client.GetProxy<T>();
         }

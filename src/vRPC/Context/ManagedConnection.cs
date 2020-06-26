@@ -586,8 +586,7 @@ namespace DanilovSoft.vRPC
 
             TryPostMessage(serializedMessage);
 
-            ValueTask task = serializedMessage.WaitNotificationAsync();
-            return task;
+            return serializedMessage.WaitNotificationAsync();
         }
 
         /// <summary>
@@ -1906,7 +1905,6 @@ namespace DanilovSoft.vRPC
 
         /// <remarks>AggressiveInlining.</remarks>
         /// <exception cref="ObjectDisposedException"/>
-        [DebuggerStepThrough]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowIfDisposed()
         {
@@ -1921,7 +1919,6 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <remarks>AggressiveInlining.</remarks>
         /// <exception cref="VRpcWasShutdownException"/>
-        [DebuggerStepThrough]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ThrowIfShutdownRequired()
         {

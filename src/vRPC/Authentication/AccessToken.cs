@@ -42,16 +42,6 @@ namespace DanilovSoft.vRPC
             return self.Bytes;
         }
 
-        //public static AccessToken From(byte[] rawToken)
-        //{
-        //    return new AccessToken(rawToken);
-        //}
-
-        //public byte[] AsRawBytes()
-        //{
-        //    return Bytes;
-        //}
-
         public override bool Equals(object? obj)
         {
             if (obj is AccessToken other)
@@ -86,29 +76,5 @@ namespace DanilovSoft.vRPC
             }
             return false;
         }
-
-        //internal sealed class AccessTokenJsonConverter : JsonConverter<AccessToken>
-        //{
-        //    public override AccessToken Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        //    {
-        //        SerializerDecorator decorator = JsonSerializer.Deserialize<SerializerDecorator>(ref reader, options);
-        //        return new AccessToken(decorator.Bytes);
-        //    }
-
-        //    public override void Write(Utf8JsonWriter writer, AccessToken value, JsonSerializerOptions options)
-        //    {
-        //        var decorator = new SerializerDecorator
-        //        {
-        //            Bytes = value.Bytes,
-        //        };
-        //        JsonSerializer.Serialize(writer, decorator, options);
-        //    }
-        //}
-
-        //[StructLayout(LayoutKind.Auto)]
-        //private struct SerializerDecorator
-        //{
-        //    public byte[] Bytes { get; set; }
-        //}
     }
 }
