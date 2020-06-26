@@ -88,45 +88,38 @@ namespace DanilovSoft.vRPC
         [ProtoMember(5, IsRequired = false)]
         public string? MethodName { get; }
 
-        //Требуется для десериализатора.Если структура то не используется.
-        //private HeaderDto()
-        //{
-
-        //}
-
-        //public HeaderDto(int? uid, StatusCode statusCode, int payloadLength, string actionName, string? contentEncoding)
-        //{
-        //    Uid = uid;
-        //    StatusCode = statusCode;
-        //    PayloadLength = payloadLength;
-        //    ActionName = actionName;
-        //    ContentEncoding = contentEncoding;
-        //}
-
         /// <summary>
-        /// Создаёт заголовок ответа на запрос.
+        /// Конструктор запроса.
         /// </summary>
-        public static HeaderDto FromResponse(int uid, StatusCode responseCode, int contentLength, string? contentEncoding)
+        public HeaderDto(int? uid, int payloadLength, string? contentEncoding, string actionName)
         {
-            return new HeaderDto(uid, responseCode, contentLength, contentEncoding, actionName: null);
+            Uid = uid;
+            StatusCode = StatusCode.Request;
+            PayloadLength = payloadLength;
+            PayloadEncoding = contentEncoding;
+            MethodName = actionName;
         }
 
         /// <summary>
-        /// Создаёт заголовок для нового запроса.
+        /// Конструктор ответа на запрос.
         /// </summary>
-        public static HeaderDto CreateRequest(int? uid, int payloadLength, string? contentEncoding, string actionName)
-        {
-            return new HeaderDto(uid, StatusCode.Request, payloadLength, contentEncoding, actionName);
-        }
-
-        /// <summary>
-        /// Конструктор заголовка и для ответа и для запроса.
-        /// </summary>
-        public HeaderDto(int? uid, StatusCode responseCode, int contentLength, string? contentEncoding, string? actionName)
+        public HeaderDto(int uid, StatusCode responseCode, int payloadLength, string? contentEncoding)
         {
             Uid = uid;
             StatusCode = responseCode;
-            PayloadLength = contentLength;
+            PayloadLength = payloadLength;
+            PayloadEncoding = contentEncoding;
+            MethodName = null;
+        }
+
+        /// <summary>
+        /// Конструктор и для ответа и для запроса.
+        /// </summary>
+        public HeaderDto(int? uid, StatusCode responseCode, int payloadLength, string? contentEncoding, string? actionName)
+        {
+            Uid = uid;
+            StatusCode = responseCode;
+            PayloadLength = payloadLength;
             PayloadEncoding = contentEncoding;
             MethodName = actionName;
         }

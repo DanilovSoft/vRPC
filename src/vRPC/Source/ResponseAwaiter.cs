@@ -18,21 +18,11 @@ namespace DanilovSoft.vRPC
     /// Атомарный <see langword="await"/>'ер. Связывает результат с запросом.
     /// </summary>
     [DebuggerDisplay(@"\{Request = {Request.ActionName}\}")]
-    internal sealed class ResponseAwaiter<TResult> : IResponseAwaiter/*, INotifyCompletion*/
+    internal sealed class ResponseAwaiter<TResult> : IResponseAwaiter
     {
         private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         public RequestMethodMeta Request { get; }
         public Task<TResult> Task => _tcs.Task;
-        /// <summary>
-        /// Флаг используется как fast-path.
-        /// </summary>
-        //private volatile bool _isCompleted;
-        //[DebuggerNonUserCode]
-        //public bool IsCompleted => _isCompleted;
-        //[AllowNull]
-        //private TResult _responseValue;
-        //private volatile Exception? _exception;
-        //private Action? _continuationAtomic;
 
 #if DEBUG
         private object? ValueForDebugDisplay
@@ -55,24 +45,7 @@ namespace DanilovSoft.vRPC
         public ResponseAwaiter(RequestMethodMeta requestToSend)
         {
             Request = requestToSend;
-            //_responseValue = default;
         }
-
-        //[DebuggerStepThrough]
-        //public ResponseAwaiter<TResult> GetAwaiter() => this;
-
-        //public TResult GetResult()
-        //{
-        //    if (_exception == null)
-        //    {
-        //        return _responseValue;
-        //    }
-        //    else
-        //    {
-        //        // Исключение является полноценным результатом.
-        //        throw _exception;
-        //    }
-        //}
 
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
@@ -80,8 +53,6 @@ namespace DanilovSoft.vRPC
         public void TrySetException(Exception exception)
         {
             _tcs.TrySetException(exception);
-            //_exception = exception;
-            //WakeContinuation();
         }
 
         /// <summary>
@@ -90,8 +61,6 @@ namespace DanilovSoft.vRPC
         private void TrySetResult([AllowNull] TResult result)
         {
             _tcs.TrySetResult(result!);
-            //_responseValue = result;
-            //WakeContinuation();
         }
 
         public void DeserializeResponse(ReadOnlyMemory<byte> payload, string? contentEncoding)

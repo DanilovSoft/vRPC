@@ -24,13 +24,13 @@ namespace DanilovSoft.vRPC
             Memory = content;
         }
 
-        protected internal override bool TryComputeLength(out int length)
+        protected internal sealed override bool TryComputeLength(out int length)
         {
             length = Memory.Length;
             return true;
         }
 
-        private protected override Multipart SerializeToStream(IBufferWriter<byte> writer)
+        private protected sealed override Multipart SerializeToStream(IBufferWriter<byte> writer)
         {
             throw new NotImplementedException();
             //int contentLength = (int)stream.Position;

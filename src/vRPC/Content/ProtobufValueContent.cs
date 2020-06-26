@@ -19,7 +19,7 @@ namespace DanilovSoft.vRPC
             _value = value;
         }
 
-        private protected override Multipart SerializeToStream(IBufferWriter<byte> writer)
+        private protected sealed override Multipart SerializeToStream(IBufferWriter<byte> writer)
         {
             throw new NotImplementedException();
             //int contentLength = (int)stream.Position;
@@ -36,7 +36,7 @@ namespace DanilovSoft.vRPC
             //return new Multipart(contentLength, headerSize);
         }
 
-        protected internal override bool TryComputeLength(out int length)
+        protected internal sealed override bool TryComputeLength(out int length)
         {
             length = -1;
             return false;

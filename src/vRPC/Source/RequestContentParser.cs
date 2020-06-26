@@ -414,11 +414,5 @@ namespace DanilovSoft.vRPC
             }
             return new HeaderDto(uid, statusCode, payloadLength, contentEncoding, actionName);
         }
-
-        //internal static void SerializeHeader()
-        //{
-        //    JsonEncodedText.Encode("uid");
-        //    JsonEncodedText.Encode("uid");
-        //}
     }
 }

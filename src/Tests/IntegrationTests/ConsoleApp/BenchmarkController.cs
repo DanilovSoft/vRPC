@@ -19,6 +19,7 @@ namespace ConsoleApp
         [TcpNoDelay]
         public int VoidOneArg(int n)
         {
+            throw new VRpcBadRequestException("проверка");
             return 123;
         }
     }

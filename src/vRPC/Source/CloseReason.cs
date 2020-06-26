@@ -69,7 +69,7 @@ namespace DanilovSoft.vRPC
             ShutdownRequest = shutdownRequest;
         }
 
-        public override string ToString()
+        public sealed override string ToString()
         {
             if (Gracifully)
             {
