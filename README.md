@@ -8,16 +8,16 @@ Asynchronous full-duplex Remote Procedure Call based on WebSocket and targets hi
 # Basic usage
 ##### Client Side
 ```csharp
+public interface IChat
+{
+    Task<string> EchoAsync(string message);
+}
+
 static async Task Main()
 {
     var client = new VRpcClient("localhost", port: 1234, ssl: false, allowAutoConnect: true);
     var proxy = client.GetProxy<IChat>();
     string response = await proxy.EchoAsync("Hello");
-}
-
-public interface IChat
-{
-    Task<string> EchoAsync(string message);
 }
 ```
 ##### Server side

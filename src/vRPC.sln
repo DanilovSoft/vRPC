@@ -13,11 +13,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ServerBenchmark", "Benchmar
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{07C81DF2-519D-44C3-BC71-D9E67A885769}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "XUnitTest", "Tests\XUnitTest\XUnitTest.csproj", "{746FE7CC-75DF-4708-90DB-BE9DB5EFA1C4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InternalXUnitTest", "Tests\XUnitTest\InternalXUnitTest.csproj", "{746FE7CC-75DF-4708-90DB-BE9DB5EFA1C4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "IntegrationTests", "IntegrationTests", "{08DAD52E-339D-42F4-8082-EFEA32172B4F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleApp", "Tests\IntegrationTests\ConsoleApp\ConsoleApp.csproj", "{C5B5BDEE-449F-4349-9EA5-C0833E49BF30}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InternalConsoleApp", "Tests\IntegrationTests\ConsoleApp\InternalConsoleApp.csproj", "{C5B5BDEE-449F-4349-9EA5-C0833E49BF30}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{0D90D039-7036-4E0D-9DF6-6758DA12CD93}"
 	ProjectSection(SolutionItems) = preProject

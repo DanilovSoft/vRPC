@@ -30,15 +30,7 @@ namespace ConsoleApp
 
             while (true)
             {
-                try
-                {
-                    proxy.VoidOneArg(123);
-                }
-                catch (VRpcBadRequestException ex)
-                {
-
-                }
-                
+                proxy.VoidOneArg(123);
             }
         }
     }
