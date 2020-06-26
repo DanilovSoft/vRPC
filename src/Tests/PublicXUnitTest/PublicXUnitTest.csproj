@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\vRPC\DanilovSoft.vRPC.csproj" />
+    <ProjectReference Include="..\..\vRPC\DanilovSoft.vRPC.csproj" />
   </ItemGroup>
 
 </Project>
