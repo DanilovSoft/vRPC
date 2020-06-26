@@ -15,6 +15,46 @@ namespace XUnitTest
     public class RpcTest
     {
         [Fact]
+        public void TestExceptionThrow()
+        {
+            const int port = 1101;
+
+            using var listener = new VRpcListener(IPAddress.Any, port);
+            listener.Start();
+
+            using var cli = new VRpcClient("127.0.0.1", port, false, true);
+            var iface = cli.GetProxy<IServerTestController>();
+            try
+            {
+                iface.TestExceptionThrow("проверка");
+            }
+            catch (VRpcBadRequestException ex)
+            {
+                Assert.Equal("проверка", ex.Message);
+            }
+        }
+
+        [Fact]
+        public void TestException()
+        {
+            const int port = 1100;
+
+            using var listener = new VRpcListener(IPAddress.Any, port);
+            listener.Start();
+
+            using var cli = new VRpcClient("127.0.0.1", port, false, true);
+            var iface = cli.GetProxy<IServerTestController>();
+            try
+            {
+                iface.TestException("проверка");
+            }
+            catch (VRpcBadRequestException ex)
+            {
+                Assert.Equal("проверка", ex.Message);
+            }
+        }
+
+        [Fact]
         public void TestVoid()
         {
             const int port = 1000;

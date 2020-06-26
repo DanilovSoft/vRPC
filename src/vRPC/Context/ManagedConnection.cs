@@ -1275,7 +1275,7 @@ namespace DanilovSoft.vRPC
             {
                 Debug.Assert(messageToSend.StatusCode != null, "StatusCode ответа не может быть Null");
 
-                return HeaderDto.FromResponse(responseToSend.Uid, messageToSend.StatusCode.Value, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding);
+                return new HeaderDto(responseToSend.Uid, messageToSend.StatusCode.Value, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding);
             }
             else
             // Создать хедер для нового запроса.
@@ -1283,7 +1283,7 @@ namespace DanilovSoft.vRPC
                 var request = messageToSend.MessageToSend as RequestMethodMeta;
                 Debug.Assert(request != null);
 
-                return HeaderDto.CreateRequest(messageToSend.Uid, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding, request.ActionFullName);
+                return new HeaderDto(messageToSend.Uid, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding, request.ActionFullName);
             }
         }
 
@@ -1842,10 +1842,14 @@ namespace DanilovSoft.vRPC
 
         private void SendBadRequest(in RequestContext requestToInvoke, VRpcBadRequestException exception)
         {
+            Debug.Assert(requestToInvoke.IsResponseRequired);
             Debug.Assert(requestToInvoke.Uid != null);
 
+            var result = new BadRequestResult(exception.Message);
+            var response = new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ControllerActionMeta, result);
+
             // Вернуть результат с ошибкой.
-            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ControllerActionMeta, new BadRequestResult(exception.Message)));
+            SerializeResponseAndTrySend(response);
         }
 
         /// <summary>

@@ -1402,19 +1402,19 @@
             У запроса всегда должно быть имя метода.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.HeaderDto.FromResponse(System.Int32,DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
+        <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.Nullable{System.Int32},System.Int32,System.String,System.String)">
             <summary>
-            Создаёт заголовок ответа на запрос.
+            Конструктор запроса.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.HeaderDto.CreateRequest(System.Nullable{System.Int32},System.Int32,System.String,System.String)">
+        <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.Int32,DanilovSoft.vRPC.StatusCode,System.Int32,System.String)">
             <summary>
-            Создаёт заголовок для нового запроса.
+            Конструктор ответа на запрос.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.Nullable{System.Int32},DanilovSoft.vRPC.StatusCode,System.Int32,System.String,System.String)">
             <summary>
-            Конструктор заголовка и для ответа и для запроса.
+            Конструктор и для ответа и для запроса.
             </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.HeaderDto.SerializeProtoBuf(System.IO.Stream,System.Int32@)">

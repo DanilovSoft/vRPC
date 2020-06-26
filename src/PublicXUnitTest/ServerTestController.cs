@@ -11,6 +11,8 @@ namespace XUnitTest
 {
     public interface IServerTestController
     {
+        void TestException(string exceptionMessage);
+        void TestExceptionThrow(string exceptionMessage);
         void TestDelay();
         Task Test2Async();
         int GetSum(int x1, int x2);
@@ -34,6 +36,16 @@ namespace XUnitTest
     [AllowAnonymous]
     internal class ServerTestController : ServerController
     {
+        public void TestExceptionThrow(string message)
+        {
+            throw new VRpcBadRequestException(message);
+        }
+
+        public IActionResult TestException(string message)
+        {
+            return BadRequest(message);
+        }
+
         public void TestDelay()
         {
             Thread.Sleep(500);

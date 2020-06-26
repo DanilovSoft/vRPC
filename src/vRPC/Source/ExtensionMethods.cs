@@ -150,20 +150,14 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        /// <summary>
-        /// Читает строку в формате Utf-8.
-        /// </summary>
-        public static string ReadAsString(this Memory<byte> memory)
-        {
-            return ReadAsString(readonlyMemory: memory);
-        }
+#if NETSTANDARD2_0 || NET472
 
         /// <summary>
         /// Читает строку в формате Utf-8.
         /// </summary>
-        public static string ReadAsString(this ReadOnlyMemory<byte> readonlyMemory)
+        public static string ReadAsString(this ReadOnlyMemory<byte> readOnlyMemory)
         {
-            using (var stream = new MemoryReader(readonlyMemory))
+            using (var stream = new MemoryReader(readOnlyMemory))
             using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
             {
                 // Десериализовать тело как строку.
@@ -173,15 +167,42 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Записывает строку в формате Utf-8.
+        /// Читает строку в формате Utf-8.
         /// </summary>
-        public static void WriteStringBinary(this Stream destination, string message)
+        public static string ReadAsString(this Memory<byte> memory)
         {
-            using (var writer = new BinaryWriter(destination, Encoding.UTF8, leaveOpen: true))
-            {
-                writer.Write(message);
-            }
+            return ReadAsString(readOnlyMemory: memory);
         }
+
+#else
+        /// <summary>
+        /// Читает строку в формате Utf-8.
+        /// </summary>
+        public static string ReadAsString(this Memory<byte> memory)
+        {
+            return ReadAsString(readOnlyMemory: memory);
+        }
+
+        /// <summary>
+        /// Читает строку в формате Utf-8.
+        /// </summary>
+        public static string ReadAsString(this ReadOnlyMemory<byte> readOnlyMemory)
+        {
+            string errorMessage = Encoding.UTF8.GetString(readOnlyMemory.Span);
+            return errorMessage;
+        }
+#endif
+
+        ///// <summary>
+        ///// Записывает строку в формате Utf-8.
+        ///// </summary>
+        //public static void WriteStringBinary(this Stream destination, string message)
+        //{
+        //    using (var writer = new BinaryWriter(destination, Encoding.UTF8, leaveOpen: true))
+        //    {
+        //        writer.Write(message);
+        //    }
+        //}
 
 #if NETSTANDARD2_0 || NET472
         /// <summary>
@@ -213,6 +234,8 @@ namespace DanilovSoft.vRPC
             int bytesCount = Encoding.UTF8.GetByteCount(message);
             Span<byte> span = destination.GetSpan(bytesCount);
             int bytesWriten = Encoding.UTF8.GetBytes(message, span);
+
+            // Сообщаем райтеру сколько полезных данных мы записали в его память.
             destination.Advance(bytesWriten);
         }
 #endif
@@ -232,7 +255,8 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public static bool IsAsyncReturnType(this Type returnType)
         {
-            if (typeof(Task).IsAssignableFrom(returnType) // Task и Task<T>
+            // Task, Task<T> и ValueTask, ValueTask<T>
+            if (typeof(Task).IsAssignableFrom(returnType)
                 || returnType == typeof(ValueTask)
                 || (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>)))
             {
@@ -286,35 +310,6 @@ namespace DanilovSoft.vRPC
             return new SocketException((int)socketError);
         }
 
-        //// TODO закэшировать?
-        ///// <summary>
-        ///// Возвращает инкапсулированный в <see cref="Task"/> тип результата функции.
-        ///// </summary>
-        //public static Type GetMethodReturnType(this MethodInfo method)
-        //{
-        //    // Если возвращаемый тип функции — Task.
-        //    if (method.IsAsyncMethod())
-        //    {
-        //        // Если у задачи есть результат.
-        //        if (method.ReturnType.IsGenericType)
-        //        {
-        //            // Тип результата задачи.
-        //            Type resultType = method.ReturnType.GenericTypeArguments[0];
-        //            return resultType;
-        //        }
-        //        else
-        //        {
-        //            // Возвращаемый тип Task(без результата).
-        //            return typeof(void);
-        //        }
-        //    }
-        //    else
-        //    // Была вызвана синхронная функция.
-        //    {
-        //        return method.ReturnType;
-        //    }
-        //}
-
         public static Exception ToException(this CloseReason closeReason)
         {
             if(closeReason.ConnectionError == null)
@@ -340,8 +335,6 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private static string GetMessageFromCloseFrame(WebSocketCloseStatus? closeStatus, string? closeDescription)
         {
-            //var webSocket = _socket.WebSocket;
-
             string? exceptionMessage = null;
             if (closeStatus != null)
             {
@@ -388,9 +381,7 @@ namespace DanilovSoft.vRPC
             return canBeNull;
         }
 
-#if !NETSTANDARD2_0
         [DebuggerStepThrough]
-#endif
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsCompletedSuccessfully(this Task t)
         {
