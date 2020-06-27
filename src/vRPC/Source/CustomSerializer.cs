@@ -17,13 +17,13 @@ using System.Buffers.Text;
 
 namespace DanilovSoft.vRPC
 {
-    internal static class RequestContentParser
+    internal static class CustomSerializer
     {
         private const string ArgumentsCountMismatch = "Argument count mismatch for action '{0}'. {1} arguments was expected.";
 
         /// <param name="result">Не Null когда True.</param>
         /// <remarks>Не бросает исключения.</remarks>
-        public static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerActionMeta action, in HeaderDto header, 
+        internal static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerActionMeta action, in HeaderDto header, 
             [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
@@ -58,24 +58,6 @@ namespace DanilovSoft.vRPC
                 }
             }
         }
-
-        ///// <summary>
-        ///// Если запрос ожидает результат то отправляет ошибку как результат.
-        ///// </summary>
-        ///// <param name="header">Заголовок запроса.</param>
-        ///// <param name="exception">Ошибка произошедшая при разборе запроса.</param>
-        //private static void TryPostSendErrorResponse(HeaderDto header, Exception exception)
-        //{
-        //    if (header.Uid != null)
-        //    // Запрос ожидает ответ.
-        //    {
-        //        // Подготовить ответ с ошибкой.
-        //        var errorResponse = new ResponseMessage(header.Uid.Value, new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{exception.Message}\"."));
-
-        //        // Передать на отправку результат с ошибкой через очередь.
-        //        PostSendResponse(errorResponse);
-        //    }
-        //}
 
         /// <summary>
         /// Десериализует json запрос.
@@ -245,7 +227,7 @@ namespace DanilovSoft.vRPC
             return true;
         }
 
-        internal static InvalidRequestResult ErrorDeserializingArgument(string actionName, short argIndex, Type argType)
+        private static InvalidRequestResult ErrorDeserializingArgument(string actionName, short argIndex, Type argType)
         {
             if (argType.IsClrType())
             {
@@ -258,44 +240,12 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        //private static bool MethodNotFound(string actionName, out RequestToInvoke? result, out IActionResult error)
-        //{
-        //    int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter, StringComparison.Ordinal);
-
-        //    if (controllerIndex > 0)
-        //    {
-        //        error = new NotFoundResult($"Unable to find requested action \"{actionName}\".");
-        //    }
-        //    else
-        //    {
-        //        error = new NotFoundResult($"Controller name not specified in request \"{actionName}\".");
-        //    }
-        //    result = null;
-        //    return false;
-        //}
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static BadRequestResult ArgumentsCountMismatchError(string actionName, int targetArgumentsCount)
         {
             return new BadRequestResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
         }
 
-#if NETSTANDARD2_0 || NET472
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, string actionName, out IActionResult? error)
-        {
-            if (jsonArgsCount == targetArguments.Length)
-            {
-                error = null;
-                return true;
-            }
-            else
-            {
-                error = new BadRequestResult($"Argument count mismatch for action '{actionName}'. {targetArguments.Length} arguments expected.");
-                return false;
-            }
-        }
-#else
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, string actionName, [MaybeNullWhen(true)] out IActionResult? error)
         {
@@ -310,7 +260,6 @@ namespace DanilovSoft.vRPC
                 return false;
             }
         }
-#endif
 
 #if DEBUG
         [DebuggerDisplay("{ToString()}")]

@@ -66,5 +66,9 @@ namespace DanilovSoft.vRPC
         /// <exception cref="InvalidOperationException"/>
         [DoesNotReturn]
         internal static void ThrowInvalidOperationException(string? message) => throw new InvalidOperationException(message);
+
+        /// <exception cref="NotSupportedException"/>
+        [DoesNotReturn]
+        internal static void ThrowNotSupportedException(string? message) => throw new NotSupportedException(message);
     }
 }

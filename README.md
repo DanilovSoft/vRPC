@@ -39,7 +39,7 @@ class ChatController : ServerController
 * notification requests are preferred when response from the other side is not needed
 * arguments are bound by their index and not by their name
 * interfaces should be pubblic unlike controllers that can be internal
-* default serializers is Text.Json and Protocol Buffer
+* default serializers is Text.Json
 * DI support
 
 # Notifications

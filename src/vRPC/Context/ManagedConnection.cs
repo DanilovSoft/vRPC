@@ -162,9 +162,9 @@ namespace DanilovSoft.vRPC
             //Debug.Assert(Marshal.SizeOf<CloseReason>() <= 16, $"Структуру {nameof(CloseReason)} лучше заменить на класс");
 
             // Прогрев сериализатора.
-            ProtoBuf.Serializer.PrepareSerializer<HeaderDto>();
-            ProtoBuf.Serializer.PrepareSerializer<MultipartHeaderDto>();
-            ExtensionMethods.WarmupRequestMessageJson();
+            //ProtoBuf.Serializer.PrepareSerializer<HeaderDto>();
+            //ProtoBuf.Serializer.PrepareSerializer<MultipartHeaderDto>();
+            //ExtensionMethods.WarmupRequestMessageJson();
         }
 
         // ctor.
@@ -705,7 +705,7 @@ namespace DanilovSoft.vRPC
                 {
                     try
                     {
-                        header = RequestContentParser.DeserializeHeader(headerBuffer.AsSpan(0, webSocketMessage.Count));
+                        header = CustomSerializer.DeserializeHeader(headerBuffer.AsSpan(0, webSocketMessage.Count));
                         header.ValidateDeserializedHeader();
                     }
                     catch (Exception headerException)
@@ -853,7 +853,7 @@ namespace DanilovSoft.vRPC
                             {
                                 #region Десериализация запроса
 
-                                if (RequestContentParser.TryDeserializeRequest(payload, action, in header, out RequestContext requestToInvoke, out IActionResult? error))
+                                if (CustomSerializer.TryDeserializeRequest(payload, action, in header, out RequestContext requestToInvoke, out IActionResult? error))
                                 {
                                     #region Выполнение запроса
 

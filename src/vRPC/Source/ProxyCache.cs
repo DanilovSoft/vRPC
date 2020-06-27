@@ -20,18 +20,11 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private readonly Dictionary<Type, IInterfaceProxy> _instanceDict = new Dictionary<Type, IInterfaceProxy>();
 
-        public ProxyCache()
-        {
-
-        }
-
-        //[DebuggerStepThrough]
         private static void InitializePropxy<T>(string controllerName, ServerInterfaceProxy<T> p, ManagedConnection connection) where T : class
         {
             p.InitializeClone(controllerName, connection);
         }
 
-        //[DebuggerStepThrough]
         private static void InitializeAsyncPropxy<T>(string controllerName, ClientInterfaceProxy<T> p, VRpcClient rpcClient) where T : class
         {
             p.InitializeClone(rpcClient, controllerName);

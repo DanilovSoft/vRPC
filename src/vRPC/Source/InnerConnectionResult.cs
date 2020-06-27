@@ -17,8 +17,8 @@ namespace DanilovSoft.vRPC
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private ConnectResult DebugDisplay => this.ToPublicConnectResult();
         public SocketError? SocketError { get; }
-        public ClientSideConnection Connection { get; }
-        public ShutdownRequest ShutdownRequest { get; }
+        public ClientSideConnection? Connection { get; }
+        public ShutdownRequest? ShutdownRequest { get; }
         public bool NewConnectionCreated { get; }
 
         private InnerConnectionResult(ClientSideConnection connection, bool newConnectionCreated)

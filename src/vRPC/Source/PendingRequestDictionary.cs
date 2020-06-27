@@ -70,17 +70,6 @@ namespace DanilovSoft.vRPC
             return uid;
         }
 
-
-
-#if NETSTANDARD2_0 || NET472
-        public bool TryRemove(int uid, out IResponseAwaiter tcs)
-        {
-            lock (_dict)
-            {
-                return _dict.Remove(uid, out tcs);
-            }
-        }
-#else
         /// <summary>
         /// Потокобезопасно удаляет запрос из словаря.
         /// </summary>
@@ -91,7 +80,6 @@ namespace DanilovSoft.vRPC
                 return _dict.Remove(uid, out tcs);
             }
         }
-#endif
 
         /// <summary>
         /// Распространяет исключение всем ожидающим запросам. Дальнейшее создание запросов будет провоцировать это исключение.

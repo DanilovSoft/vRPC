@@ -157,8 +157,6 @@ namespace DanilovSoft.vRPC
                 {
                     if (!payload.IsEmpty)
                     {
-                        // Десериализатор в соответствии с ContentEncoding.
-                        //Func<ReadOnlyMemory<byte>, Type, object> deserializer = header.GetDeserializer();
                         try
                         {
                             DeserializeResponse(payload, header.PayloadEncoding);
@@ -181,7 +179,7 @@ namespace DanilovSoft.vRPC
                         else
                         // Результатом этого запроса не может быть Null.
                         {
-                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удаленной стороны.
+                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
                             TrySetException(new VRpcProtocolErrorException(
                                 $"Ожидался не пустой результат запроса но был получен ответ без результата."));
                         }

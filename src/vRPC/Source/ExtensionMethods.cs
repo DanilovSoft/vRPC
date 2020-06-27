@@ -124,19 +124,6 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        ///// <summary>
-        ///// Десериализует Json.
-        ///// </summary>
-        //public static object DeserializeJson(Stream stream, Type objectType)
-        //{
-        //    using (var reader = new StreamReader(stream, _UTF8NoBOM, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
-        //    using (var json = new JsonTextReader(reader))
-        //    {
-        //        var ser = new JsonSerializer();
-        //        return ser.Deserialize(json, objectType);
-        //    }
-        //}
-
         /// <summary>
         /// Читает строку в формате Utf-8.
         /// </summary>
@@ -193,17 +180,6 @@ namespace DanilovSoft.vRPC
         }
 #endif
 
-        ///// <summary>
-        ///// Записывает строку в формате Utf-8.
-        ///// </summary>
-        //public static void WriteStringBinary(this Stream destination, string message)
-        //{
-        //    using (var writer = new BinaryWriter(destination, Encoding.UTF8, leaveOpen: true))
-        //    {
-        //        writer.Write(message);
-        //    }
-        //}
-
 #if NETSTANDARD2_0 || NET472
         /// <summary>
         /// Записывает строку в формате Utf-8.
@@ -256,16 +232,11 @@ namespace DanilovSoft.vRPC
         public static bool IsAsyncReturnType(this Type returnType)
         {
             // Task, Task<T> и ValueTask, ValueTask<T>
-            if (typeof(Task).IsAssignableFrom(returnType)
+            bool isTask = typeof(Task).IsAssignableFrom(returnType)
                 || returnType == typeof(ValueTask)
-                || (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>)))
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+                || (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>));
+
+            return isTask;
         }
 
         /// <summary>

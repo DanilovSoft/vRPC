@@ -1893,6 +1893,27 @@
             Контроллер для активации через IoC.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequest(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.HeaderDto@,DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+            <param name="result">Не Null когда True.</param>
+            <remarks>Не бросает исключения.</remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+            <summary>
+            Десериализует json запрос.
+            </summary>
+            <exception cref="T:System.Text.Json.JsonException"/>
+            <returns>True если успешно десериализовали.</returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeMultipart(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+            <exception cref="T:System.Exception"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.DeserializeHeader(System.ReadOnlySpan{System.Byte})">
+            <summary>
+            Десериализует json запрос.
+            </summary>
+            <exception cref="T:System.Text.Json.JsonException"/>
+            <returns>True если успешно десериализовали.</returns>
+        </member>
         <member name="M:DanilovSoft.vRPC.DynamicAwaiter.ConvertToTask(System.Object)">
             <summary>
             Асинхронно ожидает завершение задачи если <paramref name="actionResult"/> является <see cref="T:System.Threading.Tasks.Task"/>'ом.
@@ -2034,6 +2055,11 @@
             </summary>
             <exception cref="T:System.Exception">Происходит если уже происходил обрыв соединения.</exception>
         </member>
+        <member name="M:DanilovSoft.vRPC.PendingRequestDictionary.TryRemove(System.Int32,DanilovSoft.vRPC.IResponseAwaiter@)">
+            <summary>
+            Потокобезопасно удаляет запрос из словаря.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.PendingRequestDictionary.TryPropagateExceptionAndLockup(System.Exception)">
             <summary>
             Распространяет исключение всем ожидающим запросам. Дальнейшее создание запросов будет провоцировать это исключение.
@@ -2049,27 +2075,6 @@
             <summary>
             Содержит прокси созданные из интерфейсов.
             </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeRequest(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.HeaderDto@,DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
-            <param name="result">Не Null когда True.</param>
-            <remarks>Не бросает исключения.</remarks>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
-            <summary>
-            Десериализует json запрос.
-            </summary>
-            <exception cref="T:System.Text.Json.JsonException"/>
-            <returns>True если успешно десериализовали.</returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestContentParser.TryDeserializeMultipart(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
-            <exception cref="T:System.Exception"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestContentParser.DeserializeHeader(System.ReadOnlySpan{System.Byte})">
-            <summary>
-            Десериализует json запрос.
-            </summary>
-            <exception cref="T:System.Text.Json.JsonException"/>
-            <returns>True если успешно десериализовали.</returns>
         </member>
         <member name="T:DanilovSoft.vRPC.ResponseAwaiter`1">
             <summary>
@@ -2139,6 +2144,9 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowInvalidOperationException(System.String)">
             <exception cref="T:System.InvalidOperationException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ThrowHelper.ThrowNotSupportedException(System.String)">
+            <exception cref="T:System.NotSupportedException"/>
         </member>
         <member name="T:DanilovSoft.vRPC.UserConnectionCollection">
             <summary>

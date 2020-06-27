@@ -48,7 +48,7 @@ namespace DanilovSoft.vRPC
 
         public override bool Equals(object? obj)
         {
-            if(obj is ConnectResult connectResult)
+            if (obj is ConnectResult connectResult)
             {
                 return Equals(connectResult);
             }

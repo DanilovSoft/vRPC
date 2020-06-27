@@ -35,12 +35,12 @@ namespace System.IO
 
             if (!sourceCanRead)
             {
-                throw new NotSupportedException("UnreadableStream");
+                ThrowHelper.ThrowNotSupportedException("UnreadableStream");
             }
 
             if (!destinationCanWrite)
             {
-                throw new NotSupportedException("NotSupported_UnwritableStream");
+                ThrowHelper.ThrowNotSupportedException("NotSupported_UnwritableStream");
             }
         }
     }

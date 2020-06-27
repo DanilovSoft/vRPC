@@ -6,7 +6,5 @@ using System.Text;
 namespace DanilovSoft.vRPC.Source
 {
     [StructLayout(LayoutKind.Auto)]
-    internal readonly struct VoidStruct
-    {
-    }
+    internal readonly struct VoidStruct { }
 }

@@ -14,25 +14,17 @@ namespace DanilovSoft.vRPC
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"Count = {_list.Count}" + "}";
-
         internal readonly object SyncRoot = new object();
         /// <summary>
         /// Доступ осуществляется только через блокировку <see cref="SyncRoot"/>.
         /// </summary>
         private readonly List<ServerSideConnection> _list = new List<ServerSideConnection>();
-        //public readonly int UserId;
-
         /// <summary>
         /// Доступ осуществляется только через блокировку <see cref="SyncRoot"/>.
         /// Если коллекция уже была удалена из словаря подключений, то значение будет <see langword="true"/> 
         /// и испольльзовать этот экземпляр больше нельзя.
         /// </summary>
         public bool IsDestroyed { get; set; }
-
-        //public UserConnectionCollection(int userId)
-        //{
-        //    UserId = userId;
-        //}
 
         public ServerSideConnection this[int index]
         {
