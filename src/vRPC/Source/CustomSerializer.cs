@@ -141,7 +141,7 @@ namespace DanilovSoft.vRPC
             }
             try
             {
-                if (DeserializeArgs(content, action, args, out error))
+                if (DeserializeMultipartArgs(content, action, args, out error))
                 {
                     result = new RequestContext(uid, action, args);
                     args = null; // Предотвратить Dispose.
@@ -163,42 +163,43 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static bool DeserializeArgs(ReadOnlyMemory<byte> content, ControllerActionMeta action, object[] args, [MaybeNullWhen(true)] out IActionResult? error)
+        private static bool DeserializeMultipartArgs(ReadOnlyMemory<byte> content, ControllerActionMeta action, object[] args, [MaybeNullWhen(true)] out IActionResult? error)
         {
+            throw new NotImplementedException();
             using (var stream = new ReadOnlyMemoryStream(content))
             {
                 for (short i = 0; i < action.Parametergs.Length; i++)
                 {
                     Type argType = action.Parametergs[i].ParameterType;
 
-                    var partHeader = Serializer.DeserializeWithLengthPrefix<MultipartHeaderDto>(stream, PrefixStyle.Base128, 1);
+                    //var partHeader = Serializer.DeserializeWithLengthPrefix<MultipartHeaderDto>(stream, PrefixStyle.Base128, 1);
 
-                    if (partHeader.Encoding == KnownEncoding.ProtobufEncoding)
-                    {
-                        using (var argStream = new ReadOnlyMemoryStream(content.Slice((int)stream.Position, partHeader.Size)))
-                        {
-                            try
-                            {
-                                args[i] = Serializer.NonGeneric.Deserialize(argType, argStream);
-                            }
-                            catch (Exception)
-                            {
-                                error = ErrorDeserializingArgument(action.ActionFullName, argIndex: i, argType);
-                                return false;
-                            }
-                        }
-                    }
-                    else if (partHeader.Encoding == KnownEncoding.RawEncoding)
-                    {
-                        ReadOnlyMemory<byte> raw = content.Slice((int)stream.Position, partHeader.Size);
+                    //if (partHeader.Encoding == KnownEncoding.ProtobufEncoding)
+                    //{
+                    //    using (var argStream = new ReadOnlyMemoryStream(content.Slice((int)stream.Position, partHeader.Size)))
+                    //    {
+                    //        try
+                    //        {
+                    //            args[i] = Serializer.NonGeneric.Deserialize(argType, argStream);
+                    //        }
+                    //        catch (Exception)
+                    //        {
+                    //            error = ErrorDeserializingArgument(action.ActionFullName, argIndex: i, argType);
+                    //            return false;
+                    //        }
+                    //    }
+                    //}
+                    //else if (partHeader.Encoding == KnownEncoding.RawEncoding)
+                    //{
+                    //    ReadOnlyMemory<byte> raw = content.Slice((int)stream.Position, partHeader.Size);
 
-                        if (!RawEncodingArg(raw, ref args[i], argType))
-                        {
-                            error = ErrorDeserializingArgument(action.ActionFullName, argIndex: i, argType);
-                            return false;
-                        }
-                    }
-                    stream.Position += partHeader.Size;
+                    //    if (!RawEncodingArg(raw, ref args[i], argType))
+                    //    {
+                    //        error = ErrorDeserializingArgument(action.ActionFullName, argIndex: i, argType);
+                    //        return false;
+                    //    }
+                    //}
+                    //stream.Position += partHeader.Size;
                 }
             }
             error = null;

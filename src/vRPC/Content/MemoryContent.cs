@@ -15,18 +15,18 @@ using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC
 {
-    public class ReadOnlyMemoryContent : VRpcContent
+    public class MemoryContent : VRpcContent
     {
-        public ReadOnlyMemory<byte> Memory { get; }
+        public ReadOnlyMemory<byte> Content { get; }
 
-        public ReadOnlyMemoryContent(ReadOnlyMemory<byte> content)
+        public MemoryContent(ReadOnlyMemory<byte> content)
         {
-            Memory = content;
+            Content = content;
         }
 
         protected internal sealed override bool TryComputeLength(out int length)
         {
-            length = Memory.Length;
+            length = Content.Length;
             return true;
         }
 
