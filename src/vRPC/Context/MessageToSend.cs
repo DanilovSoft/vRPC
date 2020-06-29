@@ -18,7 +18,7 @@ namespace DanilovSoft.vRPC
     /// и сообщение для отправки удалённой стороне.
     /// Необходимо обязательно выполнить Dispose.
     /// </summary>
-    internal sealed partial class SerializedMessageToSend : IDisposable
+    internal sealed partial class MessageToSend : IDisposable
     {
 #if DEBUG
         // Что-бы видеть контент в режиме отладки.
@@ -60,7 +60,7 @@ namespace DanilovSoft.vRPC
         /// Запрос или ответ на запрос.
         /// Может быть статический объект <see cref="RequestMethodMeta"/> или <see cref="ResponseMessage"/>.
         /// </summary>
-        public IMessageMeta MessageToSend { get; }
+        public IMessageMeta Message { get; }
         /// <summary>
         /// Уникальный идентификатор который будет отправлен удалённой стороне.
         /// Может быть Null когда не требуется ответ на запрос.
@@ -78,9 +78,9 @@ namespace DanilovSoft.vRPC
         /// Содержит <see cref="MemoryStream"/> в который сериализуется сообщение и заголовок.
         /// Необходимо обязательно выполнить Dispose.
         /// </summary>
-        public SerializedMessageToSend(IMessageMeta messageToSend)
+        public MessageToSend(IMessageMeta messageToSend)
         {
-            MessageToSend = messageToSend;
+            Message = messageToSend;
 
             // Арендуем заранее под максимальный размер хэдера.
             _memPoolBuffer = new ArrayBufferWriter<byte>(1024);
@@ -92,7 +92,7 @@ namespace DanilovSoft.vRPC
         public void Dispose()
         {
             Interlocked.Exchange(ref _memPoolBuffer, null)?.Dispose();
-            if (MessageToSend.IsNotificationRequest)
+            if (Message.IsNotificationRequest)
             {
                 CompleteNotification();
             }
@@ -103,7 +103,7 @@ namespace DanilovSoft.vRPC
 
 #if DEBUG
         [SuppressMessage("Performance", "CA1821:Удалите пустые завершающие методы", Justification = "Это ловушка для нарушенной логики")]
-        ~SerializedMessageToSend()
+        ~MessageToSend()
         {
             Debug.Assert(false, "Деструктор никогда не должен срабатывать");
         }

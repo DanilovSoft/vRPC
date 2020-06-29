@@ -123,8 +123,8 @@ namespace DanilovSoft.vRPC
             Task pendingRequestTask;
 
             // Создаём запрос для отправки.
-            SerializedMessageToSend serMsg = SignInAsyncMeta.SerializeRequest(new object[] { accessToken });
-            SerializedMessageToSend? toDispose = serMsg;
+            MessageToSend serMsg = SignInAsyncMeta.SerializeRequest(new object[] { accessToken });
+            MessageToSend? toDispose = serMsg;
             try
             {
                 pendingRequestTask = SendSerializedRequestAndWaitResponse<VoidStruct>(SignInAsyncMeta, serMsg);
@@ -205,8 +205,8 @@ namespace DanilovSoft.vRPC
             Task pendingRequestTask;
 
             // Создаём запрос для отправки.
-            SerializedMessageToSend serMsg = SignOutAsyncMeta.SerializeRequest(Array.Empty<object>());
-            SerializedMessageToSend? toDispose = serMsg;
+            MessageToSend serMsg = SignOutAsyncMeta.SerializeRequest(Array.Empty<object>());
+            MessageToSend? toDispose = serMsg;
             try
             {
                 pendingRequestTask = SendSerializedRequestAndWaitResponse<VoidStruct>(SignOutAsyncMeta, serMsg);

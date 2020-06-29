@@ -154,7 +154,7 @@ namespace DanilovSoft.vRPC
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
         /// <exception cref="Exception"/>
-        public SerializedMessageToSend SerializeRequest(object[] args)
+        public MessageToSend SerializeRequest(object[] args)
         {
             if (!_multipartStrategy)
             {
@@ -166,16 +166,16 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private SerializedMessageToSend SerializeToMultipart(object[] args)
+        private MessageToSend SerializeToMultipart(object[] args)
         {
             Debug.Assert(_multipartStrategy);
 
-            var serMsg = new SerializedMessageToSend(this)
+            var serMsg = new MessageToSend(this)
             {
                 ContentEncoding = KnownEncoding.MultipartEncoding,
                 Parts = new Multipart[args.Length]
             };
-            SerializedMessageToSend? toDispose = serMsg;
+            MessageToSend? toDispose = serMsg;
             try
             {
                 for (int i = 0; i < args.Length; i++)
@@ -203,10 +203,10 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private SerializedMessageToSend SerializeToJson(object[] args)
+        private MessageToSend SerializeToJson(object[] args)
         {
-            SerializedMessageToSend serializedMessage = new SerializedMessageToSend(this);
-            SerializedMessageToSend? toDispose = serializedMessage;
+            MessageToSend serializedMessage = new MessageToSend(this);
+            MessageToSend? toDispose = serializedMessage;
             try
             {
                 ExtensionMethods.SerializeObjectJson(serializedMessage.MemoryPoolBuffer, args);

@@ -10,7 +10,7 @@ using System.Threading.Tasks.Sources;
 
 namespace DanilovSoft.vRPC
 {
-    partial class SerializedMessageToSend : IValueTaskSource
+    partial class MessageToSend : IValueTaskSource
     {
         /// <summary>Sentinel object used to indicate that the operation has completed prior to OnCompleted being called.</summary>
         private static readonly Action<object?> s_completedSentinel = new Action<object?>(state => 
@@ -38,7 +38,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public ValueTask WaitNotificationAsync()
         {
-            Debug.Assert(MessageToSend.IsNotificationRequest);
+            Debug.Assert(Message.IsNotificationRequest);
 
             if (_continuation == s_completedSentinel)
             // Операция уже завершена.
@@ -199,7 +199,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public void CompleteNotification()
         {
-            Debug.Assert(MessageToSend.IsNotificationRequest);
+            Debug.Assert(Message.IsNotificationRequest);
 
             // В переменной может быть Null если await ещё не начался или колбэк для завершения await.
             Action<object?>? continuation = Interlocked.Exchange(ref _continuation, s_completedSentinel);
@@ -231,7 +231,7 @@ namespace DanilovSoft.vRPC
                         _executionContext = null;
                         ExecutionContext.Run(ec, runState =>
                         {
-                            var t = ((SerializedMessageToSend self, Action<object?> c, object? state))runState!;
+                            var t = ((MessageToSend self, Action<object?> c, object? state))runState!;
 
                             t.self.InvokeContinuation(t.c, t.state, forceAsync: false, requiresExecutionContextFlow: false);
 

@@ -69,9 +69,9 @@ namespace DanilovSoft.vRPC
         public EndPoint LocalEndPoint { get; }
         public EndPoint RemoteEndPoint { get; }
         /// <summary>
-        /// Отправка сообщений <see cref="SerializedMessageToSend"/> должна выполняться только через этот канал.
+        /// Отправка сообщений <see cref="MessageToSend"/> должна выполняться только через этот канал.
         /// </summary>
-        private readonly Channel<SerializedMessageToSend> _sendChannel;
+        private readonly Channel<MessageToSend> _sendChannel;
         private int _disposed;
         private bool IsDisposed
         {
@@ -191,7 +191,7 @@ namespace DanilovSoft.vRPC
             // Копируем список контроллеров сервера.
             _invokeActions = actions;
 
-            _sendChannel = Channel.CreateUnbounded<SerializedMessageToSend>(new UnboundedChannelOptions
+            _sendChannel = Channel.CreateUnbounded<MessageToSend>(new UnboundedChannelOptions
             {
                 AllowSynchronousContinuations = true, // Внимательнее с этим параметром!
                 SingleReader = true,
@@ -209,7 +209,7 @@ namespace DanilovSoft.vRPC
         internal void StartReceiveLoopThreads()
         {
             // Не бросает исключения.
-            _senderTask = LoopSendAsync();
+            _senderTask = SendLoopAsync();
 
 #if NETSTANDARD2_0 || NET472
             // Запустить цикл приёма сообщений.
@@ -398,8 +398,8 @@ namespace DanilovSoft.vRPC
             Debug.Assert(methodMeta.IsNotificationRequest);
 
             // Сериализуем запрос в память.
-            SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
-            SerializedMessageToSend? serMsgToDispose = serMsg;
+            MessageToSend serMsg = methodMeta.SerializeRequest(args);
+            MessageToSend? serMsgToDispose = serMsg;
             try
             {
                 // Отправляем запрос.
@@ -424,8 +424,8 @@ namespace DanilovSoft.vRPC
             Debug.Assert(!methodMeta.IsNotificationRequest);
 
             // Сериализуем запрос в память.
-            SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
-            SerializedMessageToSend? serMsgToDispose = serMsg;
+            MessageToSend serMsg = methodMeta.SerializeRequest(args);
+            MessageToSend? serMsgToDispose = serMsg;
             try
             {
                 // Отправляем запрос.
@@ -450,8 +450,8 @@ namespace DanilovSoft.vRPC
             Debug.Assert(!methodMeta.IsNotificationRequest);
 
             // Сериализуем запрос в память. Лучше выполнить до завершения подключения.
-            SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
-            SerializedMessageToSend? serMsgToDispose = serMsg;
+            MessageToSend serMsg = methodMeta.SerializeRequest(args);
+            MessageToSend? serMsgToDispose = serMsg;
             try
             {
                 // Может начать отправку текущим потоком. Диспозит serMsg в случае ошибки.
@@ -478,8 +478,8 @@ namespace DanilovSoft.vRPC
             Debug.Assert(methodMeta.IsNotificationRequest);
 
             // Сериализуем запрос в память. Лучше выполнить до завершения подключения.
-            SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
-            SerializedMessageToSend? serMsgToDispose = serMsg;
+            MessageToSend serMsg = methodMeta.SerializeRequest(args);
+            MessageToSend? serMsgToDispose = serMsg;
             try
             {
                 // Может начать отправку текущим потоком. Диспозит serMsg в случае ошибки.
@@ -511,9 +511,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private static ValueTask WaitConnectionAndSendNotificationAsync(ValueTask<ClientSideConnection> connectingTask, SerializedMessageToSend serMsg)
+        private static ValueTask WaitConnectionAndSendNotificationAsync(ValueTask<ClientSideConnection> connectingTask, MessageToSend serMsg)
         {
-            Debug.Assert(serMsg.MessageToSend.IsNotificationRequest);
+            Debug.Assert(serMsg.Message.IsNotificationRequest);
 
             if (connectingTask.IsCompleted)
             {
@@ -532,7 +532,7 @@ namespace DanilovSoft.vRPC
             }
 
             // Локальная функция.
-            static async ValueTask WaitForConnectAndSendNotification(ValueTask<ClientSideConnection> conTask, SerializedMessageToSend serializedMessage)
+            static async ValueTask WaitForConnectAndSendNotification(ValueTask<ClientSideConnection> conTask, MessageToSend serializedMessage)
             {
                 ClientSideConnection connection = await conTask.ConfigureAwait(false);
                 
@@ -545,7 +545,7 @@ namespace DanilovSoft.vRPC
         /// Отправляет запрос и возвращает результат.
         /// </summary>
         /// <remarks>Со стороны клиента.</remarks>
-        private static Task<T> SendClientRequestAndGetResultStatic<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
+        private static Task<T> SendClientRequestAndGetResultStatic<T>(ValueTask<ClientSideConnection> connectionTask, MessageToSend serMsg, RequestMethodMeta requestMeta)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
@@ -562,7 +562,7 @@ namespace DanilovSoft.vRPC
                 return WaitForConnectAndSendRequest(connectionTask, serMsg, requestMeta).Unwrap();
             }
 
-            static async Task<Task<T>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
+            static async Task<Task<T>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, MessageToSend serMsg, RequestMethodMeta requestMeta)
             {
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
@@ -576,9 +576,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal ValueTask SendNotificationAsync(SerializedMessageToSend serializedMessage)
+        internal ValueTask SendNotificationAsync(MessageToSend serializedMessage)
         {
-            Debug.Assert(serializedMessage.MessageToSend.IsNotificationRequest);
+            Debug.Assert(serializedMessage.Message.IsNotificationRequest);
 
             ThrowIfDisposed();
             ThrowIfShutdownRequired();
@@ -598,8 +598,8 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
-            SerializedMessageToSend serMsgRequest = requestMeta.SerializeRequest(args);
-            SerializedMessageToSend? serMsgToDispose = serMsgRequest;
+            MessageToSend serMsgRequest = requestMeta.SerializeRequest(args);
+            MessageToSend? serMsgToDispose = serMsgRequest;
             try
             {
                 Task<TResult> pendingRequestTask = SendSerializedRequestAndWaitResponse<TResult>(requestMeta, serMsgRequest);
@@ -621,11 +621,11 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcWasShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <returns>Таск с результатом от сервера.</returns>
-        private protected Task<TResult> SendSerializedRequestAndWaitResponse<TResult>(RequestMethodMeta requestMeta, SerializedMessageToSend serMsg)
+        private protected Task<TResult> SendSerializedRequestAndWaitResponse<TResult>(RequestMethodMeta requestMeta, MessageToSend serMsg)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
-            SerializedMessageToSend? serMsgToDispose = serMsg;
+            MessageToSend? serMsgToDispose = serMsg;
             try
             {
                 ThrowIfDisposed();
@@ -1203,7 +1203,7 @@ namespace DanilovSoft.vRPC
         private static void SerializeResponseAndTrySendThreadEntryPoint((ManagedConnection self, ResponseMessage responseToSend) argState)
         {
             // Сериализуем.
-            SerializedMessageToSend serializedMessage = SerializeResponse(argState.responseToSend);
+            MessageToSend serializedMessage = SerializeResponse(argState.responseToSend);
 
             // Ставим в очередь.
             argState.self.TryPostMessage(serializedMessage);
@@ -1213,10 +1213,10 @@ namespace DanilovSoft.vRPC
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
-        private static SerializedMessageToSend SerializeResponse(ResponseMessage responseToSend)
+        private static MessageToSend SerializeResponse(ResponseMessage responseToSend)
         {
-            SerializedMessageToSend serMsg = new SerializedMessageToSend(responseToSend);
-            SerializedMessageToSend? serMsgToDispose = serMsg;
+            MessageToSend serMsg = new MessageToSend(responseToSend);
+            MessageToSend? serMsgToDispose = serMsg;
             try
             {
                 if (responseToSend.ActionResult is IActionResult actionResult)
@@ -1255,7 +1255,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Сериализует хэдер в стрим сообщения. Не бросает исключения.
         /// </summary>
-        private static void AppendHeader(SerializedMessageToSend messageToSend)
+        private static void AppendHeader(MessageToSend messageToSend)
         {
             HeaderDto header = CreateHeader(messageToSend);
 
@@ -1266,11 +1266,11 @@ namespace DanilovSoft.vRPC
             messageToSend.HeaderSize = headerSize;
         }
 
-        private static HeaderDto CreateHeader(SerializedMessageToSend messageToSend)
+        private static HeaderDto CreateHeader(MessageToSend messageToSend)
         {
             Debug.Assert(messageToSend != null);
 
-            if (messageToSend.MessageToSend is ResponseMessage responseToSend)
+            if (messageToSend.Message is ResponseMessage responseToSend)
             // Создать хедер ответа на запрос.
             {
                 Debug.Assert(messageToSend.StatusCode != null, "StatusCode ответа не может быть Null");
@@ -1280,7 +1280,7 @@ namespace DanilovSoft.vRPC
             else
             // Создать хедер для нового запроса.
             {
-                var request = messageToSend.MessageToSend as RequestMethodMeta;
+                var request = messageToSend.Message as RequestMethodMeta;
                 Debug.Assert(request != null);
 
                 return new HeaderDto(messageToSend.Uid, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding, request.ActionFullName);
@@ -1291,11 +1291,11 @@ namespace DanilovSoft.vRPC
         /// Добавляет хэдер и передает на отправку другому потоку если канал ещё не закрыт.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        private void TryPostMessage(SerializedMessageToSend serializedMessage)
+        private void TryPostMessage(MessageToSend serializedMessage)
         {
             Debug.Assert(serializedMessage != null);
 
-            SerializedMessageToSend? serializedMessageToDispose = serializedMessage;
+            MessageToSend? serializedMessageToDispose = serializedMessage;
             try
             {
                 // На текущем этапе сокет может быть уже уничтожен другим потоком.
@@ -1326,13 +1326,13 @@ namespace DanilovSoft.vRPC
         /// Ждёт сообщения через очередь и отправляет в сокет.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        private async Task LoopSendAsync() // Точка входа нового потока.
+        private async Task SendLoopAsync() // Точка входа нового потока.
         {
             // Ждём сообщение для отправки.
             while (await _sendChannel.Reader.WaitToReadAsync().ConfigureAwait(false))
             {
                 // Всегда true — у нас только один читатель.
-                _sendChannel.Reader.TryRead(out SerializedMessageToSend serializedMessage);
+                _sendChannel.Reader.TryRead(out MessageToSend serializedMessage);
 
                 Debug.Assert(serializedMessage != null);
 
@@ -1351,9 +1351,9 @@ namespace DanilovSoft.vRPC
                             // Размер сообщения без заголовка.
                             int messageSize = serializedMessage.MemoryPoolBuffer.WrittenCount - serializedMessage.HeaderSize;
 
-                            if (serializedMessage.MessageToSend.TcpNoDelay != _tcpNoDelay)
+                            if (serializedMessage.Message.TcpNoDelay != _tcpNoDelay)
                             {
-                                _ws.Socket.NoDelay = _tcpNoDelay = serializedMessage.MessageToSend.TcpNoDelay;
+                                _ws.Socket.NoDelay = _tcpNoDelay = serializedMessage.Message.TcpNoDelay;
                             }
 
                             #region Отправка заголовка
@@ -1451,9 +1451,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="serializedMessage"></param>
         /// <returns>False если сервис требуется остановить.</returns>
-        private bool TryDecreaseActiveRequestsCount(SerializedMessageToSend serializedMessage)
+        private bool TryDecreaseActiveRequestsCount(MessageToSend serializedMessage)
         {
-            if (serializedMessage.MessageToSend.IsRequest)
+            if (serializedMessage.Message.IsRequest)
             {
                 return true;
             }
@@ -1477,12 +1477,12 @@ namespace DanilovSoft.vRPC
         }
 
         /// <returns>False если сервис требуется остановить.</returns>
-        private bool TryIncreaseActiveRequestsCount(SerializedMessageToSend serializedMessage)
+        private bool TryIncreaseActiveRequestsCount(MessageToSend serializedMessage)
         {
-            if (serializedMessage.MessageToSend.IsRequest)
+            if (serializedMessage.Message.IsRequest)
             // Происходит отправка запроса, а не ответа на запрос.
             {
-                if (!serializedMessage.MessageToSend.IsNotificationRequest)
+                if (!serializedMessage.Message.IsNotificationRequest)
                 // Должны получить ответ на этот запрос.
                 {
                     if (IncreaseActiveRequestsCount())
@@ -1901,7 +1901,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
         private void SerializeResponseAndTrySend(ResponseMessage responseMessage)
         {
-            SerializedMessageToSend responseToSend = SerializeResponse(responseMessage);
+            MessageToSend responseToSend = SerializeResponse(responseMessage);
 
             // Не бросает исключения.
             TryPostMessage(responseToSend);

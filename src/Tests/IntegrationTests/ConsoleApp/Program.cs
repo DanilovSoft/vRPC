@@ -29,7 +29,7 @@ namespace ConsoleApp
 
             while (true)
             {
-                proxy.SendData2(new BinaryPrimitiveContent(123), new MemoryContent(new byte[] { 1,2,3 }));
+                proxy.SendData(123, new byte[] { 1,2,3 });
             }
         }
     }
