@@ -10,11 +10,11 @@ using ProtoBuf;
 
 namespace DanilovSoft.vRPC
 {
-    public class ProtobufValueContent : VRpcContent
+    public class ProtoBufValueContent : VRpcContent
     {
         private readonly object _value;
 
-        public ProtobufValueContent(object value)
+        public ProtoBufValueContent(object value)
         {
             _value = value;
         }

@@ -24,12 +24,71 @@ namespace DanilovSoft.vRPC.Content
         [DebuggerStepThrough]
         internal Multipart InnerSerializeToStream(IBufferWriter<byte> writer) => SerializeToStream(writer);
 
-        private protected static void SerializeHeader(IBufferWriter<byte> writer, in MultipartHeaderDto header)
+        private protected static void SerializeHeader(IBufferWriter<byte> writer, int contentSize, string contentEncoding)
         {
-            using (var stream = new ReadOnlyMemoryStream(writer.GetMemory()))
-            {
-                Serializer.NonGeneric.SerializeWithLengthPrefix(stream, header, PrefixStyle.Base128, 1);
-            }
+            throw new NotImplementedException();
+            //using (var stream = new ReadOnlyMemoryStream(writer.GetMemory()))
+            //{
+            //    Serializer.NonGeneric.SerializeWithLengthPrefix(stream, header, PrefixStyle.Base128, 1);
+            //}
+        }
+
+        private void ReadPrefixBase128(Memory<byte> buffer)
+        {
+//            if (buffer.Span[0] < 128)
+//            {
+//                return buffer.Span[0];
+//            }
+//            else if (buffer.Span[0] < 192)
+//            {
+//                //await _stream.ReadBlockAsync(buffer.Slice(1, 1)).ConfigureAwait(false);
+
+//                int v = 0;
+//                for (int i = 0; i < 2; i++)
+//                    v = (v << 8) + buffer.Span[i];
+
+//                return v ^ 0x8000;
+//            }
+//            else if (buffer.Span[0] < 224)
+//            {
+//                //await _stream.ReadBlockAsync(buffer.Slice(1, 2)).ConfigureAwait(false);
+
+//                int v = 0;
+//                for (int i = 0; i < 3; i++)
+//                    v = (v << 8) + buffer.Span[i];
+
+//                return v ^ 0xC00000;
+//            }
+//            else if (buffer.Span[0] < 240)
+//            {
+//                //await _stream.ReadBlockAsync(buffer.Slice(1, 3)).ConfigureAwait(false);
+
+//                int v = 0;
+//                for (int i = 0; i < 4; i++)
+//                    v = (v << 8) + buffer.Span[i];
+
+//                return (int)(v ^ 0xE0000000);
+//            }
+//            else if (buffer.Span[0] == 240)
+//            {
+//                //await _stream.ReadBlockAsync(buffer.Slice(0, 4)).ConfigureAwait(false);
+
+//                int v = 0;
+//                for (int i = 0; i < 4; i++)
+//                    v = (v << 8) + buffer.Span[i];
+
+//                return v;
+//            }
+//            else
+//            {
+//#if DEBUG
+//                if (Debugger.IsAttached)
+//                    Debugger.Break();
+
+//#endif
+//                // Не должно быть такого.
+//                throw new MikroTikUnknownLengthException();
+//            }
         }
 
         public void Dispose()

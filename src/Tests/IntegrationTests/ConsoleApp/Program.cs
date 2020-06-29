@@ -8,7 +8,6 @@ using System.Buffers;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Security.Claims;
 using System.Text;
@@ -30,7 +29,7 @@ namespace ConsoleApp
 
             while (true)
             {
-                proxy.VoidOneArg(123);
+                proxy.SendData2(new BinaryPrimitiveContent(123), new MemoryContent(new byte[] { 1,2,3 }));
             }
         }
     }
@@ -38,6 +37,7 @@ namespace ConsoleApp
     public interface IBenchmark
     {
         [TcpNoDelay]
-        int VoidOneArg(int n);
+        void SendData(int connectionId, byte[] data);
+        void SendData2(VRpcContent connectionId, VRpcContent data);
     }
 }
