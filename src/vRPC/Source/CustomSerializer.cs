@@ -328,7 +328,7 @@ namespace DanilovSoft.vRPC
                             gotCode = true;
                         }
                     }
-                    else if (!gotUid && reader.ValueTextEquals("uid"))
+                    else if (!gotUid && reader.ValueTextEquals("id"))
                     {
                         if (reader.Read())
                         {

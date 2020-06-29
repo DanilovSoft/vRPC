@@ -77,5 +77,10 @@ namespace DanilovSoft.vRPC
             stream.Write(memory.Span);
         }
 #endif
+
+        internal override ReadOnlyMemory<byte> GetMemory()
+        {
+            return Content;
+        }
     }
 }

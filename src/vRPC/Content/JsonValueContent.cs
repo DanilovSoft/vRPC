@@ -23,6 +23,11 @@ namespace DanilovSoft.vRPC
             return false;
         }
 
+        internal override ReadOnlyMemory<byte> GetMemory()
+        {
+            throw new NotImplementedException();
+        }
+
         private protected sealed override Multipart SerializeToStream(IBufferWriter<byte> writer)
         {
             if (_value != null)

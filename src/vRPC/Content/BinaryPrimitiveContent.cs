@@ -57,10 +57,17 @@ namespace DanilovSoft.vRPC
             return true;
         }
 
+        internal override ReadOnlyMemory<byte> GetMemory()
+        {
+            return _binaryValue;
+        }
+
         private protected override Multipart SerializeToStream(IBufferWriter<byte> writer)
         {
             writer.Write(_binaryValue);
             throw new NotImplementedException();
         }
+
+        
     }
 }

@@ -20,7 +20,7 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay("{DebugDisplay,nq}")]
     internal readonly struct HeaderDto : IEquatable<HeaderDto>
     {
-        private static readonly JsonEncodedText JsonUid = JsonEncodedText.Encode("uid");
+        private static readonly JsonEncodedText JsonUid = JsonEncodedText.Encode("id");
         private static readonly JsonEncodedText JsonCode = JsonEncodedText.Encode("code");
         private static readonly JsonEncodedText JsonPayload = JsonEncodedText.Encode("payload");
         private static readonly JsonEncodedText JsonEncoding = JsonEncodedText.Encode("encoding");
@@ -65,7 +65,7 @@ namespace DanilovSoft.vRPC
         [ProtoMember(1, IsRequired = true)]
         public StatusCode StatusCode { get; }
 
-        [JsonPropertyName("uid")]
+        [JsonPropertyName("id")]
         [ProtoMember(2, IsRequired = false)]
         public int? Uid { get; }
 

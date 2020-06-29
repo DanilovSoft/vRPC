@@ -24,6 +24,8 @@ namespace DanilovSoft.vRPC.Content
         [DebuggerStepThrough]
         internal Multipart InnerSerializeToStream(IBufferWriter<byte> writer) => SerializeToStream(writer);
 
+        internal abstract ReadOnlyMemory<byte> GetMemory();
+
         private protected static void SerializeHeader(IBufferWriter<byte> writer, int contentSize, string contentEncoding)
         {
             throw new NotImplementedException();

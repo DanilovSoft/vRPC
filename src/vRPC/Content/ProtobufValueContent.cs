@@ -10,36 +10,36 @@ using ProtoBuf;
 
 namespace DanilovSoft.vRPC
 {
-    public class ProtoBufValueContent : VRpcContent
-    {
-        private readonly object _value;
+    //public class ProtoBufValueContent : VRpcContent
+    //{
+    //    private readonly object _value;
 
-        public ProtoBufValueContent(object value)
-        {
-            _value = value;
-        }
+    //    public ProtoBufValueContent(object value)
+    //    {
+    //        _value = value;
+    //    }
 
-        private protected sealed override Multipart SerializeToStream(IBufferWriter<byte> writer)
-        {
-            throw new NotImplementedException();
-            //int contentLength = (int)stream.Position;
-            //Serializer.NonGeneric.Serialize(stream, _value);
+    //    private protected sealed override Multipart SerializeToStream(IBufferWriter<byte> writer)
+    //    {
+    //        throw new NotImplementedException();
+    //        //int contentLength = (int)stream.Position;
+    //        //Serializer.NonGeneric.Serialize(stream, _value);
             
-            //int headerPosition = (int)stream.Position;
+    //        //int headerPosition = (int)stream.Position;
 
-            //contentLength = headerPosition - contentLength;
+    //        //contentLength = headerPosition - contentLength;
 
-            //SerializeHeader(stream, new MultipartHeaderDto(contentLength, KnownEncoding.ProtobufEncoding));
+    //        //SerializeHeader(stream, new MultipartHeaderDto(contentLength, KnownEncoding.ProtobufEncoding));
             
-            //byte headerSize = (byte)((int)stream.Position - headerPosition);
+    //        //byte headerSize = (byte)((int)stream.Position - headerPosition);
 
-            //return new Multipart(contentLength, headerSize);
-        }
+    //        //return new Multipart(contentLength, headerSize);
+    //    }
 
-        protected internal sealed override bool TryComputeLength(out int length)
-        {
-            length = -1;
-            return false;
-        }
-    }
+    //    protected internal sealed override bool TryComputeLength(out int length)
+    //    {
+    //        length = -1;
+    //        return false;
+    //    }
+    //}
 }

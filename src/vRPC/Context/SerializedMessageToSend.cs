@@ -24,7 +24,7 @@ namespace DanilovSoft.vRPC
         // Что-бы видеть контент в режиме отладки.
         private string? DebugJson => GetDebugJson();
 
-        internal string? GetDebugJson()
+        private string? GetDebugJson()
         {
             if ((ContentEncoding == null || ContentEncoding == "json") && MemoryPoolBuffer?.WrittenCount > 0 && HeaderSize > 0)
             {
