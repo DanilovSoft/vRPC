@@ -13,9 +13,14 @@ namespace ConsoleApp
     {
         public void TestNotification()
         {
-            
+
         }
-        
+
+        public void Data(int connectionId, byte[] data)
+        {
+
+        }
+
         [TcpNoDelay]
         public int VoidOneArg(int n)
         {

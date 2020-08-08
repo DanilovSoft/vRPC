@@ -30,7 +30,8 @@ namespace ConsoleApp
 
             while (true)
             {
-                proxy.VoidOneArg(123);
+                proxy.Data(1, new byte[] { 1,2,3 });
+                //proxy.SendData2(new BinaryPrimitiveContent(1), new MemoryContent(new byte[] { 1,2,3 }));
             }
         }
     }
@@ -38,6 +39,7 @@ namespace ConsoleApp
     public interface IBenchmark
     {
         [TcpNoDelay]
-        int VoidOneArg(int n);
+        void Data(int connectionId, byte[] data);
+        void SendData2(VRpcContent connectionId, VRpcContent data);
     }
 }
