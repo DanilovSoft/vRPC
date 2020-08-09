@@ -28,10 +28,11 @@ namespace ConsoleApp
             client.Connect();
             var proxy = client.GetProxy<IBenchmark>();
 
+            await client.Completion;
+
             while (true)
             {
-                proxy.Data(1, new byte[] { 1,2,3 });
-                //proxy.SendData2(new BinaryPrimitiveContent(1), new MemoryContent(new byte[] { 1,2,3 }));
+                proxy.Data(1, new byte[] { 1, 2, 3 });
             }
         }
     }

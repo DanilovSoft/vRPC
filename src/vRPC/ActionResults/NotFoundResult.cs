@@ -6,7 +6,7 @@ namespace DanilovSoft.vRPC
 {
     internal sealed class NotFoundResult : IActionResult
     {
-        private const StatusCode DefaultStatusCode = StatusCode.ActionNotFound;
+        private const StatusCode DefaultStatusCode = StatusCode.MethodNotFound;
         private readonly string _message;
 
         public NotFoundResult(string message)

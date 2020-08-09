@@ -552,7 +552,7 @@ namespace DanilovSoft.vRPC
             if (connectionTask.IsCompleted)
             {
                 // Может быть исключение если не удалось подключиться.
-                ClientSideConnection connection = connectionTask.Result;
+                ClientSideConnection connection = connectionTask.GetAwaiter().GetResult();
 
                 // Отправляет запрос и получает результат от удалённой стороны.
                 return connection.SendSerializedRequestAndWaitResponse<T>(requestMeta, serMsg);

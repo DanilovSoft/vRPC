@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -76,9 +77,8 @@ namespace DynamicMethodsLib
         {
             var ifaceType = typeof(TIface);
             if (!ifaceType.IsPublic)
-            {
-                ThrowHelper.ThrowVRpcException($"Интерфейс {ifaceType.FullName} должен быть публичным и должен быть видимым для других сборок.");
-            }
+                ThrowHelper.ThrowVRpcException($"Интерфейс {ifaceType.FullName} должен быть видимым для других сборок.");
+            
             Debug.Assert(ifaceType.IsInterface, "Ожидался интерфейс");
 
             var proxyParentClassType = typeof(TClass);
@@ -121,14 +121,14 @@ namespace DynamicMethodsLib
                     }
                 }
                 if (baseCtor == null)
-                    ThrowHelper.ThrowVRpcException($"Не найден конструктор принимающий один параметр типа {typeof(TIface).FullName}.");
+                    ThrowHelper.ThrowVRpcException($"Не найден конструктор принимающий один параметр типа {ifaceType.FullName}.");
 
                 // Конструктор наследника с параметром.
                 ConstructorBuilder constructor = classType.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, parameterTypes: new[] { instanceType });
 
                 // Generate constructor code
                 ILGenerator ilGenerator = constructor.GetILGenerator();
-                ilGenerator.DeclareLocal(typeof(TIface));
+                ilGenerator.DeclareLocal(ifaceType);
                 ilGenerator.Emit(OpCodes.Ldarg_0);              // push this onto stack.
                 ilGenerator.Emit(OpCodes.Ldarg_1);
                 ilGenerator.Emit(OpCodes.Call, baseCtor);       // call base constructor
@@ -308,7 +308,9 @@ namespace DynamicMethodsLib
                 field.SetValue(proxy, item.MethodInfo);
             }
 
-            return source == null ? proxy : CopyValues(source, proxy);
+            return source == null 
+                ? proxy 
+                : CopyValues(source, proxy);
         }
 
         private static void GenerateMethod(ILGenerator il, MethodInfo method, FieldInfo methodInfoField, MethodInfo proxyMethod)
@@ -476,7 +478,7 @@ namespace DynamicMethodsLib
             il.Emit(OpCodes.Ret);
         }
 
-        private static K CopyValues<K>(TClass source, K destination) where K : notnull
+        private static T CopyValues<T>(TClass source, T destination) where T : notnull
         {
             foreach (PropertyInfo property in source.GetType().GetProperties(_visibilityFlags))
             {

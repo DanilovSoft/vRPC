@@ -59,7 +59,7 @@ namespace DanilovSoft.vRPC
                     
                     IInterfaceProxy? p;
                     TClass? createdStatic;
-                    lock (_staticDict) // Нужна блокировка на статический словарь.
+                    lock (_staticDict) // Нужна блокировка на статичный словарь.
                     {
                         if (_staticDict.TryGetValue(interfaceType, out p))
                         {

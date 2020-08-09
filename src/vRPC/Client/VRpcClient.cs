@@ -170,12 +170,12 @@ namespace DanilovSoft.vRPC
         public void ConfigureService(Action<ServiceCollection> configure)
         {
             if (configure == null)
-                ThrowHelper.ThrowArgumentNullException(nameof(configure));
+                throw new ArgumentNullException(nameof(configure));
 
             ThrowIfDisposed();
 
             if (ServiceProvider != null)
-                ThrowHelper.ThrowVRpcException("Service already configured.");
+                ThrowVRpcException("Service already configured.");
 
             configure(_serviceCollection);
             ServiceProvider = _serviceCollection.BuildServiceProvider();
@@ -186,12 +186,12 @@ namespace DanilovSoft.vRPC
         public void Configure(Action<ApplicationBuilder> configureApp)
         {
             if (configureApp == null)
-                ThrowHelper.ThrowArgumentNullException(nameof(configureApp));
+                ThrowArgumentNullException(nameof(configureApp));
 
             ThrowIfDisposed();
 
             if (_configureApp != null)
-                ThrowHelper.ThrowVRpcException("RpcClient already configured.");
+                ThrowVRpcException("RpcClient already configured.");
 
             _configureApp = configureApp;
         }
@@ -658,6 +658,8 @@ namespace DanilovSoft.vRPC
             // Только один поток получит соединение с этим флагом.
             if (conResult.NewConnectionCreated)
             {
+                Debug.Assert(conResult.Connection != null);
+
                 Connected?.Invoke(this, new ConnectedEventArgs(conResult.Connection));
             }
 
@@ -693,7 +695,7 @@ namespace DanilovSoft.vRPC
                     }
                     else
                     {
-                        ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
+                        ThrowObjectDisposedException(GetType().FullName);
                     }
                 }
 
