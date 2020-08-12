@@ -246,8 +246,8 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                closeReason = CloseReason.FromException(e.DisconnectingReason.Error, 
-                    _shutdownRequest, e.DisconnectingReason.AdditionalDescription);
+                Debug.Assert(e.DisconnectingReason.Error != null);
+                closeReason = CloseReason.FromException(e.DisconnectingReason.Error, _shutdownRequest, e.DisconnectingReason.AdditionalDescription);
             }
             TryDispose(closeReason);
         }
@@ -312,12 +312,15 @@ namespace DanilovSoft.vRPC
 
             if (firstTime)
             {
-                var timeoutTask = Task.Delay(stopRequired.ShutdownTimeout);
-
-                // Подождать грациозную остановку.
-                if (await Task.WhenAny(_completionTcs.Task, timeoutTask).ConfigureAwait(false) == timeoutTask)
+                if (stopRequired.ShutdownTimeout > TimeSpan.Zero)
                 {
-                    Debug.WriteLine($"Достигнут таймаут {(int)stopRequired.ShutdownTimeout.TotalSeconds} сек. на грациозную остановку.");
+                    var timeoutTask = Task.Delay(stopRequired.ShutdownTimeout);
+
+                    // Подождать грациозную остановку.
+                    if (await Task.WhenAny(_completionTcs.Task, timeoutTask).ConfigureAwait(false) == timeoutTask)
+                    {
+                        Debug.WriteLine($"Достигнут таймаут {stopRequired.ShutdownTimeout.TotalSeconds:0.#} сек. на грациозную остановку.");
+                    }
                 }
 
                 // Не бросает исключения.

@@ -47,9 +47,6 @@ namespace DanilovSoft.vRPC
         private readonly ServiceCollection _serviceCollection = new ServiceCollection();
         private bool IsAutoConnectAllowed { get; }
         public Uri ServerAddress { get; private set; }
-        /// <summary>
-        /// <see langword="volatile"/>.
-        /// </summary>
         private ApplicationBuilder? _appBuilder;
         public ServiceProvider? ServiceProvider { get; private set; }
         private Action<ApplicationBuilder>? _configureApp;
@@ -252,8 +249,7 @@ namespace DanilovSoft.vRPC
                     {
                         Debug.Assert(connectResult.SocketError != null);
 
-                        ThrowHelper.ThrowConnectException(
-                            message: $"Unable to connect to the remote server. Error: {(int)connectResult.SocketError}",
+                        ThrowConnectException($"Unable to connect to the remote server. Error: {(int)connectResult.SocketError}",
                             innerException: connectResult.SocketError.Value.ToException());
 
                         break;
@@ -314,17 +310,17 @@ namespace DanilovSoft.vRPC
                 }
                 catch (SocketException ex)
                 {
-                    ThrowHelper.ThrowConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
+                    ThrowConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
                     return default;
                 }
                 catch (System.Net.WebSockets.WebSocketException ex)
                 {
-                    ThrowHelper.ThrowConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
+                    ThrowConnectException($"Unable to connect to the remote server. ErrorCode: {ex.ErrorCode}", ex);
                     return default;
                 }
                 catch (HttpHandshakeException ex)
                 {
-                    ThrowHelper.ThrowConnectException($"Unable to connect to the remote server due to handshake error", ex);
+                    ThrowConnectException($"Unable to connect to the remote server due to handshake error", ex);
                     return default;
                 }
                 return conRes.ToPublicConnectResult();
@@ -585,7 +581,14 @@ namespace DanilovSoft.vRPC
                 }
                 else
                 {
-                    return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(new VRpcConnectionNotOpenException()));
+                    // Копия volatile.
+                    ShutdownRequest? shutdownRequest = _shutdownRequest;
+                    if (shutdownRequest != null)
+                    {
+                        return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(shutdownRequest.ToException()));
+                    }
+                    else
+                        return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(new VRpcConnectionNotOpenException()));
                 }
             }
 
@@ -650,19 +653,21 @@ namespace DanilovSoft.vRPC
         private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(AsyncLock.Releaser conLock, AccessToken accessToken)
         {
             InnerConnectionResult conResult;
-            using (conLock)
+            try
             {
                 conResult = await LockAquiredConnectAsync(accessToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                conLock.Dispose();
             }
 
             // Только один поток получит соединение с этим флагом.
             if (conResult.NewConnectionCreated)
             {
                 Debug.Assert(conResult.Connection != null);
-
                 Connected?.Invoke(this, new ConnectedEventArgs(conResult.Connection));
             }
-
             return conResult;
         }
 
@@ -714,8 +719,20 @@ namespace DanilovSoft.vRPC
 
                 try
                 {
-                    // Обычное подключение Tcp.
-                    ReceiveResult wsReceiveResult = await ws.ConnectExAsync(ServerAddress, CancellationToken.None).ConfigureAwait(false);
+                    ReceiveResult wsReceiveResult;
+                    try
+                    {
+                        // Обычное подключение Web-Socket.
+                        wsReceiveResult = await ws.ConnectExAsync(ServerAddress, CancellationToken.None).ConfigureAwait(false);
+                    }
+                    catch (ObjectDisposedException) when (_shutdownRequest != null)
+                    {
+                        return InnerConnectionResult.FromShutdownRequest(_shutdownRequest);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new VRpcConnectException("Unable to connect to the remote server.", ex);
+                    }
 
                     if (Interlocked.Exchange(ref _connectingWs, null) == null)
                     // Другой поток уничтожил наш web-socket.
@@ -918,5 +935,17 @@ namespace DanilovSoft.vRPC
                 }
             }
         }
+
+        //private sealed class DebugProxy
+        //{
+        //    private readonly VRpcClient _self;
+        //    public Uri ServerAddress => _self.ServerAddress;
+        //    public ClientSideConnection? Connection => _self.Connection;
+
+        //    public DebugProxy(VRpcClient self)
+        //    {
+        //        _self = self;
+        //    }
+        //}
     }
 }

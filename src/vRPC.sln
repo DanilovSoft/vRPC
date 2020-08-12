@@ -26,7 +26,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PublicXUnitTest", "Tests\PublicXUnitTest\PublicXUnitTest.csproj", "{460C2387-07A7-4E79-BE2F-95120FA25E66}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoadTestApp", "LoadTestApp\LoadTestApp.csproj", "{6D9E08FA-C535-4F77-AA01-7141C46DFE59}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LoadTestApp", "LoadTestApp\LoadTestApp.csproj", "{6D9E08FA-C535-4F77-AA01-7141C46DFE59}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

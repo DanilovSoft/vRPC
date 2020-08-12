@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
     [Serializable]
     public sealed class VRpcWasShutdownException : VRpcException
     {
-        public ShutdownRequest? StopRequiredState { get; }
+        public ShutdownRequest? ShutdownRequest { get; }
 
         public VRpcWasShutdownException() { }
 
@@ -20,23 +20,23 @@ namespace DanilovSoft.vRPC
 
         public VRpcWasShutdownException(string message, Exception innerException) : base(message, innerException) { }
 
-        internal VRpcWasShutdownException(ShutdownRequest stopRequired) : base(CreateExceptionMessage(stopRequired))
+        internal VRpcWasShutdownException(ShutdownRequest stopRequest) : base(CreateExceptionMessage(stopRequest))
         {
-            Debug.Assert(stopRequired != null);
-            StopRequiredState = stopRequired;
+            Debug.Assert(stopRequest != null);
+            ShutdownRequest = stopRequest;
         }
 
-        private static string CreateExceptionMessage(ShutdownRequest stopRequired)
+        private static string CreateExceptionMessage(ShutdownRequest stopRequest)
         {
-            if (!string.IsNullOrEmpty(stopRequired.CloseDescription))
+            if (!string.IsNullOrEmpty(stopRequest.CloseDescription))
             {
                 return $"Использовать этот экземпляр больше нельзя — был вызван " +
-                    $"Shutdown (DisconnectTimeout: {stopRequired.ShutdownTimeout}) со следующим объяснением причины: '{stopRequired.CloseDescription}'.";
+                    $"Shutdown (DisconnectTimeout: {stopRequest.ShutdownTimeout.TotalSeconds:0.#} сек.) со следующим объяснением причины: '{stopRequest.CloseDescription}'.";
             }
             else
             {
                 return $"Использовать этот экземпляр больше нельзя — был вызван " +
-                    $"Shutdown (DisconnectTimeout: {stopRequired.ShutdownTimeout}) без дополнительного объяснения причины.";
+                    $"Shutdown (DisconnectTimeout: {stopRequest.ShutdownTimeout.TotalSeconds:0.#} сек.) без объяснения причины.";
             }
         }
 

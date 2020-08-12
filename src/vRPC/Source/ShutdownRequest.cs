@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    [DebuggerDisplay("{ShutdownTimeout}, {CloseDescription}")]
+    [DebuggerTypeProxy(typeof(DebugProxy))]
+    [DebuggerDisplay(@"\{{ShutdownTimeout}, {CloseDescription}\}")]
     public sealed class ShutdownRequest
     {
         private readonly TaskCompletionSource<CloseReason> _tcs;
@@ -31,6 +32,18 @@ namespace DanilovSoft.vRPC
         internal void SetTaskResult(CloseReason closeReason)
         {
             _tcs.TrySetResult(closeReason);
+        }
+
+        private sealed class DebugProxy
+        {
+            private readonly ShutdownRequest _self;
+            public string? CloseDescription => _self.CloseDescription;
+            public TimeSpan ShutdownTimeout => _self.ShutdownTimeout;
+
+            public DebugProxy(ShutdownRequest self)
+            {
+                _self = self;
+            }
         }
     }
 }

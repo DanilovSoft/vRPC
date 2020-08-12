@@ -44,13 +44,17 @@ namespace DanilovSoft.vRPC
         [DebuggerStepThrough]
         internal static CloseReason FromException(VRpcWasShutdownException stopRequiredException)
         {
-            return new CloseReason(stopRequiredException, null, null, null, stopRequiredException.StopRequiredState);
+            return new CloseReason(stopRequiredException, null, null, null, stopRequiredException.ShutdownRequest);
         }
 
         [DebuggerStepThrough]
         internal static CloseReason FromException(Exception ex, ShutdownRequest? shutdownRequest, string? additionalDescription = null)
         {
-            return new CloseReason(ex, null, null, additionalDescription, shutdownRequest);
+            VRpcException exception = ex is VRpcException vex 
+                ? vex 
+                : new VRpcException(ex.Message, ex);
+
+            return new CloseReason(exception, null, null, additionalDescription, shutdownRequest);
         }
 
         [DebuggerStepThrough]

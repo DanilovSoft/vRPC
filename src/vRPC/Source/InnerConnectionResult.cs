@@ -24,6 +24,7 @@ namespace DanilovSoft.vRPC
         private InnerConnectionResult(ClientSideConnection connection, bool newConnectionCreated)
         {
             Debug.Assert(connection != null);
+
             Connection = connection;
             SocketError = null;
             ShutdownRequest = null;
@@ -44,6 +45,7 @@ namespace DanilovSoft.vRPC
         private InnerConnectionResult(ShutdownRequest shutdownRequest)
         {
             Debug.Assert(shutdownRequest != null);
+
             ShutdownRequest = shutdownRequest;
             SocketError = null;
             Connection = null;
