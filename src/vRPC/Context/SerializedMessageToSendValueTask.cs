@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
     partial class SerializedMessageToSend : IValueTaskSource
     {
         /// <summary>Sentinel object used to indicate that the operation has completed prior to OnCompleted being called.</summary>
-        private static readonly Action<object?> s_completedSentinel = new Action<object?>(state => 
+        private static readonly Action<object?> s_completedSentinel = new Action<object?>(_ => 
         { 
             Debug.Assert(false, "Ошибка синхронизации потоков"); 
             throw new Exception(nameof(s_completedSentinel)); 
@@ -159,9 +159,10 @@ namespace DanilovSoft.vRPC
                 {
                     sc.Post(s =>
                     {
-                        var t = ((Action<object?> c, object? state))s!;
-                        t.c(t.state);
-                    }, (continuation, state));
+                        var t = s as Tuple<Action<object?>, object>;
+                        Debug.Assert(t != null);
+                        t.Item1(t.Item2);
+                    }, Tuple.Create(continuation, state));
                 }
                 else
                 {
@@ -231,11 +232,12 @@ namespace DanilovSoft.vRPC
                         _executionContext = null;
                         ExecutionContext.Run(ec, runState =>
                         {
-                            var t = ((SerializedMessageToSend self, Action<object?> c, object? state))runState!;
+                            var t = runState as Tuple<SerializedMessageToSend, Action<object?>, object?>;
+                            Debug.Assert(t != null);
 
-                            t.self.InvokeContinuation(t.c, t.state, forceAsync: false, requiresExecutionContextFlow: false);
+                            t.Item1.InvokeContinuation(t.Item2, t.Item3, forceAsync: false, requiresExecutionContextFlow: false);
 
-                        }, (this, continuation, continuationState));
+                        }, Tuple.Create(this, continuation, continuationState));
                     }
                 }
             }

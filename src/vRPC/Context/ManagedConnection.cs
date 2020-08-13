@@ -1184,9 +1184,10 @@ namespace DanilovSoft.vRPC
         private void PostSendResponse(ResponseMessage responseToSend)
         {
 #if NETSTANDARD2_0 || NET472
-            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, (this, responseToSend));
+            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, Tuple.Create(this, responseToSend));
 #else
-            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, (this, responseToSend), preferLocal: false); // Предпочитаем глобальную очередь.
+            // Предпочитаем глобальную очередь.
+            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, Tuple.Create(this, responseToSend), preferLocal: false);
 #endif
         }
 
@@ -1196,20 +1197,21 @@ namespace DanilovSoft.vRPC
         /// <remarks>Не бросает исключения.</remarks>
         private static void SerializeResponseAndTrySendThreadEntryPoint(object? state)
         {
-            Debug.Assert(state != null);
-            var tuple = ((ManagedConnection, ResponseMessage))state!;
+            var tuple = state as Tuple<ManagedConnection, ResponseMessage>;
+            Debug.Assert(tuple != null);
+
             SerializeResponseAndTrySendThreadEntryPoint(argState: tuple);
         }
 #endif
         // Точка входа потока тред-пула.
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
-        private static void SerializeResponseAndTrySendThreadEntryPoint((ManagedConnection self, ResponseMessage responseToSend) argState)
+        private static void SerializeResponseAndTrySendThreadEntryPoint(Tuple<ManagedConnection, ResponseMessage> argState)
         {
             // Сериализуем.
-            SerializedMessageToSend serializedMessage = SerializeResponse(argState.responseToSend);
+            SerializedMessageToSend serializedMessage = SerializeResponse(argState.Item2);
 
             // Ставим в очередь.
-            argState.self.TryPostMessage(serializedMessage);
+            argState.Item1.TryPostMessage(serializedMessage);
         }
 
         /// <summary>
