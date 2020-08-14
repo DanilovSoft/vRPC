@@ -73,6 +73,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private readonly Channel<SerializedMessageToSend> _sendChannel;
         private int _disposed;
+        /// <summary>
+        /// <see langword="volatile"/>
+        /// </summary>
         private bool IsDisposed
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -83,10 +86,11 @@ namespace DanilovSoft.vRPC
             }
         }
         /// <summary>
-        /// <see langword="true"/> если происходит остановка сервиса.
+        /// Не Null если происходит остановка сервиса.
         /// Используется для проверки возможности начать новый запрос.
         /// Использовать через блокировку <see cref="StopRequiredLock"/>.
         /// </summary>
+        /// <remarks><see langword="volatile"/></remarks>
         private volatile ShutdownRequest? _shutdownRequest;
         /// <summary>
         /// Предотвращает повторный вызов Stop.
@@ -546,6 +550,7 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Отправляет запрос и возвращает результат.
+        /// Может бросить исключение.
         /// </summary>
         /// <remarks>Со стороны клиента.</remarks>
         private static Task<T> SendClientRequestAndGetResultStatic<T>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
@@ -583,13 +588,21 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(serializedMessage.MessageToSend.IsNotificationRequest);
 
-            ThrowIfDisposed();
-            ThrowIfShutdownRequired();
-            //ValidateAuthenticationRequired(requestMeta);
+            if (_shutdownRequest == null)
+            {
+                if (!IsDisposed)
+                {
+                    //ValidateAuthenticationRequired(requestMeta);
 
-            TryPostMessage(serializedMessage);
+                    TryPostMessage(serializedMessage);
 
-            return serializedMessage.WaitNotificationAsync();
+                    return serializedMessage.WaitNotificationAsync();
+                }
+                else
+                    return new ValueTask(Task.FromException(new ObjectDisposedException(GetType().FullName)));
+            }
+            else
+                return new ValueTask(Task.FromException(new VRpcWasShutdownException(_shutdownRequest)));
         }
 
         /// <summary>
@@ -628,32 +641,41 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
-            SerializedMessageToSend? serMsgToDispose = serMsg;
-            try
+            // Shutdown устанавливается раньше чем может выполниться Dispose.
+            if (_shutdownRequest == null) // volatile проверка.
             {
-                ThrowIfDisposed();
-                ThrowIfShutdownRequired();
+                if (!IsDisposed) // volatile проверка.
+                {
 
-                // Добавить запрос в словарь для дальнейшей связки с ответом.
-                ResponseAwaiter<TResult> responseAwaiter = _pendingRequests.AddRequest<TResult>(requestMeta, out int uid);
+                    SerializedMessageToSend? serMsgToDispose = serMsg;
+                    try
+                    {
+                        // Добавить запрос в словарь для дальнейшей связки с ответом.
+                        ResponseAwaiter<TResult> responseAwaiter = _pendingRequests.AddRequest<TResult>(requestMeta, out int uid);
 
-                // Назначить запросу уникальный идентификатор.
-                serMsg.Uid = uid;
+                        // Назначить запросу уникальный идентификатор.
+                        serMsg.Uid = uid;
 
-                // Планируем отправку запроса.
-                // Не бросает исключения.
-                TryPostMessage(serMsg);
+                        // Планируем отправку запроса.
+                        // Не бросает исключения.
+                        TryPostMessage(serMsg);
 
-                // Мы больше не владеем этим объектом.
-                serMsgToDispose = null;
+                        // Мы больше не владеем этим объектом.
+                        serMsgToDispose = null;
 
-                // Ожидаем результат от потока поторый читает из сокета.
-                return responseAwaiter.Task;
+                        // Ожидаем результат от потока поторый читает из сокета.
+                        return responseAwaiter.Task;
+                    }
+                    finally
+                    {
+                        serMsgToDispose?.Dispose();
+                    }
+                }
+                else
+                    return Task.FromException<TResult>(new ObjectDisposedException(GetType().FullName));
             }
-            finally
-            {
-                serMsgToDispose?.Dispose();
-            }
+            else
+                return Task.FromException<TResult>(new VRpcWasShutdownException(_shutdownRequest));
         }
 
         /// <summary>
@@ -1046,9 +1068,28 @@ namespace DanilovSoft.vRPC
         }
 
         /// <remarks>Не бросает исключения.</remarks>
-        private async Task TryFinishSenderAndSendCloseAsync()
+        private Task TryFinishSenderAndSendCloseAsync()
         {
-            if (await TryCompleteSenderAsync().ConfigureAwait(false))
+            ValueTask<bool> task = TryCompleteSenderAsync();
+            if (task.IsCompletedSuccessfully)
+            {
+                return OnCompletedSender(task.Result);
+            }
+            else
+            {
+                return WaitAsync(task);
+            }
+
+            async Task WaitAsync(ValueTask<bool> task)
+            {
+                bool success = await task.ConfigureAwait(false);
+                await OnCompletedSender(success).ConfigureAwait(false);
+            }
+        }
+
+        private async Task OnCompletedSender(bool success)
+        {
+            if (success)
             {
                 try
                 {
@@ -1912,31 +1953,6 @@ namespace DanilovSoft.vRPC
             TryPostMessage(responseToSend);
         }
 
-        /// <remarks>AggressiveInlining.</remarks>
-        /// <exception cref="ObjectDisposedException"/>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ThrowIfDisposed()
-        {
-            if (!IsDisposed)
-                return;
-
-            ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
-        }
-
-        /// <summary>
-        /// Не позволять начинать новый запрос если происходит остановка.
-        /// </summary>
-        /// <remarks>AggressiveInlining.</remarks>
-        /// <exception cref="VRpcWasShutdownException"/>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ThrowIfShutdownRequired()
-        {
-            if (_shutdownRequest == null)
-                return;
-
-            ThrowHelper.ThrowWasShutdownException(_shutdownRequest);
-        }
-
         /// <summary>
         /// Потокобезопасно освобождает ресурсы соединения. Вызывается при закрытии соединения.
         /// Взводит <see cref="Completion"/> и оповещает все ожидающие потоки.
@@ -2032,7 +2048,7 @@ namespace DanilovSoft.vRPC
 
         protected virtual void Dispose(bool disposing)
         {
-            if(disposing)
+            if (disposing)
             {
                 DisposeManaged();
             }

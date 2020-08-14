@@ -534,7 +534,6 @@ namespace DanilovSoft.vRPC
             {
                 closeReason = await stopRequired.Task.ConfigureAwait(false);
             }
-
             return closeReason;
         }
 
@@ -754,7 +753,7 @@ namespace DanilovSoft.vRPC
                             // Другой поток вызвал Dispose.
                             {
                                 // Больше ничего делать не нужно.
-                                ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
+                                ThrowObjectDisposedException(GetType().FullName);
                             }
                         }
                     }
@@ -787,7 +786,7 @@ namespace DanilovSoft.vRPC
                             else
                             // Был выполнен Dispose в тот момент когда велась попытка установить соединение.
                             {
-                                ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
+                                ThrowObjectDisposedException(GetType().FullName);
                             }
                         }
 

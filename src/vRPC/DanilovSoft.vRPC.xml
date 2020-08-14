@@ -470,11 +470,6 @@
             Адрес для подключения к серверу.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.VRpcClient._appBuilder">
-            <summary>
-            <see langword="volatile"/>.
-            </summary>
-        </member>
         <member name="F:DanilovSoft.vRPC.VRpcClient._connection">
             <summary>
             Устанавливается в блокировке <see cref="P:DanilovSoft.vRPC.VRpcClient.StateLock"/>.
@@ -837,12 +832,18 @@
             Отправка сообщений <see cref="T:DanilovSoft.vRPC.SerializedMessageToSend"/> должна выполняться только через этот канал.
             </summary>
         </member>
+        <member name="P:DanilovSoft.vRPC.ManagedConnection.IsDisposed">
+            <summary>
+            <see langword="volatile"/>
+            </summary>
+        </member>
         <member name="F:DanilovSoft.vRPC.ManagedConnection._shutdownRequest">
             <summary>
-            <see langword="true"/> если происходит остановка сервиса.
+            Не Null если происходит остановка сервиса.
             Используется для проверки возможности начать новый запрос.
             Использовать через блокировку <see cref="P:DanilovSoft.vRPC.ManagedConnection.StopRequiredLock"/>.
             </summary>
+            <remarks><see langword="volatile"/></remarks>
         </member>
         <member name="P:DanilovSoft.vRPC.ManagedConnection.StopRequiredLock">
             <summary>
@@ -969,6 +970,7 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendClientRequestAndGetResultStatic``1(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.SerializedMessageToSend,DanilovSoft.vRPC.RequestMethodMeta)">
             <summary>
             Отправляет запрос и возвращает результат.
+            Может бросить исключение.
             </summary>
             <remarks>Со стороны клиента.</remarks>
         </member>
@@ -1063,7 +1065,7 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySendThreadEntryPoint(System.Object)">
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySendThreadEntryPoint(System.ValueTuple{DanilovSoft.vRPC.ManagedConnection,DanilovSoft.vRPC.ResponseMessage})">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySendThreadEntryPoint(System.Tuple{DanilovSoft.vRPC.ManagedConnection,DanilovSoft.vRPC.ResponseMessage})">
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponse(DanilovSoft.vRPC.ResponseMessage)">
@@ -1150,17 +1152,6 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySend(DanilovSoft.vRPC.ResponseMessage)">
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ThrowIfDisposed">
-            <remarks>AggressiveInlining.</remarks>
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ThrowIfShutdownRequired">
-            <summary>
-            Не позволять начинать новый запрос если происходит остановка.
-            </summary>
-            <remarks>AggressiveInlining.</remarks>
-            <exception cref="T:DanilovSoft.vRPC.VRpcWasShutdownException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDispose(DanilovSoft.vRPC.CloseReason)">
             <summary>

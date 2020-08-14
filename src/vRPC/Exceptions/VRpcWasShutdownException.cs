@@ -20,23 +20,23 @@ namespace DanilovSoft.vRPC
 
         public VRpcWasShutdownException(string message, Exception innerException) : base(message, innerException) { }
 
-        internal VRpcWasShutdownException(ShutdownRequest stopRequest) : base(CreateExceptionMessage(stopRequest))
+        internal VRpcWasShutdownException(ShutdownRequest shutdownRequest) : base(CreateExceptionMessage(shutdownRequest))
         {
-            Debug.Assert(stopRequest != null);
-            ShutdownRequest = stopRequest;
+            Debug.Assert(shutdownRequest != null);
+            ShutdownRequest = shutdownRequest;
         }
 
-        private static string CreateExceptionMessage(ShutdownRequest stopRequest)
+        private static string CreateExceptionMessage(ShutdownRequest shutdownRequest)
         {
-            if (!string.IsNullOrEmpty(stopRequest.CloseDescription))
+            if (!string.IsNullOrEmpty(shutdownRequest.CloseDescription))
             {
                 return $"Использовать этот экземпляр больше нельзя — был вызван " +
-                    $"Shutdown (DisconnectTimeout: {stopRequest.ShutdownTimeout.TotalSeconds:0.#} сек.) со следующим объяснением причины: '{stopRequest.CloseDescription}'.";
+                    $"Shutdown (DisconnectTimeout: {shutdownRequest.ShutdownTimeout.TotalSeconds:0.#} сек.) со следующим объяснением причины: '{shutdownRequest.CloseDescription}'.";
             }
             else
             {
                 return $"Использовать этот экземпляр больше нельзя — был вызван " +
-                    $"Shutdown (DisconnectTimeout: {stopRequest.ShutdownTimeout.TotalSeconds:0.#} сек.) без объяснения причины.";
+                    $"Shutdown (DisconnectTimeout: {shutdownRequest.ShutdownTimeout.TotalSeconds:0.#} сек.) без объяснения причины.";
             }
         }
 

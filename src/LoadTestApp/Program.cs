@@ -64,6 +64,10 @@ namespace LoadTestApp
                                 {
                                     string pong = await p.Ping("ping");
                                 }
+                                catch (ObjectDisposedException)
+                                {
+
+                                }
                                 catch (VRpcWasShutdownException ex)
                                 {
                                     Interlocked.Decrement(ref _connectionsCount);

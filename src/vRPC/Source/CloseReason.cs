@@ -47,7 +47,7 @@ namespace DanilovSoft.vRPC
             return new CloseReason(stopRequiredException, null, null, null, stopRequiredException.ShutdownRequest);
         }
 
-        [DebuggerStepThrough]
+        //[DebuggerStepThrough]
         internal static CloseReason FromException(Exception ex, ShutdownRequest? shutdownRequest, string? additionalDescription = null)
         {
             VRpcException exception = ex is VRpcException vex 
