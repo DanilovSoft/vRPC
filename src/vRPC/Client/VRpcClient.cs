@@ -449,8 +449,8 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Выполняет грациозную остановку. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
-        /// Потокобезопасно.
         /// </summary>
+        /// <remarks>Потокобезопасно.</remarks>
         /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов.</param>
         /// <param name="closeDescription">Причина закрытия соединения которая будет передана удалённой стороне.</param>
         public CloseReason Shutdown(TimeSpan disconnectTimeout, string? closeDescription = null)

@@ -220,7 +220,7 @@ namespace DanilovSoft.vRPC
             ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this); // Без замыкания.
 #else
             // Запустить цикл приёма сообщений.
-            ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this, preferLocal: false); // Через глобальную очередь.
+            ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, state: this, preferLocal: false); // Через глобальную очередь.
 #endif
         }
 
@@ -1707,20 +1707,26 @@ namespace DanilovSoft.vRPC
         private void StartProcessRequest(in RequestContext request)
         {
 #if NETSTANDARD2_0 || NET472
-            ThreadPool.UnsafeQueueUserWorkItem(ProcessRequestThreadEntryPoint, request); // Без замыкания.
+            ThreadPool.UnsafeQueueUserWorkItem(ProcessRequestThreadEntryPoint, state: Tuple.Create(this, request)); // Без замыкания.
 #else
             // Предпочитаем глобальную очередь что-бы не замедлять читающий поток.
-            ThreadPool.UnsafeQueueUserWorkItem(ProcessRequestThreadEntryPoint, request, preferLocal: false);
+            ThreadPool.UnsafeQueueUserWorkItem(StaticProcessRequestThreadEntryPoint, state: Tuple.Create(this, request), preferLocal: false);
 #endif
         }
 
 #if NETSTANDARD2_0 || NET472
-        private void ProcessRequestThreadEntryPoint(object? state)
+        private static void ProcessRequestThreadEntryPoint(object? state)
         {
-            Debug.Assert(state != null);
-            ProcessRequestThreadEntryPoint(requestContext: (RequestContext)state);
+            var tuple = state as Tuple<ManagedConnection, RequestContext>;
+            Debug.Assert(tuple != null);
+            tuple.Item1.ProcessRequestThreadEntryPoint(tuple.Item2);
         }  
 #endif
+
+        private static void StaticProcessRequestThreadEntryPoint(Tuple<ManagedConnection, RequestContext> state)
+        {
+            state.Item1.ProcessRequestThreadEntryPoint(state.Item2);
+        }
 
         //// Точка входа для потока из пула.
         //[DebuggerStepThrough]

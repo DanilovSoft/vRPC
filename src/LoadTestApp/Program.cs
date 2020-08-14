@@ -17,7 +17,7 @@ namespace LoadTestApp
     class Program
     {
         private static int _connectionsCount;
-        private static List<VRpcClient> _list;
+        private static VRpcClient[] _clients;
 
         static void Main()
         {
@@ -25,88 +25,27 @@ namespace LoadTestApp
             listener.Start();
 
             int count = GetConnectionsCount();
+            _clients = new VRpcClient[count];
 
-            _list = new List<VRpcClient>(count);
-            for (int i = 0; i < count; i++)
+            ThreadPool.QueueUserWorkItem(async delegate
             {
-                var cli = CreateClient();
-                _list.Add(cli);
-            }
-
-            for (int i = 0; i < count; i++)
-            {
-                ThreadPool.QueueUserWorkItem(async s =>
+                for (int i = 0; i < count; i++)
                 {
-                    int index = (int)s;
-                    while (true)
-                    {
-                        var cli = _list[index];
-                        var p = cli.GetProxy<ITestController>();
-                        ConnectResult res;
-                        try
-                        {
-                            res = await cli.ConnectExAsync();
-                        }
-                        catch (Exception ex)
-                        {
-                            await Task.Delay(new Random().Next(3_000, 5_000));
-                            _list[index] = CreateClient();
-                            continue;
-                        }
-
-                        if (res.State == ConnectionState.Connected)
-                        {
-                            Interlocked.Increment(ref _connectionsCount);
-                            bool skip = false;
-                            while (cli.State == VRpcState.Open)
-                            {
-                                try
-                                {
-                                    string pong = await p.Ping("ping");
-                                }
-                                catch (ObjectDisposedException)
-                                {
-
-                                }
-                                catch (VRpcWasShutdownException ex)
-                                {
-                                    Interlocked.Decrement(ref _connectionsCount);
-                                    await Task.Delay(new Random().Next(1_000, 2_000));
-                                    _list[index] = CreateClient();
-                                    skip = true;
-                                    break;
-                                }
-                                await Task.Delay(new Random().Next(1_000, 2_000));
-                            }
-
-                            if (!skip)
-                            {
-                                Interlocked.Decrement(ref _connectionsCount);
-                                _list[index] = CreateClient();
-                            }
-                        }
-                        else if (res.State == ConnectionState.ShutdownRequest)
-                        {
-                            
-                        }
-                        else
-                        {
-                            await Task.Delay(new Random().Next(3_000, 5_000));
-                        }
-                    }
-                }, i);
-            }
-
-            ThreadPool.QueueUserWorkItem(async delegate 
-            {
-                while (true)
-                {
-                    await Task.Delay(100);
-                    var cli = _list[new Random().Next(_list.Count)];
-                    var result = cli.Shutdown(TimeSpan.Zero, "Провоцируем обрыв");
-                    //cli.Dispose();
+                    var cli = _clients[i] = CreateClient();
+                    ThreadPool.UnsafeQueueUserWorkItem(s => ThreadEntry(s), i);
                 }
 
+                while (true)
+                {
+                    await Task.Delay(200);
+                    var cli = _clients[new Random().Next(_clients.Length)];
+                    if (cli.State == VRpcState.Open)
+                    {
+                        var result = cli.Shutdown(TimeSpan.Zero, "Провоцируем обрыв");
+                        cli.Dispose();
+                    }
+                    //cli.Dispose();
+                }
             });
 
             Console.Write("Connections Count: ");
@@ -118,6 +57,64 @@ namespace LoadTestApp
                 Console.Write(sCount.PadRight(10));
                 Console.CursorLeft = pos + sCount.Length;
                 Thread.Sleep(200);
+            }
+        }
+
+        private static async void ThreadEntry(object state)
+        {
+            int index = (int)state;
+            while (true)
+            {
+                var cli = _clients[index];
+                var p = cli.GetProxy<ITestController>();
+                ConnectResult res;
+                try
+                {
+                    res = await cli.ConnectExAsync();
+                }
+                catch (VRpcException ex)
+                {
+                    await Task.Delay(100);
+                    _clients[index] = CreateClient();
+                    continue;
+                }
+
+                if (res.State == ConnectionState.Connected)
+                {
+                    Interlocked.Increment(ref _connectionsCount);
+                    bool skipNextDelay = false;
+                    while (cli.State == VRpcState.Open)
+                    {
+                        try
+                        {
+                            string pong = await p.Ping("ping");
+                        }
+                        catch (VRpcWasShutdownException ex)
+                        {
+                            Interlocked.Decrement(ref _connectionsCount);
+                            await Task.Delay(100);
+                            _clients[index] = CreateClient();
+                            skipNextDelay = true;
+                            break;
+                        }
+                        await Task.Delay(100);
+                    }
+
+                    if (!skipNextDelay)
+                    {
+                        Interlocked.Decrement(ref _connectionsCount);
+                        _clients[index] = CreateClient();
+                    }
+                }
+                else if (res.State == ConnectionState.ShutdownRequest)
+                {
+                    await Task.Delay(100);
+                    _clients[index] = CreateClient();
+                }
+                else
+                {
+                    await Task.Delay(100);
+                }
             }
         }
 
