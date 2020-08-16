@@ -777,6 +777,18 @@
             Может быть True когда IsRequest тоже является True.
             </summary>
         </member>
+        <member name="F:DanilovSoft.vRPC.Context.JsonRpcRequest.Uid">
+            <summary>
+            Уникальный идентификатор который будет отправлен удалённой стороне.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.Context.JsonRpcRequest.Serialize">
+            <summary>
+            Сериализация пользовательских данных может спровоцировать исключение.
+            </summary>
+            <exception cref="T:DanilovSoft.vRPC.VRpcSerializationException"/>
+            <returns></returns>
+        </member>
         <member name="T:DanilovSoft.vRPC.ManagedConnection">
             <summary>
             Контекст соединения Web-Сокета. Владеет соединением.
@@ -829,7 +841,7 @@
         </member>
         <member name="F:DanilovSoft.vRPC.ManagedConnection._sendChannel">
             <summary>
-            Отправка сообщений <see cref="T:DanilovSoft.vRPC.SerializedMessageToSend"/> должна выполняться только через этот канал.
+            Отправка сообщений должна выполняться только через этот канал.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.ManagedConnection.IsDisposed">
@@ -949,6 +961,9 @@
             Происходит при обращении к проксирующему интерфейсу.
             </summary>
             <remarks>Со стороны клиента.</remarks>
+            <exception cref="T:System.Exception">Могут быть исключения не инкапсулированные в Task.</exception>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ExecuteJsonRequest``1(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.RequestMethodMeta,System.Object[])">
             <exception cref="T:System.Exception">Могут быть исключения не инкапсулированные в Task.</exception>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.OnClientNotificationCall(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.RequestMethodMeta,System.Object[])">
@@ -1076,8 +1091,9 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.AppendHeader(DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
-            Сериализует хэдер в стрим сообщения. Не бросает исключения.
+            Сериализует хэдер в стрим сообщения.
             </summary>
+            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryPostMessage(DanilovSoft.vRPC.SerializedMessageToSend)">
             <summary>
@@ -1221,7 +1237,7 @@
         <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.MessageToSend">
             <summary>
             Запрос или ответ на запрос.
-            Может быть статический объект <see cref="T:DanilovSoft.vRPC.RequestMethodMeta"/> или <see cref="T:DanilovSoft.vRPC.ResponseMessage"/>.
+            Может быть статический объект <see cref="T:DanilovSoft.vRPC.RequestMethodMeta"/> или экземпляр <see cref="T:DanilovSoft.vRPC.ResponseMessage"/>.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.SerializedMessageToSend.Uid">
@@ -1591,7 +1607,7 @@
             и соответственно не возвращает результат.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RequestMethodMeta.ActionFullName">
+        <member name="P:DanilovSoft.vRPC.RequestMethodMeta.MethodFullName">
             <summary>
             Имя метода например 'Home/Hello' без постфикса 'Async'.
             </summary>

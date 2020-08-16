@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Sources;
+using DanilovSoft.vRPC.Context;
 using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC
@@ -18,7 +19,7 @@ namespace DanilovSoft.vRPC
     /// и сообщение для отправки удалённой стороне.
     /// Необходимо обязательно выполнить Dispose.
     /// </summary>
-    internal sealed partial class SerializedMessageToSend : IDisposable
+    internal sealed partial class SerializedMessageToSend : IMessageToSend, IDisposable
     {
 #if DEBUG
         // Что-бы видеть контент в режиме отладки.
@@ -61,7 +62,7 @@ namespace DanilovSoft.vRPC
         }
         /// <summary>
         /// Запрос или ответ на запрос.
-        /// Может быть статический объект <see cref="RequestMethodMeta"/> или <see cref="ResponseMessage"/>.
+        /// Может быть статический объект <see cref="RequestMethodMeta"/> или экземпляр <see cref="ResponseMessage"/>.
         /// </summary>
         public IMessageMeta MessageToSend { get; }
         /// <summary>

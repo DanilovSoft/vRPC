@@ -19,7 +19,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Не является потокобезопасным.
         /// </summary>
-        private readonly SpinWait _spinWait = new SpinWait();
+        private readonly SpinWait _spinWait;
         private Exception? _disconnectException;
         private int _reqIdSeq;
 

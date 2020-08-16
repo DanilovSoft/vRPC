@@ -165,7 +165,7 @@ namespace DanilovSoft.vRPC
                         {
                             // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
                             TrySetException(new VRpcProtocolErrorException(
-                                $"Ошибка десериализации ответа на запрос \"{Request.ActionFullName}\".", deserializationException));
+                                $"Ошибка десериализации ответа на запрос \"{Request.MethodFullName}\".", deserializationException));
                         }
                     }
                     else

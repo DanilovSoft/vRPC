@@ -15,7 +15,7 @@ namespace DanilovSoft.vRPC
     /// Не подлежит сериализации.
     /// Потокобезопасен.
     /// </summary>
-    [DebuggerDisplay(@"\{Request = {ActionFullName}\}")]
+    [DebuggerDisplay(@"\{Request = {MethodFullName}\}")]
     internal sealed class RequestMethodMeta : IMessageMeta
     {
         /// <summary>
@@ -30,7 +30,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Имя метода например 'Home/Hello' без постфикса 'Async'.
         /// </summary>
-        public string ActionFullName { get; }
+        public string MethodFullName { get; }
         public bool TcpNoDelay { get; }
         public bool IsJsonRpc { get; }
         public bool IsRequest => true;
@@ -66,7 +66,7 @@ namespace DanilovSoft.vRPC
             //IncapsulatedReturnType = GetMethodReturnType(interfaceMethod.ReturnType);
             
             // Нормализованное имя метода.
-            ActionFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{interfaceMethod.GetNameTrimAsync()}";
+            MethodFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{interfaceMethod.GetNameTrimAsync()}";
 
             // Особая семантика метода — когда все параметры являются VRpcContent.
             _multipartStrategy = IsAllParametersIsSpecialType(interfaceMethod);
@@ -110,7 +110,7 @@ namespace DanilovSoft.vRPC
             {
                 IsNotificationRequest = false;
             }
-            ActionFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{methodName}";
+            MethodFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{methodName}";
         }
 
         /// <exception cref="VRpcException"/>
