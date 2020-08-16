@@ -1,5 +1,6 @@
 ﻿using DanilovSoft.vRPC;
 using System;
+using System.Net;
 using System.Threading;
 
 namespace ConsoleApp
@@ -8,13 +9,16 @@ namespace ConsoleApp
     {
         static void Main()
         {
-            VRpcClient client = new VRpcClient("localhost", 1234, false, true);
+            VRpcListener listener = new VRpcListener(IPAddress.Any, 1234);
+            listener.Start();
+
+            VRpcClient client = new VRpcClient("localhost", 1234, false, allowAutoConnect: true);
             IPing p = client.GetProxy<IPing>();
 
             while (true)
             {
-                Thread.Sleep(1000);
                 p.Ping();
+                Thread.Sleep(1000);
             }
         }
     }
@@ -27,6 +31,7 @@ namespace ConsoleApp
         }
     }
 
+    [JsonRpcCompatible]
     public interface IPing
     {
         void Ping();

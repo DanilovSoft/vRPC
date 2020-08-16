@@ -32,6 +32,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public string ActionFullName { get; }
         public bool TcpNoDelay { get; }
+        public bool IsJsonRpc { get; }
         public bool IsRequest => true;
         /// <summary>
         /// Когда все параметры метода являются <see cref="VRpcContent"/> то обрабатываются
@@ -41,15 +42,19 @@ namespace DanilovSoft.vRPC
 
         // ctor.
         /// <exception cref="VRpcException"/>
-        public RequestMethodMeta(MethodInfo interfaceMethod, Type returnType, string? controllerName)
+        public RequestMethodMeta(MethodInfo interfaceMethod, Type methodReturnType, string? controllerName)
         {
             Debug.Assert(interfaceMethod != null);
 
-            ReturnType = returnType;
+            ReturnType = methodReturnType;
 
             // Метод интерфейса может быть помечен как [Notification].
             IsNotificationRequest = Attribute.IsDefined(interfaceMethod, typeof(NotificationAttribute));
             TcpNoDelay = Attribute.IsDefined(interfaceMethod, typeof(TcpNoDelayAttribute));
+
+            Debug.Assert(interfaceMethod.DeclaringType != null);
+            IsJsonRpc = Attribute.IsDefined(interfaceMethod.DeclaringType, typeof(JsonRpcCompatibleAttribute)) 
+                || Attribute.IsDefined(interfaceMethod, typeof(JsonRpcCompatibleAttribute));
 
             if (IsNotificationRequest)
             {
@@ -205,7 +210,7 @@ namespace DanilovSoft.vRPC
 
         private SerializedMessageToSend SerializeToJson(object[] args)
         {
-            SerializedMessageToSend serializedMessage = new SerializedMessageToSend(this);
+            var serializedMessage = new SerializedMessageToSend(this);
             SerializedMessageToSend? toDispose = serializedMessage;
             try
             {

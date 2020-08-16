@@ -13,5 +13,6 @@ namespace DanilovSoft.vRPC
         /// </summary>
         bool IsNotificationRequest { get; }
         bool TcpNoDelay { get; }
+        bool IsJsonRpc { get; }
     }
 }

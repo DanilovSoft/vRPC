@@ -93,7 +93,7 @@ namespace Client
                                 {
                                     controller.VoidNoArgs();
                                 }
-                                catch (VRpcWasShutdownException)
+                                catch (VRpcShutdownException)
                                 {
                                     return;
                                 }

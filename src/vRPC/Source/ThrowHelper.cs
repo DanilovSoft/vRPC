@@ -28,10 +28,10 @@ namespace DanilovSoft.vRPC
         internal static void ThrowObjectDisposedException(string? objectName, string? message) =>
             throw new ObjectDisposedException(objectName, message);
 
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         [DoesNotReturn]
         internal static void ThrowWasShutdownException(ShutdownRequest shutdownRequired) =>
-            throw new VRpcWasShutdownException(shutdownRequired);
+            throw new VRpcShutdownException(shutdownRequired);
 
         /// <exception cref="ArgumentNullException"/>
         [DoesNotReturn]

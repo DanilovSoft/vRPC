@@ -31,7 +31,7 @@ namespace LoadTestApp
             {
                 for (int i = 0; i < count; i++)
                 {
-                    var cli = _clients[i] = CreateClient();
+                    _clients[i] = CreateClient();
                     ThreadPool.UnsafeQueueUserWorkItem(s => ThreadEntry(s), i);
                 }
 
@@ -89,7 +89,7 @@ namespace LoadTestApp
                         {
                             string pong = await p.Ping("ping");
                         }
-                        catch (VRpcWasShutdownException ex)
+                        catch (VRpcShutdownException ex)
                         {
                             Interlocked.Decrement(ref _connectionsCount);
                             await Task.Delay(100);

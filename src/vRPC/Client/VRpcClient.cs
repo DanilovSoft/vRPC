@@ -223,7 +223,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <remarks>Потокобезопасно.</remarks>
         /// <exception cref="VRpcConnectException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         public void Connect()
         {
@@ -235,7 +235,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <remarks>Потокобезопасно.</remarks>
         /// <exception cref="VRpcConnectException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         public async Task ConnectAsync()
         {
@@ -269,7 +269,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <remarks>Потокобезопасно.</remarks>
         /// <exception cref="VRpcConnectException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         public ConnectResult ConnectEx()
         {
@@ -282,7 +282,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <remarks>Потокобезопасно.</remarks>
         /// <exception cref="VRpcConnectException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         public Task<ConnectResult> ConnectExAsync()
         {
@@ -375,7 +375,7 @@ namespace DanilovSoft.vRPC
         /// 
         /// </summary>
         /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="VRpcConnectionNotOpenException"/>
         public void SignOut()
         {
@@ -383,7 +383,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="VRpcConnectionNotOpenException"/>
         public Task SignOutAsync()
         {
@@ -541,7 +541,7 @@ namespace DanilovSoft.vRPC
         /// Возвращает существующее подключение или создаёт новое если это разрешает свойство <see cref="IsAutoConnectAllowed"/>.
         /// </summary>
         /// <exception cref="SocketException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="VRpcConnectionNotOpenException"/>
         internal ValueTask<ClientSideConnection> GetOrOpenConnection(AccessToken accessToken)
         {
@@ -647,7 +647,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(AsyncLock.Releaser conLock, AccessToken accessToken)
         {
@@ -879,7 +879,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Проверяет установку волатильного свойства <see cref="_shutdownRequest"/>.
         /// </summary>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         private void ThrowIfWasShutdown()
         {
             // volatile копия.
@@ -912,7 +912,7 @@ namespace DanilovSoft.vRPC
             else
             // В этом экземпляре уже был запрос на остановку.
             {
-                exceptionTask = new ValueTask<T>(Task.FromException<T>(new VRpcWasShutdownException(stopRequired)));
+                exceptionTask = new ValueTask<T>(Task.FromException<T>(new VRpcShutdownException(stopRequired)));
                 return true;
             }
         }

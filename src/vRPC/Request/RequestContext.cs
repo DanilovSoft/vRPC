@@ -32,6 +32,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public object[] Args { get; }
 
+        // ctor
         public RequestContext(int? uid, ControllerActionMeta controllerActionMeta, object[] args)
         {
             Uid = uid;

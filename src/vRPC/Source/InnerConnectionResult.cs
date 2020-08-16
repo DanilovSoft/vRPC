@@ -76,7 +76,7 @@ namespace DanilovSoft.vRPC
         /// Может бросить исключение.
         /// </summary>
         /// <exception cref="SocketException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         public ClientSideConnection ToManagedConnection()
         {
             if (Connection != null)
@@ -103,7 +103,7 @@ namespace DanilovSoft.vRPC
         /// Может бросить исключение.
         /// </summary>
         /// <exception cref="SocketException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         public ValueTask<ClientSideConnection> ToManagedConnectionTask()
         {
             if (Connection != null)
@@ -120,7 +120,7 @@ namespace DanilovSoft.vRPC
             // Пользователь запросил остановку.
             {
                 Debug.Assert(ShutdownRequest != null);
-                return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(new VRpcWasShutdownException(ShutdownRequest)));
+                return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(new VRpcShutdownException(ShutdownRequest)));
             }
         }
     }

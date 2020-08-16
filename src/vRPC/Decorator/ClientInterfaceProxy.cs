@@ -34,10 +34,10 @@ namespace DanilovSoft.vRPC.Decorator
             
         }
 
-        private RequestMethodMeta GetMeta<T>(MethodInfo targetMethod)
+        private RequestMethodMeta GetMeta<TResult>(MethodInfo targetMethod)
         {
             // Метаданные запроса.
-            var methodMeta = ClientSideConnection.MethodDict.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, typeof(T), cn), ControllerName);
+            var methodMeta = ClientSideConnection.MethodDict.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, typeof(TResult), cn), ControllerName);
 
             return methodMeta;
         }

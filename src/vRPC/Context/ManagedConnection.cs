@@ -328,7 +328,7 @@ namespace DanilovSoft.vRPC
                 }
 
                 // Не бросает исключения.
-                TryDispose(CloseReason.FromException(new VRpcWasShutdownException(stopRequired)));
+                TryDispose(CloseReason.FromException(new VRpcShutdownException(stopRequired)));
 
                 CloseReason closeReason = _completionTcs.Task.Result;
 
@@ -398,7 +398,7 @@ namespace DanilovSoft.vRPC
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
         /// <remarks>Со стороны сервера.</remarks>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         internal ValueTask OnServerNotificationCall(RequestMethodMeta methodMeta, object[] args)
         {
@@ -424,7 +424,7 @@ namespace DanilovSoft.vRPC
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
         /// <remarks>Со стороны сервера.</remarks>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         internal Task<TResult> OnServerMethodCall<TResult>(RequestMethodMeta methodMeta, object[] args)
         {
@@ -516,7 +516,7 @@ namespace DanilovSoft.vRPC
         /// Может бросить исключение.
         /// Чаще всего возвращает <see cref="Task.CompletedTask"/>.
         /// </summary>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         private static ValueTask WaitConnectionAndSendNotificationAsync(ValueTask<ClientSideConnection> connectingTask, SerializedMessageToSend serMsg)
         {
@@ -582,7 +582,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Отправляет запрос-уведомление через очередь (выполнит отправку текущим потоком если очередь пуста).
         /// </summary>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         internal ValueTask SendNotificationAsync(SerializedMessageToSend serializedMessage)
         {
@@ -602,13 +602,13 @@ namespace DanilovSoft.vRPC
                     return new ValueTask(Task.FromException(new ObjectDisposedException(GetType().FullName)));
             }
             else
-                return new ValueTask(Task.FromException(new VRpcWasShutdownException(_shutdownRequest)));
+                return new ValueTask(Task.FromException(new VRpcShutdownException(_shutdownRequest)));
         }
 
         /// <summary>
         /// Отправляет запрос и ожидает его ответ.
         /// </summary>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         private protected Task<TResult> SendRequestAndWaitResponse<TResult>(RequestMethodMeta requestMeta, object[] args)
         {
@@ -634,19 +634,18 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <remarks>Происходит при обращении к прокси-интерфейсу.</remarks>
         /// <exception cref="SocketException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <returns>Таск с результатом от сервера.</returns>
         private protected Task<TResult> SendSerializedRequestAndWaitResponse<TResult>(RequestMethodMeta requestMeta, SerializedMessageToSend serMsg)
         {
             Debug.Assert(!requestMeta.IsNotificationRequest);
 
-            // Shutdown устанавливается раньше чем может выполниться Dispose.
+            // Shutdown нужно проверять раньше чем Dispose потому что Dispose может быть по причине Shutdown.
             if (_shutdownRequest == null) // volatile проверка.
             {
                 if (!IsDisposed) // volatile проверка.
                 {
-
                     SerializedMessageToSend? serMsgToDispose = serMsg;
                     try
                     {
@@ -675,7 +674,7 @@ namespace DanilovSoft.vRPC
                     return Task.FromException<TResult>(new ObjectDisposedException(GetType().FullName));
             }
             else
-                return Task.FromException<TResult>(new VRpcWasShutdownException(_shutdownRequest));
+                return Task.FromException<TResult>(new VRpcShutdownException(_shutdownRequest));
         }
 
         /// <summary>
@@ -1299,8 +1298,9 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Сериализует хэдер в стрим сообщения. Не бросает исключения.
+        /// Сериализует хэдер в стрим сообщения.
         /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
         private static void AppendHeader(SerializedMessageToSend messageToSend)
         {
             HeaderDto header = CreateHeader(messageToSend);
@@ -1341,7 +1341,7 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(serializedMessage != null);
 
-            SerializedMessageToSend? serializedMessageToDispose = serializedMessage;
+            SerializedMessageToSend? toDispose = serializedMessage;
             try
             {
                 // На текущем этапе сокет может быть уже уничтожен другим потоком.
@@ -1357,13 +1357,13 @@ namespace DanilovSoft.vRPC
                     // Успешно передали объект другому потоку.
                     {
                         // Мы больше не владеем этим объектом.
-                        serializedMessageToDispose = null;
+                        toDispose = null;
                     }
                 }
             }
             finally
             {
-                serializedMessageToDispose?.Dispose();
+                toDispose?.Dispose();
             }
         }
 
@@ -1877,11 +1877,11 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private void SendOkResponse(in RequestContext requestToInvoke, object? actionResult)
+        private void SendOkResponse(in RequestContext requestContext, object? actionResult)
         {
-            Debug.Assert(requestToInvoke.Uid != null);
+            Debug.Assert(requestContext.Uid != null);
 
-            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ControllerActionMeta, actionResult));
+            SerializeResponseAndTrySend(new ResponseMessage(requestContext.Uid.Value, requestContext.ControllerActionMeta, actionResult));
         }
 
         private void SendInternalerverError(in RequestContext requestToInvoke)
@@ -2018,7 +2018,7 @@ namespace DanilovSoft.vRPC
         private void TrySetCompletion(CloseReason closeReason)
         {
             // Установить Task Completion.
-            if(_completionTcs.TrySetResult(closeReason))
+            if (_completionTcs.TrySetResult(closeReason))
             {
                 try
                 {

@@ -28,8 +28,9 @@ namespace DanilovSoft.vRPC
         public bool IsRequest => false;
         public bool IsNotificationRequest => false;
         public bool TcpNoDelay => ActionMeta?.TcpNoDelay ?? false;
+        public bool IsJsonRpc => throw new NotImplementedException();
 
-        #region Ctor
+        #region ctor
 
         /// <summary>
         /// Ответ на основе запроса.

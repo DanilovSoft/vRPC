@@ -10,17 +10,17 @@ namespace DanilovSoft.vRPC
     /// Происходит при обращении к выключенному экземпляру или находящемуся в процессе отключения по запросу пользователя.
     /// </summary>
     [Serializable]
-    public sealed class VRpcWasShutdownException : VRpcException
+    public sealed class VRpcShutdownException : VRpcException
     {
         public ShutdownRequest? ShutdownRequest { get; }
 
-        public VRpcWasShutdownException() { }
+        public VRpcShutdownException() { }
 
-        public VRpcWasShutdownException(string message) : base(message) { }
+        public VRpcShutdownException(string message) : base(message) { }
 
-        public VRpcWasShutdownException(string message, Exception innerException) : base(message, innerException) { }
+        public VRpcShutdownException(string message, Exception innerException) : base(message, innerException) { }
 
-        internal VRpcWasShutdownException(ShutdownRequest shutdownRequest) : base(CreateExceptionMessage(shutdownRequest))
+        internal VRpcShutdownException(ShutdownRequest shutdownRequest) : base(CreateExceptionMessage(shutdownRequest))
         {
             Debug.Assert(shutdownRequest != null);
             ShutdownRequest = shutdownRequest;
@@ -41,7 +41,7 @@ namespace DanilovSoft.vRPC
         }
 
 #pragma warning disable CA1801
-        private VRpcWasShutdownException(SerializationInfo serializationInfo, StreamingContext streamingContext)
+        private VRpcShutdownException(SerializationInfo serializationInfo, StreamingContext streamingContext)
         {
             
         }

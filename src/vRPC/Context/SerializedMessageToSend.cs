@@ -26,17 +26,20 @@ namespace DanilovSoft.vRPC
 
         internal string? GetDebugJson()
         {
-            if ((ContentEncoding == null || ContentEncoding == "json") && MemoryPoolBuffer?.WrittenCount > 0 && HeaderSize > 0)
+            if (HeaderSize > 0)
             {
-                byte[] copy = MemoryPoolBuffer.WrittenMemory.ToArray();
-                string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
-                var element = JsonDocument.Parse(j).RootElement;
-                return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
+                if ((ContentEncoding == null || ContentEncoding == "json") && MemoryPoolBuffer?.WrittenCount > 0)
+                {
+                    byte[] copy = MemoryPoolBuffer.WrittenMemory.ToArray();
+                    string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
+                    var element = JsonDocument.Parse(j).RootElement;
+                    return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
+                }
+                else
+                    return null;
             }
             else
-            {
-                return null;
-            }
+                return "Заголовок ещё на записан";
         }
 #endif
 

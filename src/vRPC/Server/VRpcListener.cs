@@ -372,7 +372,7 @@ namespace DanilovSoft.vRPC
         /// Предотвращает повторный запуск сервера.
         /// </summary>
         /// <exception cref="VRpcException"/>
-        /// <exception cref="VRpcWasShutdownException"/>
+        /// <exception cref="VRpcShutdownException"/>
         private bool InnerTryStart(bool shouldThrow)
         {
             Debug.Assert(Monitor.IsEntered(StartLock));

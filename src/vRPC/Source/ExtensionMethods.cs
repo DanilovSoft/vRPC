@@ -390,9 +390,9 @@ namespace DanilovSoft.vRPC
                 ThrowHelper.ThrowArgumentOutOfRangeException("AccessToken is empty", arguemntName);
         }
 
-        internal static VRpcWasShutdownException ToException(this ShutdownRequest shutdownRequest)
+        internal static VRpcShutdownException ToException(this ShutdownRequest shutdownRequest)
         {
-            return new VRpcWasShutdownException(shutdownRequest);
+            return new VRpcShutdownException(shutdownRequest);
         }
     }
 }
