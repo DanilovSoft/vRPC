@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
@@ -17,7 +16,7 @@ using System.Buffers.Text;
 
 namespace DanilovSoft.vRPC
 {
-    internal static class CustomSerializer
+    internal static partial class CustomSerializer
     {
         private const string ArgumentsCountMismatch = "Argument count mismatch for action '{0}'. {1} arguments was expected.";
 
@@ -261,37 +260,6 @@ namespace DanilovSoft.vRPC
             }
         }
 
-#if DEBUG
-        [DebuggerDisplay("{ToString()}")]
-        private readonly ref struct DebuggerDisplayJson
-        {
-            private readonly ReadOnlySpan<byte> _utf8Json;
-
-            public DebuggerDisplayJson(ReadOnlySpan<byte> utf8Json)
-            {
-                _utf8Json = utf8Json;
-            }
-
-#if NETSTANDARD2_0 || NET472
-
-#else
-            public string AsIndented => ToIndentedString();
-
-            public override string ToString()
-            {
-                return Encoding.UTF8.GetString(_utf8Json);
-            }
-
-            public string ToIndentedString()
-            {
-                string j = Encoding.UTF8.GetString(_utf8Json);
-                var element = JsonDocument.Parse(j).RootElement;
-                return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
-            }
-#endif
-        }
-#endif
-
         /// <summary>
         /// Десериализует json запрос.
         /// </summary>
@@ -303,13 +271,13 @@ namespace DanilovSoft.vRPC
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
 #endif
             StatusCode statusCode = StatusCode.None;
-            int? uid = null;
+            int? id = null;
             int payloadLength = -1;
             string? actionName = null;
             string? contentEncoding = null;
 
             bool gotCode = false;
-            bool gotUid = false;
+            bool gotId = false;
             bool gotPayload = false;
             bool gotEncoding = false;
             bool gotMethod = false;
@@ -327,12 +295,12 @@ namespace DanilovSoft.vRPC
                             gotCode = true;
                         }
                     }
-                    else if (!gotUid && reader.ValueTextEquals("uid"))
+                    else if (!gotId && reader.ValueTextEquals("uid"))
                     {
                         if (reader.Read())
                         {
-                            uid = reader.GetInt32();
-                            gotUid = true;
+                            id = reader.GetInt32();
+                            gotId = true;
                         }
                     }
                     else if (!gotPayload && reader.ValueTextEquals("payload"))
@@ -361,7 +329,7 @@ namespace DanilovSoft.vRPC
                     }
                 }
             }
-            return new HeaderDto(uid, statusCode, payloadLength, contentEncoding, actionName);
+            return new HeaderDto(id, statusCode, payloadLength, contentEncoding, actionName);
         }
     }
 }

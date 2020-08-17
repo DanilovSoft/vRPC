@@ -17,7 +17,7 @@ namespace ConsoleApp
 
             while (true)
             {
-                p.Ping();
+                p.Ping("test", 123);
                 Thread.Sleep(1000);
             }
         }
@@ -34,6 +34,6 @@ namespace ConsoleApp
     [JsonRpcCompatible]
     public interface IPing
     {
-        void Ping();
+        void Ping(string msg, int n);
     }
 }

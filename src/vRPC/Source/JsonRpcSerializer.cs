@@ -46,5 +46,43 @@ namespace DanilovSoft.vRPC
                 writer.WriteEndObject();
             }
         }
+
+        public static bool TryDeserialize(ReadOnlySpan<byte> utf8Json)
+        {
+#if DEBUG
+            var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
+#endif
+            string? actionName = null;
+            int? id = null;
+
+            bool gotMethod = false;
+            bool gotId = false;
+
+            var reader = new Utf8JsonReader(utf8Json);
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.PropertyName)
+                {
+                    if (!gotMethod && reader.ValueTextEquals("method"))
+                    {
+                        if (reader.Read())
+                        {
+                            actionName = reader.GetString();
+                            gotMethod = true;
+                        }
+                    }
+                    else if (!gotId && reader.ValueTextEquals("id"))
+                    {
+                        if (reader.Read())
+                        {
+                            id = reader.GetInt32();
+                            gotId = true;
+                        }
+                    }
+                }
+            }
+
+            throw new NotImplementedException();
+        }
     }
 }

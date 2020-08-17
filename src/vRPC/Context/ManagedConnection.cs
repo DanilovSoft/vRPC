@@ -218,7 +218,7 @@ namespace DanilovSoft.vRPC
 
 #if NETSTANDARD2_0 || NET472
             // Запустить цикл приёма сообщений.
-            ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, this); // Без замыкания.
+            ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, state: this);
 #else
             // Запустить цикл приёма сообщений.
             ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, state: this, preferLocal: false); // Через глобальную очередь.
@@ -789,8 +789,21 @@ namespace DanilovSoft.vRPC
                         return;
                     }
                 }
-                else
-                // Получен Close или Text.
+                else if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
+                // Text мог прислать только Json-rpc.
+                {
+                    try
+                    {
+                        JsonRpcSerializer.TryDeserialize(headerBuffer.AsSpan(0, webSocketMessage.Count));
+                    }
+                    catch (Exception ex)
+                    {
+                        // Отправка Close и завершить поток.
+                        await SendCloseHeaderErrorAsync(webSocketMessage.Count, ex).ConfigureAwait(false);
+                        return;
+                    }
+                }
+                // Получен Close.
                 {
                     await TryNonBinaryTypeCloseAndDisposeAsync(webSocketMessage).ConfigureAwait(false);
                     return;
@@ -1575,7 +1588,7 @@ namespace DanilovSoft.vRPC
 
                                     try
                                     {
-                                        await SendBufferAsync(buffer.WrittenMemory, endOfMessage: true).ConfigureAwait(false);
+                                        await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
                                     }
                                     catch (Exception ex)
                                     // Обрыв соединения.
@@ -1696,6 +1709,14 @@ namespace DanilovSoft.vRPC
             Debug.Assert(!buffer.IsEmpty, "Протокол никогда не отправляет пустые сообщения");
 
             return _ws.SendAsync(buffer, Ms.WebSocketMessageType.Binary, endOfMessage, CancellationToken.None);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private ValueTask SendBufferAsync(ReadOnlyMemory<byte> buffer, Ms.WebSocketMessageType messageType, bool endOfMessage)
+        {
+            Debug.Assert(!buffer.IsEmpty, "Протокол никогда не отправляет пустые сообщения");
+
+            return _ws.SendAsync(buffer, messageType, endOfMessage, CancellationToken.None);
         }
 
         //[Conditional("LOG_RPC")]
