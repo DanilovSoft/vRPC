@@ -22,7 +22,7 @@ namespace DanilovSoft.vRPC
 
         /// <param name="result">Не Null когда True.</param>
         /// <remarks>Не бросает исключения.</remarks>
-        internal static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerActionMeta action, in HeaderDto header, 
+        internal static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerMethodMeta action, in HeaderDto header, 
             [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
@@ -63,16 +63,16 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="JsonException"/>
         /// <returns>True если успешно десериализовали.</returns>
-        private static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, ControllerActionMeta action, int? uid, 
+        private static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, ControllerMethodMeta method, int? uid, 
             [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
 #endif
-            object[] args = action.Parametergs.Length == 0
+            object[] args = method.Parametergs.Length == 0
                 ? Array.Empty<object>()
-                : (new object[action.Parametergs.Length]);
+                : (new object[method.Parametergs.Length]);
 
             // Считаем сколько аргументов есть в json'е.
             short argsInJsonCounter = 0;
@@ -84,9 +84,9 @@ namespace DanilovSoft.vRPC
                 {
                     while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
                     {
-                        if (action.Parametergs.Length > argsInJsonCounter)
+                        if (method.Parametergs.Length > argsInJsonCounter)
                         {
-                            Type paramType = action.Parametergs[argsInJsonCounter].ParameterType;
+                            Type paramType = method.Parametergs[argsInJsonCounter].ParameterType;
                             try
                             {
                                 args[argsInJsonCounter] = JsonSerializer.Deserialize(ref reader, paramType);
@@ -94,26 +94,26 @@ namespace DanilovSoft.vRPC
                             catch (JsonException)
                             {
                                 result = default;
-                                error = ErrorDeserializingArgument(action.ActionFullName, argIndex: argsInJsonCounter, paramType);
+                                error = ErrorDeserializingArgument(method.MethodFullName, argIndex: argsInJsonCounter, paramType);
                                 return false;
                             }
                             argsInJsonCounter++;
                         }
                         else
-                        // Выход за границы массива.
+                        // Несоответствие числа параметров.
                         {
                             result = default;
-                            error = ArgumentsCountMismatchError(action.ActionFullName, action.Parametergs.Length);
+                            error = ArgumentsCountMismatchError(method.MethodFullName, method.Parametergs.Length);
                             return false;
                         }
                     }
                 }
             }
 
-            if (ValidateArgumentsCount(action.Parametergs, argsInJsonCounter, action.ActionFullName, out error))
+            if (ValidateArgumentsCount(method.Parametergs, argsInJsonCounter, method.MethodFullName, out error))
             {
                 error = null;
-                result = new RequestContext(uid, action, args);
+                result = new RequestContext(uid, method, args);
                 return true;
             }
             else
@@ -125,7 +125,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="Exception"/>
-        private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerActionMeta action, int? uid,
+        private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerMethodMeta action, int? uid,
             [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
@@ -140,7 +140,7 @@ namespace DanilovSoft.vRPC
             }
             try
             {
-                if (DeserializeArgs(content, action, args, out error))
+                if (DeserializeProtoBufArgs(content, action, args, out error))
                 {
                     result = new RequestContext(uid, action, args);
                     args = null; // Предотвратить Dispose.
@@ -162,7 +162,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static bool DeserializeArgs(ReadOnlyMemory<byte> content, ControllerActionMeta action, object[] args, [MaybeNullWhen(true)] out IActionResult? error)
+        private static bool DeserializeProtoBufArgs(ReadOnlyMemory<byte> content, ControllerMethodMeta action, object[] args, [MaybeNullWhen(true)] out IActionResult? error)
         {
             using (var stream = new ReadOnlyMemoryStream(content))
             {
@@ -182,7 +182,7 @@ namespace DanilovSoft.vRPC
                             }
                             catch (Exception)
                             {
-                                error = ErrorDeserializingArgument(action.ActionFullName, argIndex: i, argType);
+                                error = ErrorDeserializingArgument(action.MethodFullName, argIndex: i, argType);
                                 return false;
                             }
                         }
@@ -193,7 +193,7 @@ namespace DanilovSoft.vRPC
 
                         if (!RawEncodingArg(raw, ref args[i], argType))
                         {
-                            error = ErrorDeserializingArgument(action.ActionFullName, argIndex: i, argType);
+                            error = ErrorDeserializingArgument(action.MethodFullName, argIndex: i, argType);
                             return false;
                         }
                     }

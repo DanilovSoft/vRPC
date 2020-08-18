@@ -13,12 +13,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Может быть <see langword="null"/> если не удалось разобрать запрос.
         /// </summary>
-        internal ControllerActionMeta? ActionMeta { get; }
+        internal ControllerMethodMeta? ActionMeta { get; }
         public StatusCode StatusCode { get; internal set; }
         internal string? ProducesEncoding { get; set; }
 
         //[DebuggerStepThrough]
-        internal ActionContext(ControllerActionMeta? actionMeta, ArrayBufferWriter<byte> responseStream)
+        internal ActionContext(ControllerMethodMeta? actionMeta, ArrayBufferWriter<byte> responseStream)
         {
             ActionMeta = actionMeta;
             ResponseStream = responseStream;

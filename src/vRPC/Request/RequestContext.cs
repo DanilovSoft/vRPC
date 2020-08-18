@@ -25,7 +25,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Запрашиваемый метод контроллера.
         /// </summary>
-        public ControllerActionMeta ControllerActionMeta { get; }
+        public ControllerMethodMeta ControllerActionMeta { get; }
 
         /// <summary>
         /// Аргументы для вызываемого метода.
@@ -33,7 +33,7 @@ namespace DanilovSoft.vRPC
         public object[] Args { get; }
 
         // ctor
-        public RequestContext(int? uid, ControllerActionMeta controllerActionMeta, object[] args)
+        public RequestContext(int? uid, ControllerMethodMeta controllerActionMeta, object[] args)
         {
             Uid = uid;
             ControllerActionMeta = controllerActionMeta;

@@ -30,7 +30,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
-        private readonly InvokeActionsDictionary _invokeActions;
+        private readonly InvokeActionsDictionary _invokeMethods;
         /// <summary>
         /// Для Completion.
         /// </summary>
@@ -194,7 +194,7 @@ namespace DanilovSoft.vRPC
             ServiceProvider = serviceProvider;
 
             // Копируем список контроллеров сервера.
-            _invokeActions = actions;
+            _invokeMethods = actions;
 
             _sendChannel = Channel.CreateUnbounded<IMessageToSend>(new UnboundedChannelOptions
             {
@@ -431,19 +431,26 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(!methodMeta.IsNotificationRequest);
 
-            // Сериализуем запрос в память.
-            SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
-            SerializedMessageToSend? serMsgToDispose = serMsg;
-            try
+            if (methodMeta.IsJsonRpc)
             {
-                // Отправляем запрос.
-                Task<TResult> task = SendSerializedRequestAndWaitResponse<TResult>(methodMeta, serMsg);
-                serMsgToDispose = null;
-                return task;
+                return ExecuteJsonRequest<TResult>(methodMeta, args);
             }
-            finally
+            else
             {
-                serMsgToDispose?.Dispose();
+                // Сериализуем запрос в память.
+                SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
+                SerializedMessageToSend? serMsgToDispose = serMsg;
+                try
+                {
+                    // Отправляем запрос.
+                    Task<TResult> task = SendSerializedRequestAndWaitResponse<TResult>(methodMeta, serMsg);
+                    serMsgToDispose = null;
+                    return task;
+                }
+                finally
+                {
+                    serMsgToDispose?.Dispose();
+                }
             }
         }
 
@@ -794,7 +801,7 @@ namespace DanilovSoft.vRPC
                 {
                     try
                     {
-                        JsonRpcSerializer.TryDeserialize(headerBuffer.AsSpan(0, webSocketMessage.Count));
+                        JsonRpcSerializer.TryDeserialize(headerBuffer.AsSpan(0, webSocketMessage.Count), _invokeMethods, out var error);
                     }
                     catch (Exception ex)
                     {
@@ -933,7 +940,7 @@ namespace DanilovSoft.vRPC
                 {
                     if (ValidateHeader(in header))
                     {
-                        if (TryGetRequestMethod(in header, out ControllerActionMeta? action))
+                        if (TryGetRequestMethod(in header, out ControllerMethodMeta? action))
                         {
                             try
                             {
@@ -1031,11 +1038,11 @@ namespace DanilovSoft.vRPC
             return true; // Завершать поток чтения не нужно (вернуться к чтению следующего сообщения).
         }
 
-        private bool TryGetRequestMethod(in HeaderDto header, [NotNullWhen(true)] out ControllerActionMeta? action)
+        private bool TryGetRequestMethod(in HeaderDto header, [NotNullWhen(true)] out ControllerMethodMeta? action)
         {
             Debug.Assert(header.MethodName != null);
 
-            if (_invokeActions.TryGetAction(header.MethodName, out action))
+            if (_invokeMethods.TryGetAction(header.MethodName, out action))
             {
                 return true;
             }
@@ -1863,7 +1870,7 @@ namespace DanilovSoft.vRPC
         /// Проверяет доступность запрашиваемого метода для удаленного пользователя.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        private protected abstract bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user);
+        private protected abstract bool ActionPermissionCheck(ControllerMethodMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user);
 
         /// <summary>
         /// В новом потоке выполняет запрос и отправляет ему результат или ошибку.

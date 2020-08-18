@@ -52,7 +52,7 @@ namespace DanilovSoft.vRPC
         }
 
         // Клиент всегда разрешает серверу вызывать свои методы.
-        private protected sealed override bool ActionPermissionCheck(ControllerActionMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user)
+        private protected sealed override bool ActionPermissionCheck(ControllerMethodMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user)
         {
             user = null;
             permissionError = null;

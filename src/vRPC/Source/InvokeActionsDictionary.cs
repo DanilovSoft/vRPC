@@ -14,15 +14,15 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Словарь используемый только для чтения.
         /// </summary>
-        private readonly Dictionary<string, ControllerActionMeta> _actionsDict;
+        private readonly Dictionary<string, ControllerMethodMeta> _actionsDict;
 
         public InvokeActionsDictionary(Dictionary<string, Type> controllers)
         {
             // Методы типа "home/hello" без учета регистра.
-            _actionsDict = new Dictionary<string, ControllerActionMeta>(StringComparer.OrdinalIgnoreCase)
+            _actionsDict = new Dictionary<string, ControllerMethodMeta>(StringComparer.OrdinalIgnoreCase)
             {
-                { "/SignIn", new ControllerActionMeta("SignIn", typeof(AccountController), AccountController.SignInMethod) },
-                { "/SignOut", new ControllerActionMeta("SignOut", typeof(AccountController), AccountController.SignOutMethod) }
+                { "/SignIn", new ControllerMethodMeta("SignIn", typeof(AccountController), AccountController.SignInMethod) },
+                { "/SignOut", new ControllerMethodMeta("SignOut", typeof(AccountController), AccountController.SignOutMethod) }
             };
 
             foreach (KeyValuePair<string, Type> controller in controllers)
@@ -31,7 +31,7 @@ namespace DanilovSoft.vRPC
                 foreach (MethodInfo method in methods)
                 {
                     string actionFullName = $"{controller.Key}{GlobalVars.ControllerNameSplitter}{method.Name}";
-                    if (!_actionsDict.TryAdd(actionFullName, new ControllerActionMeta(actionFullName, controller.Value, method)))
+                    if (!_actionsDict.TryAdd(actionFullName, new ControllerMethodMeta(actionFullName, controller.Value, method)))
                     {
                         ThrowHelper.ThrowVRpcException($"Контроллер {controller.Value.Name} содержит несколько методов с одинаковым именем '{method.Name}'." +
                             $" Переименуйте методы так что-бы их имена были уникальны в пределах контроллера.");
@@ -41,7 +41,7 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetAction(string actionFullName, [MaybeNullWhen(false)] out ControllerActionMeta value)
+        public bool TryGetAction(string actionFullName, [MaybeNullWhen(false)] out ControllerMethodMeta value)
         {
             return _actionsDict.TryGetValue(actionFullName, out value);
         }

@@ -327,7 +327,7 @@ namespace DanilovSoft.vRPC
             return exceptionMessage;
         }
 
-        internal static string GetControllerActionName(this MethodInfo controllerMethod)
+        internal static string GetControllerMethodName(this MethodInfo controllerMethod)
         {
             Debug.Assert(controllerMethod != null);
             Debug.Assert(controllerMethod.DeclaringType != null);

@@ -794,7 +794,7 @@
             Контекст соединения Web-Сокета. Владеет соединением.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ManagedConnection._invokeActions">
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._invokeMethods">
             <summary>
             Содержит все доступные для вызова экшены контроллеров.
             </summary>
@@ -1127,7 +1127,7 @@
             <param name="receivedRequest">Гарантированно выполнит Dispose.</param>
             <returns><see cref="T:DanilovSoft.vRPC.IActionResult"/> или любой объект.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ActionPermissionCheck(DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.IActionResult@,System.Security.Claims.ClaimsPrincipal@)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ActionPermissionCheck(DanilovSoft.vRPC.ControllerMethodMeta,DanilovSoft.vRPC.IActionResult@,System.Security.Claims.ClaimsPrincipal@)">
             <summary>
             Проверяет доступность запрашиваемого метода для удаленного пользователя.
             </summary>
@@ -1207,7 +1207,7 @@
             Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.Int32,DanilovSoft.vRPC.ControllerActionMeta,System.Object)">
+        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(System.Int32,DanilovSoft.vRPC.ControllerMethodMeta,System.Object)">
             <summary>
             Ответ на основе запроса.
             </summary>
@@ -1326,7 +1326,7 @@
             Сбрасывает аутентификацию соединения в изначальное состояние.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ServerSideConnection.ActionPermissionCheck(DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.IActionResult@,System.Security.Claims.ClaimsPrincipal@)">
+        <member name="M:DanilovSoft.vRPC.ServerSideConnection.ActionPermissionCheck(DanilovSoft.vRPC.ControllerMethodMeta,DanilovSoft.vRPC.IActionResult@,System.Security.Claims.ClaimsPrincipal@)">
             <summary>
             Проверяет доступность запрашиваемого метода пользователем.
             </summary>
@@ -1899,34 +1899,34 @@
             Не Null если State = <see cref="F:DanilovSoft.vRPC.ConnectionState.ShutdownRequest"/>.
             </summary>
         </member>
-        <member name="T:DanilovSoft.vRPC.ControllerActionMeta">
+        <member name="T:DanilovSoft.vRPC.ControllerMethodMeta">
             <summary>
             Содержит исчерпывающую информацию о методе контроллера.
             Этот клас переиспользуется.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.ControllerActionMeta.ProducesEncoding">
+        <member name="P:DanilovSoft.vRPC.ControllerMethodMeta.ProducesEncoding">
             <summary>
             Формат возвращаемых данных.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.ControllerActionMeta.ControllerType">
+        <member name="P:DanilovSoft.vRPC.ControllerMethodMeta.ControllerType">
             <summary>
             Контроллер для активации через IoC.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequest(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,DanilovSoft.vRPC.HeaderDto@,DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequest(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,DanilovSoft.vRPC.HeaderDto@,DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <param name="result">Не Null когда True.</param>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
             </summary>
             <exception cref="T:System.Text.Json.JsonException"/>
             <returns>True если успешно десериализовали.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeMultipart(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerActionMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeMultipart(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <exception cref="T:System.Exception"/>
         </member>
         <member name="M:DanilovSoft.vRPC.CustomSerializer.DeserializeHeader(System.ReadOnlySpan{System.Byte})">

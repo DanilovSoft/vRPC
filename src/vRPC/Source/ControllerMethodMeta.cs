@@ -17,8 +17,8 @@ namespace DanilovSoft.vRPC
     /// Содержит исчерпывающую информацию о методе контроллера.
     /// Этот клас переиспользуется.
     /// </summary>
-    [DebuggerDisplay(@"\{{TargetMethod.GetControllerActionName()}\}")]
-    internal sealed class ControllerActionMeta
+    [DebuggerDisplay(@"\{{TargetMethod.GetControllerMethodName()}\}")]
+    internal sealed class ControllerMethodMeta
     {
         public Action<ArrayBufferWriter<byte>, object> SerializerDelegate { get; }
         public MethodInfo TargetMethod { get; }
@@ -27,7 +27,7 @@ namespace DanilovSoft.vRPC
         /// Формат возвращаемых данных.
         /// </summary>
         public string ProducesEncoding { get; }
-        public string ActionFullName { get; }
+        public string MethodFullName { get; }
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)] // Отладчик путает педали.
         public Func<object, object[], object?> FastInvokeDelegate { get; }
@@ -39,9 +39,9 @@ namespace DanilovSoft.vRPC
         public bool TcpNoDelay { get; }
         public int[] DisposableArgsIndex { get; }
 
-        public ControllerActionMeta(string actionFullName, Type controllerType, MethodInfo methodInfo)
+        public ControllerMethodMeta(string actionFullName, Type controllerType, MethodInfo methodInfo)
         {
-            ActionFullName = actionFullName;
+            MethodFullName = actionFullName;
             ControllerType = controllerType;
             TargetMethod = methodInfo;
             Parametergs = methodInfo.GetParameters();

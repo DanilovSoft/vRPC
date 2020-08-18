@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 
@@ -47,16 +48,20 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public static bool TryDeserialize(ReadOnlySpan<byte> utf8Json)
+        public static bool TryDeserialize(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeMethods, [MaybeNullWhen(true)] out IActionResult? error)
         {
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
 #endif
             string? actionName = null;
             int? id = null;
+            ControllerMethodMeta? methodMeta = null;
 
             bool gotMethod = false;
             bool gotId = false;
+            JsonReaderState paramsState;
+
+            
 
             var reader = new Utf8JsonReader(utf8Json);
             while (reader.Read())
@@ -69,6 +74,12 @@ namespace DanilovSoft.vRPC
                         {
                             actionName = reader.GetString();
                             gotMethod = true;
+
+                            if (!invokeMethods.TryGetAction(actionName, out methodMeta))
+                            {
+                                error = default;
+                                return false;
+                            }
                         }
                     }
                     else if (!gotId && reader.ValueTextEquals("id"))
@@ -79,10 +90,63 @@ namespace DanilovSoft.vRPC
                             gotId = true;
                         }
                     }
+                    else if (reader.ValueTextEquals("params"))
+                    {
+                        if (methodMeta != null)
+                        {
+                            ReadArgs(methodMeta, reader);
+                        }
+                        else
+                        {
+                            paramsState = reader.CurrentState;
+                        }
+                    }
                 }
             }
 
             throw new NotImplementedException();
+        }
+
+        private static void ReadArgs(ControllerMethodMeta method, Utf8JsonReader reader)
+        {
+            if (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.StartArray)
+                {
+                    object[] args = method.Parametergs.Length == 0
+                        ? Array.Empty<object>()
+                        : (new object[method.Parametergs.Length]);
+
+                    // Считаем сколько аргументов есть в json'е.
+                    short argsInJsonCounter = 0;
+
+                    while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+                    {
+                        if (method.Parametergs.Length > argsInJsonCounter)
+                        {
+                            Type paramType = method.Parametergs[argsInJsonCounter].ParameterType;
+                            try
+                            {
+                                args[argsInJsonCounter] = JsonSerializer.Deserialize(ref reader, paramType);
+                            }
+                            catch (JsonException)
+                            {
+                                //result = default;
+                                //error = ErrorDeserializingArgument(method.MethodFullName, argIndex: argsInJsonCounter, paramType);
+                                //return false;
+                            }
+                            argsInJsonCounter++;
+                        }
+                        else
+                        // Несоответствие числа параметров.
+                        {
+                            //result = default;
+                            //error = ArgumentsCountMismatchError(method.MethodFullName, method.Parametergs.Length);
+                            //return false;
+                        }
+                    }
+                }
+            }
         }
     }
 }

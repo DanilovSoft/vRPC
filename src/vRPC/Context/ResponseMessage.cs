@@ -24,7 +24,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
         /// </summary>
-        public ControllerActionMeta? ActionMeta { get; private set; }
+        public ControllerMethodMeta? ActionMeta { get; private set; }
         public bool IsRequest => false;
         public bool IsNotificationRequest => false;
         public bool TcpNoDelay => ActionMeta?.TcpNoDelay ?? false;
@@ -36,7 +36,7 @@ namespace DanilovSoft.vRPC
         /// Ответ на основе запроса.
         /// </summary>
         [DebuggerStepThrough]
-        public ResponseMessage(int uid, ControllerActionMeta actionMeta, object? actionResult)
+        public ResponseMessage(int uid, ControllerMethodMeta actionMeta, object? actionResult)
         {
             ActionMeta = actionMeta;
             Uid = uid;

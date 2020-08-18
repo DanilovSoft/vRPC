@@ -203,7 +203,7 @@ namespace DanilovSoft.vRPC
         /// Проверяет доступность запрашиваемого метода пользователем.
         /// </summary>
         /// <exception cref="VRpcBadRequestException"/>
-        private protected sealed override bool ActionPermissionCheck(ControllerActionMeta actionMeta, [NotNullWhen(false)] out IActionResult? permissionError, out ClaimsPrincipal user)
+        private protected sealed override bool ActionPermissionCheck(ControllerMethodMeta actionMeta, [NotNullWhen(false)] out IActionResult? permissionError, out ClaimsPrincipal user)
         {
             // Скопируем пользователя что-бы не мог измениться в пределах запроса.
             user = _user;
@@ -229,7 +229,7 @@ namespace DanilovSoft.vRPC
                 return true;
             }
 
-            permissionError = new UnauthorizedResult($"Action '{actionMeta.ActionFullName}' requires user authentication.", StatusCode.Unauthorized);
+            permissionError = new UnauthorizedResult($"Action '{actionMeta.MethodFullName}' requires user authentication.", StatusCode.Unauthorized);
             return false;
         }
 
