@@ -9,6 +9,8 @@ namespace ConsoleApp
     {
         static void Main()
         {
+            double d = long.MaxValue;
+
             VRpcListener listener = new VRpcListener(IPAddress.Any, 1234);
             listener.Start();
             listener.ClientConnected += Listener_ClientConnected;

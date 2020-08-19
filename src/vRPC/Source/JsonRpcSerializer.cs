@@ -2,6 +2,7 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
@@ -48,20 +49,18 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public static bool TryDeserialize(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeMethods, [MaybeNullWhen(true)] out IActionResult? error)
+        internal static bool TryDeserialize(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeMethods, [MaybeNullWhen(true)] out IActionResult? error)
         {
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
 #endif
             string? actionName = null;
-            int? id = null;
+            string? id = null;
             ControllerMethodMeta? methodMeta = null;
 
             bool gotMethod = false;
             bool gotId = false;
             JsonReaderState paramsState;
-
-            
 
             var reader = new Utf8JsonReader(utf8Json);
             while (reader.Read())
@@ -86,7 +85,15 @@ namespace DanilovSoft.vRPC
                     {
                         if (reader.Read())
                         {
-                            id = reader.GetInt32();
+                            if (reader.TokenType == JsonTokenType.Number)
+                            {
+                                id = reader.GetDouble().ToString(CultureInfo.InvariantCulture);
+                                gotId = true;
+                            }
+                            else
+                            {
+                                id = reader.GetString();
+                            }
                             gotId = true;
                         }
                     }
@@ -104,7 +111,8 @@ namespace DanilovSoft.vRPC
                 }
             }
 
-            throw new NotImplementedException();
+            error = default;
+            return true;
         }
 
         private static void ReadArgs(ControllerMethodMeta method, Utf8JsonReader reader)
