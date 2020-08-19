@@ -13,19 +13,19 @@ namespace DanilovSoft.vRPC
     /// Содержит разобранный запрос с параметрами полученный от удалённой стороны.
     /// </summary>
     [StructLayout(LayoutKind.Auto)]
-    [DebuggerDisplay(@"\{{" + nameof(ControllerActionMeta) + @" ?? default}\}")]
+    [DebuggerDisplay(@"\{{" + nameof(ControllerMethod) + @" ?? default}\}")]
     internal readonly struct RequestContext : IDisposable
     {
         /// <summary>
         /// Когда Uid не Null.
         /// </summary>
-        public bool IsResponseRequired => Uid != null;
-        public int? Uid { get; }
+        public bool IsResponseRequired => Id != null;
+        public int? Id { get; }
 
         /// <summary>
         /// Запрашиваемый метод контроллера.
         /// </summary>
-        public ControllerMethodMeta ControllerActionMeta { get; }
+        public ControllerMethodMeta ControllerMethod { get; }
 
         /// <summary>
         /// Аргументы для вызываемого метода.
@@ -33,16 +33,16 @@ namespace DanilovSoft.vRPC
         public object[] Args { get; }
 
         // ctor
-        public RequestContext(int? uid, ControllerMethodMeta controllerActionMeta, object[] args)
+        public RequestContext(int? uid, ControllerMethodMeta method, object[] args)
         {
-            Uid = uid;
-            ControllerActionMeta = controllerActionMeta;
+            Id = uid;
+            ControllerMethod = method;
             Args = args;
         }
 
         public void Dispose()
         {
-            ControllerActionMeta.DisposeArgs(Args);
+            ControllerMethod.DisposeArgs(Args);
         }
     }
 

@@ -31,7 +31,7 @@ namespace DanilovSoft.vRPC.Context
         internal ArrayBufferWriter<byte> Serialize()
         {
             // Арендуем заранее под максимальный размер хэдера.
-            var buffer = new ArrayBufferWriter<byte>(1024);
+            var buffer = new ArrayBufferWriter<byte>();
             var toDispose = buffer;
             try
             {

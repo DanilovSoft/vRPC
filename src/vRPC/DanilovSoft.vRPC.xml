@@ -1033,11 +1033,10 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ValidateHeader(DanilovSoft.vRPC.HeaderDto@)">
             <returns>true если хедер валиден.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryIncreaseActiveRequestsCount(DanilovSoft.vRPC.HeaderDto@)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryIncreaseActiveRequestsCount(System.Boolean)">
             <summary>
             Увеличивает счётчик активных запросов.
             </summary>
-            <param name="header"></param>
             <returns>true если разрешено продолжить выполнение запроса, 
             false если требуется остановить сервис.</returns>
         </member>
@@ -1053,6 +1052,12 @@
             Отправляет Close и делает Dispose.
             </summary>
             <remarks>Не бросает исключения.</remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryProtocolErrorCloseAsync(System.String)">
+            <summary>
+            Закрывает WebSocket с кодом 1002: ProtocolError и сообщением <paramref name="message"/>.
+            Распространяет исключение <see cref="T:DanilovSoft.vRPC.VRpcProtocolErrorException"/>.
+            </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryCompleteSenderAsync">
             <summary>
@@ -1579,7 +1584,7 @@
             Когда Uid не Null.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.RequestContext.ControllerActionMeta">
+        <member name="P:DanilovSoft.vRPC.RequestContext.ControllerMethod">
             <summary>
             Запрашиваемый метод контроллера.
             </summary>

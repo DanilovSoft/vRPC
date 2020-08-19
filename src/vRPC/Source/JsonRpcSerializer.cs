@@ -1,4 +1,6 @@
-﻿using System;
+﻿using DanilovSoft.vRPC.JsonRpc;
+using DanilovSoft.vRPC.Source;
+using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -49,14 +51,16 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        internal static bool TryDeserialize(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeMethods, [MaybeNullWhen(true)] out IActionResult? error)
+        internal static bool TryDeserialize(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeMethods, out JsonRequest result, [MaybeNullWhen(true)] out IActionResult? error)
         {
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
 #endif
             string? actionName = null;
-            string? id = null;
-            ControllerMethodMeta? methodMeta = null;
+            //int? id = null;
+            //ControllerMethodMeta? method = null;
+
+            result = new JsonRequest();
 
             bool gotMethod = false;
             bool gotId = false;
@@ -74,9 +78,18 @@ namespace DanilovSoft.vRPC
                             actionName = reader.GetString();
                             gotMethod = true;
 
-                            if (!invokeMethods.TryGetAction(actionName, out methodMeta))
+                            if (invokeMethods.TryGetAction(actionName, out var method))
                             {
-                                error = default;
+                                result.Method = method;
+
+                                result.Args = method.Parametergs.Length == 0
+                                    ? Array.Empty<object>()
+                                    : (new object[method.Parametergs.Length]);
+                            }
+                            else
+                            {
+                                result = default;
+                                error = ResponseHelper.MethodNotFound(actionName);
                                 return false;
                             }
                         }
@@ -85,46 +98,39 @@ namespace DanilovSoft.vRPC
                     {
                         if (reader.Read())
                         {
-                            if (reader.TokenType == JsonTokenType.Number)
-                            {
-                                id = reader.GetDouble().ToString(CultureInfo.InvariantCulture);
-                                gotId = true;
-                            }
-                            else
-                            {
-                                id = reader.GetString();
-                            }
+                            // TODO формат может быть String или Number.
+                            result.Id = reader.GetInt32();
                             gotId = true;
                         }
                     }
                     else if (reader.ValueTextEquals("params"))
                     {
-                        if (methodMeta != null)
+                        if (result.Method != null)
                         {
-                            ReadArgs(methodMeta, reader);
+                            if (!TryReadArgs(result.Method, result.Args!, reader, out error))
+                            {
+                                result = default;
+                                return false;
+                            }
                         }
                         else
                         {
                             paramsState = reader.CurrentState;
+                            // TODO
                         }
                     }
                 }
             }
-
             error = default;
             return true;
         }
 
-        private static void ReadArgs(ControllerMethodMeta method, Utf8JsonReader reader)
+        private static bool TryReadArgs(ControllerMethodMeta method, object[] args, Utf8JsonReader reader, [MaybeNullWhen(true)] out IActionResult? error)
         {
             if (reader.Read())
             {
                 if (reader.TokenType == JsonTokenType.StartArray)
                 {
-                    object[] args = method.Parametergs.Length == 0
-                        ? Array.Empty<object>()
-                        : (new object[method.Parametergs.Length]);
-
                     // Считаем сколько аргументов есть в json'е.
                     short argsInJsonCounter = 0;
 
@@ -139,22 +145,22 @@ namespace DanilovSoft.vRPC
                             }
                             catch (JsonException)
                             {
-                                //result = default;
-                                //error = ErrorDeserializingArgument(method.MethodFullName, argIndex: argsInJsonCounter, paramType);
-                                //return false;
+                                error = ResponseHelper.ErrorDeserializingArgument(method.MethodFullName, argIndex: argsInJsonCounter, paramType);
+                                return false;
                             }
                             argsInJsonCounter++;
                         }
                         else
                         // Несоответствие числа параметров.
                         {
-                            //result = default;
-                            //error = ArgumentsCountMismatchError(method.MethodFullName, method.Parametergs.Length);
-                            //return false;
+                            error = ResponseHelper.ArgumentsCountMismatchError(method.MethodFullName, method.Parametergs.Length);
+                            return false;
                         }
                     }
                 }
             }
+            error = default;
+            return true;
         }
     }
 }

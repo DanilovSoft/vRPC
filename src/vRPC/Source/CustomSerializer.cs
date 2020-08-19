@@ -18,11 +18,9 @@ namespace DanilovSoft.vRPC
 {
     internal static partial class CustomSerializer
     {
-        private const string ArgumentsCountMismatch = "Argument count mismatch for action '{0}'. {1} arguments was expected.";
-
         /// <param name="result">Не Null когда True.</param>
         /// <remarks>Не бросает исключения.</remarks>
-        internal static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerMethodMeta action, in HeaderDto header, 
+        internal static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerMethodMeta method, in HeaderDto header, 
             [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
@@ -30,11 +28,11 @@ namespace DanilovSoft.vRPC
             {
                 if (header.PayloadEncoding != KnownEncoding.MultipartEncoding)
                 {
-                    return TryDeserializeRequestJson(content.Span, action, header.Uid, out result, out error);
+                    return TryDeserializeRequestJson(content.Span, method, header.Uid, out result, out error);
                 }
                 else
                 {
-                    return TryDeserializeMultipart(content, action, header.Uid, out result, out error);
+                    return TryDeserializeMultipart(content, method, header.Uid, out result, out error);
                 }
             }
             catch (Exception ex)
@@ -94,7 +92,7 @@ namespace DanilovSoft.vRPC
                             catch (JsonException)
                             {
                                 result = default;
-                                error = ErrorDeserializingArgument(method.MethodFullName, argIndex: argsInJsonCounter, paramType);
+                                error = ResponseHelper.ErrorDeserializingArgument(method.MethodFullName, argIndex: argsInJsonCounter, paramType);
                                 return false;
                             }
                             argsInJsonCounter++;
@@ -103,14 +101,14 @@ namespace DanilovSoft.vRPC
                         // Несоответствие числа параметров.
                         {
                             result = default;
-                            error = ArgumentsCountMismatchError(method.MethodFullName, method.Parametergs.Length);
+                            error = ResponseHelper.ArgumentsCountMismatchError(method.MethodFullName, method.Parametergs.Length);
                             return false;
                         }
                     }
                 }
             }
 
-            if (ValidateArgumentsCount(method.Parametergs, argsInJsonCounter, method.MethodFullName, out error))
+            if (ResponseHelper.ValidateArgumentsCount(method.Parametergs, argsInJsonCounter, method.MethodFullName, out error))
             {
                 error = null;
                 result = new RequestContext(uid, method, args);
@@ -125,24 +123,24 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="Exception"/>
-        private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerMethodMeta action, int? uid,
+        private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerMethodMeta method, int? uid,
             [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
             object[]? args;
-            if (action.Parametergs.Length == 0)
+            if (method.Parametergs.Length == 0)
             {
                 args = Array.Empty<object>();
             }
             else
             {
-                args = new object[action.Parametergs.Length];
+                args = new object[method.Parametergs.Length];
             }
             try
             {
-                if (DeserializeProtoBufArgs(content, action, args, out error))
+                if (DeserializeProtoBufArgs(content, method, args, out error))
                 {
-                    result = new RequestContext(uid, action, args);
+                    result = new RequestContext(uid, method, args);
                     args = null; // Предотвратить Dispose.
                     error = null;
                     return true;
@@ -157,18 +155,18 @@ namespace DanilovSoft.vRPC
             {
                 if (args != null)
                 {
-                    action.DisposeArgs(args);
+                    method.DisposeArgs(args);
                 }
             }
         }
 
-        private static bool DeserializeProtoBufArgs(ReadOnlyMemory<byte> content, ControllerMethodMeta action, object[] args, [MaybeNullWhen(true)] out IActionResult? error)
+        private static bool DeserializeProtoBufArgs(ReadOnlyMemory<byte> content, ControllerMethodMeta method, object[] args, [MaybeNullWhen(true)] out IActionResult? error)
         {
             using (var stream = new ReadOnlyMemoryStream(content))
             {
-                for (short i = 0; i < action.Parametergs.Length; i++)
+                for (short i = 0; i < method.Parametergs.Length; i++)
                 {
-                    Type argType = action.Parametergs[i].ParameterType;
+                    Type argType = method.Parametergs[i].ParameterType;
 
                     var partHeader = Serializer.DeserializeWithLengthPrefix<MultipartHeaderDto>(stream, PrefixStyle.Base128, 1);
 
@@ -182,7 +180,7 @@ namespace DanilovSoft.vRPC
                             }
                             catch (Exception)
                             {
-                                error = ErrorDeserializingArgument(action.MethodFullName, argIndex: i, argType);
+                                error = ResponseHelper.ErrorDeserializingArgument(method.MethodFullName, argIndex: i, argType);
                                 return false;
                             }
                         }
@@ -193,7 +191,7 @@ namespace DanilovSoft.vRPC
 
                         if (!RawEncodingArg(raw, ref args[i], argType))
                         {
-                            error = ErrorDeserializingArgument(action.MethodFullName, argIndex: i, argType);
+                            error = ResponseHelper.ErrorDeserializingArgument(method.MethodFullName, argIndex: i, argType);
                             return false;
                         }
                     }
@@ -224,40 +222,6 @@ namespace DanilovSoft.vRPC
                 return false;
             }
             return true;
-        }
-
-        private static InvalidRequestResult ErrorDeserializingArgument(string actionName, short argIndex, Type argType)
-        {
-            if (argType.IsClrType())
-            {
-                return new InvalidRequestResult($"Не удалось десериализовать аргумент №{argIndex} в тип {argType.Name} метода {actionName}");
-            }
-            else
-            // Не будем раскрывать удалённой стороне имена сложных типов.
-            {
-                return new InvalidRequestResult($"Не удалось десериализовать аргумент №{argIndex} метода {actionName}");
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static BadRequestResult ArgumentsCountMismatchError(string actionName, int targetArgumentsCount)
-        {
-            return new BadRequestResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, string actionName, [MaybeNullWhen(true)] out IActionResult? error)
-        {
-            if (jsonArgsCount == targetArguments.Length)
-            {
-                error = null;
-                return true;
-            }
-            else
-            {
-                error = ArgumentsCountMismatchError(actionName, targetArguments.Length);
-                return false;
-            }
         }
 
         /// <summary>

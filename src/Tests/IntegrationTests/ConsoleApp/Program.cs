@@ -1,20 +1,26 @@
 ﻿using DanilovSoft.vRPC;
+using DanilovSoft.vRPC.JsonRpc;
 using System;
+using System.Collections.Generic;
 using System.Net;
+using System.Text;
 using System.Threading;
 
 namespace ConsoleApp
 {
+    public class StubController : ServerController
+    {
+        public void Subtract(int x, int y) { }
+    }
+
     class Program
     {
         static void Main()
         {
-            double d = long.MaxValue;
-
             VRpcListener listener = new VRpcListener(IPAddress.Any, 1234);
             listener.Start();
             listener.ClientConnected += Listener_ClientConnected;
-            Thread.Sleep(-1);
+
 
             //VRpcClient client = new VRpcClient("localhost", 1234, false, allowAutoConnect: true);
             //IPing p = client.GetProxy<IPing>();
@@ -24,6 +30,14 @@ namespace ConsoleApp
             //    p.Ping("test", 123);
             //    Thread.Sleep(1000);
             //}
+
+            //var methods = new InvokeActionsDictionary(new Dictionary<string, Type> { ["Stub"] = typeof(StubController) });
+
+            //string json = @"{""jsonrpc"": ""2.0"", ""method"": ""Stub/Subtract"", ""params"": [42, 23], ""id"": 1}";
+
+            //JsonRpcSerializer.TryDeserialize(Encoding.UTF8.GetBytes(json), methods, out JsonRequest result, out var _);
+
+            Thread.Sleep(-1);
         }
 
         private static void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
@@ -32,6 +46,7 @@ namespace ConsoleApp
         }
     }
 
+    [AllowAnonymous]
     public class TestController : ServerController
     {
         public void Message(string msg)

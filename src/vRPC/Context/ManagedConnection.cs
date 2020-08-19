@@ -18,6 +18,7 @@ using DanilovSoft.vRPC.DTO;
 using DanilovSoft.vRPC.Source;
 using System.IO;
 using DanilovSoft.vRPC.Context;
+using DanilovSoft.vRPC.JsonRpc;
 
 namespace DanilovSoft.vRPC
 {
@@ -799,9 +800,13 @@ namespace DanilovSoft.vRPC
                 else if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
                 // Text мог прислать только Json-rpc.
                 {
+                    bool deserialized;
+                    IActionResult? error;
+                    JsonRequest request;
+
                     try
                     {
-                        JsonRpcSerializer.TryDeserialize(headerBuffer.AsSpan(0, webSocketMessage.Count), _invokeMethods, out var error);
+                        deserialized = JsonRpcSerializer.TryDeserialize(headerBuffer.AsSpan(0, webSocketMessage.Count), _invokeMethods, out request, out error);
                     }
                     catch (Exception ex)
                     {
@@ -809,7 +814,38 @@ namespace DanilovSoft.vRPC
                         await SendCloseHeaderErrorAsync(webSocketMessage.Count, ex).ConfigureAwait(false);
                         return;
                     }
+
+                    if (deserialized)
+                    {
+                        if (TryIncreaseActiveRequestsCount(isResponseRequired: request.Id != null))
+                        {
+                            // Начать выполнение запроса в отдельном потоке.
+                            StartProcessRequest(new RequestContext(request.Id.Value, request.Method, request.Args));
+                        }
+                        else
+                        {
+                            // Завершить поток.
+                            return;
+                        }
+
+                        continue;
+                    }
+                    else
+                    {
+                        if (request.Id != null)
+                        {
+                            // Передать на отправку результат с ошибкой через очередь.
+                            PostSendResponse(new ResponseMessage(request.Id.Value, error));
+                            continue;
+                        }
+                        else
+                        {
+                            await TryProtocolErrorCloseAsync("Invalid Request").ConfigureAwait(false);
+                            return;
+                        }
+                    }
                 }
+                else
                 // Получен Close.
                 {
                     await TryNonBinaryTypeCloseAndDisposeAsync(webSocketMessage).ConfigureAwait(false);
@@ -936,17 +972,17 @@ namespace DanilovSoft.vRPC
             if (header.IsRequest)
             // Получен запрос.
             {
-                if (TryIncreaseActiveRequestsCount(in header))
+                if (TryIncreaseActiveRequestsCount(header.IsResponseRequired))
                 {
                     if (ValidateHeader(in header))
                     {
-                        if (TryGetRequestMethod(in header, out ControllerMethodMeta? action))
+                        if (TryGetRequestMethod(in header, out ControllerMethodMeta? method))
                         {
                             try
                             {
                                 #region Десериализация запроса
 
-                                if (CustomSerializer.TryDeserializeRequest(payload, action, in header, out RequestContext requestToInvoke, out IActionResult? error))
+                                if (CustomSerializer.TryDeserializeRequest(payload, method, in header, out RequestContext requestToInvoke, out IActionResult? error))
                                 {
                                     #region Выполнение запроса
 
@@ -1038,11 +1074,11 @@ namespace DanilovSoft.vRPC
             return true; // Завершать поток чтения не нужно (вернуться к чтению следующего сообщения).
         }
 
-        private bool TryGetRequestMethod(in HeaderDto header, [NotNullWhen(true)] out ControllerMethodMeta? action)
+        private bool TryGetRequestMethod(in HeaderDto header, [NotNullWhen(true)] out ControllerMethodMeta? method)
         {
             Debug.Assert(header.MethodName != null);
 
-            if (_invokeMethods.TryGetAction(header.MethodName, out action))
+            if (_invokeMethods.TryGetAction(header.MethodName, out method))
             {
                 return true;
             }
@@ -1054,26 +1090,12 @@ namespace DanilovSoft.vRPC
                 {
                     Debug.Assert(header.Uid != null);
 
-                    var error = MethodNotFound(header.MethodName);
+                    var error = ResponseHelper.MethodNotFound(header.MethodName);
 
                     // Передать на отправку результат с ошибкой через очередь.
                     PostSendResponse(new ResponseMessage(header.Uid.Value, error));
                 }
                 return false;
-            }
-        }
-
-        private static NotFoundResult MethodNotFound(string actionName)
-        {
-            int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter, StringComparison.Ordinal);
-
-            if (controllerIndex > 0)
-            {
-                return new NotFoundResult($"Unable to find requested action \"{actionName}\".");
-            }
-            else
-            {
-                return new NotFoundResult($"Controller name not specified in request \"{actionName}\".");
             }
         }
 
@@ -1099,12 +1121,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Увеличивает счётчик активных запросов.
         /// </summary>
-        /// <param name="header"></param>
         /// <returns>true если разрешено продолжить выполнение запроса, 
         /// false если требуется остановить сервис.</returns>
-        private bool TryIncreaseActiveRequestsCount(in HeaderDto header)
+        private bool TryIncreaseActiveRequestsCount(bool isResponseRequired)
         {
-            if (header.IsResponseRequired)
+            if (isResponseRequired)
             {
                 if (IncreaseActiveRequestsCount())
                 {
@@ -1189,11 +1210,20 @@ namespace DanilovSoft.vRPC
         /// <remarks>Не бросает исключения.</remarks>
         private Task TrySendNotSupportedTypeAndCloseAsync()
         {
+            return TryProtocolErrorCloseAsync(SR.TextMessageTypeNotSupported);
+        }
+
+        /// <summary>
+        /// Закрывает WebSocket с кодом 1002: ProtocolError и сообщением <paramref name="message"/>.
+        /// Распространяет исключение <see cref="VRpcProtocolErrorException"/>.
+        /// </summary>
+        private Task TryProtocolErrorCloseAsync(string message)
+        {
             // Тип фрейма должен быть Binary.
-            var protocolErrorException = new VRpcProtocolErrorException(SR.TextMessageTypeNotSupported);
+            var protocolErrorException = new VRpcProtocolErrorException(message);
 
             // Отправка Close.
-            return TryCloseAndDisposeAsync(protocolErrorException, SR.TextMessageTypeNotSupported);
+            return TryCloseAndDisposeAsync(protocolErrorException, message);
         }
 
         private Task SendCloseHeaderErrorAsync(int webSocketMessageCount, Exception headerException)
@@ -1787,7 +1817,7 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Проверить доступ к функции.
-                if (ActionPermissionCheck(receivedRequest.ControllerActionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user))
+                if (ActionPermissionCheck(receivedRequest.ControllerMethod, out IActionResult? permissionError, out ClaimsPrincipal? user))
                 {
                     IServiceScope scope = ServiceProvider.CreateScope();
                     scopeToDispose = scope;
@@ -1797,7 +1827,7 @@ namespace DanilovSoft.vRPC
                     getProxyScope.ConnectionContext = this;
 
                     // Активируем контроллер через IoC.
-                    var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.ControllerActionMeta.ControllerType) as Controller;
+                    var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.ControllerMethod.ControllerType) as Controller;
                     Debug.Assert(controller != null);
 
                     // Подготавливаем контроллер.
@@ -1808,7 +1838,7 @@ namespace DanilovSoft.vRPC
 
                     // Вызов метода контроллера.
                     // (!) Результатом может быть не завершённый Task.
-                    object? actionResult = receivedRequest.ControllerActionMeta.FastInvokeDelegate.Invoke(controller, receivedRequest.Args);
+                    object? actionResult = receivedRequest.ControllerMethod.FastInvokeDelegate.Invoke(controller, receivedRequest.Args);
 
                     if (actionResult != null)
                     {
@@ -1961,7 +1991,7 @@ namespace DanilovSoft.vRPC
         {
             if (requestToInvoke.IsResponseRequired)
             {
-                Debug.Assert(requestToInvoke.Uid != null);
+                Debug.Assert(requestToInvoke.Id != null);
 
                 ValueTask<object?> pendingRequestTask;
 
@@ -2006,7 +2036,7 @@ namespace DanilovSoft.vRPC
                     // ContinueWith должно быть в 5 раз быстрее. https://stackoverflow.com/questions/51923100/try-catchoperationcanceledexception-vs-continuewith
                     async void WaitResponseAndSendAsync(ValueTask<object?> task, RequestContext requestToInvoke)
                     {
-                        Debug.Assert(requestToInvoke.Uid != null);
+                        Debug.Assert(requestToInvoke.Id != null);
 
                         object? actionResult;
                         // Этот блок Try должен быть идентичен тому который чуть выше — для синхронной обработки.
@@ -2044,26 +2074,26 @@ namespace DanilovSoft.vRPC
 
         private void SendOkResponse(in RequestContext requestContext, object? actionResult)
         {
-            Debug.Assert(requestContext.Uid != null);
+            Debug.Assert(requestContext.Id != null);
 
-            SerializeResponseAndTrySend(new ResponseMessage(requestContext.Uid.Value, requestContext.ControllerActionMeta, actionResult));
+            SerializeResponseAndTrySend(new ResponseMessage(requestContext.Id.Value, requestContext.ControllerMethod, actionResult));
         }
 
         private void SendInternalerverError(in RequestContext requestToInvoke)
         {
-            Debug.Assert(requestToInvoke.Uid != null);
+            Debug.Assert(requestToInvoke.Id != null);
 
             // Вернуть результат с ошибкой.
-            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ControllerActionMeta, new InternalErrorResult("Internal Server Error")));
+            SerializeResponseAndTrySend(new ResponseMessage(requestToInvoke.Id.Value, requestToInvoke.ControllerMethod, new InternalErrorResult("Internal Server Error")));
         }
 
         private void SendBadRequest(in RequestContext requestToInvoke, VRpcBadRequestException exception)
         {
             Debug.Assert(requestToInvoke.IsResponseRequired);
-            Debug.Assert(requestToInvoke.Uid != null);
+            Debug.Assert(requestToInvoke.Id != null);
 
             var result = new BadRequestResult(exception.Message);
-            var response = new ResponseMessage(requestToInvoke.Uid.Value, requestToInvoke.ControllerActionMeta, result);
+            var response = new ResponseMessage(requestToInvoke.Id.Value, requestToInvoke.ControllerMethod, result);
 
             // Вернуть результат с ошибкой.
             SerializeResponseAndTrySend(response);
