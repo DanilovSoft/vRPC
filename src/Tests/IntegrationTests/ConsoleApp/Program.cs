@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace ConsoleApp
 {
@@ -40,9 +41,10 @@ namespace ConsoleApp
             Thread.Sleep(-1);
         }
 
-        private static void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
+        private static async void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
         {
-            //e.Connection.GetProxy<ITest>().Echo("qwerty");
+            await Task.Delay(2000);
+            e.Connection.GetProxy<ITest>().Echo("qwerty", 123);
         }
     }
 
@@ -63,6 +65,6 @@ namespace ConsoleApp
     [JsonRpcCompatible]
     public interface ITest
     {
-        string Echo(string msg);
+        string Echo(string msg, int tel);
     }
 }

@@ -35,6 +35,8 @@ namespace DanilovSoft.vRPC
         // ctor
         public RequestContext(int? uid, ControllerMethodMeta method, object[] args)
         {
+            Debug.Assert(method != null);
+
             Id = uid;
             ControllerMethod = method;
             Args = args;

@@ -205,6 +205,8 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcBadRequestException"/>
         private protected sealed override bool ActionPermissionCheck(ControllerMethodMeta actionMeta, [NotNullWhen(false)] out IActionResult? permissionError, out ClaimsPrincipal user)
         {
+            Debug.Assert(actionMeta != null);
+
             // Скопируем пользователя что-бы не мог измениться в пределах запроса.
             user = _user;
 

@@ -1623,6 +1623,7 @@ namespace DanilovSoft.vRPC
                                 {
                                     SetNoDelay(jsonRequest.MethodMeta);
 
+                                    AssertJson(buffer.WrittenMemory.Span);
                                     try
                                     {
                                         await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
@@ -1661,6 +1662,12 @@ namespace DanilovSoft.vRPC
                     }
                 }
             }
+        }
+
+        [Conditional("DEBUG")]
+        private static void AssertJson(ReadOnlySpan<byte> span)
+        {
+            var debugDisplayAsString = new DebuggerDisplayJson(span);
         }
 
         private void SetNoDelay(RequestMethodMeta methodMeta)
