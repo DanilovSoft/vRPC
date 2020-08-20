@@ -20,6 +20,7 @@ using System.IO;
 using DanilovSoft.vRPC.Context;
 using DanilovSoft.vRPC.JsonRpc;
 using System.Text.Json;
+using System.Globalization;
 
 namespace DanilovSoft.vRPC
 {
@@ -802,6 +803,7 @@ namespace DanilovSoft.vRPC
                 // Получен Json-rpc запрос или ответ.
                 {
                     await HandleJrpcMessage(headerBuffer.AsSpan(0, webSocketMessage.Count), out bool success).ConfigureAwait(false);
+
                     if (success)
                         continue;
                     else
@@ -906,18 +908,15 @@ namespace DanilovSoft.vRPC
 
         private Task HandleJrpcMessage(ReadOnlySpan<byte> buffer, out bool success)
         {
-            //bool deserialized;
-            IActionResult? error;
-            
             try
             {
-                DeserializeJsonRpcMessage(buffer, _invokeMethods, out error);
+                DeserializeJsonRpcMessage(buffer);
             }
-            catch (Exception ex)
+            catch (JsonException ex)
             {
                 // Отправка Close и завершить поток.
                 success = false;
-                return SendCloseHeaderErrorAsync(buffer.Length, ex);
+                return SendCloseParseErrorAsync(ex);
             }
             success = true;
             return Task.CompletedTask;
@@ -956,7 +955,8 @@ namespace DanilovSoft.vRPC
             //}
         }
 
-        internal bool DeserializeJsonRpcMessage(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeMethods, [MaybeNullWhen(true)] out IActionResult? error)
+        /// <exception cref="JsonException"/>
+        internal void DeserializeJsonRpcMessage(ReadOnlySpan<byte> utf8Json)
         {
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
@@ -968,7 +968,7 @@ namespace DanilovSoft.vRPC
 
             //result = new JsonRequest();
 
-            bool gotMethod = false;
+            //bool gotMethod = false;
             bool gotId = false;
             JsonReaderState paramsState;
 
@@ -977,23 +977,16 @@ namespace DanilovSoft.vRPC
             {
                 if (reader.TokenType == JsonTokenType.PropertyName)
                 {
-                    if (!gotMethod && reader.ValueTextEquals("method"))
+                    if (method == null && reader.ValueTextEquals("method"))
                     {
                         if (reader.Read())
                         {
                             actionName = reader.GetString();
-                            gotMethod = true;
-
-                            if (invokeMethods.TryGetAction(actionName, out method))
+                            if (_invokeMethods.TryGetAction(actionName, out method))
                             {
                                 args = method.Parametergs.Length == 0
                                     ? Array.Empty<object>()
                                     : (new object[method.Parametergs.Length]);
-                            }
-                            else
-                            {
-                                error = ResponseHelper.MethodNotFound(actionName);
-                                return false;
                             }
                         }
                     }
@@ -1002,8 +995,15 @@ namespace DanilovSoft.vRPC
                         if (reader.Read())
                         {
                             // TODO формат может быть String или Number.
-                            id = reader.GetInt32();
-                            gotId = true;
+                            if (reader.TokenType == JsonTokenType.Number)
+                            {
+                                id = reader.GetInt32();
+                                gotId = true;
+                            }
+                            else if (reader.TokenType == JsonTokenType.String)
+                            {
+                                id = int.Parse(reader.GetString(), CultureInfo.InvariantCulture);
+                            }
                         }
                     }
                     else if (reader.ValueTextEquals("result"))
@@ -1015,8 +1015,7 @@ namespace DanilovSoft.vRPC
                                 if (_responseAwaiters.TryRemove(id.Value, out IResponseAwaiter? awaiter))
                                 {
                                     awaiter.DeserializeJsonRpcResponse(ref reader);
-                                    error = default;
-                                    return true;
+                                    return;
                                 }
                                 else
                                 {
@@ -1029,9 +1028,9 @@ namespace DanilovSoft.vRPC
                     {
                         if (method != null)
                         {
-                            if (!TryReadArgs(method, args!, reader, out error))
+                            if (!TryReadArgs(method, args!, reader, out var error))
                             {
-                                return false;
+                                return;
                             }
                         }
                         else
@@ -1040,12 +1039,24 @@ namespace DanilovSoft.vRPC
                             // TODO
                         }
                     }
+                    else if (reader.ValueTextEquals("code"))
+                    {
+                        if (reader.Read())
+                        {
+                            reader.GetInt32();
+                        }
+                    }
                 }
             }
 
+            if (method == null && id != null && actionName != null)
+            {
+                // Передать на отправку результат с ошибкой через очередь.
+                PostSendResponse(new ResponseMessage(id.Value, ResponseHelper.MethodNotFound(actionName)));
+                return;
+            }
 
-            error = default;
-            return true;
+            return;
         }
 
         private static bool TryReadArgs(ControllerMethodMeta method, object[] args, Utf8JsonReader reader, [MaybeNullWhen(true)] out IActionResult? error)
@@ -1148,10 +1159,10 @@ namespace DanilovSoft.vRPC
                                     // Запрос ожидает ответ.
                                     {
                                         Debug.Assert(error != null, "Не может быть Null когда !success");
-                                        Debug.Assert(header.Uid != null, "Не может быть Null когда IsResponseRequired");
+                                        Debug.Assert(header.Id != null, "Не может быть Null когда IsResponseRequired");
 
                                         // Передать на отправку результат с ошибкой через очередь.
-                                        PostSendResponse(new ResponseMessage(header.Uid.Value, error));
+                                        PostSendResponse(new ResponseMessage(header.Id.Value, error));
                                     }
 
                                     // Вернуться к чтению следующего сообщения.
@@ -1190,10 +1201,10 @@ namespace DanilovSoft.vRPC
             {
                 #region Передача другому потоку ответа на запрос
 
-                Debug.Assert(header.Uid != null, "У ответа на запрос должен быть идентификатор");
+                Debug.Assert(header.Id != null, "У ответа на запрос должен быть идентификатор");
 
                 // Удалить запрос из словаря.
-                if (header.Uid != null && _responseAwaiters.TryRemove(header.Uid.Value, out IResponseAwaiter? respAwaiter))
+                if (header.Id != null && _responseAwaiters.TryRemove(header.Id.Value, out IResponseAwaiter? respAwaiter))
                 // Передать ответ ожидающему потоку.
                 {
                     respAwaiter.DeserializeAndSetResponse(in header, payload);
@@ -1232,12 +1243,12 @@ namespace DanilovSoft.vRPC
                 if (header.IsResponseRequired)
                 // Запрос ожидает ответ.
                 {
-                    Debug.Assert(header.Uid != null);
+                    Debug.Assert(header.Id != null);
 
                     var error = ResponseHelper.MethodNotFound(header.MethodName);
 
                     // Передать на отправку результат с ошибкой через очередь.
-                    PostSendResponse(new ResponseMessage(header.Uid.Value, error));
+                    PostSendResponse(new ResponseMessage(header.Id.Value, error));
                 }
                 return false;
             }
@@ -1253,10 +1264,10 @@ namespace DanilovSoft.vRPC
             else
             // Запрос ожидает ответ.
             {
-                Debug.Assert(header.Uid != null, "Не может быть Null когда IsResponseRequired");
+                Debug.Assert(header.Id != null, "Не может быть Null когда IsResponseRequired");
 
                 // Передать на отправку результат с ошибкой через очередь.
-                PostSendResponse(new ResponseMessage(header.Uid.Value, new InvalidRequestResult("В заголовке запроса отсутствует имя метода")));
+                PostSendResponse(new ResponseMessage(header.Id.Value, new InvalidRequestResult("В заголовке запроса отсутствует имя метода")));
 
                 return false;
             }
@@ -1370,6 +1381,15 @@ namespace DanilovSoft.vRPC
             return TryCloseAndDisposeAsync(protocolErrorException, message);
         }
 
+        /// <remarks>Json-RPC</remarks>
+        private Task SendCloseParseErrorAsync(JsonException parseException)
+        {
+            var propagateException = new VRpcProtocolErrorException(SR2.GetString(SR.JsonRpcProtocolError, parseException.Message), innerException: parseException);
+
+            // Отправка Close.
+            return TryCloseAndDisposeAsync(propagateException, "Parse error (-32700)");
+        }
+
         private Task SendCloseHeaderErrorAsync(int webSocketMessageCount, Exception headerException)
         {
             // Отправка Close.
@@ -1423,10 +1443,11 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Отправляет Close если канал ещё не закрыт и выполняет Dispose.
+        /// Распространяет исключение <paramref name="protocolErrorException"/> всем ожидаюшим потокам.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
         /// <param name="protocolErrorException">Распространяет исключение ожидаюшим потокам.</param>
-        private async Task TryCloseAndDisposeAsync(Exception protocolErrorException, string closeDescription)
+        private async Task TryCloseAndDisposeAsync(VRpcProtocolErrorException protocolErrorException, string closeDescription)
         {
             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
             _responseAwaiters.TryPropagateExceptionAndLockup(protocolErrorException);
@@ -1564,7 +1585,7 @@ namespace DanilovSoft.vRPC
             {
                 Debug.Assert(messageToSend.StatusCode != null, "StatusCode ответа не может быть Null");
 
-                return new HeaderDto(responseToSend.Uid, messageToSend.StatusCode.Value, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding);
+                return new HeaderDto(responseToSend.Id, messageToSend.StatusCode.Value, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding);
             }
             else
             // Создать хедер для нового запроса.

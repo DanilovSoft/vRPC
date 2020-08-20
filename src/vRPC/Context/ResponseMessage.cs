@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Идентификатор скопированный из запроса.
         /// </summary>
-        public int Uid { get; }
+        public int Id { get; }
         /// <summary>
         /// Результат вызова метода контроллера.
         /// Может быть <see cref="IActionResult"/> или произвольный объект пользователя.
@@ -36,10 +36,10 @@ namespace DanilovSoft.vRPC
         /// Ответ на основе запроса.
         /// </summary>
         [DebuggerStepThrough]
-        public ResponseMessage(int uid, ControllerMethodMeta actionMeta, object? actionResult)
+        public ResponseMessage(int id, ControllerMethodMeta actionMeta, object? actionResult)
         {
             ActionMeta = actionMeta;
-            Uid = uid;
+            Id = id;
             ActionResult = actionResult;
         }
 
@@ -47,9 +47,9 @@ namespace DanilovSoft.vRPC
         /// Конструктор ответа в случае ошибки десериализации запроса.
         /// </summary>
         /// <param name="rawResult">Может быть <see cref="IActionResult"/> или произвольный объект пользователя.</param>
-        public ResponseMessage(int uid, object rawResult)
+        public ResponseMessage(int id, object rawResult)
         {
-            Uid = uid;
+            Id = id;
             ActionResult = rawResult;
             ActionMeta = null;
         }

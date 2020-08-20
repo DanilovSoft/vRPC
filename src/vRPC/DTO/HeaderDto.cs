@@ -48,11 +48,11 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// true если задан <see cref="Uid"/>.
+        /// true если задан <see cref="Id"/>.
         /// </summary>
         [JsonIgnore]
         [ProtoIgnore]
-        public bool IsResponseRequired => Uid != null;
+        public bool IsResponseRequired => Id != null;
 
         /// <summary>
         /// Это заголовок запроса когда статус равен <see cref="StatusCode.Request"/>.
@@ -65,9 +65,9 @@ namespace DanilovSoft.vRPC
         [ProtoMember(1, IsRequired = true)]
         public StatusCode StatusCode { get; }
 
-        [JsonPropertyName("uid")]
+        [JsonPropertyName("id")]
         [ProtoMember(2, IsRequired = false)]
-        public int? Uid { get; }
+        public int? Id { get; }
 
         [JsonPropertyName("payload")]
         [ProtoMember(3, IsRequired = false)]
@@ -91,9 +91,9 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Конструктор запроса.
         /// </summary>
-        public HeaderDto(int? uid, int payloadLength, string? contentEncoding, string actionName)
+        public HeaderDto(int? id, int payloadLength, string? contentEncoding, string actionName)
         {
-            Uid = uid;
+            Id = id;
             StatusCode = StatusCode.Request;
             PayloadLength = payloadLength;
             PayloadEncoding = contentEncoding;
@@ -103,9 +103,9 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Конструктор ответа на запрос.
         /// </summary>
-        public HeaderDto(int uid, StatusCode responseCode, int payloadLength, string? contentEncoding)
+        public HeaderDto(int id, StatusCode responseCode, int payloadLength, string? contentEncoding)
         {
-            Uid = uid;
+            Id = id;
             StatusCode = responseCode;
             PayloadLength = payloadLength;
             PayloadEncoding = contentEncoding;
@@ -117,7 +117,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public HeaderDto(int? uid, StatusCode responseCode, int payloadLength, string? contentEncoding, string? actionName)
         {
-            Uid = uid;
+            Id = uid;
             StatusCode = responseCode;
             PayloadLength = payloadLength;
             PayloadEncoding = contentEncoding;
@@ -160,9 +160,9 @@ namespace DanilovSoft.vRPC
 
                 writer.WriteNumber(JsonCode, (int)StatusCode);
 
-                if (Uid != null)
+                if (Id != null)
                 {
-                    writer.WriteNumber(JsonUid, Uid.Value);
+                    writer.WriteNumber(JsonUid, Id.Value);
                 }
                 writer.WriteNumber(JsonPayload, PayloadLength);
                 if (PayloadEncoding != null)
@@ -204,7 +204,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public override string ToString()
         {
-            string s = $"Uid = {Uid} Status = {StatusCode} Content = {PayloadLength} байт";
+            string s = $"Uid = {Id} Status = {StatusCode} Content = {PayloadLength} байт";
             if (PayloadEncoding != null)
             {
                 s += $" {nameof(PayloadEncoding)} = {PayloadEncoding}";

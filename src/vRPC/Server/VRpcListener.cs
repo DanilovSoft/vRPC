@@ -4,6 +4,7 @@ using Microsoft.IO;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -88,6 +89,7 @@ namespace DanilovSoft.vRPC
         private volatile ShutdownRequest? _stopRequired;
         public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
         public TimeSpan ClientReceiveTimeout { get => _wsServ.ClientReceiveTimeout; set => _wsServ.ClientReceiveTimeout = value; }
+        public int Port => _wsServ.Port;
 
         static VRpcListener()
         {
@@ -95,17 +97,23 @@ namespace DanilovSoft.vRPC
         }
 
         // ctor.
-        public VRpcListener(IPAddress ipAddress, int port)
+        public VRpcListener(IPAddress ipAddress) : this (ipAddress, port: 0, Assembly.GetCallingAssembly()) { }
+
+        // ctor.
+        public VRpcListener(IPAddress ipAddress, int port) : this(ipAddress, port, Assembly.GetCallingAssembly()) { }
+
+        // ctor.
+        private VRpcListener(IPAddress ipAddress, int port, Assembly controllersAssembly)
         {
             _wsServ.HandshakeTimeout = TimeSpan.FromSeconds(30);
             _wsServ.Bind(new IPEndPoint(ipAddress, port));
             _wsServ.ClientConnected += Listener_OnConnected;
 
             // Контроллеры будем искать в сборке которая вызвала текущую функцию.
-            var controllersAssembly = Assembly.GetCallingAssembly();
+            //var controllersAssembly = Assembly.GetCallingAssembly();
 
             // Сборка с контроллерами не должна быть текущей сборкой.
-            Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly());
+            Debug.Assert(controllersAssembly != Assembly.GetExecutingAssembly(), "Сборка с контроллерами не должна быть текущей сборкой.");
 
             // Найти контроллеры в сборке.
             Dictionary<string, Type> controllerTypes = GlobalVars.FindAllControllers(controllersAssembly);
@@ -132,7 +140,7 @@ namespace DanilovSoft.vRPC
         public void ConfigureService(Action<ServiceCollection> configure)
         {
             if (configure == null)
-                ThrowHelper.ThrowArgumentNullException(nameof(configure));
+                throw new ArgumentNullException(nameof(configure));
 
             if (_started)
                 ThrowHelper.ThrowVRpcException($"Конфигурация должна осуществляться до начала приёма соединений.");

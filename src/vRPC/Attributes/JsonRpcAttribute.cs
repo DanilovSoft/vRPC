@@ -5,7 +5,7 @@ using System.Text;
 namespace DanilovSoft.vRPC
 {
     [AttributeUsage(AttributeTargets.Interface | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-    public class JsonRpcCompatibleAttribute : Attribute
+    public class JsonRpcAttribute : Attribute
     {
     }
 }

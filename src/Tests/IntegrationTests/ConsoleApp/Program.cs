@@ -18,7 +18,7 @@ namespace ConsoleApp
     {
         static void Main()
         {
-            VRpcListener listener = new VRpcListener(IPAddress.Any, 1234);
+            VRpcListener listener = new VRpcListener(IPAddress.Any);
             listener.Start();
             listener.ClientConnected += Listener_ClientConnected;
 
@@ -62,7 +62,7 @@ namespace ConsoleApp
         }
     }
 
-    [JsonRpcCompatible]
+    [JsonRpc]
     public interface ITest
     {
         string Echo(string msg, int tel);

@@ -120,6 +120,9 @@
   <data name="CloseAsyncProtocolError" xml:space="preserve">
     <value>An error has occurred during header deserialization: {0}</value>
   </data>
+  <data name="JsonRpcProtocolError" xml:space="preserve">
+    <value>An error has occurred during json deserialization from the remote side and connection will be closed. Error: {0}</value>
+  </data>
   <data name="ProtocolError" xml:space="preserve">
     <value>An error has occurred during header deserialization from the remote side and connection will be closed. Error: {0}</value>
   </data>

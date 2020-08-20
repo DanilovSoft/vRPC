@@ -70,6 +70,15 @@ namespace DanilovSoft.vRPC.Resources {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на An error has occurred during json deserialization from the remote side and connection will be closed. Error: {0}.
+        /// </summary>
+        internal static string JsonRpcProtocolError {
+            get {
+                return ResourceManager.GetString("JsonRpcProtocolError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на An error has occurred during header deserialization from the remote side and connection will be closed. Error: {0}.
         /// </summary>
         internal static string ProtocolError {

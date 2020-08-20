@@ -28,11 +28,11 @@ namespace DanilovSoft.vRPC
             {
                 if (header.PayloadEncoding != KnownEncoding.MultipartEncoding)
                 {
-                    return TryDeserializeRequestJson(content.Span, method, header.Uid, out result, out error);
+                    return TryDeserializeRequestJson(content.Span, method, header.Id, out result, out error);
                 }
                 else
                 {
-                    return TryDeserializeMultipart(content, method, header.Uid, out result, out error);
+                    return TryDeserializeMultipart(content, method, header.Id, out result, out error);
                 }
             }
             catch (Exception ex)

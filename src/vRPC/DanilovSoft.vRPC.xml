@@ -1019,6 +1019,9 @@
             Здесь не должно быть глубокого async стека для сохранения высокой производительности.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.DeserializeJsonRpcMessage(System.ReadOnlySpan{System.Byte})">
+            <exception cref="T:System.Text.Json.JsonException"/>
+        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryNonBinaryTypeCloseAndDisposeAsync(DanilovSoft.WebSockets.ValueWebSocketReceiveResult)">
             <summary>При получении Close или сообщения типа Text — отправляет Close и делает Dispose.</summary>
             <remarks>Не бросает исключения.</remarks>
@@ -1059,6 +1062,9 @@
             Распространяет исключение <see cref="T:DanilovSoft.vRPC.VRpcProtocolErrorException"/>.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendCloseParseErrorAsync(System.Text.Json.JsonException)">
+            <remarks>Json-RPC</remarks>
+        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryCompleteSenderAsync">
             <summary>
             Гарантирует что ничего больше не будет отправлено через веб-сокет. 
@@ -1068,9 +1074,10 @@
             <remarks>Не бросает исключения.</remarks>
             <returns>true если текущий поток запрыл канал, false если канал уже был закрыт другим потоком.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryCloseAndDisposeAsync(System.Exception,System.String)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryCloseAndDisposeAsync(DanilovSoft.vRPC.VRpcProtocolErrorException,System.String)">
             <summary>
             Отправляет Close если канал ещё не закрыт и выполняет Dispose.
+            Распространяет исключение <paramref name="protocolErrorException"/> всем ожидаюшим потокам.
             </summary>
             <remarks>Не бросает исключения.</remarks>
             <param name="protocolErrorException">Распространяет исключение ожидаюшим потокам.</param>
@@ -1195,7 +1202,7 @@
             Ответ на запрос для передачи удаленной стороне. Не подлежит сериализации.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.ResponseMessage.Uid">
+        <member name="P:DanilovSoft.vRPC.ResponseMessage.Id">
             <summary>
             Идентификатор скопированный из запроса.
             </summary>
@@ -1401,7 +1408,7 @@
         </member>
         <member name="P:DanilovSoft.vRPC.HeaderDto.IsResponseRequired">
             <summary>
-            true если задан <see cref="P:DanilovSoft.vRPC.HeaderDto.Uid"/>.
+            true если задан <see cref="P:DanilovSoft.vRPC.HeaderDto.Id"/>.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.HeaderDto.IsRequest">
@@ -1461,24 +1468,30 @@
             Код состояния передаваемого сообщения.
             </summary>
         </member>
+        <member name="F:DanilovSoft.vRPC.StatusCode.ParseError">
+            <summary>
+            Invalid JSON was received by the server.
+            An error occurred on the server while parsing the JSON text.
+            </summary>
+        </member>
+        <member name="F:DanilovSoft.vRPC.StatusCode.InvalidRequest">
+            <summary>
+            The JSON sent is not a valid Request object.
+            </summary>
+        </member>
         <member name="F:DanilovSoft.vRPC.StatusCode.MethodNotFound">
             <summary>
             The method does not exist / is not available.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.StatusCode.InvalidRequestFormat">
+        <member name="F:DanilovSoft.vRPC.StatusCode.InvalidParams">
             <summary>
-            Unprocessable Entity.
+            Invalid method parameter(s).
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.StatusCode.InternalError">
             <summary>
             Internal JSON-RPC error.
-            </summary>
-        </member>
-        <member name="F:DanilovSoft.vRPC.StatusCode.InvalidParams">
-            <summary>
-            Invalid method parameter(s).
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.ClientConnectedEventArgs.Connection">
@@ -1672,6 +1685,11 @@
         <member name="P:DanilovSoft.vRPC.Resources.SR.CloseAsyncProtocolError">
             <summary>
               Ищет локализованную строку, похожую на An error has occurred during header deserialization: {0}.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.Resources.SR.JsonRpcProtocolError">
+            <summary>
+              Ищет локализованную строку, похожую на An error has occurred during json deserialization from the remote side and connection will be closed. Error: {0}.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.Resources.SR.ProtocolError">

@@ -53,8 +53,8 @@ namespace DanilovSoft.vRPC
             TcpNoDelay = Attribute.IsDefined(interfaceMethod, typeof(TcpNoDelayAttribute));
 
             Debug.Assert(interfaceMethod.DeclaringType != null);
-            IsJsonRpc = Attribute.IsDefined(interfaceMethod.DeclaringType, typeof(JsonRpcCompatibleAttribute)) 
-                || Attribute.IsDefined(interfaceMethod, typeof(JsonRpcCompatibleAttribute));
+            IsJsonRpc = Attribute.IsDefined(interfaceMethod.DeclaringType, typeof(JsonRpcAttribute)) 
+                || Attribute.IsDefined(interfaceMethod, typeof(JsonRpcAttribute));
 
             if (IsNotificationRequest)
             {
