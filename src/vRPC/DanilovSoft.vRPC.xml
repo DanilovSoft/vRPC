@@ -834,7 +834,7 @@
             Подключенный TCP сокет.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ManagedConnection._pendingRequests">
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._responseAwaiters">
             <summary>
             Коллекция запросов ожидающие ответ от удалённой стороны.
             </summary>
@@ -1154,13 +1154,13 @@
             <summary>
             Увеличивает счётчик на 1 при получении запроса или при отправке запроса.
             </summary>
-            <returns>True если можно продолжить получение запросов иначе нужно закрыть соединение.</returns>
+            <returns>False если был запрошен Shutdown и сервис нужно остановить.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.DecreaseActiveRequestsCount">
             <summary>
             Уменьшает счётчик активных запросов на 1 при получении ответа на запрос или при отправке ответа на запрос.
             </summary>
-            <returns>True если можно продолжить получение запросов иначе нужно остановить сервис.</returns>
+            <returns>False если был запрошен Shutdown и сервис нужно остановить.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessRequest(DanilovSoft.vRPC.RequestContext@)">
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
@@ -2063,7 +2063,6 @@
         <member name="T:DanilovSoft.vRPC.PendingRequestDictionary">
             <summary>
             Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
-            Имеет лимит в 65'535 запросов.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.PendingRequestDictionary._spinWait">
@@ -2117,8 +2116,14 @@
             <summary>
             Передает результат ожидающему потоку.
             </summary>
+            <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
+        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.DeserializeAndSetResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
+            <summary>
+            Передаёт ответ ожидающему потоку.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.DeserializeJsonRpcResponse(System.Text.Json.Utf8JsonReader@)">
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>

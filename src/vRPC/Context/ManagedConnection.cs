@@ -19,6 +19,7 @@ using DanilovSoft.vRPC.Source;
 using System.IO;
 using DanilovSoft.vRPC.Context;
 using DanilovSoft.vRPC.JsonRpc;
+using System.Text.Json;
 
 namespace DanilovSoft.vRPC
 {
@@ -67,7 +68,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Коллекция запросов ожидающие ответ от удалённой стороны.
         /// </summary>
-        private readonly PendingRequestDictionary _pendingRequests;
+        private readonly PendingRequestDictionary _responseAwaiters;
         public EndPoint LocalEndPoint { get; }
         public EndPoint RemoteEndPoint { get; }
         /// <summary>
@@ -189,7 +190,7 @@ namespace DanilovSoft.vRPC
             _tcpNoDelay = webSocket.Socket.NoDelay;
             //_pipe = new Pipe();
 
-            _pendingRequests = new PendingRequestDictionary();
+            _responseAwaiters = new PendingRequestDictionary();
 
             // IoC готов к работе.
             ServiceProvider = serviceProvider;
@@ -524,7 +525,7 @@ namespace DanilovSoft.vRPC
                 if (!IsDisposed) // volatile проверка.
                 {
                     // Добавить запрос в словарь для дальнейшей связки с ответом.
-                    ResponseAwaiter<TResult> responseAwaiter = _pendingRequests.AddRequest<TResult>(methodMeta, out int uid);
+                    ResponseAwaiter<TResult> responseAwaiter = _responseAwaiters.AddRequest<TResult>(methodMeta, out int uid);
 
                     var request = new JsonRpcRequest(responseAwaiter, methodMeta, args, uid);
 
@@ -707,7 +708,7 @@ namespace DanilovSoft.vRPC
                     try
                     {
                         // Добавить запрос в словарь для дальнейшей связки с ответом.
-                        ResponseAwaiter<TResult> responseAwaiter = _pendingRequests.AddRequest<TResult>(requestMeta, out int uid);
+                        ResponseAwaiter<TResult> responseAwaiter = _responseAwaiters.AddRequest<TResult>(requestMeta, out int uid);
 
                         // Назначить запросу уникальный идентификатор.
                         serMsg.Uid = uid;
@@ -798,52 +799,13 @@ namespace DanilovSoft.vRPC
                     }
                 }
                 else if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
-                // Text мог прислать только Json-rpc.
+                // Получен Json-rpc запрос или ответ.
                 {
-                    bool deserialized;
-                    IActionResult? error;
-                    JsonRequest request;
-
-                    try
-                    {
-                        deserialized = JsonRpcSerializer.TryDeserialize(headerBuffer.AsSpan(0, webSocketMessage.Count), _invokeMethods, out request, out error);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Отправка Close и завершить поток.
-                        await SendCloseHeaderErrorAsync(webSocketMessage.Count, ex).ConfigureAwait(false);
-                        return;
-                    }
-
-                    if (deserialized)
-                    {
-                        if (TryIncreaseActiveRequestsCount(isResponseRequired: request.Id != null))
-                        {
-                            // Начать выполнение запроса в отдельном потоке.
-                            StartProcessRequest(new RequestContext(request.Id.Value, request.Method, request.Args));
-                        }
-                        else
-                        {
-                            // Завершить поток.
-                            return;
-                        }
-
+                    await HandleJrpcMessage(headerBuffer.AsSpan(0, webSocketMessage.Count), out bool success).ConfigureAwait(false);
+                    if (success)
                         continue;
-                    }
                     else
-                    {
-                        if (request.Id != null)
-                        {
-                            // Передать на отправку результат с ошибкой через очередь.
-                            PostSendResponse(new ResponseMessage(request.Id.Value, error));
-                            continue;
-                        }
-                        else
-                        {
-                            await TryProtocolErrorCloseAsync("Invalid Request").ConfigureAwait(false);
-                            return;
-                        }
-                    }
+                        return;
                 }
                 else
                 // Получен Close.
@@ -940,6 +902,188 @@ namespace DanilovSoft.vRPC
                     return;
                 }
             }
+        }
+
+        private Task HandleJrpcMessage(ReadOnlySpan<byte> buffer, out bool success)
+        {
+            //bool deserialized;
+            IActionResult? error;
+            
+            try
+            {
+                DeserializeJsonRpcMessage(buffer, _invokeMethods, out error);
+            }
+            catch (Exception ex)
+            {
+                // Отправка Close и завершить поток.
+                success = false;
+                return SendCloseHeaderErrorAsync(buffer.Length, ex);
+            }
+            success = true;
+            return Task.CompletedTask;
+
+            //if (deserialized)
+            //{
+            //    if (TryIncreaseActiveRequestsCount(isResponseRequired: request.Id != null))
+            //    {
+            //        // Начать выполнение запроса в отдельном потоке.
+            //        StartProcessRequest(new RequestContext(request.Id.Value, request.Method, request.Args));
+            //    }
+            //    else
+            //    {
+            //        // Завершить поток.
+            //        success = false;
+            //        return Task.CompletedTask;
+            //    }
+
+            //    success = true;
+            //    return Task.CompletedTask;
+            //}
+            //else
+            //{
+            //    if (request.Id != null)
+            //    {
+            //        // Передать на отправку результат с ошибкой через очередь.
+            //        PostSendResponse(new ResponseMessage(request.Id.Value, error));
+            //        success = true;
+            //        return Task.CompletedTask;
+            //    }
+            //    else
+            //    {
+            //        success = false;
+            //        return TryProtocolErrorCloseAsync("Invalid Request");
+            //    }
+            //}
+        }
+
+        internal bool DeserializeJsonRpcMessage(ReadOnlySpan<byte> utf8Json, InvokeActionsDictionary invokeMethods, [MaybeNullWhen(true)] out IActionResult? error)
+        {
+#if DEBUG
+            var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
+#endif
+            string? actionName = null;
+            int? id = null;
+            ControllerMethodMeta? method = null;
+            object[]? args = null;
+
+            //result = new JsonRequest();
+
+            bool gotMethod = false;
+            bool gotId = false;
+            JsonReaderState paramsState;
+
+            var reader = new Utf8JsonReader(utf8Json);
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.PropertyName)
+                {
+                    if (!gotMethod && reader.ValueTextEquals("method"))
+                    {
+                        if (reader.Read())
+                        {
+                            actionName = reader.GetString();
+                            gotMethod = true;
+
+                            if (invokeMethods.TryGetAction(actionName, out method))
+                            {
+                                args = method.Parametergs.Length == 0
+                                    ? Array.Empty<object>()
+                                    : (new object[method.Parametergs.Length]);
+                            }
+                            else
+                            {
+                                error = ResponseHelper.MethodNotFound(actionName);
+                                return false;
+                            }
+                        }
+                    }
+                    else if (!gotId && reader.ValueTextEquals("id"))
+                    {
+                        if (reader.Read())
+                        {
+                            // TODO формат может быть String или Number.
+                            id = reader.GetInt32();
+                            gotId = true;
+                        }
+                    }
+                    else if (reader.ValueTextEquals("result"))
+                    {
+                        if (gotId)
+                        {
+                            if (reader.Read())
+                            {
+                                if (_responseAwaiters.TryRemove(id.Value, out IResponseAwaiter? awaiter))
+                                {
+                                    awaiter.DeserializeJsonRpcResponse(ref reader);
+                                    error = default;
+                                    return true;
+                                }
+                                else
+                                {
+
+                                }
+                            }
+                        }
+                    }
+                    else if (reader.ValueTextEquals("params"))
+                    {
+                        if (method != null)
+                        {
+                            if (!TryReadArgs(method, args!, reader, out error))
+                            {
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            paramsState = reader.CurrentState;
+                            // TODO
+                        }
+                    }
+                }
+            }
+
+
+            error = default;
+            return true;
+        }
+
+        private static bool TryReadArgs(ControllerMethodMeta method, object[] args, Utf8JsonReader reader, [MaybeNullWhen(true)] out IActionResult? error)
+        {
+            if (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.StartArray)
+                {
+                    // Считаем сколько аргументов есть в json'е.
+                    short argsInJsonCounter = 0;
+
+                    while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+                    {
+                        if (method.Parametergs.Length > argsInJsonCounter)
+                        {
+                            Type paramType = method.Parametergs[argsInJsonCounter].ParameterType;
+                            try
+                            {
+                                args[argsInJsonCounter] = JsonSerializer.Deserialize(ref reader, paramType);
+                            }
+                            catch (JsonException)
+                            {
+                                error = ResponseHelper.ErrorDeserializingArgument(method.MethodFullName, argIndex: argsInJsonCounter, paramType);
+                                return false;
+                            }
+                            argsInJsonCounter++;
+                        }
+                        else
+                        // Несоответствие числа параметров.
+                        {
+                            error = ResponseHelper.ArgumentsCountMismatchError(method.MethodFullName, method.Parametergs.Length);
+                            return false;
+                        }
+                    }
+                }
+            }
+            error = default;
+            return true;
         }
 
         /// <summary>При получении Close или сообщения типа Text — отправляет Close и делает Dispose.</summary>
@@ -1049,10 +1193,10 @@ namespace DanilovSoft.vRPC
                 Debug.Assert(header.Uid != null, "У ответа на запрос должен быть идентификатор");
 
                 // Удалить запрос из словаря.
-                if (header.Uid != null && _pendingRequests.TryRemove(header.Uid.Value, out IResponseAwaiter? respAwaiter))
+                if (header.Uid != null && _responseAwaiters.TryRemove(header.Uid.Value, out IResponseAwaiter? respAwaiter))
                 // Передать ответ ожидающему потоку.
                 {
-                    respAwaiter.SetResponse(in header, payload);
+                    respAwaiter.DeserializeAndSetResponse(in header, payload);
 
                     // Получен ожидаемый ответ на запрос.
                     if (DecreaseActiveRequestsCount())
@@ -1285,7 +1429,7 @@ namespace DanilovSoft.vRPC
         private async Task TryCloseAndDisposeAsync(Exception protocolErrorException, string closeDescription)
         {
             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-            _pendingRequests.TryPropagateExceptionAndLockup(protocolErrorException);
+            _responseAwaiters.TryPropagateExceptionAndLockup(protocolErrorException);
 
             if (await TryCompleteSenderAsync().ConfigureAwait(false))
             {
@@ -1958,7 +2102,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Увеличивает счётчик на 1 при получении запроса или при отправке запроса.
         /// </summary>
-        /// <returns>True если можно продолжить получение запросов иначе нужно закрыть соединение.</returns>
+        /// <returns>False если был запрошен Shutdown и сервис нужно остановить.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IncreaseActiveRequestsCount()
         {
@@ -1969,7 +2113,10 @@ namespace DanilovSoft.vRPC
             }
             else
             // Значение было -1, значит происходит остановка. Выполнять запрос не нужно.
+            // Пользователь запросил остановку сервиса.
             {
+                Debug.Assert(_shutdownRequest != null, "Нарушен счётчик запросов");
+
                 return false;
             }
         }
@@ -1977,7 +2124,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Уменьшает счётчик активных запросов на 1 при получении ответа на запрос или при отправке ответа на запрос.
         /// </summary>
-        /// <returns>True если можно продолжить получение запросов иначе нужно остановить сервис.</returns>
+        /// <returns>False если был запрошен Shutdown и сервис нужно остановить.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool DecreaseActiveRequestsCount()
         {
@@ -1987,8 +2134,11 @@ namespace DanilovSoft.vRPC
                 return true;
             }
             else
+            // Значение было -1, значит происходит остановка. Выполнять запрос не нужно.
             // Пользователь запросил остановку сервиса.
             {
+                Debug.Assert(_shutdownRequest != null, "Нарушен счётчик запросов");
+
                 return false;
             }
         }
@@ -2177,7 +2327,7 @@ namespace DanilovSoft.vRPC
                 _sendChannel.Writer.TryComplete();
 
                 // Передать исключение всем ожидающим потокам.
-                _pendingRequests.TryPropagateExceptionAndLockup(possibleReason.ToException());
+                _responseAwaiters.TryPropagateExceptionAndLockup(possibleReason.ToException());
 
                 // Закрыть соединение.
                 _ws.Dispose();

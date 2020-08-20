@@ -43,8 +43,8 @@ namespace ConsoleApp
 
         private static async void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
         {
-            await Task.Delay(2000);
-            e.Connection.GetProxy<ITest>().Echo("qwerty", 123);
+            //await Task.Delay(2000);
+            //e.Connection.GetProxy<ITest>().Echo("qwerty", 123);
         }
     }
 

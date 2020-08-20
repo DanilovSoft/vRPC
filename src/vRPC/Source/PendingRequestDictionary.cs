@@ -9,7 +9,6 @@ namespace DanilovSoft.vRPC
 {
     /// <summary>
     /// Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
-    /// Имеет лимит в 65'535 запросов.
     /// </summary>
     [DebuggerDisplay(@"\{Count = {_dict.Count}\}")]
     internal sealed class PendingRequestDictionary
@@ -64,20 +63,16 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private int IncrementSeq()
-        {
-            int uid = Interlocked.Increment(ref _reqIdSeq);
-            return uid;
-        }
+        private int IncrementSeq() => Interlocked.Increment(ref _reqIdSeq);
 
         /// <summary>
         /// Потокобезопасно удаляет запрос из словаря.
         /// </summary>
-        public bool TryRemove(int uid, [MaybeNullWhen(false)] out IResponseAwaiter tcs)
+        public bool TryRemove(int id, [MaybeNullWhen(false)] out IResponseAwaiter tcs)
         {
             lock (_dict)
             {
-                return _dict.Remove(uid, out tcs);
+                return _dict.Remove(id, out tcs);
             }
         }
 

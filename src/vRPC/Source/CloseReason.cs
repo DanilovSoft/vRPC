@@ -25,7 +25,7 @@ namespace DanilovSoft.vRPC
         /// Является <see langword="null"/> если разъединение завершилось грациозно
         /// и не является <see langword="null"/> когда разъединение завершилось не грациозно.
         /// </summary>
-        public Exception? ConnectionError { get; }
+        public VRpcException? ConnectionError { get; }
         /// <summary>
         /// Сообщение от удалённой стороны указывающее причину разъединения (может быть <see langword="null"/>).
         /// Если текст совпадает с переданным в метод Shutdown то разъединение произошло по вашей инициативе.
@@ -64,7 +64,7 @@ namespace DanilovSoft.vRPC
         }
 
         [DebuggerStepThrough]
-        private CloseReason(Exception? error, WebSocketCloseStatus? closeStatus, string? closeDescription, string? additionalDescription, ShutdownRequest? shutdownRequest)
+        private CloseReason(VRpcException? error, WebSocketCloseStatus? closeStatus, string? closeDescription, string? additionalDescription, ShutdownRequest? shutdownRequest)
         {
             ConnectionError = error;
             CloseDescription = closeDescription;

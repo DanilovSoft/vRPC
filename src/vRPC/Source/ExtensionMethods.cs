@@ -281,7 +281,7 @@ namespace DanilovSoft.vRPC
             return new SocketException((int)socketError);
         }
 
-        public static Exception ToException(this CloseReason closeReason)
+        public static VRpcException ToException(this CloseReason closeReason)
         {
             if(closeReason.ConnectionError == null)
             // Закрытие было грациозное но нам всёравно нужно исключение.

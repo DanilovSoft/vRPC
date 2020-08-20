@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC.Source;
@@ -11,7 +12,8 @@ namespace DanilovSoft.vRPC
     internal interface IResponseAwaiter
     {
         void TrySetException(Exception exception);
-        void SetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
+        void DeserializeAndSetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
+        void DeserializeJsonRpcResponse(ref Utf8JsonReader reader);
     }
 
     /// <summary>
@@ -58,6 +60,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передает результат ожидающему потоку.
         /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
         private void TrySetResult([AllowNull] TResult result)
         {
             _tcs.TrySetResult(result!);
@@ -78,72 +81,10 @@ namespace DanilovSoft.vRPC
             TrySetResult(default);
         }
 
-//        private void WakeContinuation()
-//        {
-//            // Результат уже установлен. Можно разрешить fast-path.
-//            _isCompleted = true;
-
-//            // Атомарно записать заглушку или вызвать оригинальный continuation.
-//            Action? continuation = Interlocked.CompareExchange(ref _continuationAtomic, GlobalVars.SentinelAction, null);
-//            if (continuation != null)
-//            {
-//                // Нельзя делать продолжение текущим потоком т.к. это затормозит/остановит диспетчер 
-//                // или произойдет побег специального потока диспетчера.
-//#if NETSTANDARD2_0 || NET472
-//                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
-//#else
-//                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: false); // Через глобальную очередь.
-//#endif
-//            }
-//        }
-
-//#if NETSTANDARD2_0 || NET472
-//        //[DebuggerStepThrough]
-//        private static void CallContinuation(object? state)
-//        {
-//            var action = state as Action;
-//            Debug.Assert(action != null);
-//            CallContinuation(argState: action);
-//        }
-//#endif
-
-//        private static void CallContinuation(Action argState)
-//        {
-//            argState.Invoke();
-//        }
-
-//        public void OnCompleted(Action continuation)
-//        {
-//            // Атомарно передаем continuation другому потоку.
-//            if (Interlocked.CompareExchange(ref _continuationAtomic, continuation, null) == null)
-//            {
-//                return;
-//            }
-//            else
-//            {
-//                // Шанс попасть в этот блок очень маленький.
-//                // В переменной _continuationAtomic была другая ссылка, 
-//                // это значит что другой поток уже установил результат и его можно забрать.
-//                // Но нужно предотвратить углубление стека (stack dive) поэтому продолжение вызывается
-//                // другим потоком.
-
-//#if NETSTANDARD2_0 || NET472
-//                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation);
-//#else
-//                ThreadPool.UnsafeQueueUserWorkItem(CallContinuation, continuation, preferLocal: true); // Через локальную очередь.
-//#endif
-//            }
-//        }
-
-        //private static void QueueUserWorkItem(Action action)
-        //{
-        //    Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default);
-        //}
-
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        public void SetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        public void DeserializeAndSetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             Debug.Assert(header.IsRequest == false);
 
@@ -201,6 +142,39 @@ namespace DanilovSoft.vRPC
                 // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
                 TrySetException(new VRpcBadRequestException(errorMessage, header.StatusCode));
             }
+        }
+
+        /// <summary>
+        /// Передаёт ответ ожидающему потоку.
+        /// </summary>
+        public void DeserializeJsonRpcResponse(ref Utf8JsonReader reader)
+        {
+            #region Передать успешный результат
+
+            if (typeof(TResult) != typeof(VoidStruct))
+            // Поток ожидает некий объект как результат.
+            {
+                TResult result;
+                try
+                {
+                    result = JsonSerializer.Deserialize<TResult>(ref reader);
+                }
+                catch (Exception deserializationException)
+                {
+                    // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
+                    TrySetException(new VRpcProtocolErrorException(
+                        $"Ошибка десериализации ответа на запрос \"{Request.MethodFullName}\".", deserializationException));
+
+                    return;
+                }
+                TrySetResult(result);
+            }
+            else
+            // void.
+            {
+                TrySetDefaultResult();
+            }
+            #endregion
         }
     }
 }
