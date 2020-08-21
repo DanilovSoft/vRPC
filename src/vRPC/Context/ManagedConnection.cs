@@ -257,6 +257,7 @@ namespace DanilovSoft.vRPC
             {
                 Debug.Assert(e.DisconnectingReason.Error != null);
                 var vException = new VRpcException(e.DisconnectingReason.Error.Message, e.DisconnectingReason.Error);
+
                 closeReason = CloseReason.FromException(vException, _shutdownRequest, e.DisconnectingReason.AdditionalDescription);
             }
             TryDispose(closeReason);
@@ -381,7 +382,7 @@ namespace DanilovSoft.vRPC
                 catch (Exception ex)
                 {
                     // Оповестить об обрыве.
-                    TryDispose(CloseReason.FromException(new VRpcException(ex.Message, ex), _shutdownRequest));
+                    TryDispose(CloseReason.FromException(new VRpcException("Обрыв при отправке Close.", ex), _shutdownRequest));
 
                     // Завершить поток.
                     return;
@@ -530,7 +531,7 @@ namespace DanilovSoft.vRPC
                     // Добавить запрос в словарь для дальнейшей связки с ответом.
                     ResponseAwaiter<TResult> responseAwaiter = _responseAwaiters.AddRequest<TResult>(methodMeta, out int uid);
 
-                    var request = new JsonRpcRequest(responseAwaiter, methodMeta, args, uid);
+                    var request = new JRequest(responseAwaiter, methodMeta, args, uid);
 
                     TryPostMessage(request);
 
@@ -866,7 +867,7 @@ namespace DanilovSoft.vRPC
                                 // Обрыв соединения.
                                 {
                                     // Оповестить об обрыве и завершить поток.
-                                    TryDispose(CloseReason.FromException(new VRpcException("Ошибка при чтении контента сообщения.", ex), _shutdownRequest));
+                                    TryDispose(CloseReason.FromException(new VRpcException("Обрыв при чтении контента сообщения.", ex), _shutdownRequest));
                                     return;
                                 }
                                 #endregion
@@ -1055,7 +1056,7 @@ namespace DanilovSoft.vRPC
             if (method == null && id != null && methodName != null)
             {
                 // Передать на отправку результат с ошибкой через очередь.
-                PostJrpcResponse(new JResponseMessage(id.Value, new JNotFoundResult(methodName)));
+                PostJResponse(new JResponse(id.Value, new JNotFoundResult(methodName)));
                 return;
             }
 
@@ -1315,28 +1316,9 @@ namespace DanilovSoft.vRPC
         }
 
         /// <remarks>Не бросает исключения.</remarks>
-        private Task TryFinishSenderAndSendCloseAsync()
+        private async Task TryFinishSenderAndSendCloseAsync()
         {
-            ValueTask<bool> task = TryCompleteSenderAsync();
-            if (task.IsCompletedSuccessfully)
-            {
-                return OnCompletedSender(task.Result);
-            }
-            else
-            {
-                return WaitAsync(task);
-            }
-
-            async Task WaitAsync(ValueTask<bool> task)
-            {
-                bool success = await task.ConfigureAwait(false);
-                await OnCompletedSender(success).ConfigureAwait(false);
-            }
-        }
-
-        private async Task OnCompletedSender(bool success)
-        {
-            if (success)
+            if (await TryCompleteSenderAsync().ConfigureAwait(false))
             {
                 try
                 {
@@ -1346,7 +1328,7 @@ namespace DanilovSoft.vRPC
                 // Обрыв соединения.
                 {
                     // Оповестить об обрыве и завершить поток.
-                    TryDispose(CloseReason.FromException(new VRpcException("Ошибка при отправке Close.", ex), _shutdownRequest));
+                    TryDispose(CloseReason.FromException(new VRpcException("Обрыв при отправке Close.", ex), _shutdownRequest));
                     return;
                 }
             }
@@ -1469,7 +1451,7 @@ namespace DanilovSoft.vRPC
                 // Злой обрыв соединения.
                 {
                     // Оповестить об обрыве.
-                    TryDispose(CloseReason.FromException(new VRpcException(ex.Message, ex), _shutdownRequest));
+                    TryDispose(CloseReason.FromException(new VRpcException("Обрыв при отправке Close.", ex), _shutdownRequest));
 
                     // Завершить поток.
                     return;
@@ -1498,7 +1480,7 @@ namespace DanilovSoft.vRPC
 #endif
         }
 
-        private void PostJrpcResponse(IMessageToSend responseToSend)
+        private void PostJResponse(IMessageToSend responseToSend)
         {
 #if NETSTANDARD2_0 || NET472
             ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, Tuple.Create(this, responseToSend));
@@ -1524,10 +1506,10 @@ namespace DanilovSoft.vRPC
         private static void SerializeResponseAndTrySendThreadEntryPoint(Tuple<ManagedConnection, IMessageToSend> argState)
         {
             // Сериализуем.
-            SerializedMessageToSend serializedMessage = SerializeResponse(argState.Item2);
+            //SerializedMessageToSend serializedMessage = SerializeResponse(argState.Item2);
 
             // Ставим в очередь.
-            argState.Item1.TryPostMessage(serializedMessage);
+            argState.Item1.TryPostMessage(argState.Item2);
         }
 
         // Точка входа потока тред-пула.
@@ -1777,7 +1759,7 @@ namespace DanilovSoft.vRPC
                                 #endregion
 
                                 // Уменьшить счетчик активных запросов.
-                                if (!TryDecreaseActiveRequestsCount(serializedMessage))
+                                if (!TryDecreaseActiveRequestsCount(!serializedMessage.MessageToSend.IsRequest))
                                 // Пользователь запросил остановку сервиса.
                                 {
                                     // Завершить поток.
@@ -1797,7 +1779,7 @@ namespace DanilovSoft.vRPC
                         serializedMessage.Dispose();
                     }
                 }
-                else if (message is JsonRpcRequest jsonRequest)
+                else if (message is JRequest jsonRequest)
                 {
                     if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь.
                     {
@@ -1819,7 +1801,7 @@ namespace DanilovSoft.vRPC
                                     // Обрыв соединения.
                                     {
                                         // Оповестить об обрыве.
-                                        TryDispose(CloseReason.FromException(new VRpcException(ex.Message, ex), _shutdownRequest));
+                                        TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
 
                                         // Завершить поток.
                                         return;
@@ -1848,9 +1830,43 @@ namespace DanilovSoft.vRPC
                         }
                     }
                 }
-                else if (message is JsonRpcResponse jsonResponse)
+                else if (message is JResponse jsonResponse)
                 {
+                    if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь.
+                    {
+                        ArrayBufferWriter<byte> buffer = Serialize(jsonResponse);
+                        try
+                        {
+                            SetNoDelay(jsonResponse.MethodMeta);
 
+                            AssertJson(buffer.WrittenMemory.Span);
+                            try
+                            {
+                                await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            // Обрыв соединения.
+                            {
+                                // Оповестить об обрыве.
+                                TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+
+                                // Завершить поток.
+                                return;
+                            }
+
+                            // Уменьшить счетчик активных запросов.
+                            if (!DecreaseActiveRequestsCount())
+                            // Пользователь запросил остановку сервиса.
+                            {
+                                // Завершить поток.
+                                return;
+                            }
+                        }
+                        finally
+                        {
+                            buffer.Dispose();
+                        }
+                    }
                 }
             }
         }
@@ -1869,7 +1885,12 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static bool TrySerialize(JsonRpcRequest jsonRequest, [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
+        private static ArrayBufferWriter<byte> Serialize(JResponse jResponse)
+        {
+
+        }
+
+        private static bool TrySerialize(JRequest jsonRequest, [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
         {
             try
             {
@@ -1885,17 +1906,12 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// 
+        /// Уменьшает счётчик после отправки ответа на запрос.
         /// </summary>
-        /// <param name="serializedMessage"></param>
         /// <returns>False если сервис требуется остановить.</returns>
-        private bool TryDecreaseActiveRequestsCount(SerializedMessageToSend serializedMessage)
+        private bool TryDecreaseActiveRequestsCount(bool isResponse)
         {
-            if (serializedMessage.MessageToSend.IsRequest)
-            {
-                return true;
-            }
-            else
+            if (isResponse)
             // Ответ успешно отправлен.
             {
                 if (DecreaseActiveRequestsCount())
@@ -1905,12 +1921,16 @@ namespace DanilovSoft.vRPC
                 else
                 // Пользователь запросил остановку сервиса.
                 {
-                    // Не бросает исключения.
+                    // В отличии от Increase тут мы обязаны отправить Close.
                     TryBeginSendCloseBeforeShutdown();
 
                     // Завершить поток.
                     return false;
                 }
+            }
+            else
+            {
+                return true;
             }
         }
 
@@ -1930,6 +1950,9 @@ namespace DanilovSoft.vRPC
                     else
                     // Пользователь запросил остановку сервиса.
                     {
+                        // В отличии от TryDecrease, отправлять Close не нужно потому что это уже
+                        // сделал поток который уменьшил счётчик до 0.
+
                         // Просто завершить поток.
                         return false;
                     }
@@ -2169,7 +2192,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Уменьшает счётчик активных запросов на 1 при получении ответа на запрос или при отправке ответа на запрос.
+        /// Безусловно уменьшает счётчик активных запросов на 1.
         /// </summary>
         /// <returns>False если был запрошен Shutdown и сервис нужно остановить.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

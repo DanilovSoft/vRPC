@@ -48,6 +48,9 @@ namespace DanilovSoft.vRPC
             return new CloseReason(stopRequiredException, null, null, null, stopRequiredException.ShutdownRequest);
         }
 
+        /// <summary>
+        /// Создаёт причину обрыва соединения из-за исключения.
+        /// </summary>
         internal static CloseReason FromException(VRpcException exception, ShutdownRequest? shutdownRequest, string? additionalDescription = null)
         {
             return InnerFromException(exception, shutdownRequest, additionalDescription);

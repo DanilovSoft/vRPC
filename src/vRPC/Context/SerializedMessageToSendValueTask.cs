@@ -249,10 +249,5 @@ namespace DanilovSoft.vRPC
         [DoesNotReturn]
         private static void ThrowMultipleContinuationsException() =>
                 throw new InvalidOperationException("Multiple continuations not allowed.");
-
-        private static InvalidOperationException SimultaneouslyOperationException()
-        {
-            return new InvalidOperationException("Operation already in progress.");
-        }
     }
 }

@@ -4,7 +4,7 @@ using System.Text;
 
 namespace DanilovSoft.vRPC.Context
 {
-    internal sealed class JsonRpcRequest : IMessageToSend
+    internal sealed class JRequest : IMessageToSend
     {
         internal readonly RequestMethodMeta MethodMeta;
         internal readonly object[] Args;
@@ -15,7 +15,7 @@ namespace DanilovSoft.vRPC.Context
         internal readonly int Uid;
         internal readonly IResponseAwaiter ResponseAwaiter;
 
-        public JsonRpcRequest(IResponseAwaiter responseAwaiter, RequestMethodMeta requestMeta, object[] args, int uid)
+        public JRequest(IResponseAwaiter responseAwaiter, RequestMethodMeta requestMeta, object[] args, int uid)
         {
             ResponseAwaiter = responseAwaiter;
             MethodMeta = requestMeta;

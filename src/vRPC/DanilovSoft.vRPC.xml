@@ -777,12 +777,12 @@
             Может быть True когда IsRequest тоже является True.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.Context.JsonRpcRequest.Uid">
+        <member name="F:DanilovSoft.vRPC.Context.JRequest.Uid">
             <summary>
             Уникальный идентификатор который будет отправлен удалённой стороне.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.Context.JsonRpcRequest.Serialize">
+        <member name="M:DanilovSoft.vRPC.Context.JRequest.Serialize">
             <summary>
             Сериализация пользовательских данных может спровоцировать исключение.
             </summary>
@@ -1092,9 +1092,6 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySendThreadEntryPoint(System.Object)">
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySendThreadEntryPoint(System.Tuple{DanilovSoft.vRPC.ManagedConnection,DanilovSoft.vRPC.ResponseMessage})">
-            <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
-        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponse(DanilovSoft.vRPC.ResponseMessage)">
             <summary>
             Сериализует сообщение в память. Может бросить исключение сериализации.
@@ -1119,11 +1116,10 @@
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDecreaseActiveRequestsCount(DanilovSoft.vRPC.SerializedMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDecreaseActiveRequestsCount(System.Boolean)">
             <summary>
-            
+            Уменьшает счётчик после отправки ответа на запрос.
             </summary>
-            <param name="serializedMessage"></param>
             <returns>False если сервис требуется остановить.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryIncreaseActiveRequestsCount(DanilovSoft.vRPC.SerializedMessageToSend)">
@@ -1901,6 +1897,11 @@
         <member name="P:DanilovSoft.vRPC.CloseReason.ShutdownRequest">
             <summary>
             Если был выполнен запрос на остановку сервиса то это свойство будет не <see langword="null"/>.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.CloseReason.FromException(DanilovSoft.vRPC.VRpcException,DanilovSoft.vRPC.ShutdownRequest,System.String)">
+            <summary>
+            Создаёт причину обрыва соединения из-за исключения.
             </summary>
         </member>
         <member name="F:DanilovSoft.vRPC.ConnectionState.SocketError">

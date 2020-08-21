@@ -18,7 +18,7 @@ namespace ConsoleApp
     {
         static void Main()
         {
-            VRpcListener listener = new VRpcListener(IPAddress.Any);
+            VRpcListener listener = new VRpcListener(IPAddress.Any, 1234);
             listener.Start();
             listener.ClientConnected += Listener_ClientConnected;
 
@@ -56,10 +56,10 @@ namespace ConsoleApp
             Console.WriteLine(msg);
         }
 
-        public int Add(int x, int y)
-        {
-            return x + y;
-        }
+        //public int Add(int x, int y)
+        //{
+        //    return x + y;
+        //}
     }
 
     [JsonRpc]
