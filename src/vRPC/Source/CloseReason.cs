@@ -25,7 +25,8 @@ namespace DanilovSoft.vRPC
         /// Является <see langword="null"/> если разъединение завершилось грациозно
         /// и не является <see langword="null"/> когда разъединение завершилось не грациозно.
         /// </summary>
-        public VRpcException? ConnectionError { get; }
+        /// <remarks>Может быть производными типа <see cref="VRpcException"/> или <see cref="ObjectDisposedException"/></remarks>
+        public Exception? ConnectionError { get; }
         /// <summary>
         /// Сообщение от удалённой стороны указывающее причину разъединения (может быть <see langword="null"/>).
         /// Если текст совпадает с переданным в метод Shutdown то разъединение произошло по вашей инициативе.
@@ -47,14 +48,21 @@ namespace DanilovSoft.vRPC
             return new CloseReason(stopRequiredException, null, null, null, stopRequiredException.ShutdownRequest);
         }
 
-        //[DebuggerStepThrough]
-        internal static CloseReason FromException(Exception ex, ShutdownRequest? shutdownRequest, string? additionalDescription = null)
+        internal static CloseReason FromException(VRpcException exception, ShutdownRequest? shutdownRequest, string? additionalDescription = null)
         {
-            VRpcException exception = ex is VRpcException vex 
-                ? vex 
-                : new VRpcException(ex.Message, ex);
+            return InnerFromException(exception, shutdownRequest, additionalDescription);
+        }
 
-            return new CloseReason(exception, null, null, additionalDescription, shutdownRequest);
+        internal static CloseReason FromException(ObjectDisposedException exception, ShutdownRequest? shutdownRequest, string? additionalDescription = null)
+        {
+            return InnerFromException(exception, shutdownRequest, additionalDescription);
+        }
+
+        private static CloseReason InnerFromException(Exception ex, ShutdownRequest? shutdownRequest, string? additionalDescription = null)
+        {
+            Debug.Assert(ex is VRpcException || ex is ObjectDisposedException);
+
+            return new CloseReason(ex, null, null, additionalDescription, shutdownRequest);
         }
 
         [DebuggerStepThrough]
@@ -64,9 +72,9 @@ namespace DanilovSoft.vRPC
         }
 
         [DebuggerStepThrough]
-        private CloseReason(VRpcException? error, WebSocketCloseStatus? closeStatus, string? closeDescription, string? additionalDescription, ShutdownRequest? shutdownRequest)
+        private CloseReason(Exception? exception, WebSocketCloseStatus? closeStatus, string? closeDescription, string? additionalDescription, ShutdownRequest? shutdownRequest)
         {
-            ConnectionError = error;
+            ConnectionError = exception;
             CloseDescription = closeDescription;
             CloseStatus = closeStatus;
             AdditionalDescription = additionalDescription;

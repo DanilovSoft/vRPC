@@ -88,6 +88,15 @@ namespace DanilovSoft.vRPC.Resources {
         }
         
         /// <summary>
+        ///   Ищет локализованную строку, похожую на Ошибка в потоке отправляющем сообщения..
+        /// </summary>
+        internal static string SenderLoopError {
+            get {
+                return ResourceManager.GetString("SenderLoopError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ищет локализованную строку, похожую на WebSocket messages type should be Binary but we&apos;ve got Text.
         /// </summary>
         internal static string TextMessageTypeNotSupported {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.Serialization;
 using System.Security.Permissions;
 using System.Text;
@@ -19,6 +20,7 @@ namespace DanilovSoft.vRPC
 
         public VRpcException(string message, Exception innerException) : base(message, innerException)
         {
+            Debug.Assert(!(innerException is VRpcException));
         }
 
         [SecurityPermission(SecurityAction.Demand, SerializationFormatter = true)]

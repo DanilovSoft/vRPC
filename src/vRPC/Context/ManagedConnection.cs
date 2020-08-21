@@ -255,7 +255,8 @@ namespace DanilovSoft.vRPC
             else
             {
                 Debug.Assert(e.DisconnectingReason.Error != null);
-                closeReason = CloseReason.FromException(e.DisconnectingReason.Error, _shutdownRequest, e.DisconnectingReason.AdditionalDescription);
+                var vException = new VRpcException(e.DisconnectingReason.Error.Message, e.DisconnectingReason.Error);
+                closeReason = CloseReason.FromException(vException, _shutdownRequest, e.DisconnectingReason.AdditionalDescription);
             }
             TryDispose(closeReason);
         }
@@ -379,7 +380,7 @@ namespace DanilovSoft.vRPC
                 catch (Exception ex)
                 {
                     // Оповестить об обрыве.
-                    TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                    TryDispose(CloseReason.FromException(new VRpcException(ex.Message, ex), _shutdownRequest));
 
                     // Завершить поток.
                     return;
@@ -764,7 +765,7 @@ namespace DanilovSoft.vRPC
                         // Обрыв соединения.
                         {
                             // Оповестить об обрыве и завершить поток.
-                            TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                            TryDispose(CloseReason.FromException(new VRpcException("Обрыв соединения в потоке чтения сообщений.", ex), _shutdownRequest));
                             return;
                         }
                         bufferOffset += webSocketMessage.Count;
@@ -864,7 +865,7 @@ namespace DanilovSoft.vRPC
                                 // Обрыв соединения.
                                 {
                                     // Оповестить об обрыве и завершить поток.
-                                    TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                                    TryDispose(CloseReason.FromException(new VRpcException("Ошибка при чтении контента сообщения.", ex), _shutdownRequest));
                                     return;
                                 }
                                 #endregion
@@ -913,6 +914,7 @@ namespace DanilovSoft.vRPC
                 DeserializeJsonRpcMessage(buffer);
             }
             catch (JsonException ex)
+            // Ошибка при десериализации полученного Json.
             {
                 // Отправка Close и завершить поток.
                 success = false;
@@ -1343,7 +1345,7 @@ namespace DanilovSoft.vRPC
                 // Обрыв соединения.
                 {
                     // Оповестить об обрыве и завершить поток.
-                    TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                    TryDispose(CloseReason.FromException(new VRpcException("Ошибка при отправке Close.", ex), _shutdownRequest));
                     return;
                 }
             }
@@ -1381,7 +1383,7 @@ namespace DanilovSoft.vRPC
             return TryCloseAndDisposeAsync(protocolErrorException, message);
         }
 
-        /// <remarks>Json-RPC</remarks>
+        /// <remarks>Для Json-RPC</remarks>
         private Task SendCloseParseErrorAsync(JsonException parseException)
         {
             var propagateException = new VRpcProtocolErrorException(SR2.GetString(SR.JsonRpcProtocolError, parseException.Message), innerException: parseException);
@@ -1466,7 +1468,7 @@ namespace DanilovSoft.vRPC
                 // Злой обрыв соединения.
                 {
                     // Оповестить об обрыве.
-                    TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                    TryDispose(CloseReason.FromException(new VRpcException(ex.Message, ex), _shutdownRequest));
 
                     // Завершить поток.
                     return;
@@ -1694,7 +1696,7 @@ namespace DanilovSoft.vRPC
                                 // Обрыв соединения.
                                 {
                                     // Оповестить об обрыве.
-                                    TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                                    TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
 
                                     // Завершить поток.
                                     return;
@@ -1715,7 +1717,7 @@ namespace DanilovSoft.vRPC
                                         // Обрыв соединения.
                                         {
                                             // Оповестить об обрыве.
-                                            TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                                            TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
 
                                             // Завершить поток.
                                             return;
@@ -1741,7 +1743,7 @@ namespace DanilovSoft.vRPC
                                             // Обрыв соединения.
                                             {
                                                 // Оповестить об обрыве.
-                                                TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                                                TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
 
                                                 // Завершить поток.
                                                 return;
@@ -1797,7 +1799,7 @@ namespace DanilovSoft.vRPC
                                     // Обрыв соединения.
                                     {
                                         // Оповестить об обрыве.
-                                        TryDispose(CloseReason.FromException(ex, _shutdownRequest));
+                                        TryDispose(CloseReason.FromException(new VRpcException(ex.Message, ex), _shutdownRequest));
 
                                         // Завершить поток.
                                         return;
@@ -1825,6 +1827,10 @@ namespace DanilovSoft.vRPC
                             continue;
                         }
                     }
+                }
+                else if (message is JsonRpcResponse jsonResponse)
+                {
+
                 }
             }
         }
@@ -2334,7 +2340,7 @@ namespace DanilovSoft.vRPC
 
         /// <summary>
         /// Потокобезопасно освобождает ресурсы соединения. Вызывается при закрытии соединения.
-        /// Взводит <see cref="Completion"/> и оповещает все ожидающие потоки.
+        /// Взводит <see cref="Completion"/> и передаёт исключение всем ожидающие потокам.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
         /// <param name="possibleReason">Одна из возможных причин обрыва соединения.</param>
