@@ -21,6 +21,7 @@ using DanilovSoft.vRPC.Context;
 using DanilovSoft.vRPC.JsonRpc;
 using System.Text.Json;
 using System.Globalization;
+using DanilovSoft.vRPC.JsonRpc.ActionResults;
 
 namespace DanilovSoft.vRPC
 {
@@ -963,7 +964,7 @@ namespace DanilovSoft.vRPC
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
 #endif
-            string? actionName = null;
+            string? methodName = null;
             int? id = null;
             ControllerMethodMeta? method = null;
             object[]? args = null;
@@ -983,8 +984,8 @@ namespace DanilovSoft.vRPC
                     {
                         if (reader.Read())
                         {
-                            actionName = reader.GetString();
-                            if (_invokeMethods.TryGetAction(actionName, out method))
+                            methodName = reader.GetString();
+                            if (_invokeMethods.TryGetAction(methodName, out method))
                             {
                                 args = method.Parametergs.Length == 0
                                     ? Array.Empty<object>()
@@ -1051,10 +1052,10 @@ namespace DanilovSoft.vRPC
                 }
             }
 
-            if (method == null && id != null && actionName != null)
+            if (method == null && id != null && methodName != null)
             {
                 // Передать на отправку результат с ошибкой через очередь.
-                PostSendResponse(new ResponseMessage(id.Value, ResponseHelper.MethodNotFound(actionName)));
+                PostJrpcResponse(new JResponseMessage(id.Value, new JNotFoundResult(methodName)));
                 return;
             }
 
@@ -1497,20 +1498,39 @@ namespace DanilovSoft.vRPC
 #endif
         }
 
+        private void PostJrpcResponse(IMessageToSend responseToSend)
+        {
+#if NETSTANDARD2_0 || NET472
+            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, Tuple.Create(this, responseToSend));
+#else
+            // Предпочитаем глобальную очередь.
+            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, Tuple.Create(this, responseToSend), preferLocal: false);
+#endif
+        }
+
 #if NETSTANDARD2_0 || NET472
 
         // Точка входа потока тред-пула.
         /// <remarks>Не бросает исключения.</remarks>
         private static void SerializeResponseAndTrySendThreadEntryPoint(object? state)
         {
-            var tuple = state as Tuple<ManagedConnection, ResponseMessage>;
+            var tuple = state as Tuple<ManagedConnection, IMessageToSend>;
             Debug.Assert(tuple != null);
 
             SerializeResponseAndTrySendThreadEntryPoint(argState: tuple);
         }
 #endif
         // Точка входа потока тред-пула.
-        /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
+        private static void SerializeResponseAndTrySendThreadEntryPoint(Tuple<ManagedConnection, IMessageToSend> argState)
+        {
+            // Сериализуем.
+            SerializedMessageToSend serializedMessage = SerializeResponse(argState.Item2);
+
+            // Ставим в очередь.
+            argState.Item1.TryPostMessage(serializedMessage);
+        }
+
+        // Точка входа потока тред-пула.
         private static void SerializeResponseAndTrySendThreadEntryPoint(Tuple<ManagedConnection, ResponseMessage> argState)
         {
             // Сериализуем.
