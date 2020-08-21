@@ -43,10 +43,10 @@ namespace DanilovSoft.vRPC
             };
         }
 
-        public void ExecuteResult(ActionContext context)
+        public void ExecuteResult(ref ActionContext context)
         {
             ActionResult result = Convert();
-            result.ExecuteResult(context);
+            result.ExecuteResult(ref context);
         }
     }
 }

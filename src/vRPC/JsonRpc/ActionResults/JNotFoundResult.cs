@@ -1,22 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json;
 
 namespace DanilovSoft.vRPC.JsonRpc.ActionResults
 {
     internal sealed class JNotFoundResult : IActionResult
     {
-        private const StatusCode DefaultStatusCode = StatusCode.MethodNotFound;
-        private readonly string _method;
-
-        public JNotFoundResult(string method)
+        public JNotFoundResult()
         {
-            _method = method;
+            
         }
 
-        public void ExecuteResult(ActionContext context)
+        public void ExecuteResult(ref ActionContext context)
         {
-            throw new NotImplementedException();
+            JsonRpcSerializer.SerializeErrorResponse(context.ResponseBuffer, StatusCode.MethodNotFound, "Method not found", context.Id);
         }
     }
 }

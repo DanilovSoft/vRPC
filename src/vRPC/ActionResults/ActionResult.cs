@@ -15,18 +15,18 @@ namespace DanilovSoft.vRPC
             StatusCode = statusCode;
         }
 
-        public virtual Task ExecuteResultAsync(ActionContext context)
+        public virtual Task ExecuteResultAsync(ref ActionContext context)
         {
-            ExecuteResult(context);
+            ExecuteResult(ref context);
             return Task.CompletedTask;
         }
 
-        public virtual void ExecuteResult(ActionContext context)
+        public virtual void ExecuteResult(ref ActionContext context)
         {
-            FinalExecuteResult(context);
+            FinalExecuteResult(ref context);
         }
 
-        private protected virtual void FinalExecuteResult(ActionContext context)
+        private protected virtual void FinalExecuteResult(ref ActionContext context)
         {
 
         }

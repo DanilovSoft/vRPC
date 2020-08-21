@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -29,9 +30,9 @@ namespace DanilovSoft.vRPC
         {
             if (HeaderSize > 0)
             {
-                if ((ContentEncoding == null || ContentEncoding == "json") && MemoryPoolBuffer?.WrittenCount > 0)
+                if ((ContentEncoding == null || ContentEncoding == "json") && Buffer?.WrittenCount > 0)
                 {
-                    byte[] copy = MemoryPoolBuffer.WrittenMemory.ToArray();
+                    byte[] copy = Buffer.WrittenMemory.ToArray();
                     string j = Encoding.UTF8.GetString(copy, 0, copy.Length - HeaderSize);
                     var element = JsonDocument.Parse(j).RootElement;
                     return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
@@ -52,7 +53,7 @@ namespace DanilovSoft.vRPC
         /// Заголовок располагается в конце этого стрима, так как мы не можем сформировать заголовок 
         /// до сериализации тела сообщения.
         /// </summary>
-        public ArrayBufferWriter<byte> MemoryPoolBuffer
+        internal ArrayBufferWriter<byte> Buffer
         {
             get
             {
@@ -64,25 +65,25 @@ namespace DanilovSoft.vRPC
         /// Запрос или ответ на запрос.
         /// Может быть статический объект <see cref="RequestMethodMeta"/> или экземпляр <see cref="ResponseMessage"/>.
         /// </summary>
-        public IMessageMeta MessageToSend { get; }
+        internal IMessageMeta MessageToSend { get; }
         /// <summary>
         /// Уникальный идентификатор который будет отправлен удалённой стороне.
         /// Может быть Null когда не требуется ответ на запрос.
         /// </summary>
-        public int? Uid { get; set; }
-        public StatusCode? StatusCode { get; set; }
-        public string? ContentEncoding { get; set; }
+        internal int? Uid { get; set; }
+        internal StatusCode? StatusCode { get; set; }
+        internal string? ContentEncoding { get; set; }
         /// <summary>
         /// Размер хэдера располагающийся в конце стрима.
         /// </summary>
-        public int HeaderSize { get; set; }
-        public Multipart[]? Parts { get; set; }
+        internal int HeaderSize { get; set; }
+        internal Multipart[]? Parts { get; set; }
 
         /// <summary>
-        /// Содержит <see cref="MemoryStream"/> в который сериализуется сообщение и заголовок.
+        /// Содержит <see cref="IBufferWriter{Byte}"/> в который сериализуется сообщение и заголовок.
         /// Необходимо обязательно выполнить Dispose.
         /// </summary>
-        public SerializedMessageToSend(IMessageMeta messageToSend)
+        internal SerializedMessageToSend(IMessageMeta messageToSend)
         {
             MessageToSend = messageToSend;
 

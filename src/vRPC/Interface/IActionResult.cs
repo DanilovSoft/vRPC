@@ -7,6 +7,6 @@ namespace DanilovSoft.vRPC
 {
     public interface IActionResult
     {
-        void ExecuteResult(ActionContext context);
+        void ExecuteResult(ref ActionContext context);
     }
 }

@@ -14,10 +14,10 @@ namespace DanilovSoft.vRPC
             _message = message;
         }
 
-        private protected sealed override void FinalExecuteResult(ActionContext context)
+        private protected sealed override void FinalExecuteResult(ref ActionContext context)
         {
             context.StatusCode = DefaultStatusCode;
-            context.ResponseStream.WriteStringBinary(_message);
+            context.ResponseBuffer.WriteStringBinary(_message);
         }
     }
 }

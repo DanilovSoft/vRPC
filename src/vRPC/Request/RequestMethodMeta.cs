@@ -191,12 +191,12 @@ namespace DanilovSoft.vRPC
 
                         if (part.TryComputeLength(out int length))
                         {
-                            if (serMsg.MemoryPoolBuffer.FreeCapacity < length)
+                            if (serMsg.Buffer.FreeCapacity < length)
                             {
                                 //serMsg.MemoryPoolBuffer.Advance(length);
                             }
                         }
-                        serMsg.Parts[i] = part.InnerSerializeToStream(serMsg.MemoryPoolBuffer);
+                        serMsg.Parts[i] = part.InnerSerializeToStream(serMsg.Buffer);
                     }
                 }
                 toDispose = null;
@@ -214,7 +214,7 @@ namespace DanilovSoft.vRPC
             SerializedMessageToSend? toDispose = serializedMessage;
             try
             {
-                ExtensionMethods.SerializeObjectJson(serializedMessage.MemoryPoolBuffer, args);
+                ExtensionMethods.SerializeObjectJson(serializedMessage.Buffer, args);
                 toDispose = null;
                 return serializedMessage;
             }

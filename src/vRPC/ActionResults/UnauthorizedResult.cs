@@ -15,10 +15,10 @@ namespace DanilovSoft.vRPC
             _statusCode = statusCode;
         }
 
-        public void ExecuteResult(ActionContext context)
+        public void ExecuteResult(ref ActionContext context)
         {
             context.StatusCode = _statusCode;
-            context.ResponseStream.WriteStringBinary(_message);
+            context.ResponseBuffer.WriteStringBinary(_message);
         }
     }
 }

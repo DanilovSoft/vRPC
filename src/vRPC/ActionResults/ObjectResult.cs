@@ -15,20 +15,20 @@ namespace DanilovSoft.vRPC
             Value = value;
         }
 
-        private protected sealed override void FinalExecuteResult(ActionContext context)
+        private protected sealed override void FinalExecuteResult(ref ActionContext context)
         {
             context.StatusCode = StatusCode;
 
             // Нет необходимости отправлять Null.
             if (Value != null)
             {
-                Debug.Assert(context.ActionMeta != null, "ObjectResult можно получить только из контекста метода");
+                Debug.Assert(context.Method != null, "ObjectResult можно получить только из контекста метода");
 
                 // Сериализуем в стрим.
-                context.ActionMeta.SerializerDelegate(context.ResponseStream, Value);
+                context.Method.SerializerDelegate(context.ResponseBuffer, Value);
 
                 // Устанавливаем формат.
-                context.ProducesEncoding = context.ActionMeta.ProducesEncoding;
+                context.ProducesEncoding = context.Method.ProducesEncoding;
             }
         }
     }

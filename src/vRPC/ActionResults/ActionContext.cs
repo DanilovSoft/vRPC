@@ -7,21 +7,31 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Контекст запроса.
     /// </summary>
-    public sealed class ActionContext
+    [StructLayout(LayoutKind.Auto)]
+    public struct ActionContext
     {
-        internal ArrayBufferWriter<byte> ResponseStream { get; }
+        /// <summary>
+        /// Идентификатор запроса.
+        /// </summary>
+        internal int Id { get; }
+        /// <summary>
+        /// Буфер арендованной памяти для записи ответа.
+        /// </summary>
+        internal ArrayBufferWriter<byte> ResponseBuffer { get; }
         /// <summary>
         /// Может быть <see langword="null"/> если не удалось разобрать запрос.
         /// </summary>
-        internal ControllerMethodMeta? ActionMeta { get; }
+        internal ControllerMethodMeta? Method { get; }
         public StatusCode StatusCode { get; internal set; }
         internal string? ProducesEncoding { get; set; }
 
-        //[DebuggerStepThrough]
-        internal ActionContext(ControllerMethodMeta? actionMeta, ArrayBufferWriter<byte> responseStream)
+        internal ActionContext(int id, ControllerMethodMeta? method, ArrayBufferWriter<byte> responseBuffer)
         {
-            ActionMeta = actionMeta;
-            ResponseStream = responseStream;
+            Id = id;
+            Method = method;
+            ResponseBuffer = responseBuffer;
+            StatusCode = StatusCode.None;
+            ProducesEncoding = null;
         }
     }
 }

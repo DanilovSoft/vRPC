@@ -8,3 +8,6 @@ dotnet_diagnostic.CA1303.severity = none
 
 # Default severity for analyzer diagnostics with category 'Usage'
 #dotnet_analyzer_diagnostic.category-Usage.severity = none
+
+# CA2225: Для перегрузок операторов существуют варианты с именами
+dotnet_diagnostic.CA2225.severity = none

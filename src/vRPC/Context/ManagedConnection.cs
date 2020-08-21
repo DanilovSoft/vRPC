@@ -1056,7 +1056,7 @@ namespace DanilovSoft.vRPC
             if (method == null && id != null && methodName != null)
             {
                 // Передать на отправку результат с ошибкой через очередь.
-                PostJResponse(new JResponse(id.Value, new JNotFoundResult(methodName)));
+                PostJResponse(new JResponse(id.Value, new JNotFoundResult()));
                 return;
             }
 
@@ -1528,17 +1528,17 @@ namespace DanilovSoft.vRPC
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
         private static SerializedMessageToSend SerializeResponse(ResponseMessage responseToSend)
         {
-            SerializedMessageToSend serMsg = new SerializedMessageToSend(responseToSend);
+            var serMsg = new SerializedMessageToSend(responseToSend);
             SerializedMessageToSend? serMsgToDispose = serMsg;
             try
             {
-                if (responseToSend.ActionResult is IActionResult actionResult)
+                if (responseToSend.MethodResult is IActionResult actionResult)
                 // Метод контроллера вернул специальный тип.
                 {
-                    var actionContext = new ActionContext(responseToSend.ActionMeta, serMsg.MemoryPoolBuffer);
+                    var actionContext = new ActionContext(responseToSend.Id, responseToSend.Method, serMsg.Buffer);
 
                     // Сериализуем ответ.
-                    actionResult.ExecuteResult(actionContext);
+                    actionResult.ExecuteResult(ref actionContext);
                     serMsg.StatusCode = actionContext.StatusCode;
                     serMsg.ContentEncoding = actionContext.ProducesEncoding;
                 }
@@ -1549,11 +1549,11 @@ namespace DanilovSoft.vRPC
                     serMsg.StatusCode = StatusCode.Ok;
 
                     // Сериализуем контент если он есть (у void его нет).
-                    if (responseToSend.ActionResult != null)
+                    if (responseToSend.MethodResult != null)
                     {
-                        Debug.Assert(responseToSend.ActionMeta != null, "RAW результат может быть только на основе запроса");
-                        responseToSend.ActionMeta.SerializerDelegate(serMsg.MemoryPoolBuffer, responseToSend.ActionResult);
-                        serMsg.ContentEncoding = responseToSend.ActionMeta.ProducesEncoding;
+                        Debug.Assert(responseToSend.Method != null, "RAW результат может быть только на основе запроса");
+                        responseToSend.Method.SerializerDelegate(serMsg.Buffer, responseToSend.MethodResult);
+                        serMsg.ContentEncoding = responseToSend.Method.ProducesEncoding;
                     }
                 }
                 serMsgToDispose = null; // Предотвратить Dispose.
@@ -1574,7 +1574,7 @@ namespace DanilovSoft.vRPC
             HeaderDto header = CreateHeader(messageToSend);
 
             // Записать заголовок в конец стрима. Не бросает исключения.
-            int headerSize = header.SerializeJson(messageToSend.MemoryPoolBuffer);
+            int headerSize = header.SerializeJson(messageToSend.Buffer);
 
             // Запомним размер хэдера.
             messageToSend.HeaderSize = headerSize;
@@ -1589,7 +1589,7 @@ namespace DanilovSoft.vRPC
             {
                 Debug.Assert(messageToSend.StatusCode != null, "StatusCode ответа не может быть Null");
 
-                return new HeaderDto(responseToSend.Id, messageToSend.StatusCode.Value, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding);
+                return new HeaderDto(responseToSend.Id, messageToSend.StatusCode.Value, messageToSend.Buffer.WrittenCount, messageToSend.ContentEncoding);
             }
             else
             // Создать хедер для нового запроса.
@@ -1597,7 +1597,7 @@ namespace DanilovSoft.vRPC
                 var request = messageToSend.MessageToSend as RequestMethodMeta;
                 Debug.Assert(request != null);
 
-                return new HeaderDto(messageToSend.Uid, messageToSend.MemoryPoolBuffer.WrittenCount, messageToSend.ContentEncoding, request.MethodFullName);
+                return new HeaderDto(messageToSend.Uid, messageToSend.Buffer.WrittenCount, messageToSend.ContentEncoding, request.MethodFullName);
             }
         }
 
@@ -1673,19 +1673,16 @@ namespace DanilovSoft.vRPC
                         if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь и сделать Dispose всем сообщениям.
                         {
                             //  Увеличить счетчик активных запросов.
-                            if (TryIncreaseActiveRequestsCount(serializedMessage))
+                            if (TryIncreaseActiveRequestsCount(serializedMessage.MessageToSend))
                             {
                                 //LogSend(serializedMessage);
 
-                                ReadOnlyMemory<byte> streamBuffer = serializedMessage.MemoryPoolBuffer.WrittenMemory;
+                                ReadOnlyMemory<byte> streamBuffer = serializedMessage.Buffer.WrittenMemory;
 
                                 // Размер сообщения без заголовка.
-                                int messageSize = serializedMessage.MemoryPoolBuffer.WrittenCount - serializedMessage.HeaderSize;
+                                int messageSize = serializedMessage.Buffer.WrittenCount - serializedMessage.HeaderSize;
 
-                                if (serializedMessage.MessageToSend.TcpNoDelay != _tcpNoDelay)
-                                {
-                                    _ws.Socket.NoDelay = _tcpNoDelay = serializedMessage.MessageToSend.TcpNoDelay;
-                                }
+                                SetTcpNoDelay(serializedMessage.MessageToSend.TcpNoDelay);
 
                                 #region Отправка заголовка
 
@@ -1790,9 +1787,9 @@ namespace DanilovSoft.vRPC
                                 //  Увеличить счетчик активных запросов.
                                 if (IncreaseActiveRequestsCount())
                                 {
-                                    SetNoDelay(jsonRequest.MethodMeta);
+                                    SetTcpNoDelay(jsonRequest.MethodMeta.TcpNoDelay);
 
-                                    AssertJson(buffer.WrittenMemory.Span);
+                                    DisplayJson(buffer.WrittenMemory.Span);
                                     try
                                     {
                                         await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
@@ -1834,12 +1831,12 @@ namespace DanilovSoft.vRPC
                 {
                     if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь.
                     {
-                        ArrayBufferWriter<byte> buffer = Serialize(jsonResponse);
+                        ArrayBufferWriter<byte> buffer = SerializeJResponse(jsonResponse);
                         try
                         {
-                            SetNoDelay(jsonResponse.MethodMeta);
+                            //SetTcpNoDelay(jsonResponse.MethodMeta);
 
-                            AssertJson(buffer.WrittenMemory.Span);
+                            DisplayJson(buffer.WrittenMemory.Span);
                             try
                             {
                                 await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
@@ -1872,22 +1869,53 @@ namespace DanilovSoft.vRPC
         }
 
         [Conditional("DEBUG")]
-        private static void AssertJson(ReadOnlySpan<byte> span)
+        private static void DisplayJson(ReadOnlySpan<byte> span)
         {
             var debugDisplayAsString = new DebuggerDisplayJson(span);
         }
 
-        private void SetNoDelay(RequestMethodMeta methodMeta)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetTcpNoDelay(bool tcpNoDelay)
         {
-            if (methodMeta.TcpNoDelay != _tcpNoDelay)
+            if (tcpNoDelay != _tcpNoDelay)
             {
-                _ws.Socket.NoDelay = _tcpNoDelay = methodMeta.TcpNoDelay;
+                _ws.Socket.NoDelay = _tcpNoDelay = tcpNoDelay;
             }
         }
 
-        private static ArrayBufferWriter<byte> Serialize(JResponse jResponse)
+        private static ArrayBufferWriter<byte> SerializeJResponse(JResponse jResponse)
         {
+            var buffer = new ArrayBufferWriter<byte>();
+            var toDispose = buffer;
+            try
+            {
+                if (jResponse.MethodResult is IActionResult actionResult)
+                // Метод контроллера вернул специальный тип.
+                {
+                    var actionContext = new ActionContext(jResponse.Id, jResponse.Method, buffer);
 
+                    // Сериализуем ответ.
+                    actionResult.ExecuteResult(ref actionContext);
+                }
+                else
+                // Отправлять результат контроллера будем как есть.
+                {
+                    Debug.Assert(false);
+                    throw new NotImplementedException();
+                    // Сериализуем ответ.
+                    //serMsg.StatusCode = StatusCode.Ok;
+
+                    //    Debug.Assert(jResponse.ActionMeta != null, "RAW результат может быть только на основе запроса");
+                    //    jResponse.ActionMeta.SerializerDelegate(serMsg.MemoryPoolBuffer, responseToSend.ActionResult);
+                    //    serMsg.ContentEncoding = jResponse.ActionMeta.ProducesEncoding;
+                }
+                toDispose = null; // Предотвратить Dispose.
+                return buffer;
+            }
+            finally
+            {
+                toDispose?.Dispose();
+            }
         }
 
         private static bool TrySerialize(JRequest jsonRequest, [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
@@ -1935,12 +1963,12 @@ namespace DanilovSoft.vRPC
         }
 
         /// <returns>False если сервис требуется остановить.</returns>
-        private bool TryIncreaseActiveRequestsCount(SerializedMessageToSend serializedMessage)
+        private bool TryIncreaseActiveRequestsCount(IMessageMeta message)
         {
-            if (serializedMessage.MessageToSend.IsRequest)
+            if (message.IsRequest)
             // Происходит отправка запроса, а не ответа на запрос.
             {
-                if (!serializedMessage.MessageToSend.IsNotificationRequest)
+                if (!message.IsNotificationRequest)
                 // Должны получить ответ на этот запрос.
                 {
                     if (IncreaseActiveRequestsCount())

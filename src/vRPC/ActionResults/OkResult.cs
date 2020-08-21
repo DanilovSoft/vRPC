@@ -12,7 +12,7 @@
 
         }
 
-        private protected sealed override void FinalExecuteResult(ActionContext context)
+        private protected sealed override void FinalExecuteResult(ref ActionContext context)
         {
             context.StatusCode = StatusCode;
         }
