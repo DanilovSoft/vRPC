@@ -186,12 +186,12 @@ namespace DanilovSoft.vRPC
             using (var mem = new MemoryStream(buffer, offset, count))
                 header = ProtoBufSerializer.Deserialize<HeaderDto>(mem);
             
-            header.ValidateDeserializedHeader();
+            header.Assert();
             return header;
         }
 
         [Conditional("DEBUG")]
-        internal void ValidateDeserializedHeader()
+        internal void Assert()
         {
             if (IsRequest)
             {

@@ -786,31 +786,119 @@ namespace DanilovSoft.vRPC
 
                 #region Десериализуем хедер
 
-                HeaderDto header;
                 if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
                 {
-                    try
+                    HeaderDto header = HandleRpcMessage(headerBuffer.AsSpan(0, webSocketMessage.Count), out Task? errorTask);
+
+                    if (errorTask == null)
                     {
-                        header = CustomSerializer.DeserializeHeader(headerBuffer.AsSpan(0, webSocketMessage.Count));
-                        header.ValidateDeserializedHeader();
+                        if (header != default)
+                        {
+                            #region Читаем контент
+
+                            using (IMemoryOwner<byte> contentMemHandler = MemoryPool<byte>.Shared.Rent(header.PayloadLength))
+                            {
+                                Memory<byte> contentMem = null;
+
+                                if (header.PayloadLength > 0)
+                                // Есть дополнительный фрейм с телом сообщения.
+                                {
+                                    #region Нужно прочитать весь контент
+
+                                    // Можно не очищать – буффер будет перезаписан.
+                                    contentMem = contentMemHandler.Memory.Slice(0, header.PayloadLength);
+
+                                    bufferOffset = 0;
+
+                                    // Сколько байт должны принять в следующих фреймах.
+                                    int receiveMessageBytesLeft = header.PayloadLength;
+
+                                    do // Читаем и склеиваем фреймы веб-сокета пока не EndOfMessage.
+                                    {
+                                        // Проверить на ошибку протокола.
+                                        if (receiveMessageBytesLeft == 0)
+                                        // Считали сколько заявлено в ContentLength но сообщение оказалось больше.
+                                        {
+                                            // Отправка Close и завершить поток.
+                                            await SendCloseContentSizeErrorAsync().ConfigureAwait(false);
+                                            return;
+                                        }
+
+                                        #region Пока не EndOfMessage записывать в буфер памяти
+
+                                        #region Читаем фрейм веб-сокета
+
+                                        // Ограничиваем буфер памяти до колличества принятых байт из сокета.
+                                        Memory<byte> contentBuffer = contentMem.Slice(bufferOffset, receiveMessageBytesLeft);
+                                        try
+                                        {
+                                            // Читаем фрейм веб-сокета.
+                                            webSocketMessage = await _ws.ReceiveExAsync(contentBuffer, CancellationToken.None).ConfigureAwait(false);
+                                        }
+                                        catch (Exception ex)
+                                        // Обрыв соединения.
+                                        {
+                                            // Оповестить об обрыве и завершить поток.
+                                            TryDispose(CloseReason.FromException(new VRpcException("Обрыв при чтении контента сообщения.", ex), _shutdownRequest));
+                                            return;
+                                        }
+                                        #endregion
+
+                                        if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
+                                        {
+                                            bufferOffset += webSocketMessage.Count;
+                                            receiveMessageBytesLeft -= webSocketMessage.Count;
+                                        }
+                                        else
+                                        // Получен Close или Text.
+                                        {
+                                            // Оповестить и завершить поток.
+                                            await TryNonBinaryTypeCloseAndDisposeAsync(webSocketMessage).ConfigureAwait(false);
+                                            return;
+                                        }
+                                        #endregion
+
+                                    } while (!webSocketMessage.EndOfMessage);
+                                    #endregion
+                                }
+
+                                // У сообщения может не быть контента.
+                                if (!TryProcessPayload(in header, contentMem))
+                                {
+                                    // Завершить поток.
+                                    return;
+                                }
+                            }
+                            #endregion
+                        }
+                        else
+                        // Ошибка в хедере.
+                        {
+                            // Отправка Close и выход.
+                            await SendCloseHeaderErrorAsync(webSocketMessage.Count).ConfigureAwait(false);
+                            return;
+                        }
                     }
-                    catch (Exception headerException)
-                    // Не удалось десериализовать заголовок.
+                    else
                     {
-                        // Отправка Close и завершить поток.
-                        await SendCloseHeaderErrorAsync(webSocketMessage.Count, headerException).ConfigureAwait(false);
+                        await errorTask.ConfigureAwait(false);
                         return;
                     }
                 }
                 else if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
                 // Получен Json-rpc запрос или ответ.
                 {
-                    await HandleJrpcMessage(headerBuffer.AsSpan(0, webSocketMessage.Count), out bool success).ConfigureAwait(false);
-
-                    if (success)
+                    if (HandleJrpcMessage(headerBuffer.AsSpan(0, webSocketMessage.Count), out Task? errorTask))
+                    {
                         continue;
+                    }
                     else
+                    {
+                        if (errorTask != null)
+                            await errorTask.ConfigureAwait(false);
+
                         return;
+                    }
                 }
                 else
                 // Получен Close.
@@ -819,148 +907,47 @@ namespace DanilovSoft.vRPC
                     return;
                 }
                 #endregion
-
-                if (header != default)
-                {
-                    #region Читаем контент
-
-                    using (IMemoryOwner<byte> contentMemHandler = MemoryPool<byte>.Shared.Rent(header.PayloadLength))
-                    {
-                        Memory<byte> contentMem = null;
-
-                        if (header.PayloadLength > 0)
-                        // Есть дополнительный фрейм с телом сообщения.
-                        {
-                            #region Нужно прочитать весь контент
-
-                            // Можно не очищать – буффер будет перезаписан.
-                            contentMem = contentMemHandler.Memory.Slice(0, header.PayloadLength);
-
-                            bufferOffset = 0;
-
-                            // Сколько байт должны принять в следующих фреймах.
-                            int receiveMessageBytesLeft = header.PayloadLength;
-
-                            do // Читаем и склеиваем фреймы веб-сокета пока не EndOfMessage.
-                            {
-                                // Проверить на ошибку протокола.
-                                if (receiveMessageBytesLeft == 0)
-                                // Считали сколько заявлено в ContentLength но сообщение оказалось больше.
-                                {
-                                    // Отправка Close и завершить поток.
-                                    await SendCloseContentSizeErrorAsync().ConfigureAwait(false);
-                                    return;
-                                }
-
-                                #region Пока не EndOfMessage записывать в буфер памяти
-
-                                #region Читаем фрейм веб-сокета
-
-                                // Ограничиваем буфер памяти до колличества принятых байт из сокета.
-                                Memory<byte> contentBuffer = contentMem.Slice(bufferOffset, receiveMessageBytesLeft);
-                                try
-                                {
-                                    // Читаем фрейм веб-сокета.
-                                    webSocketMessage = await _ws.ReceiveExAsync(contentBuffer, CancellationToken.None).ConfigureAwait(false);
-                                }
-                                catch (Exception ex)
-                                // Обрыв соединения.
-                                {
-                                    // Оповестить об обрыве и завершить поток.
-                                    TryDispose(CloseReason.FromException(new VRpcException("Обрыв при чтении контента сообщения.", ex), _shutdownRequest));
-                                    return;
-                                }
-                                #endregion
-
-                                if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Binary)
-                                {
-                                    bufferOffset += webSocketMessage.Count;
-                                    receiveMessageBytesLeft -= webSocketMessage.Count;
-                                }
-                                else
-                                // Получен Close или Text.
-                                {
-                                    // Оповестить и завершить поток.
-                                    await TryNonBinaryTypeCloseAndDisposeAsync(webSocketMessage).ConfigureAwait(false);
-                                    return;
-                                }
-                                #endregion
-
-                            } while (!webSocketMessage.EndOfMessage);
-                            #endregion
-                        }
-
-                        // У сообщения может не быть контента.
-                        if (!TryProcessPayload(in header, contentMem))
-                        {
-                            // Завершить поток.
-                            return;
-                        }
-                    }
-                    #endregion
-                }
-                else
-                // Ошибка в хедере.
-                {
-                    // Отправка Close и выход.
-                    await SendCloseHeaderErrorAsync(webSocketMessage.Count).ConfigureAwait(false);
-                    return;
-                }
             }
         }
 
-        private Task HandleJrpcMessage(ReadOnlySpan<byte> buffer, out bool success)
+        private HeaderDto HandleRpcMessage(ReadOnlySpan<byte> buffer, out Task? errorTask)
         {
             try
             {
-                DeserializeJsonRpcMessage(buffer);
+                var header = CustomSerializer.DeserializeHeader(buffer);
+                header.Assert();
+                errorTask = null;
+                return header;
+            }
+            catch (Exception serializerException)
+            // Не удалось десериализовать заголовок.
+            {
+                // Отправка Close и завершить поток.
+                errorTask = SendCloseHeaderErrorAsync(serializerException);
+                return default;
+            }
+        }
+
+        // Получен запрос или ответ json-rpc.
+        private bool HandleJrpcMessage(ReadOnlySpan<byte> buffer, [MaybeNullWhen(true)] out Task? errorTask)
+        {
+            try
+            {
+                bool success = DeserializeJsonRpcMessage(buffer);
+                errorTask = null;
+                return success;
             }
             catch (JsonException ex)
             // Ошибка при десериализации полученного Json.
             {
                 // Отправка Close и завершить поток.
-                success = false;
-                return SendCloseParseErrorAsync(ex);
+                errorTask = SendCloseParseErrorAsync(ex);
+                return false;
             }
-            success = true;
-            return Task.CompletedTask;
-
-            //if (deserialized)
-            //{
-            //    if (TryIncreaseActiveRequestsCount(isResponseRequired: request.Id != null))
-            //    {
-            //        // Начать выполнение запроса в отдельном потоке.
-            //        StartProcessRequest(new RequestContext(request.Id.Value, request.Method, request.Args));
-            //    }
-            //    else
-            //    {
-            //        // Завершить поток.
-            //        success = false;
-            //        return Task.CompletedTask;
-            //    }
-
-            //    success = true;
-            //    return Task.CompletedTask;
-            //}
-            //else
-            //{
-            //    if (request.Id != null)
-            //    {
-            //        // Передать на отправку результат с ошибкой через очередь.
-            //        PostSendResponse(new ResponseMessage(request.Id.Value, error));
-            //        success = true;
-            //        return Task.CompletedTask;
-            //    }
-            //    else
-            //    {
-            //        success = false;
-            //        return TryProtocolErrorCloseAsync("Invalid Request");
-            //    }
-            //}
         }
 
         /// <exception cref="JsonException"/>
-        internal void DeserializeJsonRpcMessage(ReadOnlySpan<byte> utf8Json)
+        internal bool DeserializeJsonRpcMessage(ReadOnlySpan<byte> utf8Json)
         {
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
@@ -1011,6 +998,7 @@ namespace DanilovSoft.vRPC
                         }
                     }
                     else if (reader.ValueTextEquals("result"))
+                    // Теперь мы точно знаем что это ответ на запрос.
                     {
                         if (gotId)
                         {
@@ -1019,11 +1007,23 @@ namespace DanilovSoft.vRPC
                                 if (_responseAwaiters.TryRemove(id.Value, out IResponseAwaiter? awaiter))
                                 {
                                     awaiter.DeserializeJsonRpcResponse(ref reader);
-                                    return;
+
+                                    // Получен ожидаемый ответ на запрос.
+                                    if (TryDecreaseActiveRequestsCount())
+                                    {
+                                        return true;
+                                    }
+                                    else
+                                    // Пользователь запросил остановку сервиса.
+                                    {
+                                        // Завершить поток.
+                                        return false;
+                                    }
                                 }
                                 else
                                 {
-
+                                    Debug.Assert(false);
+                                    throw new NotImplementedException();
                                 }
                             }
                         }
@@ -1032,35 +1032,60 @@ namespace DanilovSoft.vRPC
                     {
                         if (method != null)
                         {
-                            if (!TryReadArgs(method, args!, reader, out var error))
+                            if (!TryReadArgs(method, args!, reader, out IActionResult? error))
                             {
-                                return;
+                                // TODO отправить error
+                                return false;
                             }
                         }
                         else
                         {
                             paramsState = reader.CurrentState;
-                            // TODO
                         }
                     }
-                    else if (reader.ValueTextEquals("code"))
+                    else if (reader.ValueTextEquals("error"))
+                    // Это ответ на запрос.
                     {
                         if (reader.Read())
                         {
-                            reader.GetInt32();
+                            Debug.Assert(false);
+                            throw new NotImplementedException();
                         }
                     }
                 }
             }
 
-            if (method == null && id != null && methodName != null)
+            if (method != null)
+            // Получен запрос.
             {
-                // Передать на отправку результат с ошибкой через очередь.
-                PostJResponse(new JResponse(id.Value, new JNotFoundResult()));
-                return;
+                if (id != null)
+                {
+                    if (!TryIncreaseActiveRequestsCount(isResponseRequired: true))
+                    // Происходит остановка. Выполнять запрос не нужно.
+                    {
+                        return false; // Завершить поток чтения.
+                    }
+                }
             }
-
-            return;
+            else
+            {
+                if (id != null && methodName != null)
+                // Получен запрос но метод не найден.
+                {
+                    if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
+                    {
+                        // Передать на отправку результат с ошибкой через очередь.
+                        PostJResponse(new JResponse(id.Value, new JNotFoundResult()));
+                        return true;
+                    }
+                    else
+                    // Происходит остановка. Выполнять запрос не нужно.
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
         }
 
         private static bool TryReadArgs(ControllerMethodMeta method, object[] args, Utf8JsonReader reader, [MaybeNullWhen(true)] out IActionResult? error)
@@ -1214,16 +1239,13 @@ namespace DanilovSoft.vRPC
                     respAwaiter.DeserializeAndSetResponse(in header, payload);
 
                     // Получен ожидаемый ответ на запрос.
-                    if (DecreaseActiveRequestsCount())
+                    if (TryDecreaseActiveRequestsCount())
                     {
                         return true;
                     }
                     else
                     // Пользователь запросил остановку сервиса.
                     {
-                        // Не бросает исключения.
-                        TryBeginSendCloseBeforeShutdown();
-
                         // Завершить поток.
                         return false;
                     }
@@ -1375,11 +1397,11 @@ namespace DanilovSoft.vRPC
             return TryCloseAndDisposeAsync(propagateException, "Parse error (-32700)");
         }
 
-        private Task SendCloseHeaderErrorAsync(int webSocketMessageCount, Exception headerException)
+        private Task SendCloseHeaderErrorAsync(Exception serializerException)
         {
             // Отправка Close.
-            var propagateException = new VRpcProtocolErrorException(SR2.GetString(SR.ProtocolError, headerException.Message), headerException);
-            return TryCloseAndDisposeAsync(propagateException, $"Unable to deserialize header. Count of bytes was {webSocketMessageCount}");
+            var propagateException = new VRpcProtocolErrorException(SR2.GetString(SR.ProtocolError, serializerException.Message), serializerException);
+            return TryCloseAndDisposeAsync(propagateException, $"Unable to deserialize header.");
         }
 
         private Task SendCloseHeaderErrorAsync(int webSocketMessageCount)
@@ -1789,7 +1811,7 @@ namespace DanilovSoft.vRPC
                                 {
                                     SetTcpNoDelay(jsonRequest.MethodMeta.TcpNoDelay);
 
-                                    DisplayJson(buffer.WrittenMemory.Span);
+                                    DebugDisplayJson(buffer.WrittenMemory.Span);
                                     try
                                     {
                                         await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
@@ -1834,9 +1856,9 @@ namespace DanilovSoft.vRPC
                         ArrayBufferWriter<byte> buffer = SerializeJResponse(jsonResponse);
                         try
                         {
-                            //SetTcpNoDelay(jsonResponse.MethodMeta);
+                            SetTcpNoDelay(jsonResponse.Method?.TcpNoDelay ?? false);
 
-                            DisplayJson(buffer.WrittenMemory.Span);
+                            DebugDisplayJson(buffer.WrittenMemory.Span);
                             try
                             {
                                 await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
@@ -1869,7 +1891,7 @@ namespace DanilovSoft.vRPC
         }
 
         [Conditional("DEBUG")]
-        private static void DisplayJson(ReadOnlySpan<byte> span)
+        private static void DebugDisplayJson(ReadOnlySpan<byte> span)
         {
             var debugDisplayAsString = new DebuggerDisplayJson(span);
         }
@@ -1942,23 +1964,32 @@ namespace DanilovSoft.vRPC
             if (isResponse)
             // Ответ успешно отправлен.
             {
-                if (DecreaseActiveRequestsCount())
-                {
-                    return true;
-                }
-                else
-                // Пользователь запросил остановку сервиса.
-                {
-                    // В отличии от Increase тут мы обязаны отправить Close.
-                    TryBeginSendCloseBeforeShutdown();
-
-                    // Завершить поток.
-                    return false;
-                }
+                return TryDecreaseActiveRequestsCount();
             }
             else
             {
                 return true;
+            }
+        }
+
+        /// <summary>
+        /// Уменьшает счётчик после отправки ответа на запрос.
+        /// </summary>
+        /// <returns>False если сервис требуется остановить.</returns>
+        private bool TryDecreaseActiveRequestsCount()
+        {
+            if (DecreaseActiveRequestsCount())
+            {
+                return true;
+            }
+            else
+            // Пользователь запросил остановку сервиса.
+            {
+                // В отличии от Increase тут мы обязаны отправить Close.
+                TryBeginSendCloseBeforeShutdown();
+
+                // Завершить поток.
+                return false;
             }
         }
 
