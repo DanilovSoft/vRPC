@@ -2132,6 +2132,11 @@
             Не является потокобезопасным.
             </summary>
         </member>
+        <member name="F:DanilovSoft.vRPC.PendingRequestDictionary._disconnectException">
+            <summary>
+            Может быть производным типом <see cref="T:DanilovSoft.vRPC.VRpcException"/> или <see cref="T:System.ObjectDisposedException"/>.
+            </summary>
+        </member>
         <member name="M:DanilovSoft.vRPC.PendingRequestDictionary.#ctor">
             <summary>
             Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
@@ -2141,7 +2146,8 @@
             <summary>
             Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
             </summary>
-            <exception cref="T:System.Exception">Происходит если уже происходил обрыв соединения.</exception>
+            <exception cref="T:DanilovSoft.vRPC.VRpcException">Происходит если уже был обрыв соединения.</exception>
+            <exception cref="T:System.ObjectDisposedException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.PendingRequestDictionary.TryRemove(System.Int32,DanilovSoft.vRPC.IResponseAwaiter@)">
             <summary>
@@ -2164,6 +2170,21 @@
             Содержит прокси созданные из интерфейсов.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.IResponseAwaiter.TrySetException(System.Exception)">
+            <summary>
+            Передает ожидающему потоку исключение как результат запроса.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.IResponseAwaiter.SetResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
+            <summary>
+            Передаёт ответ ожидающему потоку.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.IResponseAwaiter.SetResponse(System.Text.Json.Utf8JsonReader@)">
+            <summary>
+            Передаёт ответ ожидающему потоку.
+            </summary>
+        </member>
         <member name="T:DanilovSoft.vRPC.ResponseAwaiter`1">
             <summary>
             Атомарный <see langword="await"/>'ер. Связывает результат с запросом.
@@ -2180,12 +2201,12 @@
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.DeserializeAndSetResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
+        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.DeserializeJsonRpcResponse(System.Text.Json.Utf8JsonReader@)">
+        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetResponse(System.Text.Json.Utf8JsonReader@)">
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>

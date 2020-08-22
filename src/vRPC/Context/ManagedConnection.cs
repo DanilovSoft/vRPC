@@ -956,11 +956,14 @@ namespace DanilovSoft.vRPC
             int? id = null;
             ControllerMethodMeta? method = null;
             object[]? args = null;
+            var errorCode = StatusCode.None;
+            string? message = null;
 
             //result = new JsonRequest();
 
             //bool gotMethod = false;
             bool gotId = false;
+            bool gotError = false;
             JsonReaderState paramsState;
 
             var reader = new Utf8JsonReader(utf8Json);
@@ -972,12 +975,19 @@ namespace DanilovSoft.vRPC
                     {
                         if (reader.Read())
                         {
-                            methodName = reader.GetString();
-                            if (_invokeMethods.TryGetAction(methodName, out method))
+                            if (reader.TokenType == JsonTokenType.String)
                             {
-                                args = method.Parametergs.Length == 0
-                                    ? Array.Empty<object>()
-                                    : (new object[method.Parametergs.Length]);
+                                methodName = reader.GetString();
+                                if (_invokeMethods.TryGetAction(methodName, out method))
+                                {
+                                    args = method.Parametergs.Length == 0
+                                        ? Array.Empty<object>()
+                                        : (new object[method.Parametergs.Length]);
+                                }
+                            }
+                            else
+                            {
+
                             }
                         }
                     }
@@ -1006,7 +1016,7 @@ namespace DanilovSoft.vRPC
                             {
                                 if (_responseAwaiters.TryRemove(id.Value, out IResponseAwaiter? awaiter))
                                 {
-                                    awaiter.DeserializeJsonRpcResponse(ref reader);
+                                    awaiter.SetResponse(ref reader);
 
                                     // Получен ожидаемый ответ на запрос.
                                     if (TryDecreaseActiveRequestsCount())
@@ -1043,22 +1053,39 @@ namespace DanilovSoft.vRPC
                             paramsState = reader.CurrentState;
                         }
                     }
-                    else if (reader.ValueTextEquals("error"))
+                    else if (!gotError && reader.ValueTextEquals("error"))
                     // Это ответ на запрос.
                     {
+                        gotError = true;
                         if (reader.Read())
                         {
-                            Debug.Assert(false);
-                            throw new NotImplementedException();
+                            while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+                            {
+                                if (reader.ValueTextEquals("code"))
+                                {
+                                    if (reader.Read())
+                                    {
+                                        errorCode = (StatusCode)reader.GetInt32();
+                                    }
+                                }
+                                else if (reader.ValueTextEquals("message"))
+                                {
+                                    if (reader.Read())
+                                    {
+                                        message = reader.GetString();
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            if (method != null)
-            // Получен запрос.
+            if (id != null)
+            // Запрос или ответ на запрос.
             {
-                if (id != null)
+                if (method != null)
+                // Запрос.
                 {
                     if (!TryIncreaseActiveRequestsCount(isResponseRequired: true))
                     // Происходит остановка. Выполнять запрос не нужно.
@@ -1066,24 +1093,37 @@ namespace DanilovSoft.vRPC
                         return false; // Завершить поток чтения.
                     }
                 }
+                else
+                // Может быть ответ на запрос.
+                {
+                    if (gotError)
+                    // Ответ на запрос.
+                    {
+                        if (_responseAwaiters.TryRemove(id.Value, out IResponseAwaiter? awaiter))
+                        {
+                            awaiter.TrySetException(ExceptionHelper.ToException(errorCode, message));
+                        }
+                    }
+                    else if (methodName != null)
+                    // Получен запрос но метод не найден.
+                    {
+                        if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
+                        {
+                            // Передать на отправку результат с ошибкой через очередь.
+                            PostJResponse(new JResponse(id.Value, new JNotFoundResult()));
+                            return true;
+                        }
+                        else
+                        // Происходит остановка. Выполнять запрос не нужно.
+                        {
+                            return false;
+                        }
+                    }
+                }
             }
             else
             {
-                if (id != null && methodName != null)
-                // Получен запрос но метод не найден.
-                {
-                    if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
-                    {
-                        // Передать на отправку результат с ошибкой через очередь.
-                        PostJResponse(new JResponse(id.Value, new JNotFoundResult()));
-                        return true;
-                    }
-                    else
-                    // Происходит остановка. Выполнять запрос не нужно.
-                    {
-                        return false;
-                    }
-                }
+
             }
             return true;
         }
@@ -1236,19 +1276,10 @@ namespace DanilovSoft.vRPC
                 if (header.Id != null && _responseAwaiters.TryRemove(header.Id.Value, out IResponseAwaiter? respAwaiter))
                 // Передать ответ ожидающему потоку.
                 {
-                    respAwaiter.DeserializeAndSetResponse(in header, payload);
+                    respAwaiter.SetResponse(in header, payload);
 
                     // Получен ожидаемый ответ на запрос.
-                    if (TryDecreaseActiveRequestsCount())
-                    {
-                        return true;
-                    }
-                    else
-                    // Пользователь запросил остановку сервиса.
-                    {
-                        // Завершить поток.
-                        return false;
-                    }
+                    return TryDecreaseActiveRequestsCount();
                 }
                 #endregion
             }
@@ -1271,7 +1302,7 @@ namespace DanilovSoft.vRPC
                 {
                     Debug.Assert(header.Id != null);
 
-                    var error = ResponseHelper.MethodNotFound(header.MethodName);
+                    NotFoundResult error = ResponseHelper.MethodNotFound(header.MethodName);
 
                     // Передать на отправку результат с ошибкой через очередь.
                     PostSendResponse(new ResponseMessage(header.Id.Value, error));

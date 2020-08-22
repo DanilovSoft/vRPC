@@ -11,9 +11,18 @@ namespace DanilovSoft.vRPC
 {
     internal interface IResponseAwaiter
     {
+        /// <summary>
+        /// Передает ожидающему потоку исключение как результат запроса.
+        /// </summary>
         void TrySetException(Exception exception);
-        void DeserializeAndSetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
-        void DeserializeJsonRpcResponse(ref Utf8JsonReader reader);
+        /// <summary>
+        /// Передаёт ответ ожидающему потоку.
+        /// </summary>
+        void SetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
+        /// <summary>
+        /// Передаёт ответ ожидающему потоку.
+        /// </summary>
+        void SetResponse(ref Utf8JsonReader reader);
     }
 
     /// <summary>
@@ -84,7 +93,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        public void DeserializeAndSetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        public void SetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             Debug.Assert(header.IsRequest == false);
 
@@ -147,7 +156,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        public void DeserializeJsonRpcResponse(ref Utf8JsonReader reader)
+        public void SetResponse(ref Utf8JsonReader reader)
         {
             #region Передать успешный результат
 

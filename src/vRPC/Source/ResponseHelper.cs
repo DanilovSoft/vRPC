@@ -18,7 +18,7 @@ namespace DanilovSoft.vRPC.Source
 
             if (controllerIndex > 0)
             {
-                return new NotFoundResult($"Unable to find requested action \"{actionName}\".");
+                return new NotFoundResult($"Method \"{actionName}\" not found.");
             }
             else
             {

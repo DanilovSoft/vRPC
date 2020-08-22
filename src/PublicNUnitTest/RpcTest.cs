@@ -8,13 +8,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
+using NUnit.Framework;
 
 namespace XUnitTest
 {
     public class RpcTest
     {
-        [Fact]
+        [Test]
         public void TestExceptionThrow()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -28,11 +28,11 @@ namespace XUnitTest
             }
             catch (VRpcBadRequestException ex)
             {
-                Assert.Equal("проверка", ex.Message);
+                Assert.AreEqual("проверка", ex.Message);
             }
         }
 
-        [Fact]
+        [Test]
         public void TestException()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -46,11 +46,11 @@ namespace XUnitTest
             }
             catch (VRpcBadRequestException ex)
             {
-                Assert.Equal("проверка", ex.Message);
+                Assert.AreEqual("проверка", ex.Message);
             }
         }
 
-        [Fact]
+        [Test]
         public void TestDelayVoid()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -66,7 +66,7 @@ namespace XUnitTest
             Assert.True(sw.ElapsedMilliseconds >= 500);
         }
 
-        [Fact]
+        [Test]
         public async Task TestAsyncVoid()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -82,7 +82,7 @@ namespace XUnitTest
             Assert.True(sw.ElapsedMilliseconds >= 500);
         }
 
-        [Fact]
+        [Test]
         public void TestSumResult()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -92,10 +92,10 @@ namespace XUnitTest
             var iface = cli.GetProxy<IServerTestController>();
 
             int sum = iface.GetSum(1, 2);
-            Assert.Equal(3, sum);
+            Assert.AreEqual(3, sum);
         }
 
-        [Fact]
+        [Test]
         public void TestSumValueTask()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -105,10 +105,10 @@ namespace XUnitTest
             var iface = cli.GetProxy<IServerTestController>();
 
             int sum = iface.GetSum2(1, 2);
-            Assert.Equal(3, sum);
+            Assert.AreEqual(3, sum);
         }
 
-        [Fact]
+        [Test]
         public void TestStringResult()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -118,10 +118,10 @@ namespace XUnitTest
             var iface = cli.GetProxy<IServerTestController>();
 
             string value = iface.GetString();
-            Assert.Equal("OK", value);
+            Assert.AreEqual("OK", value);
         }
 
-        [Fact]
+        [Test]
         public void TestNullStringResult()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -134,7 +134,7 @@ namespace XUnitTest
             Assert.Null(value);
         }
 
-        [Fact]
+        [Test]
         public async Task TestNullStringAsync()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -147,7 +147,7 @@ namespace XUnitTest
             Assert.Null(value);
         }
 
-        [Fact]
+        [Test]
         public async Task TestSumAsync()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -157,10 +157,10 @@ namespace XUnitTest
             var iface = cli.GetProxy<IServerTestController>();
 
             int sum = await iface.GetSumAsync(1, 2);
-            Assert.Equal(3, sum);
+            Assert.AreEqual(3, sum);
         }
 
-        [Fact]
+        [Test]
         public async Task TestNotificationAsync()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -172,7 +172,7 @@ namespace XUnitTest
             await iface.NotifyAsync(123);
         }
 
-        [Fact]
+        [Test]
         public void TestNotification()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -184,7 +184,7 @@ namespace XUnitTest
             iface.Notify(123);
         }
 
-        [Fact]
+        [Test]
         public void TestCallback()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -194,10 +194,10 @@ namespace XUnitTest
             var iface = cli.GetProxy<IServerTestController>();
 
             string selfEcho = iface.MakeCallback("qwerty");
-            Assert.Equal("qwerty", selfEcho);
+            Assert.AreEqual("qwerty", selfEcho);
         }
 
-        [Fact]
+        [Test]
         public void TestAsyncCallback()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -207,10 +207,10 @@ namespace XUnitTest
             var iface = cli.GetProxy<IServerTestController>();
 
             string selfEcho = iface.MakeAsyncCallback("qwerty");
-            Assert.Equal("qwerty", selfEcho);
+            Assert.AreEqual("qwerty", selfEcho);
         }
 
-        [Fact]
+        [Test]
         public void TestNotificationCallback()
         {
             using var listener = new VRpcListener(IPAddress.Any);
@@ -226,6 +226,7 @@ namespace XUnitTest
             Assert.True(mre.Wait(30_000));
         }
 
+        [Test]
         public void TestMethodNotFound()
         {
             using var listener = new VRpcListener(IPAddress.Any);

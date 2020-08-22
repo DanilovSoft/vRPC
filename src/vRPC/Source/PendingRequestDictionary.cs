@@ -19,6 +19,9 @@ namespace DanilovSoft.vRPC
         /// Не является потокобезопасным.
         /// </summary>
         private readonly SpinWait _spinWait;
+        /// <summary>
+        /// Может быть производным типом <see cref="VRpcException"/> или <see cref="ObjectDisposedException"/>.
+        /// </summary>
         private Exception? _disconnectException;
         private int _reqIdSeq;
 
@@ -33,7 +36,8 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
         /// </summary>
-        /// <exception cref="Exception">Происходит если уже происходил обрыв соединения.</exception>
+        /// <exception cref="VRpcException">Происходит если уже был обрыв соединения.</exception>
+        /// <exception cref="ObjectDisposedException"/>
         public ResponseAwaiter<T> AddRequest<T>(RequestMethodMeta requestToSend, out int uid)
         {
             var responseAwaiter = new ResponseAwaiter<T>(requestToSend);

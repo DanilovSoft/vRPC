@@ -14,37 +14,57 @@ namespace ConsoleApp
         public void Subtract(int x, int y) { }
     }
 
+    public interface IServerTestController
+    {
+        void TestException(string exceptionMessage);
+        [JsonRpc]
+        void TestExceptionThrow(string exceptionMessage);
+        void TestDelay();
+        Task Test2Async();
+        int GetSum(int x1, int x2);
+        int GetSum2(int x1, int x2);
+        Task<int> GetSumAsync(int x1, int x2);
+        Task<string> GetNullStringAsync();
+        string GetString();
+        string GetNullString();
+
+        [Notification]
+        void Notify(int n);
+        [Notification]
+        Task NotifyAsync(int n);
+        [Notification]
+        void NotifyCallback(int n);
+
+        string MakeCallback(string msg);
+        string MakeAsyncCallback(string msg);
+    }
+
     class Program
     {
         static void Main()
         {
-            VRpcListener listener = new VRpcListener(IPAddress.Any, 1234);
+            using var listener = new VRpcListener(IPAddress.Any, 1234);
+            //listener.ClientConnected += Listener_ClientConnected;
             listener.Start();
-            listener.ClientConnected += Listener_ClientConnected;
 
-
-            //VRpcClient client = new VRpcClient("localhost", 1234, false, allowAutoConnect: true);
-            //IPing p = client.GetProxy<IPing>();
-
-            //while (true)
-            //{
-            //    p.Ping("test", 123);
-            //    Thread.Sleep(1000);
-            //}
-
-            //var methods = new InvokeActionsDictionary(new Dictionary<string, Type> { ["Stub"] = typeof(StubController) });
-
-            //string json = @"{""jsonrpc"": ""2.0"", ""method"": ""Stub/Subtract"", ""params"": [42, 23], ""id"": 1}";
-
-            //JsonRpcSerializer.TryDeserialize(Encoding.UTF8.GetBytes(json), methods, out JsonRequest result, out var _);
+            using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
+            var iface = cli.GetProxy<IServerTestController>();
+            try
+            {
+                iface.TestExceptionThrow("проверка");
+            }
+            catch (VRpcBadRequestException ex)
+            {
+                //Assert.Equal("проверка", ex.Message);
+            }
 
             Thread.Sleep(-1);
         }
 
         private static async void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
         {
-            //await Task.Delay(2000);
-            //e.Connection.GetProxy<ITest>().Echo("qwerty", 123);
+            await Task.Delay(2000);
+            e.Connection.GetProxy<ITest>().Echo("qwerty", 123);
         }
     }
 
