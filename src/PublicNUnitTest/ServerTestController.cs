@@ -31,7 +31,7 @@ namespace XUnitTest
 
         string MakeCallback(string msg);
         string MakeAsyncCallback(string msg);
-        void NotFoundMethod();
+        void NotExistedMethod();
     }
 
     [AllowAnonymous]

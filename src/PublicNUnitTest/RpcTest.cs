@@ -236,7 +236,7 @@ namespace XUnitTest
             var iface = cli.GetProxy<IServerTestController>();
             try
             {
-                iface.NotFoundMethod();
+                iface.NotExistedMethod();
                 Assert.True(false);
             }
             catch (VRpcException ex)

@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    public sealed class VRpcListener : IHostApplicationLifetime, IDisposable
+    public sealed partial class VRpcListener : IHostApplicationLifetime, IDisposable
     {
         /// <summary>
         /// Triggered when the application host has fully started.

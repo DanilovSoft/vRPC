@@ -7,6 +7,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using XUnitTest;
 
 namespace PublicXUnitTest
 {
@@ -15,54 +16,35 @@ namespace PublicXUnitTest
         [Test]
         public async Task ParseErrorTest()
         {
-            VRpcListener listener = new VRpcListener(IPAddress.Any, 1234);
-            listener.Start();
-
+            var listener = VRpcListener.StartNew(IPAddress.Any);
             var ws = new DanilovSoft.WebSockets.ClientWebSocket();
-            await ws.ConnectAsync(new Uri("ws://localhost:1234"), default);
-            await ws.SendAsync(Encoding.UTF8.GetBytes(@"{""jsonrpc"": ""2.0"", ""method"": ""foobar, ""params"": ""bar"", ""baz]"), WebSocketMessageType.Text, true, default);
 
-            byte[] buf = new byte[1024];
+            await ws.ConnectAsync(new Uri($"ws://localhost:{listener.Port}"), default);
+            await ws.SendAsync(Encoding.UTF8.GetBytes(@"{""jsonrpc"": ""2.0"", ""method"": ""foobar, ""params"": ""bar"", ""baz]"), WebSocketMessageType.Text, true, default);
+            
+            var buf = new byte[1024];
             var m = await ws.ReceiveAsync(buf, default);
             
-            //string response = Encoding.UTF8.GetString(buf.AsSpan(0, m.Count));
-
-            //var dto = JsonSerializer.Deserialize<ErrorResponse>(response);
-
             Assert.AreEqual("Parse error (-32700)", m.CloseStatusDescription);
         }
 
         [Test]
         public async Task MethodNotFoundTest()
         {
-            VRpcListener listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            var listener = VRpcListener.StartNew(IPAddress.Any);
+            var client = new VRpcClient("localhost", listener.Port, false, true);
 
-            var ws = new DanilovSoft.WebSockets.ClientWebSocket();
-            await ws.ConnectAsync(new Uri($"ws://localhost:{listener.Port}"), default);
-            await ws.SendAsync(Encoding.UTF8.GetBytes(@"{""jsonrpc"": ""2.0"", ""method"": ""foobar"", ""id"": ""1""}"), WebSocketMessageType.Text, true, default);
+            await client.ConnectAsync();
 
-            byte[] buf = new byte[1024];
-            var m = await ws.ReceiveAsync(buf, default);
-
-            string response = Encoding.UTF8.GetString(buf.AsSpan(0, m.Count));
-
-            //var dto = JsonSerializer.Deserialize<ErrorResponse>(response);
-
-            Assert.AreEqual("Parse error (-32700)", m.CloseStatusDescription);
+            try
+            {
+                client.GetProxy<IServerTestController>().NotExistedMethod();
+            }
+            catch (VRpcMethodNotFoundException)
+            {
+                Assert.Pass();
+            }
+            Assert.Fail();
         }
-    }
-
-    public class ErrorResponse
-    {
-        public string Jsonrpc { get; set; }
-        public ErrorDto Error { get; set; }
-        public int? id { get; set; }
-    }
-
-    public class ErrorDto
-    {
-        public int Code { get; set; }
-        public string Message { get; set; }
     }
 }

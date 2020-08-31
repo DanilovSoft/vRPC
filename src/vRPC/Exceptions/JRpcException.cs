@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 
-namespace DanilovSoft.vRPC.Exceptions
+namespace DanilovSoft.vRPC
 {
     [Serializable]
     public class JRpcException : VRpcException
