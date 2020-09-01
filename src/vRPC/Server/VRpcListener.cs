@@ -103,7 +103,7 @@ namespace DanilovSoft.vRPC
         public VRpcListener(IPAddress ipAddress, int port) : this(ipAddress, port, Assembly.GetCallingAssembly()) { }
 
         // ctor.
-        private VRpcListener(IPAddress ipAddress, int port, Assembly controllersAssembly)
+        internal VRpcListener(IPAddress ipAddress, int port, Assembly controllersAssembly)
         {
             _wsServ.HandshakeTimeout = TimeSpan.FromSeconds(30);
             _wsServ.Bind(new IPEndPoint(ipAddress, port));

@@ -14,11 +14,11 @@ namespace DanilovSoft.vRPC
         {
         }
 
-        public VRpcException(string message) : base(message)
+        public VRpcException(string? message) : base(message)
         {
         }
 
-        public VRpcException(string message, Exception innerException) : base(message, innerException)
+        public VRpcException(string? message, Exception? innerException) : base(message, innerException)
         {
             Debug.Assert(!(innerException is VRpcException));
         }

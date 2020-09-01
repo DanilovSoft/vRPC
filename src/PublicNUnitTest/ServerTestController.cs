@@ -32,6 +32,8 @@ namespace XUnitTest
         string MakeCallback(string msg);
         string MakeAsyncCallback(string msg);
         void NotExistedMethod();
+        [JsonRpc]
+        void JNotExistedMethod();
     }
 
     [AllowAnonymous]

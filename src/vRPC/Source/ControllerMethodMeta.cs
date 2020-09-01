@@ -82,6 +82,11 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        internal object[] PrepareArgs()
+        {
+            return Parametergs.Length == 0 ? Array.Empty<object>() : new object[Parametergs.Length];
+        }
+
         public void DisposeArgs(object?[] args)
         {
             for (int i = 0; i < DisposableArgsIndex.Length; i++)

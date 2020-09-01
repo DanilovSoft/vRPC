@@ -239,9 +239,9 @@ namespace XUnitTest
                 iface.NotExistedMethod();
                 Assert.True(false);
             }
-            catch (VRpcException ex)
+            catch (VRpcException)
             {
-                
+                Assert.Pass();
             }
         }
     }

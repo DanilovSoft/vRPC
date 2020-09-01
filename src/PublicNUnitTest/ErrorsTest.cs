@@ -14,7 +14,7 @@ namespace PublicXUnitTest
     public class ErrorsTest
     {
         [Test]
-        public async Task ParseErrorTest()
+        public async Task TestParseError()
         {
             var listener = VRpcListener.StartNew(IPAddress.Any);
             var ws = new DanilovSoft.WebSockets.ClientWebSocket();
@@ -29,7 +29,7 @@ namespace PublicXUnitTest
         }
 
         [Test]
-        public async Task MethodNotFoundTest()
+        public async Task TestMethodNotFound()
         {
             var listener = VRpcListener.StartNew(IPAddress.Any);
             var client = new VRpcClient("localhost", listener.Port, false, true);
@@ -38,13 +38,28 @@ namespace PublicXUnitTest
 
             try
             {
-                client.GetProxy<IServerTestController>().NotExistedMethod();
+                client.GetProxy<IServerTestController>().JNotExistedMethod();
             }
             catch (VRpcMethodNotFoundException)
             {
                 Assert.Pass();
             }
             Assert.Fail();
+        }
+
+        [Test]
+        public async Task TestInvalidRequest()
+        {
+            var listener = VRpcListener.StartNew(IPAddress.Any);
+            var ws = new DanilovSoft.WebSockets.ClientWebSocket();
+
+            await ws.ConnectAsync(new Uri($"ws://localhost:{listener.Port}"), default);
+            await ws.SendAsync(Encoding.UTF8.GetBytes(@"{""jsonrpc"": ""2.0"", ""method"": 1, ""params"": ""bar""}"), WebSocketMessageType.Text, true, default);
+
+            var buf = new byte[1024];
+            var m = await ws.ReceiveAsync(buf, default);
+
+            Assert.AreEqual("Parse error (-32700)", m.CloseStatusDescription);
         }
     }
 }

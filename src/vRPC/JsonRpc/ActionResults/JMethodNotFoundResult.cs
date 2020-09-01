@@ -5,9 +5,9 @@ using System.Text.Json;
 
 namespace DanilovSoft.vRPC.JsonRpc.ActionResults
 {
-    internal sealed class JNotFoundResult : IActionResult
+    internal sealed class JMethodNotFoundResult : IActionResult
     {
-        public JNotFoundResult()
+        public JMethodNotFoundResult()
         {
             
         }

@@ -281,6 +281,7 @@ namespace DanilovSoft.vRPC
             return new SocketException((int)socketError);
         }
 
+        /// <remarks>Может быть производными типа <see cref="VRpcException"/> или <see cref="ObjectDisposedException"/></remarks>
         public static Exception ToException(this CloseReason closeReason)
         {
             if(closeReason.ConnectionError == null)

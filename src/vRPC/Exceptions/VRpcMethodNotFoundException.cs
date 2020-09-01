@@ -11,11 +11,11 @@ namespace DanilovSoft.vRPC
         {
         }
 
-        public VRpcMethodNotFoundException(string message) : base(message)
+        public VRpcMethodNotFoundException(string? message) : base(message)
         {
         }
 
-        public VRpcMethodNotFoundException(string message, Exception innerException) : base(message, innerException)
+        public VRpcMethodNotFoundException(string? message, Exception? innerException) : base(message, innerException)
         {
         }
     }

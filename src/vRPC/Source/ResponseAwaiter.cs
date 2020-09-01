@@ -22,7 +22,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        void SetResponse(ref Utf8JsonReader reader);
+        void TrySetResponse(ref Utf8JsonReader reader);
     }
 
     /// <summary>
@@ -85,11 +85,6 @@ namespace DanilovSoft.vRPC
             TrySetResult(result);
         }
 
-        public void TrySetDefaultResult()
-        {
-            TrySetResult(default);
-        }
-
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
@@ -124,7 +119,7 @@ namespace DanilovSoft.vRPC
                         if (typeof(TResult).CanBeNull())
                         // Результат запроса поддерживает Null.
                         {
-                            TrySetDefaultResult();
+                            TrySetResult(default);
                         }
                         else
                         // Результатом этого запроса не может быть Null.
@@ -138,7 +133,7 @@ namespace DanilovSoft.vRPC
                 else
                 // void.
                 {
-                    TrySetDefaultResult();
+                    TrySetResult(default);
                 }
                 #endregion
             }
@@ -156,21 +151,21 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        public void SetResponse(ref Utf8JsonReader reader)
+        /// <remarks>Не бросает исключения.</remarks>
+        public void TrySetResponse(ref Utf8JsonReader reader)
         {
-            #region Передать успешный результат
-
             if (typeof(TResult) != typeof(VoidStruct))
             // Поток ожидает некий объект как результат.
             {
                 TResult result;
                 try
                 {
+                    // Шаблонный сериализатор экономит на упаковке.
                     result = JsonSerializer.Deserialize<TResult>(ref reader);
                 }
-                catch (Exception deserializationException)
+                catch (JsonException deserializationException)
                 {
-                    // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
+                    // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
                     TrySetException(new VRpcProtocolErrorException(
                         $"Ошибка десериализации ответа на запрос \"{Request.MethodFullName}\".", deserializationException));
 
@@ -181,9 +176,8 @@ namespace DanilovSoft.vRPC
             else
             // void.
             {
-                TrySetDefaultResult();
+                TrySetResult(default);
             }
-            #endregion
         }
     }
 }

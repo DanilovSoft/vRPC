@@ -888,15 +888,16 @@ namespace DanilovSoft.vRPC
                 else if (webSocketMessage.MessageType == Ms.WebSocketMessageType.Text)
                 // Получен Json-rpc запрос или ответ.
                 {
-                    if (HandleJrpcMessage(headerBuffer.AsSpan(0, webSocketMessage.Count), out Task? errorTask))
+                    if (HandleJrpcMessage(headerBuffer.AsSpan(0, webSocketMessage.Count), out Task? taskToWait))
                     {
                         continue;
                     }
                     else
                     {
-                        if (errorTask != null)
-                            await errorTask.ConfigureAwait(false);
+                        if (taskToWait != null)
+                            await taskToWait.ConfigureAwait(false);
 
+                        // Завершить поток.
                         return;
                     }
                 }
@@ -910,6 +911,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private HeaderDto HandleRpcMessage(ReadOnlySpan<byte> buffer, out Task? errorTask)
         {
             try
@@ -929,25 +931,33 @@ namespace DanilovSoft.vRPC
         }
 
         // Получен запрос или ответ json-rpc.
-        private bool HandleJrpcMessage(ReadOnlySpan<byte> buffer, [MaybeNullWhen(true)] out Task? errorTask)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool HandleJrpcMessage(ReadOnlySpan<byte> buffer, [MaybeNullWhen(true)] out Task? taskToWait)
         {
+            bool result;
+            IMessageToSend? error;
             try
             {
-                bool success = DeserializeJsonRpcMessage(buffer);
-                errorTask = null;
-                return success;
+                result = DeserializeJsonRpcMessage(buffer, out error);
+                taskToWait = null;
             }
             catch (JsonException ex)
             // Ошибка при десериализации полученного Json.
             {
-                // Отправка Close и завершить поток.
-                errorTask = SendCloseParseErrorAsync(ex);
-                return false;
+                // Отправка Close с сообщением.
+                taskToWait = SendCloseParseErrorAsync(ex);
+                return false; // Нужно завершить поток.
             }
+
+            if (error != null)
+            {
+                PostJResponse(error);
+            }
+            return result;
         }
 
         /// <exception cref="JsonException"/>
-        internal bool DeserializeJsonRpcMessage(ReadOnlySpan<byte> utf8Json)
+        internal bool DeserializeJsonRpcMessage(ReadOnlySpan<byte> utf8Json, [MaybeNullWhen(true)] out IMessageToSend? error)
         {
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
@@ -958,11 +968,6 @@ namespace DanilovSoft.vRPC
             object[]? args = null;
             var errorCode = StatusCode.None;
             string? message = null;
-
-            //result = new JsonRequest();
-
-            //bool gotMethod = false;
-            bool gotId = false;
             bool gotError = false;
             JsonReaderState paramsState;
 
@@ -980,18 +985,17 @@ namespace DanilovSoft.vRPC
                                 methodName = reader.GetString();
                                 if (_invokeMethods.TryGetAction(methodName, out method))
                                 {
-                                    args = method.Parametergs.Length == 0
-                                        ? Array.Empty<object>()
-                                        : (new object[method.Parametergs.Length]);
+                                    args = method.PrepareArgs();
                                 }
                             }
                             else
+                            // Не валидный формат сообщения.
                             {
-
+                                // TODO
                             }
                         }
                     }
-                    else if (!gotId && reader.ValueTextEquals("id"))
+                    else if (id == null && reader.ValueTextEquals("id"))
                     {
                         if (reader.Read())
                         {
@@ -999,24 +1003,34 @@ namespace DanilovSoft.vRPC
                             if (reader.TokenType == JsonTokenType.Number)
                             {
                                 id = reader.GetInt32();
-                                gotId = true;
                             }
                             else if (reader.TokenType == JsonTokenType.String)
                             {
-                                id = int.Parse(reader.GetString(), CultureInfo.InvariantCulture);
+                                if (int.TryParse(reader.GetString(), out int result))
+                                {
+                                    id = result;
+                                }
+                                else
+                                // Мы не поддерживаем произвольный формат айдишников что-бы уменьшить аллокацию.
+                                {
+                                    // TODO
+                                }
                             }
                         }
                     }
                     else if (reader.ValueTextEquals("result"))
                     // Теперь мы точно знаем что это ответ на запрос.
                     {
-                        if (gotId)
+                        if (id != null)
                         {
                             if (reader.Read())
                             {
                                 if (_responseAwaiters.TryRemove(id.Value, out IResponseAwaiter? awaiter))
                                 {
-                                    awaiter.SetResponse(ref reader);
+                                    // Десериализовать ответ в тип возврата.
+                                    awaiter.TrySetResponse(ref reader);
+
+                                    error = null;
 
                                     // Получен ожидаемый ответ на запрос.
                                     if (TryDecreaseActiveRequestsCount())
@@ -1031,9 +1045,9 @@ namespace DanilovSoft.vRPC
                                     }
                                 }
                                 else
+                                // Получили бесполезное сообщение.
                                 {
                                     Debug.Assert(false);
-                                    throw new NotImplementedException();
                                 }
                             }
                         }
@@ -1042,7 +1056,7 @@ namespace DanilovSoft.vRPC
                     {
                         if (method != null)
                         {
-                            if (!TryReadArgs(method, args!, reader, out IActionResult? error))
+                            if (!TryReadArgs(method, args!, reader, out error))
                             {
                                 // TODO отправить error
                                 return false;
@@ -1087,9 +1101,15 @@ namespace DanilovSoft.vRPC
                 if (method != null)
                 // Запрос.
                 {
-                    if (!TryIncreaseActiveRequestsCount(isResponseRequired: true))
+                    if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
+                    {
+                        error = null;
+                        return true;
+                    }
+                    else
                     // Происходит остановка. Выполнять запрос не нужно.
                     {
+                        error = null;
                         return false; // Завершить поток чтения.
                     }
                 }
@@ -1097,12 +1117,20 @@ namespace DanilovSoft.vRPC
                 // Может быть ответ на запрос.
                 {
                     if (gotError)
-                    // Ответ на запрос.
+                    // Ответ на запрос где результат — ошибка.
                     {
                         if (_responseAwaiters.TryRemove(id.Value, out IResponseAwaiter? awaiter))
                         {
-                            awaiter.TrySetException(ExceptionHelper.ToException(errorCode, message));
+                            // На основе кода и сообщения можно создать исключение.
+                            var exception = ExceptionHelper.ToException(errorCode, message);
+                            awaiter.TrySetException(exception);
                         }
+                        else
+                        {
+                            Debug.Assert(false, "Получен ответ которого мы не ждали.");
+                        }
+                        error = null;
+                        return true;
                     }
                     else if (methodName != null)
                     // Получен запрос но метод не найден.
@@ -1110,25 +1138,32 @@ namespace DanilovSoft.vRPC
                         if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
                         {
                             // Передать на отправку результат с ошибкой через очередь.
-                            PostJResponse(new JResponse(id.Value, new JNotFoundResult()));
+                            error = new JResponse(id.Value, new JMethodNotFoundResult());
                             return true;
                         }
                         else
                         // Происходит остановка. Выполнять запрос не нужно.
                         {
+                            error = null;
                             return false;
                         }
+                    }
+                    else
+                    {
+                        error = null;
+                        return true;
                     }
                 }
             }
             else
+            // id отсутствует.
             {
-
+                Debug.Assert(false);
+                throw new NotImplementedException();
             }
-            return true;
         }
 
-        private static bool TryReadArgs(ControllerMethodMeta method, object[] args, Utf8JsonReader reader, [MaybeNullWhen(true)] out IActionResult? error)
+        private static bool TryReadArgs(ControllerMethodMeta method, object[] args, Utf8JsonReader reader, [MaybeNullWhen(true)] out IMessageToSend? error)
         {
             if (reader.Read())
             {
@@ -1148,21 +1183,24 @@ namespace DanilovSoft.vRPC
                             }
                             catch (JsonException)
                             {
-                                error = ResponseHelper.ErrorDeserializingArgument(method.MethodFullName, argIndex: argsInJsonCounter, paramType);
-                                return false;
+                                throw new NotImplementedException();
+                                //new VRpcInvalidParamsException();
+                                //error = ResponseHelper.ErrorDeserializingArgument(method.MethodFullName, argIndex: argsInJsonCounter, paramType);
+                                //return false;
                             }
                             argsInJsonCounter++;
                         }
                         else
                         // Несоответствие числа параметров.
                         {
-                            error = ResponseHelper.ArgumentsCountMismatchError(method.MethodFullName, method.Parametergs.Length);
-                            return false;
+                            throw new NotImplementedException();
+                            //error = ResponseHelper.ArgumentsCountMismatchError(method.MethodFullName, method.Parametergs.Length);
+                            //return false;
                         }
                     }
                 }
             }
-            error = default;
+            error = null;
             return true;
         }
 
@@ -1419,6 +1457,9 @@ namespace DanilovSoft.vRPC
             return TryCloseAndDisposeAsync(protocolErrorException, message);
         }
 
+        /// <summary>
+        /// Отправляет Close с сообщением и распространяет исключение <see cref="VRpcProtocolErrorException"/> ожидающим потокам.
+        /// </summary>
         /// <remarks>Для Json-RPC</remarks>
         private Task SendCloseParseErrorAsync(JsonException parseException)
         {
