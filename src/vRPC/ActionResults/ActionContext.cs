@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Идентификатор запроса.
         /// </summary>
-        internal int Id { get; }
+        internal int? Id { get; }
         /// <summary>
         /// Буфер арендованной памяти для записи ответа.
         /// </summary>
@@ -22,10 +22,10 @@ namespace DanilovSoft.vRPC
         /// Может быть <see langword="null"/> если не удалось разобрать запрос.
         /// </summary>
         internal ControllerMethodMeta? Method { get; }
-        public StatusCode StatusCode { get; internal set; }
+        internal StatusCode StatusCode { get; set; }
         internal string? ProducesEncoding { get; set; }
 
-        internal ActionContext(int id, ControllerMethodMeta? method, ArrayBufferWriter<byte> responseBuffer)
+        internal ActionContext(int? id, ControllerMethodMeta? method, ArrayBufferWriter<byte> responseBuffer)
         {
             Id = id;
             Method = method;

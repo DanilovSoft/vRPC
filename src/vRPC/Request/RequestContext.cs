@@ -17,7 +17,7 @@ namespace DanilovSoft.vRPC
     internal readonly struct RequestContext : IDisposable
     {
         /// <summary>
-        /// Когда Uid не Null.
+        /// Когда Id не Null.
         /// </summary>
         public bool IsResponseRequired => Id != null;
         public int? Id { get; }
@@ -32,14 +32,19 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public object[] Args { get; }
 
+        public ManagedConnection Context { get; }
+        public bool IsJsonRpc { get; }
+
         // ctor
-        public RequestContext(int? uid, ControllerMethodMeta method, object[] args)
+        public RequestContext(ManagedConnection connection, int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
         {
             Debug.Assert(method != null);
 
-            Id = uid;
+            Context = connection;
+            Id = id;
             ControllerMethod = method;
             Args = args;
+            IsJsonRpc = isJsonRpc;
         }
 
         public void Dispose()
@@ -47,51 +52,4 @@ namespace DanilovSoft.vRPC
             ControllerMethod.DisposeArgs(Args);
         }
     }
-
-    ///// <summary>
-    ///// Содержит разобранный запрос с параметрами полученный от удалённой стороны.
-    ///// </summary>
-    //[StructLayout(LayoutKind.Auto)]
-    //[DebuggerDisplay("{" + nameof(ControllerActionMeta) + "}")]
-    //internal sealed class RequestContext : IDisposable
-    //{
-    //    private IList<IDisposable>? _disposableArgs;
-
-    //    /// <summary>
-    //    /// Когда Uid не Null.
-    //    /// </summary>
-    //    public bool IsResponseRequired => Uid != null;
-    //    public int? Uid { get; }
-
-    //    /// <summary>
-    //    /// Запрашиваемый метод контроллера.
-    //    /// </summary>
-    //    public ControllerActionMeta ControllerActionMeta { get; }
-
-    //    /// <summary>
-    //    /// Аргументы для вызываемого метода.
-    //    /// </summary>
-    //    public object[] Args { get; }
-
-    //    public RequestContext(int? uid, ControllerActionMeta invokeAction, object[] args, IList<IDisposable> disposableArgs)
-    //    {
-    //        Uid = uid;
-    //        ControllerActionMeta = invokeAction;
-    //        Args = args;
-    //        _disposableArgs = disposableArgs;
-    //    }
-
-    //    public void Dispose()
-    //    {
-    //        var disposableArgs = Interlocked.Exchange(ref _disposableArgs, null);
-
-    //        if (disposableArgs != null)
-    //        {
-    //            for (int i = 0; i < disposableArgs.Count; i++)
-    //            {
-    //                disposableArgs[i].Dispose();
-    //            }
-    //        }
-    //    }
-    //}
 }

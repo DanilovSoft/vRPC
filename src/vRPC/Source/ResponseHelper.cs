@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DanilovSoft.vRPC.JsonRpc.ActionResults;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -10,7 +11,7 @@ namespace DanilovSoft.vRPC.Source
 {
     internal static class ResponseHelper
     {
-        private const string ArgumentsCountMismatch = "Argument count mismatch for action '{0}'. {1} arguments was expected.";
+        private const string ArgumentsCountMismatch = "Argument count mismatch for method '{0}'. {1} arguments was expected.";
 
         internal static NotFoundResult MethodNotFound(string actionName)
         {
@@ -39,10 +40,29 @@ namespace DanilovSoft.vRPC.Source
             }
         }
 
+        internal static InvalidParamsResult JErrorDeserializingArgument(string actionName, short argIndex, Type argType)
+        {
+            if (argType.IsClrType())
+            {
+                return new InvalidParamsResult($"Не удалось десериализовать аргумент №{argIndex} в тип {argType.Name} метода {actionName}");
+            }
+            else
+            // Не будем раскрывать удалённой стороне имена сложных типов.
+            {
+                return new InvalidParamsResult($"Не удалось десериализовать аргумент №{argIndex} метода {actionName}");
+            }
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static BadRequestResult ArgumentsCountMismatchError(string actionName, int targetArgumentsCount)
         {
             return new BadRequestResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static InvalidParamsResult JArgumentsCountMismatchError(string actionName, int targetArgumentsCount)
+        {
+            return new InvalidParamsResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

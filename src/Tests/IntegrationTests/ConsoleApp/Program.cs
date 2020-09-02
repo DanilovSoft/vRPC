@@ -43,21 +43,15 @@ namespace ConsoleApp
     {
         static void Main()
         {
-            using var listener = new VRpcListener(IPAddress.Any, 1234);
-            //listener.ClientConnected += Listener_ClientConnected;
-            listener.Start();
+            var listener = VRpcListener.StartNew(IPAddress.Any);
 
-            using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
+            var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
-            try
-            {
-                iface.TestExceptionThrow("проверка");
-            }
-            catch (VRpcBadRequestException ex)
-            {
-                //Assert.Equal("проверка", ex.Message);
-            }
-
+            
+            iface.GetSum(1, 2);
+            iface.GetSum(1, 2);
+            iface.GetSum(1, 2);
+            
             Thread.Sleep(-1);
         }
 

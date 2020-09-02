@@ -20,7 +20,7 @@ namespace DanilovSoft.vRPC
     {
         /// <param name="result">Не Null когда True.</param>
         /// <remarks>Не бросает исключения.</remarks>
-        internal static bool TryDeserializeRequest(ReadOnlyMemory<byte> content, ControllerMethodMeta method, in HeaderDto header, 
+        internal static bool TryDeserializeRequest(ManagedConnection context, ReadOnlyMemory<byte> content, ControllerMethodMeta method, in HeaderDto header, 
             [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
@@ -28,11 +28,11 @@ namespace DanilovSoft.vRPC
             {
                 if (header.PayloadEncoding != KnownEncoding.MultipartEncoding)
                 {
-                    return TryDeserializeRequestJson(content.Span, method, header.Id, out result, out error);
+                    return TryDeserializeRequestJson(context, content.Span, method, header.Id, out result, out error);
                 }
                 else
                 {
-                    return TryDeserializeMultipart(content, method, header.Id, out result, out error);
+                    return TryDeserializeMultipart(context, content, method, header.Id, out result, out error);
                 }
             }
             catch (Exception ex)
@@ -61,7 +61,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="JsonException"/>
         /// <returns>True если успешно десериализовали.</returns>
-        private static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, ControllerMethodMeta method, int? uid, 
+        private static bool TryDeserializeRequestJson(ManagedConnection context, ReadOnlySpan<byte> utf8Json, ControllerMethodMeta method, int? id, 
             [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
@@ -111,7 +111,7 @@ namespace DanilovSoft.vRPC
             if (ResponseHelper.ValidateArgumentsCount(method.Parametergs, argsInJsonCounter, method.MethodFullName, out error))
             {
                 error = null;
-                result = new RequestContext(uid, method, args);
+                result = new RequestContext(context, id, method, args, false);
                 return true;
             }
             else
@@ -123,7 +123,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="Exception"/>
-        private static bool TryDeserializeMultipart(ReadOnlyMemory<byte> content, ControllerMethodMeta method, int? uid,
+        private static bool TryDeserializeMultipart(ManagedConnection context, ReadOnlyMemory<byte> content, ControllerMethodMeta method, int? uid,
             [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
@@ -140,7 +140,7 @@ namespace DanilovSoft.vRPC
             {
                 if (DeserializeProtoBufArgs(content, method, args, out error))
                 {
-                    result = new RequestContext(uid, method, args);
+                    result = new RequestContext(context, uid, method, args, false);
                     args = null; // Предотвратить Dispose.
                     error = null;
                     return true;

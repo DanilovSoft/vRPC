@@ -12,13 +12,14 @@ namespace DanilovSoft.vRPC
 {
     internal static class JsonRpcSerializer
     {
-        private static readonly JsonEncodedText JsonRpcVersion = JsonEncodedText.Encode("jsonrpc");
-        private static readonly JsonEncodedText Method = JsonEncodedText.Encode("method");
-        private static readonly JsonEncodedText Error = JsonEncodedText.Encode("error");
-        private static readonly JsonEncodedText Code = JsonEncodedText.Encode("code");
-        private static readonly JsonEncodedText Message = JsonEncodedText.Encode("message");
-        private static readonly JsonEncodedText Parameters = JsonEncodedText.Encode("params");
-        private static readonly JsonEncodedText Id = JsonEncodedText.Encode("id");
+        internal static readonly JsonEncodedText JsonRpcVersion = JsonEncodedText.Encode("jsonrpc");
+        internal static readonly JsonEncodedText Method = JsonEncodedText.Encode("method");
+        internal static readonly JsonEncodedText Error = JsonEncodedText.Encode("error");
+        internal static readonly JsonEncodedText Code = JsonEncodedText.Encode("code");
+        internal static readonly JsonEncodedText Message = JsonEncodedText.Encode("message");
+        internal static readonly JsonEncodedText Params = JsonEncodedText.Encode("params");
+        internal static readonly JsonEncodedText Result = JsonEncodedText.Encode("result");
+        internal static readonly JsonEncodedText Id = JsonEncodedText.Encode("id");
 
         public static void SerializeRequest(IBufferWriter<byte> bufferWriter, string method, object[] args, int id)
         {
@@ -34,7 +35,7 @@ namespace DanilovSoft.vRPC
                 writer.WriteString(Method, method);
 
                 // params: [
-                writer.WriteStartArray(Parameters);
+                writer.WriteStartArray(Params);
 
                 for (int i = 0; i < args.Length; i++)
                 {
@@ -52,12 +53,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public static void SerializeResponse(IBufferWriter<byte> bufferWriter)
-        {
-            // {"jsonrpc": "2.0", "error": {"code": -32601, "message": "Method not found"}, "id": "1"}
-        }
-
-        public static void SerializeErrorResponse(IBufferWriter<byte> bufferWriter, StatusCode code, string message, int id)
+        public static void SerializeErrorResponse(IBufferWriter<byte> bufferWriter, StatusCode code, string message, int? id)
         {
             // {"jsonrpc": "2.0", "error": {"code": -32601, "message": "Method not found"}, "id": "1"}
             using (var writer = new Utf8JsonWriter(bufferWriter))
@@ -80,8 +76,16 @@ namespace DanilovSoft.vRPC
                 // "}"
                 writer.WriteEndObject();
 
-                // Id: 1
-                writer.WriteNumber(Id, id);
+                if (id != null)
+                {
+                    // Id: 1
+                    writer.WriteNumber(Id, id.Value);
+                }
+                else
+                // По стандарту мы должны записать Null если не удалось получить id запроса.
+                {
+                    writer.WriteNull(Id);
+                }
 
                 // }
                 writer.WriteEndObject();

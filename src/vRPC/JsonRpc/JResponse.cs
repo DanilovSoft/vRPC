@@ -11,7 +11,7 @@ namespace DanilovSoft.vRPC.JsonRpc
         /// <summary>
         /// Идентификатор запроса.
         /// </summary>
-        internal readonly int Id;
+        internal readonly int? Id;
         internal readonly object? MethodResult;
         /// <summary>
         /// Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
@@ -34,7 +34,7 @@ namespace DanilovSoft.vRPC.JsonRpc
         /// </summary>
         /// <param name="actionResult">Может быть <see cref="IActionResult"/> или произвольный объект пользователя.</param>
         [DebuggerStepThrough]
-        public JResponse(int id, IActionResult actionResult)
+        public JResponse(int? id, IActionResult actionResult)
         {
             Id = id;
             MethodResult = actionResult;

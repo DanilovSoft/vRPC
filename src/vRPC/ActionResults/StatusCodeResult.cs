@@ -6,7 +6,7 @@ namespace DanilovSoft.vRPC
 {
     public class StatusCodeResult : ActionResult
     {
-        public StatusCodeResult(StatusCode statusCode) : base(statusCode)
+        internal StatusCodeResult(StatusCode statusCode) : base(statusCode)
         {
         }
     }

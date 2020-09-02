@@ -34,11 +34,18 @@ namespace XUnitTest
         void NotExistedMethod();
         [JsonRpc]
         void JNotExistedMethod();
+        [JsonRpc]
+        void JTestInternalError();
     }
 
     [AllowAnonymous]
     internal class ServerTestController : ServerController
     {
+        public void JTestInternalError()
+        {
+            throw new InvalidOperationException("Не удалось подключиться к БД");
+        }
+
         public void TestExceptionThrow(string message)
         {
             throw new VRpcBadRequestException(message);

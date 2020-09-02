@@ -1031,6 +1031,10 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.DeserializeJsonRpcMessage(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.Context.IMessageToSend@)">
             <exception cref="T:System.Text.Json.JsonException"/>
+            <returns>False если нужно завершить поток.</returns>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryParseJsonArgs(DanilovSoft.vRPC.ControllerMethodMeta,System.Object[],System.Text.Json.Utf8JsonReader,DanilovSoft.vRPC.IActionResult@)">
+            <returns>True если параметры успешно десериализованы.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryNonBinaryTypeCloseAndDisposeAsync(DanilovSoft.WebSockets.ValueWebSocketReceiveResult)">
             <summary>При получении Close или сообщения типа Text — отправляет Close и делает Dispose.</summary>
@@ -1162,11 +1166,11 @@
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.StartProcessRequest(DanilovSoft.vRPC.RequestContext@)">
             <summary>
-            В новом потоке выполняет запрос и отправляет ему результат или ошибку.
+            В новом потоке выполняет запрос и отправляет обратно результат или ошибку.
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessRequestThreadEntryPoint(DanilovSoft.vRPC.RequestContext)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessRequestThreadEntryPoint(DanilovSoft.vRPC.RequestContext@)">
             <summary>
             Выполняет запрос и отправляет результат или ошибку.
             </summary>
@@ -1184,7 +1188,7 @@
             </summary>
             <returns>False если был запрошен Shutdown и сервис нужно остановить.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessRequest(DanilovSoft.vRPC.RequestContext@)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendOkResponse(DanilovSoft.vRPC.RequestContext@,System.Object)">
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessNotificationRequest(DanilovSoft.vRPC.RequestContext@)">
@@ -1601,7 +1605,7 @@
             Ответ на основе запроса.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.JsonRpc.JResponse.#ctor(System.Int32,DanilovSoft.vRPC.IActionResult)">
+        <member name="M:DanilovSoft.vRPC.JsonRpc.JResponse.#ctor(System.Nullable{System.Int32},DanilovSoft.vRPC.IActionResult)">
             <summary>
             Конструктор ответа в случае ошибки десериализации запроса.
             </summary>
@@ -1630,7 +1634,7 @@
         </member>
         <member name="P:DanilovSoft.vRPC.RequestContext.IsResponseRequired">
             <summary>
-            Когда Uid не Null.
+            Когда Id не Null.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.RequestContext.ControllerMethod">
@@ -1985,18 +1989,18 @@
             Контроллер для активации через IoC.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequest(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,DanilovSoft.vRPC.HeaderDto@,DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequest(DanilovSoft.vRPC.ManagedConnection,System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,DanilovSoft.vRPC.HeaderDto@,DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <param name="result">Не Null когда True.</param>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequestJson(System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequestJson(DanilovSoft.vRPC.ManagedConnection,System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
             </summary>
             <exception cref="T:System.Text.Json.JsonException"/>
             <returns>True если успешно десериализовали.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeMultipart(System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeMultipart(DanilovSoft.vRPC.ManagedConnection,System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <exception cref="T:System.Exception"/>
         </member>
         <member name="M:DanilovSoft.vRPC.CustomSerializer.DeserializeHeader(System.ReadOnlySpan{System.Byte})">

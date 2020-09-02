@@ -8,8 +8,10 @@ namespace DanilovSoft.vRPC.Source
     {
         private static readonly Dictionary<StatusCode, Func<string?, VRpcException>> _dict = new Dictionary<StatusCode, Func<string?, VRpcException>>
         {
+            [StatusCode.InvalidRequest] = (msg) => new VRpcInvalidRequestException(msg),
             [StatusCode.MethodNotFound] = (msg) => new VRpcMethodNotFoundException(msg),
-            [StatusCode.InvalidParams] = (msg) => new VRpcInvalidParamsException(msg)
+            [StatusCode.InvalidParams] = (msg) => new VRpcInvalidParamsException(msg),
+            [StatusCode.InternalError] = (msg) => new VRpcInternalErrorException(msg)
         };
 
         static ExceptionHelper()
@@ -33,7 +35,7 @@ namespace DanilovSoft.vRPC.Source
             else
             // Неизвестная ошибка.
             {
-                return new VRpcUnknownErrorException(code, message);
+                return new VRpcUnknownErrorException((int)code, message);
             }
         }
     }

@@ -6,7 +6,7 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Код состояния передаваемого сообщения.
     /// </summary>
-    public enum StatusCode
+    internal enum StatusCode
     {
         None = 0,
         Ok = 20,

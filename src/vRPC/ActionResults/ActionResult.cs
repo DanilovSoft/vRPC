@@ -8,9 +8,9 @@ namespace DanilovSoft.vRPC
 {
     public abstract class ActionResult : IActionResult
     {
-        public StatusCode StatusCode { get; internal set; }
+        internal StatusCode StatusCode { get; set; }
 
-        public ActionResult(StatusCode statusCode)
+        internal ActionResult(StatusCode statusCode)
         {
             StatusCode = statusCode;
         }

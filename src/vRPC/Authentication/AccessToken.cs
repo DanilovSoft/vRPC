@@ -57,7 +57,7 @@ namespace DanilovSoft.vRPC
 
         public static bool operator ==(AccessToken left, AccessToken right)
         {
-            return left.Equals(right);
+            return left.Equals(other: right);
         }
 
         public static bool operator !=(AccessToken left, AccessToken right)

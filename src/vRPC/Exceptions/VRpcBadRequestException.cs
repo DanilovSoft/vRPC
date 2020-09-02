@@ -10,7 +10,7 @@ namespace DanilovSoft.vRPC
     [Serializable]
     public sealed class VRpcBadRequestException : VRpcException, ISerializable
     {
-        public StatusCode ErrorCode { get; }
+        internal StatusCode ErrorCode { get; }
 
         public VRpcBadRequestException()
         {
@@ -22,7 +22,7 @@ namespace DanilovSoft.vRPC
 
         }
 
-        public VRpcBadRequestException(string message, StatusCode errorCode) : base(message)
+        internal VRpcBadRequestException(string message, StatusCode errorCode) : base(message)
         {
             ErrorCode = errorCode;
         }

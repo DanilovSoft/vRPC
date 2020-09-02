@@ -29,20 +29,33 @@ namespace PublicXUnitTest
         }
 
         [Test]
-        public async Task TestMethodNotFound()
+        public void TestMethodNotFound()
         {
             var listener = VRpcListener.StartNew(IPAddress.Any);
             var client = new VRpcClient("localhost", listener.Port, false, true);
-
-            await client.ConnectAsync();
-
             try
             {
                 client.GetProxy<IServerTestController>().JNotExistedMethod();
             }
             catch (VRpcMethodNotFoundException)
             {
-                Assert.Pass();
+                return;
+            }
+            Assert.Fail();
+        }
+
+        [Test]
+        public void TestInternalError()
+        {
+            var listener = VRpcListener.StartNew(IPAddress.Any);
+            var client = new VRpcClient("localhost", listener.Port, false, true);
+            try
+            {
+                client.GetProxy<IServerTestController>().JTestInternalError();
+            }
+            catch (VRpcInternalErrorException)
+            {
+                return;
             }
             Assert.Fail();
         }

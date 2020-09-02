@@ -29,16 +29,18 @@ namespace DanilovSoft.vRPC
         public bool IsNotificationRequest => false;
         public bool TcpNoDelay => Method?.TcpNoDelay ?? false;
         public bool IsJsonRpc => throw new NotImplementedException();
+        public ManagedConnection Context { get; }
 
         /// <summary>
         /// Ответ на основе запроса.
         /// </summary>
         [DebuggerStepThrough]
-        public ResponseMessage(int id, ControllerMethodMeta method, object? actionResult)
+        public ResponseMessage(ManagedConnection context, int id, ControllerMethodMeta method, object? actionResult)
         {
             Id = id;
             Method = method;
             MethodResult = actionResult;
+            Context = context;
         }
 
         /// <summary>
@@ -46,11 +48,12 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="actionResult">Может быть <see cref="IActionResult"/> или произвольный объект пользователя.</param>
         [DebuggerStepThrough]
-        public ResponseMessage(int id, IActionResult actionResult)
+        public ResponseMessage(ManagedConnection context, int id, IActionResult actionResult)
         {
             Id = id;
             MethodResult = actionResult;
             Method = null;
+            Context = context;
         }
     }
 }
