@@ -38,9 +38,8 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="VRpcException">Происходит если уже был обрыв соединения.</exception>
         /// <exception cref="ObjectDisposedException"/>
-        public ResponseAwaiter<T> AddRequest<T>(RequestMethodMeta requestToSend, out int uid)
+        public void AddRequest<TResult>(Request<TResult> request, out int uid)
         {
-            var responseAwaiter = new ResponseAwaiter<T>(requestToSend);
             do
             {
                 lock (_dict)
@@ -53,8 +52,9 @@ namespace DanilovSoft.vRPC
                             do
                             {
                                 uid = IncrementSeq();
-                            } while (!_dict.TryAdd(uid, responseAwaiter));
-                            return responseAwaiter;
+                            } while (!_dict.TryAdd(uid, request));
+
+                            return;
                         }
                     }
                     else

@@ -20,6 +20,7 @@ namespace DanilovSoft.vRPC
         /// Сериализует объект в JSON.
         /// </summary>
         /// <exception cref="VRpcException"/>
+        [Obsolete]
         public static void SerializeObjectJson(ArrayBufferWriter<byte> destination, object instance)
         {
             // Сериализовать Null не нужно (Отправлять тело сообщения при этом тоже не нужно).
@@ -35,6 +36,20 @@ namespace DanilovSoft.vRPC
             catch (Exception ex)
             {
                 ThrowHelper.ThrowVRpcException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
+            }
+        }
+
+        /// <summary>
+        /// Сериализует объект в JSON.
+        /// </summary>
+        internal static void SerializeObject(ArrayBufferWriter<byte> destination, object instance)
+        {
+            // Сериализовать Null не нужно (Отправлять тело сообщения при этом тоже не нужно).
+            Debug.Assert(instance != null, "Сериализовать и отправлять Null не нужно");
+
+            using (var writer = new Utf8JsonWriter(destination))
+            {
+                JsonSerializer.Serialize(writer, instance/*, new JsonSerializerOptions { IgnoreNullValues = true }*/);
             }
         }
 

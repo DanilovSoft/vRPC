@@ -18,12 +18,15 @@ namespace DanilovSoft.vRPC.JsonRpc
         /// </summary>
         internal ControllerMethodMeta? Method { get; }
 
+        public ManagedConnection Context { get; }
+
         /// <summary>
         /// Ответ на основе запроса.
         /// </summary>
         [DebuggerStepThrough]
-        public JResponse(int id, ControllerMethodMeta method, object? methodResult)
+        public JResponse(ManagedConnection context, int id, ControllerMethodMeta method, object? methodResult)
         {
+            Context = context;
             Id = id;
             Method = method;
             MethodResult = methodResult;
@@ -34,8 +37,9 @@ namespace DanilovSoft.vRPC.JsonRpc
         /// </summary>
         /// <param name="actionResult">Может быть <see cref="IActionResult"/> или произвольный объект пользователя.</param>
         [DebuggerStepThrough]
-        public JResponse(int? id, IActionResult actionResult)
+        public JResponse(ManagedConnection context, int? id, IActionResult actionResult)
         {
+            Context = context;
             Id = id;
             MethodResult = actionResult;
             Method = null;

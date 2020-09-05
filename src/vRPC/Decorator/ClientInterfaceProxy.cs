@@ -34,6 +34,12 @@ namespace DanilovSoft.vRPC.Decorator
             
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="TResult">Возвращаемый тип метода.</typeparam>
+        /// <param name="targetMethod"></param>
+        /// <returns></returns>
         private RequestMethodMeta GetMeta<TResult>(MethodInfo targetMethod)
         {
             // Метаданные запроса.
@@ -62,16 +68,16 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
+            RequestMethodMeta method = GetMeta<VoidStruct>(targetMethod);
 
-            if (!methodMeta.IsNotificationRequest)
+            if (!method.IsNotificationRequest)
             {
-                Task<VoidStruct> task = Client.OnClientMethodCall<VoidStruct>(methodMeta, args);
+                Task<VoidStruct> task = Client.OnClientMethodCall<VoidStruct>(method, args);
                 return task;
             }
             else
             {
-                ValueTask valueTask = Client.OnClientNotificationCall(methodMeta, args);
+                ValueTask valueTask = Client.OnClientNotificationCall(method, args);
                 return valueTask.AsTask();
             }
         }
@@ -103,7 +109,6 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(targetMethod != null);
 
             RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
-
             Task<T> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
             return new ValueTask<T>(task: pendingRequest);
         }

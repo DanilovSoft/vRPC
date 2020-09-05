@@ -428,14 +428,14 @@ namespace DanilovSoft.vRPC
         }
 
         // Когда выполняют вызов метода через интерфейс.
-        internal Task<TResult> OnClientMethodCall<TResult>(RequestMethodMeta methodMeta, object[] args)
+        internal Task<TResult> OnClientMethodCall<TResult>(RequestMethodMeta method, object[] args)
         {
-            Debug.Assert(!methodMeta.IsNotificationRequest);
+            Debug.Assert(!method.IsNotificationRequest);
 
             // Начать соединение или взять существующее.
-            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
+            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(accessToken: default);
 
-            return ManagedConnection.OnClientMethodCall<TResult>(connectionTask, methodMeta, args);
+            return ManagedConnection.OnClientMethodCall<TResult>(connectionTask, method, args);
         }
 
         // Когда выполняют вызов метода через интерфейс.

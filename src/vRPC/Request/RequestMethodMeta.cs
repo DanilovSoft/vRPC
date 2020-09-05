@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -15,7 +16,7 @@ namespace DanilovSoft.vRPC
     /// Не подлежит сериализации.
     /// Потокобезопасен.
     /// </summary>
-    [DebuggerDisplay(@"\{Request = {MethodFullName}\}")]
+    [DebuggerDisplay(@"\{Request = {FullName}\}")]
     internal sealed class RequestMethodMeta : IMessageMeta
     {
         /// <summary>
@@ -30,15 +31,15 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Имя метода например 'Home/Hello' без постфикса 'Async'.
         /// </summary>
-        public string MethodFullName { get; }
+        public string FullName { get; }
         public bool TcpNoDelay { get; }
         public bool IsJsonRpc { get; }
         public bool IsRequest => true;
-        /// <summary>
-        /// Когда все параметры метода являются <see cref="VRpcContent"/> то обрабатываются
-        /// по отдельному сценарию.
-        /// </summary>
-        private readonly bool _multipartStrategy;
+        ///// <summary>
+        ///// Когда все параметры метода являются <see cref="VRpcContent"/> то обрабатываются
+        ///// по отдельному сценарию.
+        ///// </summary>
+        //private readonly bool _multipartStrategy;
 
         // ctor.
         /// <exception cref="VRpcException"/>
@@ -66,10 +67,10 @@ namespace DanilovSoft.vRPC
             //IncapsulatedReturnType = GetMethodReturnType(interfaceMethod.ReturnType);
             
             // Нормализованное имя метода.
-            MethodFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{interfaceMethod.GetNameTrimAsync()}";
+            FullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{interfaceMethod.GetNameTrimAsync()}";
 
             // Особая семантика метода — когда все параметры являются VRpcContent.
-            _multipartStrategy = IsAllParametersIsSpecialType(interfaceMethod);
+            //_multipartStrategy = IsAllParametersIsSpecialType(interfaceMethod);
         }
 
         /// <exception cref="VRpcException"/>
@@ -110,7 +111,7 @@ namespace DanilovSoft.vRPC
             {
                 IsNotificationRequest = false;
             }
-            MethodFullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{methodName}";
+            FullName = $"{controllerName}{GlobalVars.ControllerNameSplitter}{methodName}";
         }
 
         /// <exception cref="VRpcException"/>
@@ -155,25 +156,31 @@ namespace DanilovSoft.vRPC
         //    }
         //}
 
+        internal void SerializeRequest(object[] args, ArrayBufferWriter<byte> buffer)
+        {
+            ExtensionMethods.SerializeObject(buffer, args);
+        }
+
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
         /// <exception cref="Exception"/>
+        [Obsolete]
         public SerializedMessageToSend SerializeRequest(object[] args)
         {
-            if (!_multipartStrategy)
+            //if (!_multipartStrategy)
             {
                 return SerializeToJson(args);
             }
-            else
-            {
-                return SerializeToMultipart(args);
-            }
+            //else
+            //{
+            //    return SerializeToMultipart(args);
+            //}
         }
 
         private SerializedMessageToSend SerializeToMultipart(object[] args)
         {
-            Debug.Assert(_multipartStrategy);
+            //Debug.Assert(_multipartStrategy);
 
             var serMsg = new SerializedMessageToSend(this)
             {

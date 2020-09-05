@@ -424,30 +424,30 @@ namespace DanilovSoft.vRPC
         /// <remarks>Со стороны сервера.</remarks>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal Task<TResult> OnServerMethodCall<TResult>(RequestMethodMeta methodMeta, object[] args)
+        internal Task<TResult> OnServerMethodCall<TResult>(Request<TResult> request)
         {
-            Debug.Assert(!methodMeta.IsNotificationRequest);
+            Debug.Assert(!request.Method.IsNotificationRequest);
 
-            if (methodMeta.IsJsonRpc)
+            if (request.Method.IsJsonRpc)
             {
-                return ExecuteJsonRequest<TResult>(methodMeta, args);
+                return ExecuteJsonRequest(request);
             }
             else
             {
                 // Сериализуем запрос в память.
-                SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
-                SerializedMessageToSend? serMsgToDispose = serMsg;
-                try
-                {
+                //SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
+                //SerializedMessageToSend? serMsgToDispose = serMsg;
+                //try
+                //{
                     // Отправляем запрос.
-                    Task<TResult> task = SendSerializedRequestAndWaitResponse<TResult>(methodMeta, serMsg);
-                    serMsgToDispose = null;
+                    Task<TResult> task = SendSerializedRequestAndWaitResponse<TResult>(request);
+                    //serMsgToDispose = null;
                     return task;
-                }
-                finally
-                {
-                    serMsgToDispose?.Dispose();
-                }
+                //}
+                //finally
+                //{
+                //    serMsgToDispose?.Dispose();
+                //}
             }
         }
 
@@ -456,78 +456,81 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <remarks>Со стороны клиента.</remarks>
         /// <exception cref="Exception">Могут быть исключения не инкапсулированные в Task.</exception>
-        //[SuppressMessage("Reliability", "CA2000:Ликвидировать объекты перед потерей области", Justification = "Анализатор не понимает смену ответственности на Channel")]
-        internal static Task<TResult> OnClientMethodCall<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta methodMeta, object[] args)
+        internal static Task<TResult> OnClientMethodCall<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
         {
-            Debug.Assert(!methodMeta.IsNotificationRequest);
+            Debug.Assert(!method.IsNotificationRequest);
 
-            if (methodMeta.IsJsonRpc)
+            if (method.IsJsonRpc)
             {
-                return ExecuteJsonRequest<TResult>(connectionTask, methodMeta, args);
+                return StaticExecuteJsonRequest<TResult>(connectionTask, method, args);
             }
             else
             {
+                return SendClientRequestAndGetResultStatic<TResult>(connectionTask, method, args);
+
                 // Сериализуем запрос в память. Лучше выполнить до завершения подключения.
-                SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
-                SerializedMessageToSend? serMsgToDispose = serMsg;
-                try
-                {
-                    // Может начать отправку текущим потоком. Диспозит serMsg в случае ошибки.
-                    Task<TResult> pendingRequestTask = SendClientRequestAndGetResultStatic<TResult>(connectionTask, serMsg, methodMeta);
-                    serMsgToDispose = null; // Предотвратить Dispose.
-                    return pendingRequestTask;
-                }
-                finally
-                {
-                    // В случае исключения в методе ExecuteRequestStatic
-                    // объект может быть уже уничтожен но это не страшно, его Dispose - атомарный.
-                    serMsgToDispose?.Dispose();
-                }
+                //SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
+                //SerializedMessageToSend? serMsgToDispose = serMsg;
+                //try
+                //{
+                // Может начать отправку текущим потоком. Диспозит serMsg в случае ошибки.
+                //Task<TResult> pendingRequestTask = SendClientRequestAndGetResultStatic<TResult>(connectionTask, serMsg, methodMeta);
+                //serMsgToDispose = null; // Предотвратить Dispose.
+                //return pendingRequestTask;
+                //}
+                //finally
+                //{
+                //    // В случае исключения в методе ExecuteRequestStatic
+                //    // объект может быть уже уничтожен но это не страшно, его Dispose - атомарный.
+                //    serMsgToDispose?.Dispose();
+                //}
             }
         }
 
         /// <exception cref="Exception">Могут быть исключения не инкапсулированные в Task.</exception>
-        private static Task<TResult> ExecuteJsonRequest<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta methodMeta, object[] args)
+        private static Task<TResult> StaticExecuteJsonRequest<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
         {
-            Debug.Assert(methodMeta.IsJsonRpc);
-            Debug.Assert(!methodMeta.IsNotificationRequest);
+            Debug.Assert(method.IsJsonRpc);
+            Debug.Assert(!method.IsNotificationRequest);
 
             if (connectionTask.IsCompleted)
             {
                 // Может быть исключение если не удалось подключиться.
                 ClientSideConnection connection = connectionTask.GetAwaiter().GetResult();
 
-                return connection.ExecuteJsonRequest<TResult>(methodMeta, args);
+                return connection.ExecuteJsonRequest(new Request<TResult>(connection, method, args));
             }
             else
             {
-                return WaitAsync(connectionTask, methodMeta, args).Unwrap();
+                return WaitAsync(connectionTask, method, args).Unwrap();
 
-                static async Task<Task<TResult>> WaitAsync(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta methodMeta, object[] args)
+                static async Task<Task<TResult>> WaitAsync(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
                 {
                     var connection = await connectionTask.ConfigureAwait(false);
-
-                    return connection.ExecuteJsonRequest<TResult>(methodMeta, args);
+                    return connection.ExecuteJsonRequest(new Request<TResult>(connection, method, args));
                 }
             }
         }
 
-        private Task<TResult> ExecuteJsonRequest<TResult>(RequestMethodMeta methodMeta, object[] args)
+        private Task<TResult> ExecuteJsonRequest<TResult>(Request<TResult> request)
         {
             // Shutdown нужно проверять раньше чем Dispose потому что Dispose может быть по причине Shutdown.
             if (_shutdownRequest == null) // volatile проверка.
             {
                 if (!IsDisposed) // volatile проверка.
                 {
+                    Debug.Assert(false);
+                    throw new NotImplementedException();
+
                     // Добавить запрос в словарь для дальнейшей связки с ответом.
-                    ResponseAwaiter<TResult> responseAwaiter = _responseAwaiters.AddRequest<TResult>(methodMeta, out int uid);
+                    //ResponseAwaiter<TResult> responseAwaiter = _responseAwaiters.AddRequest<TResult>(methodMeta, out int uid);
 
-                    var request = new JRequest(responseAwaiter, methodMeta, args, uid);
+                    //var request = new JRequest(this, responseAwaiter, methodMeta, args, uid);
 
-                    TryPostMessage(request);
+                    //TryPostMessage(request);
 
-                    // Ожидаем результат от потока поторый читает из сокета.
-                    return responseAwaiter.Task;
+                    //// Ожидаем результат от потока поторый читает из сокета.
+                    //return responseAwaiter.Task;
                 }
                 else
                     return Task.FromException<TResult>(new ObjectDisposedException(GetType().FullName));
@@ -606,9 +609,9 @@ namespace DanilovSoft.vRPC
         /// Может бросить исключение.
         /// </summary>
         /// <remarks>Со стороны клиента.</remarks>
-        private static Task<TResult> SendClientRequestAndGetResultStatic<TResult>(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg, RequestMethodMeta methodMeta)
+        private static Task<TResult> SendClientRequestAndGetResultStatic<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
         {
-            Debug.Assert(!methodMeta.IsNotificationRequest);
+            Debug.Assert(!method.IsNotificationRequest);
 
             if (connectionTask.IsCompleted)
             {
@@ -616,19 +619,19 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = connectionTask.GetAwaiter().GetResult();
 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendSerializedRequestAndWaitResponse<TResult>(methodMeta, serMsg);
+                return connection.SendSerializedRequestAndWaitResponse(new Request<TResult>(connection, method, args));
             }
             else
             {
-                return WaitForConnectAndSendRequest(connectionTask, serMsg, methodMeta).Unwrap();
+                return WaitForConnectAndSendRequest(connectionTask, method, args).Unwrap();
             }
 
-            static async Task<Task<TResult>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, SerializedMessageToSend serMsg, RequestMethodMeta requestMeta)
+            static async Task<Task<TResult>> WaitForConnectAndSendRequest(ValueTask<ClientSideConnection> t, RequestMethodMeta method, object[] args)
             {
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendSerializedRequestAndWaitResponse<TResult>(requestMeta, serMsg);
+                return connection.SendSerializedRequestAndWaitResponse(new Request<TResult>(connection, method, args));
             }
         }
 
@@ -663,22 +666,22 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private protected Task<TResult> SendRequestAndWaitResponse<TResult>(RequestMethodMeta requestMeta, object[] args)
+        private protected Task<TResult> SendRequestAndWaitResponse<TResult>(Request<TResult> request)
         {
-            Debug.Assert(!requestMeta.IsNotificationRequest);
+            Debug.Assert(!request.Method.IsNotificationRequest);
 
-            SerializedMessageToSend serMsgRequest = requestMeta.SerializeRequest(args);
-            SerializedMessageToSend? serMsgToDispose = serMsgRequest;
-            try
-            {
-                Task<TResult> pendingRequestTask = SendSerializedRequestAndWaitResponse<TResult>(requestMeta, serMsgRequest);
-                serMsgToDispose = null;
+            //SerializedMessageToSend serMsgRequest = requestMeta.SerializeRequest(args);
+            //SerializedMessageToSend? serMsgToDispose = serMsgRequest;
+            //try
+            //{
+                Task<TResult> pendingRequestTask = SendSerializedRequestAndWaitResponse(request);
+                //serMsgToDispose = null;
                 return pendingRequestTask;
-            }
-            finally
-            {
-                serMsgToDispose?.Dispose();
-            }
+            //}
+            //finally
+            //{
+            //    serMsgToDispose?.Dispose();
+            //}
         }
 
         /// <summary>
@@ -690,38 +693,38 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <returns>Таск с результатом от сервера.</returns>
-        private protected Task<TResult> SendSerializedRequestAndWaitResponse<TResult>(RequestMethodMeta requestMeta, SerializedMessageToSend serMsg)
+        private protected Task<TResult> SendSerializedRequestAndWaitResponse<TResult>(Request<TResult> request)
         {
-            Debug.Assert(!requestMeta.IsNotificationRequest);
+            Debug.Assert(!request.Method.IsNotificationRequest);
 
             // Shutdown нужно проверять раньше чем Dispose потому что Dispose может быть по причине Shutdown.
             if (_shutdownRequest == null) // volatile проверка.
             {
                 if (!IsDisposed) // volatile проверка.
                 {
-                    SerializedMessageToSend? serMsgToDispose = serMsg;
-                    try
-                    {
-                        // Добавить запрос в словарь для дальнейшей связки с ответом.
-                        ResponseAwaiter<TResult> responseAwaiter = _responseAwaiters.AddRequest<TResult>(requestMeta, out int uid);
+                    //SerializedMessageToSend? serMsgToDispose = serMsg;
+                    //try
+                    //{
+                    // Добавить запрос в словарь для дальнейшей связки с ответом.
+                    _responseAwaiters.AddRequest(request, out int uid);
 
-                        // Назначить запросу уникальный идентификатор.
-                        serMsg.Uid = uid;
+                    // Назначить запросу уникальный идентификатор.
+                    request.Id = uid;
 
-                        // Планируем отправку запроса.
-                        // Не бросает исключения.
-                        TryPostMessage(serMsg);
+                    // Планируем отправку запроса.
+                    // Не бросает исключения.
+                    TryPostMessage(request);
 
-                        // Мы больше не владеем этим объектом.
-                        serMsgToDispose = null;
+                    // Мы больше не владеем этим объектом.
+                    //serMsgToDispose = null;
 
-                        // Ожидаем результат от потока поторый читает из сокета.
-                        return responseAwaiter.Task;
-                    }
-                    finally
-                    {
-                        serMsgToDispose?.Dispose();
-                    }
+                    // Ожидаем результат от потока поторый читает из сокета.
+                    return request.Task;
+                    //}
+                    //finally
+                    //{
+                    //    serMsgToDispose?.Dispose();
+                    //}
                 }
                 else
                     return Task.FromException<TResult>(new ObjectDisposedException(GetType().FullName));
@@ -1124,7 +1127,7 @@ namespace DanilovSoft.vRPC
                         if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
                         {
                             // Передать на отправку результат с ошибкой через очередь.
-                            error = new JResponse(id.Value, new JMethodNotFoundResult());
+                            error = new JResponse(this, id.Value, new JMethodNotFoundResult());
                             return true;
                         }
                         else
@@ -1137,7 +1140,7 @@ namespace DanilovSoft.vRPC
                     else if (methodName == null)
                     // Не валидное сообщение.
                     {
-                        error = new JResponse(id.Value, new JInvalidRequestResult());
+                        error = new JResponse(this, id.Value, new JInvalidRequestResult());
                         return true; // Продолжить получение сообщений.
                     }
                 }
@@ -1554,11 +1557,11 @@ namespace DanilovSoft.vRPC
             {
                 var responseToSend = state as ResponseMessage;
                 Debug.Assert(responseToSend != null);
-                responseToSend.Context.SerializeResponseAndTrySendThreadEntryPoint(responseToSend);
+                responseToSend.Context.SerializeResponseAndTrySendEntryPoint(responseToSend);
             }
 #else
             // Предпочитаем глобальную очередь.
-            ThreadPool.UnsafeQueueUserWorkItem(s => s.Context.SerializeResponseAndTrySendThreadEntryPoint(s), responseToSend, preferLocal: false);
+            ThreadPool.UnsafeQueueUserWorkItem(s => s.Context.SerializeResponseAndTrySendEntryPoint(s), responseToSend, preferLocal: false);
 #endif
         }
 
@@ -1580,13 +1583,16 @@ namespace DanilovSoft.vRPC
         }
 
         // Точка входа потока тред-пула.
-        private void SerializeResponseAndTrySendThreadEntryPoint(ResponseMessage message)
+        private void SerializeResponseAndTrySendEntryPoint(ResponseMessage message)
         {
-            // Сериализуем.
-            SerializedMessageToSend serializedMessage = SerializeResponse(message);
+            Debug.Assert(false);
+            throw new NotImplementedException();
 
-            // Ставим в очередь.
-            TryPostMessage(serializedMessage);
+            //// Сериализуем.
+            //SerializedMessageToSend serializedMessage = SerializeResponse(message);
+
+            //// Ставим в очередь.
+            //TryPostMessage(serializedMessage);
         }
 
         /// <summary>
@@ -1664,7 +1670,7 @@ namespace DanilovSoft.vRPC
                 var request = messageToSend.MessageToSend as RequestMethodMeta;
                 Debug.Assert(request != null);
 
-                return new HeaderDto(messageToSend.Uid, messageToSend.Buffer.WrittenCount, messageToSend.ContentEncoding, request.MethodFullName);
+                return new HeaderDto(messageToSend.Uid, messageToSend.Buffer.WrittenCount, messageToSend.ContentEncoding, request.FullName);
             }
         }
 
@@ -1672,51 +1678,32 @@ namespace DanilovSoft.vRPC
         /// Добавляет хэдер и передает на отправку другому потоку если канал ещё не закрыт.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        private void TryPostMessage(SerializedMessageToSend serializedMessage)
-        {
-            Debug.Assert(serializedMessage != null);
-
-            SerializedMessageToSend? toDispose = serializedMessage;
-            try
-            {
-                // На текущем этапе сокет может быть уже уничтожен другим потоком.
-                // В этом случае можем беспоследственно проигнорировать отправку; вызывающий получит исключение через RequestAwaiter.
-                if (!IsDisposed)
-                {
-                    // Сериализуем хедер. Не бросает исключения.
-                    AppendHeader(serializedMessage);
-
-                    // Передать в очередь на отправку.
-                    // (!) Из-за AllowSynchronousContinuations начнёт отправку текущим потоком если очередь пуста.
-                    if (_sendChannel.Writer.TryWrite(serializedMessage))
-                    // Успешно передали объект другому потоку.
-                    {
-                        // Мы больше не владеем этим объектом.
-                        toDispose = null;
-                    }
-                }
-            }
-            finally
-            {
-                toDispose?.Dispose();
-            }
-        }
-
         private void TryPostMessage(IMessageToSend message)
         {
             // На текущем этапе сокет может быть уже уничтожен другим потоком.
             // В этом случае можем беспоследственно проигнорировать отправку; вызывающий получит исключение через RequestAwaiter.
             if (!IsDisposed)
             {
+                // Сериализуем хедер. Не бросает исключения.
+                //AppendHeader(serializedMessage);
+
                 // Передать в очередь на отправку.
                 // (!) Из-за AllowSynchronousContinuations начнёт отправку текущим потоком если очередь пуста.
-                if (_sendChannel.Writer.TryWrite(message))
-                // Успешно передали объект другому потоку.
-                {
-                    // Мы больше не владеем этим объектом.
-                }
+                _sendChannel.Writer.TryWrite(message);
             }
         }
+
+        //private void TryPostJMessage(IMessageToSend message)
+        //{
+        //    // На текущем этапе сокет может быть уже уничтожен другим потоком.
+        //    // В этом случае можем беспоследственно проигнорировать отправку; вызывающий получит исключение через RequestAwaiter.
+        //    if (!IsDisposed)
+        //    {
+        //        // Передать в очередь на отправку.
+        //        // (!) Из-за AllowSynchronousContinuations начнёт отправку текущим потоком если очередь пуста.
+        //        _sendChannel.Writer.TryWrite(message);
+        //    }
+        //}
 
         // Как и для ReceiveLoop здесь не должно быть глубокого async стека.
         /// <summary>
@@ -1732,78 +1719,54 @@ namespace DanilovSoft.vRPC
                 _sendChannel.Reader.TryRead(out IMessageToSend message);
                 Debug.Assert(message != null);
 
-                if (message is SerializedMessageToSend serializedMessage)
+                if (message is IRequest vrequest)
                 {
                     // Теперь мы владеем этим объектом.
-                    try
+                    if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь и сделать Dispose всем сообщениям.
                     {
-                        if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь и сделать Dispose всем сообщениям.
+                        if (TrySerializeVRpc(vrequest, out ArrayBufferWriter<byte>? buffer, out int headerSize))
                         {
-                            //  Увеличить счетчик активных запросов.
-                            if (TryIncreaseActiveRequestsCount(serializedMessage.MessageToSend))
+                            try
                             {
-                                //LogSend(serializedMessage);
-
-                                ReadOnlyMemory<byte> streamBuffer = serializedMessage.Buffer.WrittenMemory;
-
-                                // Размер сообщения без заголовка.
-                                int messageSize = serializedMessage.Buffer.WrittenCount - serializedMessage.HeaderSize;
-
-                                SetTcpNoDelay(serializedMessage.MessageToSend.TcpNoDelay);
-
-                                #region Отправка заголовка
-
-                                try
+                                //  Увеличить счетчик активных запросов.
+                                if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
                                 {
-                                    // Заголовок лежит в конце стрима.
-                                    await SendBufferAsync(streamBuffer.Slice(messageSize, serializedMessage.HeaderSize), endOfMessage: true).ConfigureAwait(false);
-                                }
-                                catch (Exception ex)
-                                // Обрыв соединения.
-                                {
-                                    // Оповестить об обрыве.
-                                    TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+                                    //LogSend(serializedMessage);
 
-                                    // Завершить поток.
-                                    return;
-                                }
-                                #endregion
+                                    ReadOnlyMemory<byte> streamBuffer = buffer.WrittenMemory;
 
-                                #region Отправка тела сообщения (запрос или ответ на запрос)
+                                    // Размер сообщения без заголовка.
+                                    int messageSize = buffer.WrittenCount - headerSize;
 
-                                if (messageSize > 0)
-                                {
-                                    if (serializedMessage.Parts == null)
+                                    SetTcpNoDelay(serializedMessage.MessageToSend.TcpNoDelay);
+
+                                    #region Отправка заголовка
+
+                                    try
                                     {
-                                        try
-                                        {
-                                            await SendBufferAsync(streamBuffer.Slice(0, messageSize), true).ConfigureAwait(false);
-                                        }
-                                        catch (Exception ex)
-                                        // Обрыв соединения.
-                                        {
-                                            // Оповестить об обрыве.
-                                            TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
-
-                                            // Завершить поток.
-                                            return;
-                                        }
+                                        // Заголовок лежит в конце стрима.
+                                        await SendBufferAsync(streamBuffer.Slice(messageSize, serializedMessage.HeaderSize), endOfMessage: true).ConfigureAwait(false);
                                     }
-                                    else
+                                    catch (Exception ex)
+                                    // Обрыв соединения.
                                     {
-                                        #region Отправка частями как Multipart
+                                        // Оповестить об обрыве.
+                                        TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
 
-                                        ReadOnlyMemory<byte> segment = streamBuffer;
-                                        for (int i = 0; i < serializedMessage.Parts.Length; i++)
+                                        // Завершить поток.
+                                        return;
+                                    }
+                                    #endregion
+
+                                    #region Отправка тела сообщения (запрос или ответ на запрос)
+
+                                    if (messageSize > 0)
+                                    {
+                                        if (serializedMessage.Parts == null)
                                         {
-                                            Multipart part = serializedMessage.Parts[i];
-                                            ReadOnlyMemory<byte> header = segment.Slice(part.ContentLength, part.HeaderLength);
-                                            ReadOnlyMemory<byte> content = segment.Slice(0, part.ContentLength);
-                                            bool lastPart = i == (serializedMessage.Parts.Length - 1);
                                             try
                                             {
-                                                await SendBufferAsync(header, false).ConfigureAwait(false);
-                                                await SendBufferAsync(content, lastPart).ConfigureAwait(false);
+                                                await SendBufferAsync(streamBuffer.Slice(0, messageSize), true).ConfigureAwait(false);
                                             }
                                             catch (Exception ex)
                                             // Обрыв соединения.
@@ -1814,40 +1777,72 @@ namespace DanilovSoft.vRPC
                                                 // Завершить поток.
                                                 return;
                                             }
-                                            // Перевести курсор на начало следующей части.
-                                            segment = segment.Slice(content.Length + header.Length);
                                         }
-                                        #endregion
+                                        else
+                                        {
+                                            #region Отправка частями как Multipart
+
+                                            ReadOnlyMemory<byte> segment = streamBuffer;
+                                            for (int i = 0; i < serializedMessage.Parts.Length; i++)
+                                            {
+                                                Multipart part = serializedMessage.Parts[i];
+                                                ReadOnlyMemory<byte> header = segment.Slice(part.ContentLength, part.HeaderLength);
+                                                ReadOnlyMemory<byte> content = segment.Slice(0, part.ContentLength);
+                                                bool lastPart = i == (serializedMessage.Parts.Length - 1);
+                                                try
+                                                {
+                                                    await SendBufferAsync(header, false).ConfigureAwait(false);
+                                                    await SendBufferAsync(content, lastPart).ConfigureAwait(false);
+                                                }
+                                                catch (Exception ex)
+                                                // Обрыв соединения.
+                                                {
+                                                    // Оповестить об обрыве.
+                                                    TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+
+                                                    // Завершить поток.
+                                                    return;
+                                                }
+                                                // Перевести курсор на начало следующей части.
+                                                segment = segment.Slice(content.Length + header.Length);
+                                            }
+                                            #endregion
+                                        }
+                                    }
+                                    #endregion
+
+                                    // Уменьшить счетчик активных запросов.
+                                    if (!TryDecreaseActiveRequestsCount(!serializedMessage.MessageToSend.IsRequest))
+                                    // Пользователь запросил остановку сервиса.
+                                    {
+                                        // Завершить поток.
+                                        return;
                                     }
                                 }
-                                #endregion
-
-                                // Уменьшить счетчик активных запросов.
-                                if (!TryDecreaseActiveRequestsCount(!serializedMessage.MessageToSend.IsRequest))
+                                else
                                 // Пользователь запросил остановку сервиса.
                                 {
                                     // Завершить поток.
                                     return;
                                 }
                             }
-                            else
-                            // Пользователь запросил остановку сервиса.
+                            finally
                             {
-                                // Завершить поток.
-                                return;
+                                buffer.Dispose();
                             }
                         }
-                    }
-                    finally
-                    {
-                        serializedMessage.Dispose();
+                        else
+                        {
+                            // Не удалось сериализовать -> Игнорируем отправку, пользователь получит исключение.
+                            continue;
+                        }
                     }
                 }
                 else if (message is JRequest jsonRequest)
                 {
                     if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь.
                     {
-                        if (TrySerialize(jsonRequest, out ArrayBufferWriter<byte>? buffer))
+                        if (TrySerializeJsonRpc(jsonRequest, out ArrayBufferWriter<byte>? buffer))
                         {
                             try
                             {
@@ -1889,7 +1884,7 @@ namespace DanilovSoft.vRPC
                         }
                         else
                         {
-                            // Не удалось сериализовать -> Игнорируем запрос, пользователь получит исключение.
+                            // Не удалось сериализовать -> Игнорируем отправку, пользователь получит исключение.
                             continue;
                         }
                     }
@@ -1932,6 +1927,12 @@ namespace DanilovSoft.vRPC
                         }
                     }
                 }
+#if DEBUG
+                else
+                {
+                    Debug.Assert(false, "Неизвестное сообщение");
+                }
+#endif
             }
         }
 
@@ -1985,7 +1986,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static bool TrySerialize(JRequest jsonRequest, [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
+        private static bool TrySerializeJsonRpc(JRequest jsonRequest, [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
         {
             try
             {
@@ -1997,6 +1998,35 @@ namespace DanilovSoft.vRPC
                 jsonRequest.ResponseAwaiter.TrySetException(ex);
                 buffer = default;
                 return false;
+            }
+        }
+
+        private static bool TrySerializeVRpc(IRequest request, [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
+        {
+            buffer = new ArrayBufferWriter<byte>();
+            var toDispose = buffer;
+            try
+            {
+                request.Method.SerializeRequest(request.Args, buffer);
+
+                var header = new HeaderDto(request.Id, buffer.WrittenCount, contentEncoding: null, request.Method.FullName);
+
+                // Записать заголовок в конец стрима. Не бросает исключения.
+                headerSize = header.SerializeJson(buffer);
+
+                toDispose = null;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                var vex = new VRpcSerializationException($"Не удалось сериализовать запрос в json.", ex);
+                request.TrySetException(ex);
+                headerSize = -1;
+                return false;
+            }
+            finally
+            {
+                toDispose?.Dispose();
             }
         }
 

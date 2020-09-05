@@ -15,6 +15,9 @@ namespace DanilovSoft.vRPC.Decorator
     public abstract class ServerInterfaceProxy
     {
         public string? ControllerName { get; protected set; }
+        /// <summary>
+        /// Никогда не Null.
+        /// </summary>
         public ManagedConnection? Connection { get; protected set; }
     }
 
@@ -66,7 +69,7 @@ namespace DanilovSoft.vRPC.Decorator
 
             if (!methodMeta.IsNotificationRequest)
             {
-                Task<VoidStruct> pendingRequest = Connection.OnServerMethodCall<VoidStruct>(methodMeta, args);
+                Task<VoidStruct> pendingRequest = Connection.OnServerMethodCall<VoidStruct>(new Request<VoidStruct>(Connection, methodMeta, args));
                 return pendingRequest;
             }
             else
@@ -86,7 +89,7 @@ namespace DanilovSoft.vRPC.Decorator
 
             if (!methodMeta.IsNotificationRequest)
             {
-                Task<VoidStruct> pendingRequest = Connection.OnServerMethodCall<VoidStruct>(methodMeta, args);
+                Task<VoidStruct> pendingRequest = Connection.OnServerMethodCall(new Request<VoidStruct>(Connection, methodMeta, args));
                 return new ValueTask(task: pendingRequest);
             }
             else
@@ -104,7 +107,7 @@ namespace DanilovSoft.vRPC.Decorator
 
             RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
 
-            Task<T> pendingRequest = Connection.OnServerMethodCall<T>(methodMeta, args);
+            Task<T> pendingRequest = Connection.OnServerMethodCall(new Request<T>(Connection, methodMeta, args));
             return new ValueTask<T>(task: pendingRequest);
         }
 
@@ -116,7 +119,7 @@ namespace DanilovSoft.vRPC.Decorator
 
             RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
 
-            Task<T> pendingRequest = Connection.OnServerMethodCall<T>(methodMeta, args);
+            Task<T> pendingRequest = Connection.OnServerMethodCall(new Request<T>(Connection, methodMeta, args));
             return pendingRequest;
         }
 
@@ -128,7 +131,7 @@ namespace DanilovSoft.vRPC.Decorator
 
             RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
 
-            Task<T> pendingRequest = Connection.OnServerMethodCall<T>(methodMeta, args);
+            Task<T> pendingRequest = Connection.OnServerMethodCall(new Request<T>(Connection, methodMeta, args));
 
             // Результатом может быть исключение.
             return pendingRequest.GetAwaiter().GetResult();
@@ -144,7 +147,7 @@ namespace DanilovSoft.vRPC.Decorator
 
             if (!methodMeta.IsNotificationRequest)
             {
-                Task<VoidStruct> pendingRequest = Connection.OnServerMethodCall<VoidStruct>(methodMeta, args);
+                Task<VoidStruct> pendingRequest = Connection.OnServerMethodCall(new Request<VoidStruct>(Connection, methodMeta, args));
 
                 // Результатом может быть исключение.
                 pendingRequest.GetAwaiter().GetResult();

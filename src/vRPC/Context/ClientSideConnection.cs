@@ -120,23 +120,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="SocketException"/>
         internal async Task PrivateSignInAsync(AccessToken accessToken)
         {
-            Task pendingRequestTask;
-
-            // Создаём запрос для отправки.
-            SerializedMessageToSend serMsg = SignInAsyncMeta.SerializeRequest(new object[] { accessToken });
-            SerializedMessageToSend? toDispose = serMsg;
-            try
-            {
-                pendingRequestTask = SendSerializedRequestAndWaitResponse<VoidStruct>(SignInAsyncMeta, serMsg);
-                toDispose = null;
-            }
-            finally
-            {
-                toDispose?.Dispose();
-            }
-
-            // Ждём завершения SignIn.
-            await pendingRequestTask.ConfigureAwait(false);
+            await SendSerializedRequestAndWaitResponse(new Request<VoidStruct>(this, SignInAsyncMeta, new object[] { accessToken })).ConfigureAwait(false);
 
             // Делать lock нельзя! Может случиться дедлок (а нам и не нужно).
             _isAuthenticated = true;
@@ -202,23 +186,8 @@ namespace DanilovSoft.vRPC
         /// <exception cref="SocketException"/>
         private async Task PrivateSignOutAsync()
         {
-            Task pendingRequestTask;
-
-            // Создаём запрос для отправки.
-            SerializedMessageToSend serMsg = SignOutAsyncMeta.SerializeRequest(Array.Empty<object>());
-            SerializedMessageToSend? toDispose = serMsg;
-            try
-            {
-                pendingRequestTask = SendSerializedRequestAndWaitResponse<VoidStruct>(SignOutAsyncMeta, serMsg);
-                toDispose = null;
-            }
-            finally
-            {
-                toDispose?.Dispose();
-            }
-
             // Ждём завершения SignOut — исключений быть не может, только при обрыве связи.
-            await pendingRequestTask.ConfigureAwait(false);
+            await SendSerializedRequestAndWaitResponse(new Request<VoidStruct>(this, SignOutAsyncMeta, Array.Empty<object>())).ConfigureAwait(false);
 
             // Делать lock нельзя! Может случиться дедлок (а нам и не нужно).
             _isAuthenticated = false;

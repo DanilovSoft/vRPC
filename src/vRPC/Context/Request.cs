@@ -1,41 +1,32 @@
-﻿using System;
+﻿using DanilovSoft.vRPC.Context;
+using DanilovSoft.vRPC.Source;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
-using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC
 {
-    internal interface IResponseAwaiter
+    internal interface IRequest : IResponseAwaiter
     {
-        /// <summary>
-        /// Передает ожидающему потоку исключение как результат запроса.
-        /// </summary>
-        void TrySetException(Exception exception);
-        /// <summary>
-        /// Передаёт ответ ожидающему потоку.
-        /// </summary>
-        void SetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
-        /// <summary>
-        /// Передаёт ответ ожидающему потоку.
-        /// </summary>
-        void TrySetResponse(ref Utf8JsonReader reader);
+        RequestMethodMeta Method { get; }
+        object[] Args { get; }
+        int Id { get; }
     }
 
-    /// <summary>
-    /// Атомарный <see langword="await"/>'ер. Связывает результат с запросом.
-    /// </summary>
-    [DebuggerDisplay(@"\{Request = {Request.ActionFullName}\}")]
-    internal sealed class ResponseAwaiter<TResult> : IResponseAwaiter
+    [DebuggerDisplay(@"\{Request = {Method.FullName}\}")]
+    internal sealed class Request<TResult> : IMessageToSend, IRequest
     {
         private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        public RequestMethodMeta Request { get; }
-        public Task<TResult> Task => _tcs.Task;
+        public RequestMethodMeta Method { get; }
+        public object[] Args { get; }
+        internal Task<TResult> Task => _tcs.Task;
 
 #if DEBUG
+        [SuppressMessage("CodeQuality", "IDE0051:Удалите неиспользуемые закрытые члены", Justification = "Для отладчика")]
         private object? ValueForDebugDisplay
         {
             get
@@ -51,11 +42,15 @@ namespace DanilovSoft.vRPC
             }
         }
 #endif
+        public ManagedConnection Context { get; }
+        public int Id { get; set; }
 
-        // ctor.
-        public ResponseAwaiter(RequestMethodMeta requestToSend)
+        // ctor
+        internal Request(ManagedConnection context, RequestMethodMeta method, object[] args)
         {
-            Request = requestToSend;
+            Context = context;
+            Method = method;
+            Args = args;
         }
 
         /// <summary>
@@ -110,7 +105,7 @@ namespace DanilovSoft.vRPC
                         {
                             // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
                             TrySetException(new VRpcProtocolErrorException(
-                                $"Ошибка десериализации ответа на запрос \"{Request.FullName}\".", deserializationException));
+                                $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
                         }
                     }
                     else
@@ -167,7 +162,7 @@ namespace DanilovSoft.vRPC
                 {
                     // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
                     TrySetException(new VRpcProtocolErrorException(
-                        $"Ошибка десериализации ответа на запрос \"{Request.FullName}\".", deserializationException));
+                        $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
 
                     return;
                 }

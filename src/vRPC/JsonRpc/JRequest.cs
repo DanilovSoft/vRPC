@@ -14,14 +14,17 @@ namespace DanilovSoft.vRPC.Context
         /// </summary>
         internal readonly int Uid;
         internal readonly IResponseAwaiter ResponseAwaiter;
+        public ManagedConnection Context { get; }
 
-        public JRequest(IResponseAwaiter responseAwaiter, RequestMethodMeta requestMeta, object[] args, int uid)
+        public JRequest(ManagedConnection context, IResponseAwaiter responseAwaiter, RequestMethodMeta requestMeta, object[] args, int uid)
         {
+            Context = context;
             ResponseAwaiter = responseAwaiter;
             MethodMeta = requestMeta;
             Args = args;
             Uid = uid;
         }
+
 
         /// <summary>
         /// Сериализация пользовательских данных может спровоцировать исключение.
@@ -34,7 +37,7 @@ namespace DanilovSoft.vRPC.Context
             var toDispose = buffer;
             try
             {
-                JsonRpcSerializer.SerializeRequest(buffer, MethodMeta.MethodFullName, Args, Uid);
+                JsonRpcSerializer.SerializeRequest(buffer, MethodMeta.FullName, Args, Uid);
                 toDispose = null; // Предотвратить Dispose.
                 return buffer;
             }

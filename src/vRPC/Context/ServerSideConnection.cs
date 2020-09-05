@@ -243,16 +243,16 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcException"/>
         public void Call(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(VoidStruct), false);
-            Task<VoidStruct> requestTask = SendRequestAndWaitResponse<VoidStruct>(requestMeta, args);
+            var method = new RequestMethodMeta(controllerName, actionName, typeof(VoidStruct), false);
+            Task<VoidStruct> requestTask = SendRequestAndWaitResponse(new Request<VoidStruct>(this, method, args));
             requestTask.GetAwaiter().GetResult();
         }
 
         /// <exception cref="VRpcException"/>
         public Task CallAsync(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(VoidStruct), false);
-            Task<VoidStruct> requestTask = SendRequestAndWaitResponse<VoidStruct>(requestMeta, args);
+            var method = new RequestMethodMeta(controllerName, actionName, typeof(VoidStruct), false);
+            Task<VoidStruct> requestTask = SendRequestAndWaitResponse(new Request<VoidStruct>(this, method, args));
             return requestTask;
         }
 
@@ -260,8 +260,8 @@ namespace DanilovSoft.vRPC
         [return: MaybeNull]
         public TResult Call<TResult>(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(TResult), false);
-            Task<TResult> requestTask = SendRequestAndWaitResponse<TResult>(requestMeta, args);
+            var method = new RequestMethodMeta(controllerName, actionName, typeof(TResult), false);
+            Task<TResult> requestTask = SendRequestAndWaitResponse(new Request<TResult>(this, method, args));
             TResult result = requestTask.GetAwaiter().GetResult();
             return result;
         }
@@ -269,8 +269,8 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcException"/>
         public Task<TResult> CallAsync<TResult>(string controllerName, string actionName, params object[] args)
         {
-            var requestMeta = new RequestMethodMeta(controllerName, actionName, typeof(TResult), false);
-            Task<TResult> requestTask = SendRequestAndWaitResponse<TResult>(requestMeta, args);
+            var method = new RequestMethodMeta(controllerName, actionName, typeof(TResult), false);
+            Task<TResult> requestTask = SendRequestAndWaitResponse(new Request<TResult>(this, method, args));
             return requestTask;
         }
 
