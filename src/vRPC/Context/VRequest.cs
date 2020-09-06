@@ -10,15 +10,16 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    internal interface IRequest : IResponseAwaiter
+    internal interface IVRequest : IResponseAwaiter
     {
         RequestMethodMeta Method { get; }
         object[] Args { get; }
         int Id { get; }
+        bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize);
     }
 
     [DebuggerDisplay(@"\{Request = {Method.FullName}\}")]
-    internal sealed class Request<TResult> : IMessageToSend, IRequest
+    internal sealed class VRequest<TResult> : IMessageToSend, IVRequest
     {
         private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         public RequestMethodMeta Method { get; }
@@ -46,7 +47,7 @@ namespace DanilovSoft.vRPC
         public int Id { get; set; }
 
         // ctor
-        internal Request(ManagedConnection context, RequestMethodMeta method, object[] args)
+        internal VRequest(ManagedConnection context, RequestMethodMeta method, object[] args)
         {
             Context = context;
             Method = method;
@@ -172,6 +173,35 @@ namespace DanilovSoft.vRPC
             // void.
             {
                 TrySetResult(default);
+            }
+        }
+
+        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
+        {
+            buffer = new ArrayBufferWriter<byte>();
+            var toDispose = buffer;
+            try
+            {
+                Method.SerializeRequest(Args, buffer);
+
+                var header = new HeaderDto(Id, buffer.WrittenCount, contentEncoding: null, Method.FullName);
+
+                // Записать заголовок в конец стрима. Не бросает исключения.
+                headerSize = header.SerializeJson(buffer);
+
+                toDispose = null;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                var vex = new VRpcSerializationException($"Не удалось сериализовать запрос в json.", ex);
+                TrySetException(ex);
+                headerSize = -1;
+                return false;
+            }
+            finally
+            {
+                toDispose?.Dispose();
             }
         }
     }

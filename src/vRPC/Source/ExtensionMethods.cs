@@ -352,9 +352,9 @@ namespace DanilovSoft.vRPC
             return $"{controllerName}/{controllerMethod.Name}";
         }
 
-        public static string TrimEnd(this string s, string value)
+        public static string TrimEnd(this string s, string value, StringComparison stringComparison = StringComparison.Ordinal)
         {
-            int index = s.LastIndexOf(value, StringComparison.Ordinal);
+            int index = s.LastIndexOf(value, stringComparison);
             if(index != -1)
             {
                 return s.Remove(index);

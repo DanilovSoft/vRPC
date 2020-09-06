@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 namespace DanilovSoft.vRPC.Context
@@ -25,25 +26,25 @@ namespace DanilovSoft.vRPC.Context
             Uid = uid;
         }
 
-
         /// <summary>
-        /// Сериализация пользовательских данных может спровоцировать исключение.
+        /// Сериализация пользовательских данных может спровоцировать исключение 
+        /// <exception cref="VRpcSerializationException"/> которое будет перенаправлено ожидающему потоку.
         /// </summary>
-        /// <exception cref="VRpcSerializationException"/>
-        /// <returns></returns>
-        internal ArrayBufferWriter<byte> Serialize()
+        internal bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
         {
-            var buffer = new ArrayBufferWriter<byte>();
+            buffer = new ArrayBufferWriter<byte>();
             var toDispose = buffer;
             try
             {
                 JsonRpcSerializer.SerializeRequest(buffer, MethodMeta.FullName, Args, Uid);
                 toDispose = null; // Предотвратить Dispose.
-                return buffer;
+                return true;
             }
             catch (Exception ex)
             {
-                throw new VRpcSerializationException("Ошибка при сериализации пользовательских данных.", ex);
+                var vex = new VRpcSerializationException("Ошибка при сериализации пользовательских данных.", ex);
+                ResponseAwaiter.TrySetException(vex);
+                return false;
             }
             finally
             {

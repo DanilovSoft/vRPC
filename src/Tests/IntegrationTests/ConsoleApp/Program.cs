@@ -14,6 +14,7 @@ namespace ConsoleApp
         public void Subtract(int x, int y) { }
     }
 
+    [ControllerContract("TestController")]
     public interface IServerTestController
     {
         void TestException(string exceptionMessage);
@@ -70,10 +71,10 @@ namespace ConsoleApp
             Console.WriteLine(msg);
         }
 
-        //public int Add(int x, int y)
-        //{
-        //    return x + y;
-        //}
+        public int GetSum(int x, int y)
+        {
+            return x + y;
+        }
     }
 
     [JsonRpc]

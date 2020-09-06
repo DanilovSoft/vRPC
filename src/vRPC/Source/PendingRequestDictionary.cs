@@ -38,7 +38,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="VRpcException">Происходит если уже был обрыв соединения.</exception>
         /// <exception cref="ObjectDisposedException"/>
-        public void AddRequest<TResult>(Request<TResult> request, out int uid)
+        public void AddRequest<TResult>(VRequest<TResult> request, out int uid)
         {
             do
             {

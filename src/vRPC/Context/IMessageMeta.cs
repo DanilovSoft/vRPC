@@ -1,6 +1,9 @@
 ﻿
+using System;
+
 namespace DanilovSoft.vRPC
 {
+    [Obsolete]
     internal interface IMessageMeta
     {
         /// <summary>

@@ -424,7 +424,7 @@ namespace DanilovSoft.vRPC
         /// <remarks>Со стороны сервера.</remarks>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal Task<TResult> OnServerMethodCall<TResult>(Request<TResult> request)
+        internal Task<TResult> OnServerMethodCall<TResult>(VRequest<TResult> request)
         {
             Debug.Assert(!request.Method.IsNotificationRequest);
 
@@ -498,7 +498,7 @@ namespace DanilovSoft.vRPC
                 // Может быть исключение если не удалось подключиться.
                 ClientSideConnection connection = connectionTask.GetAwaiter().GetResult();
 
-                return connection.ExecuteJsonRequest(new Request<TResult>(connection, method, args));
+                return connection.ExecuteJsonRequest(new VRequest<TResult>(connection, method, args));
             }
             else
             {
@@ -507,12 +507,12 @@ namespace DanilovSoft.vRPC
                 static async Task<Task<TResult>> WaitAsync(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
                 {
                     var connection = await connectionTask.ConfigureAwait(false);
-                    return connection.ExecuteJsonRequest(new Request<TResult>(connection, method, args));
+                    return connection.ExecuteJsonRequest(new VRequest<TResult>(connection, method, args));
                 }
             }
         }
 
-        private Task<TResult> ExecuteJsonRequest<TResult>(Request<TResult> request)
+        private Task<TResult> ExecuteJsonRequest<TResult>(VRequest<TResult> request)
         {
             // Shutdown нужно проверять раньше чем Dispose потому что Dispose может быть по причине Shutdown.
             if (_shutdownRequest == null) // volatile проверка.
@@ -619,7 +619,7 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = connectionTask.GetAwaiter().GetResult();
 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendSerializedRequestAndWaitResponse(new Request<TResult>(connection, method, args));
+                return connection.SendSerializedRequestAndWaitResponse(new VRequest<TResult>(connection, method, args));
             }
             else
             {
@@ -631,7 +631,7 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendSerializedRequestAndWaitResponse(new Request<TResult>(connection, method, args));
+                return connection.SendSerializedRequestAndWaitResponse(new VRequest<TResult>(connection, method, args));
             }
         }
 
@@ -666,7 +666,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private protected Task<TResult> SendRequestAndWaitResponse<TResult>(Request<TResult> request)
+        private protected Task<TResult> SendRequestAndWaitResponse<TResult>(VRequest<TResult> request)
         {
             Debug.Assert(!request.Method.IsNotificationRequest);
 
@@ -693,7 +693,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <returns>Таск с результатом от сервера.</returns>
-        private protected Task<TResult> SendSerializedRequestAndWaitResponse<TResult>(Request<TResult> request)
+        private protected Task<TResult> SendSerializedRequestAndWaitResponse<TResult>(VRequest<TResult> request)
         {
             Debug.Assert(!request.Method.IsNotificationRequest);
 
@@ -1258,7 +1258,7 @@ namespace DanilovSoft.vRPC
                                     Debug.Assert(header.Id != null, "Не может быть Null когда IsResponseRequired");
 
                                     // Передать на отправку результат с ошибкой через очередь.
-                                    PostSendResponse(new ResponseMessage(this, header.Id.Value, error));
+                                    PostResponse(new ResponseMessage(this, header.Id.Value, error));
                                 }
 
                                 // Вернуться к чтению следующего сообщения.
@@ -1324,10 +1324,10 @@ namespace DanilovSoft.vRPC
                 {
                     Debug.Assert(header.Id != null);
 
-                    NotFoundResult error = ResponseHelper.MethodNotFound(header.MethodName);
+                    MethodNotFoundResult error = ResponseHelper.MethodNotFound(header.MethodName);
 
                     // Передать на отправку результат с ошибкой через очередь.
-                    PostSendResponse(new ResponseMessage(this, header.Id.Value, error));
+                    PostResponse(new ResponseMessage(this, header.Id.Value, error));
                 }
                 return false;
             }
@@ -1346,7 +1346,7 @@ namespace DanilovSoft.vRPC
                 Debug.Assert(header.Id != null, "Не может быть Null когда IsResponseRequired");
 
                 // Передать на отправку результат с ошибкой через очередь.
-                PostSendResponse(new ResponseMessage(this, header.Id.Value, new InvalidRequestResult("В заголовке запроса отсутствует имя метода")));
+                PostResponse(new ResponseMessage(this, header.Id.Value, new InvalidRequestResult("В заголовке запроса отсутствует имя метода")));
 
                 return false;
             }
@@ -1544,11 +1544,11 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Сериализует ответ в новом потоке и отправляет через очередь.
+        /// Отправляет через очередь.
         /// Уменьшит <see cref="_activeRequestCount"/>.
         /// </summary>
         /// <remarks>Исключение по вине пользователеля крашнет процесс.</remarks>
-        private static void PostSendResponse(ResponseMessage responseToSend)
+        private static void PostResponse(ResponseMessage responseToSend)
         {
 #if NETSTANDARD2_0 || NET472
             ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, responseToSend);
@@ -1561,7 +1561,7 @@ namespace DanilovSoft.vRPC
             }
 #else
             // Предпочитаем глобальную очередь.
-            ThreadPool.UnsafeQueueUserWorkItem(s => s.Context.SerializeResponseAndTrySendEntryPoint(s), responseToSend, preferLocal: false);
+            ThreadPool.UnsafeQueueUserWorkItem(responseToSend, preferLocal: true);
 #endif
         }
 
@@ -1583,7 +1583,7 @@ namespace DanilovSoft.vRPC
         }
 
         // Точка входа потока тред-пула.
-        private void SerializeResponseAndTrySendEntryPoint(ResponseMessage message)
+        internal void SerializeResponseAndTrySendEntryPoint(ResponseMessage message)
         {
             Debug.Assert(false);
             throw new NotImplementedException();
@@ -1596,86 +1596,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Сериализует сообщение в память. Может бросить исключение сериализации.
-        /// </summary>
-        /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
-        private static SerializedMessageToSend SerializeResponse(ResponseMessage responseToSend)
-        {
-            var serMsg = new SerializedMessageToSend(responseToSend);
-            SerializedMessageToSend? serMsgToDispose = serMsg;
-            try
-            {
-                if (responseToSend.MethodResult is IActionResult actionResult)
-                // Метод контроллера вернул специальный тип.
-                {
-                    var actionContext = new ActionContext(responseToSend.Id, responseToSend.Method, serMsg.Buffer);
-
-                    // Сериализуем ответ.
-                    actionResult.ExecuteResult(ref actionContext);
-                    serMsg.StatusCode = actionContext.StatusCode;
-                    serMsg.ContentEncoding = actionContext.ProducesEncoding;
-                }
-                else
-                // Отправлять результат контроллера будем как есть.
-                {
-                    // Сериализуем ответ.
-                    serMsg.StatusCode = StatusCode.Ok;
-
-                    // Сериализуем контент если он есть (у void его нет).
-                    if (responseToSend.MethodResult != null)
-                    {
-                        Debug.Assert(responseToSend.Method != null, "RAW результат может быть только на основе запроса");
-                        responseToSend.Method.SerializerDelegate(serMsg.Buffer, responseToSend.MethodResult);
-                        serMsg.ContentEncoding = responseToSend.Method.ProducesEncoding;
-                    }
-                }
-                serMsgToDispose = null; // Предотвратить Dispose.
-                return serMsg;
-            }
-            finally
-            {
-                serMsgToDispose?.Dispose();
-            }
-        }
-
-        /// <summary>
-        /// Сериализует хэдер в стрим сообщения.
-        /// </summary>
-        /// <remarks>Не бросает исключения.</remarks>
-        private static void AppendHeader(SerializedMessageToSend messageToSend)
-        {
-            HeaderDto header = CreateHeader(messageToSend);
-
-            // Записать заголовок в конец стрима. Не бросает исключения.
-            int headerSize = header.SerializeJson(messageToSend.Buffer);
-
-            // Запомним размер хэдера.
-            messageToSend.HeaderSize = headerSize;
-        }
-
-        private static HeaderDto CreateHeader(SerializedMessageToSend messageToSend)
-        {
-            Debug.Assert(messageToSend != null);
-
-            if (messageToSend.MessageToSend is ResponseMessage responseToSend)
-            // Создать хедер ответа на запрос.
-            {
-                Debug.Assert(messageToSend.StatusCode != null, "StatusCode ответа не может быть Null");
-
-                return new HeaderDto(responseToSend.Id, messageToSend.StatusCode.Value, messageToSend.Buffer.WrittenCount, messageToSend.ContentEncoding);
-            }
-            else
-            // Создать хедер для нового запроса.
-            {
-                var request = messageToSend.MessageToSend as RequestMethodMeta;
-                Debug.Assert(request != null);
-
-                return new HeaderDto(messageToSend.Uid, messageToSend.Buffer.WrittenCount, messageToSend.ContentEncoding, request.FullName);
-            }
-        }
-
-        /// <summary>
-        /// Добавляет хэдер и передает на отправку другому потоку если канал ещё не закрыт.
+        /// Передает на отправку другому потоку если канал ещё не закрыт.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
         private void TryPostMessage(IMessageToSend message)
@@ -1719,12 +1640,79 @@ namespace DanilovSoft.vRPC
                 _sendChannel.Reader.TryRead(out IMessageToSend message);
                 Debug.Assert(message != null);
 
-                if (message is IRequest vrequest)
+                if (message is RequestContext response)
                 {
-                    // Теперь мы владеем этим объектом.
                     if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь и сделать Dispose всем сообщениям.
                     {
-                        if (TrySerializeVRpc(vrequest, out ArrayBufferWriter<byte>? buffer, out int headerSize))
+                        // TODO нужно предотвратить крах всего процесса.
+                        // Исключение сериализации пользовательского ответа может крашнуть процесс.
+                        ArrayBufferWriter<byte> buffer = response.SerializeResponse(out int headerSize);
+                        try
+                        {
+                            ReadOnlyMemory<byte> streamBuffer = buffer.WrittenMemory;
+
+                            // Размер сообщения без заголовка.
+                            int messageSize = buffer.WrittenCount - headerSize;
+
+                            SetTcpNoDelay(response.Method.TcpNoDelay);
+
+                            #region Отправка заголовка
+
+                            try
+                            {
+                                // Заголовок лежит в конце стрима.
+                                await SendBufferAsync(streamBuffer.Slice(messageSize, headerSize), endOfMessage: true).ConfigureAwait(false);
+                            }
+                            catch (Exception ex)
+                            // Обрыв соединения.
+                            {
+                                // Оповестить об обрыве.
+                                TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+
+                                // Завершить поток.
+                                return;
+                            }
+                            #endregion
+
+                            #region Отправка тела сообщения (запрос или ответ на запрос)
+
+                            if (messageSize > 0)
+                            {
+                                try
+                                {
+                                    await SendBufferAsync(streamBuffer.Slice(0, messageSize), true).ConfigureAwait(false);
+                                }
+                                catch (Exception ex)
+                                // Обрыв соединения.
+                                {
+                                    // Оповестить об обрыве.
+                                    TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+
+                                    // Завершить поток.
+                                    return;
+                                }
+                            }
+                            #endregion
+
+                            // Уменьшить счетчик активных запросов.
+                            if (!TryDecreaseActiveRequestsCount())
+                            // Пользователь запросил остановку сервиса.
+                            {
+                                // Завершить поток.
+                                return;
+                            }
+                        }
+                        finally
+                        {
+                            buffer.Dispose();
+                        }
+                    }
+                } 
+                else if (message is IVRequest vrequest)
+                {
+                    if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь и сделать Dispose всем сообщениям.
+                    {
+                        if (vrequest.TrySerialize(out ArrayBufferWriter<byte>? buffer, out int headerSize))
                         {
                             try
                             {
@@ -1738,14 +1726,14 @@ namespace DanilovSoft.vRPC
                                     // Размер сообщения без заголовка.
                                     int messageSize = buffer.WrittenCount - headerSize;
 
-                                    SetTcpNoDelay(serializedMessage.MessageToSend.TcpNoDelay);
+                                    SetTcpNoDelay(vrequest.Method.TcpNoDelay);
 
                                     #region Отправка заголовка
 
                                     try
                                     {
                                         // Заголовок лежит в конце стрима.
-                                        await SendBufferAsync(streamBuffer.Slice(messageSize, serializedMessage.HeaderSize), endOfMessage: true).ConfigureAwait(false);
+                                        await SendBufferAsync(streamBuffer.Slice(messageSize, headerSize), endOfMessage: true).ConfigureAwait(false);
                                     }
                                     catch (Exception ex)
                                     // Обрыв соединения.
@@ -1762,62 +1750,29 @@ namespace DanilovSoft.vRPC
 
                                     if (messageSize > 0)
                                     {
-                                        if (serializedMessage.Parts == null)
+                                        try
                                         {
-                                            try
-                                            {
-                                                await SendBufferAsync(streamBuffer.Slice(0, messageSize), true).ConfigureAwait(false);
-                                            }
-                                            catch (Exception ex)
-                                            // Обрыв соединения.
-                                            {
-                                                // Оповестить об обрыве.
-                                                TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
-
-                                                // Завершить поток.
-                                                return;
-                                            }
+                                            await SendBufferAsync(streamBuffer.Slice(0, messageSize), true).ConfigureAwait(false);
                                         }
-                                        else
+                                        catch (Exception ex)
+                                        // Обрыв соединения.
                                         {
-                                            #region Отправка частями как Multipart
+                                            // Оповестить об обрыве.
+                                            TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
 
-                                            ReadOnlyMemory<byte> segment = streamBuffer;
-                                            for (int i = 0; i < serializedMessage.Parts.Length; i++)
-                                            {
-                                                Multipart part = serializedMessage.Parts[i];
-                                                ReadOnlyMemory<byte> header = segment.Slice(part.ContentLength, part.HeaderLength);
-                                                ReadOnlyMemory<byte> content = segment.Slice(0, part.ContentLength);
-                                                bool lastPart = i == (serializedMessage.Parts.Length - 1);
-                                                try
-                                                {
-                                                    await SendBufferAsync(header, false).ConfigureAwait(false);
-                                                    await SendBufferAsync(content, lastPart).ConfigureAwait(false);
-                                                }
-                                                catch (Exception ex)
-                                                // Обрыв соединения.
-                                                {
-                                                    // Оповестить об обрыве.
-                                                    TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
-
-                                                    // Завершить поток.
-                                                    return;
-                                                }
-                                                // Перевести курсор на начало следующей части.
-                                                segment = segment.Slice(content.Length + header.Length);
-                                            }
-                                            #endregion
+                                            // Завершить поток.
+                                            return;
                                         }
                                     }
                                     #endregion
 
-                                    // Уменьшить счетчик активных запросов.
-                                    if (!TryDecreaseActiveRequestsCount(!serializedMessage.MessageToSend.IsRequest))
-                                    // Пользователь запросил остановку сервиса.
-                                    {
-                                        // Завершить поток.
-                                        return;
-                                    }
+                                    //// Уменьшить счетчик активных запросов.
+                                    //if (!TryDecreaseActiveRequestsCount(!serializedMessage.MessageToSend.IsRequest))
+                                    //// Пользователь запросил остановку сервиса.
+                                    //{
+                                    //    // Завершить поток.
+                                    //    return;
+                                    //}
                                 }
                                 else
                                 // Пользователь запросил остановку сервиса.
@@ -1842,7 +1797,7 @@ namespace DanilovSoft.vRPC
                 {
                     if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь.
                     {
-                        if (TrySerializeJsonRpc(jsonRequest, out ArrayBufferWriter<byte>? buffer))
+                        if (jsonRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer))
                         {
                             try
                             {
@@ -1893,7 +1848,7 @@ namespace DanilovSoft.vRPC
                 {
                     if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь.
                     {
-                        ArrayBufferWriter<byte> buffer = SerializeJResponse(jsonResponse);
+                        ArrayBufferWriter<byte> buffer = jsonResponse.Serialize();
                         try
                         {
                             SetTcpNoDelay(jsonResponse.Method?.TcpNoDelay ?? false);
@@ -1951,85 +1906,6 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static ArrayBufferWriter<byte> SerializeJResponse(JResponse jResponse)
-        {
-            var buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
-            try
-            {
-                if (jResponse.MethodResult is IActionResult actionResult)
-                // Метод контроллера вернул специальный тип.
-                {
-                    var actionContext = new ActionContext(jResponse.Id, jResponse.Method, buffer);
-
-                    // Сериализуем ответ.
-                    actionResult.ExecuteResult(ref actionContext);
-                }
-                else
-                // Отправлять результат контроллера будем как есть.
-                {
-                    Debug.Assert(false);
-                    throw new NotImplementedException();
-                    // Сериализуем ответ.
-                    //serMsg.StatusCode = StatusCode.Ok;
-
-                    //    Debug.Assert(jResponse.ActionMeta != null, "RAW результат может быть только на основе запроса");
-                    //    jResponse.ActionMeta.SerializerDelegate(serMsg.MemoryPoolBuffer, responseToSend.ActionResult);
-                    //    serMsg.ContentEncoding = jResponse.ActionMeta.ProducesEncoding;
-                }
-                toDispose = null; // Предотвратить Dispose.
-                return buffer;
-            }
-            finally
-            {
-                toDispose?.Dispose();
-            }
-        }
-
-        private static bool TrySerializeJsonRpc(JRequest jsonRequest, [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
-        {
-            try
-            {
-                buffer = jsonRequest.Serialize();
-                return true;
-            }
-            catch (VRpcSerializationException ex)
-            {
-                jsonRequest.ResponseAwaiter.TrySetException(ex);
-                buffer = default;
-                return false;
-            }
-        }
-
-        private static bool TrySerializeVRpc(IRequest request, [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
-        {
-            buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
-            try
-            {
-                request.Method.SerializeRequest(request.Args, buffer);
-
-                var header = new HeaderDto(request.Id, buffer.WrittenCount, contentEncoding: null, request.Method.FullName);
-
-                // Записать заголовок в конец стрима. Не бросает исключения.
-                headerSize = header.SerializeJson(buffer);
-
-                toDispose = null;
-                return true;
-            }
-            catch (Exception ex)
-            {
-                var vex = new VRpcSerializationException($"Не удалось сериализовать запрос в json.", ex);
-                request.TrySetException(ex);
-                headerSize = -1;
-                return false;
-            }
-            finally
-            {
-                toDispose?.Dispose();
-            }
-        }
-
         /// <summary>
         /// Уменьшает счётчик после отправки ответа на запрос.
         /// </summary>
@@ -2069,12 +1945,12 @@ namespace DanilovSoft.vRPC
         }
 
         /// <returns>False если сервис требуется остановить.</returns>
-        private bool TryIncreaseActiveRequestsCount(IMessageMeta message)
+        private bool TryIncreaseActiveRequestsCount(bool isRequest, bool isNotification)
         {
-            if (message.IsRequest)
+            if (isRequest)
             // Происходит отправка запроса, а не ответа на запрос.
             {
-                if (!message.IsNotificationRequest)
+                if (!isNotification)
                 // Должны получить ответ на этот запрос.
                 {
                     if (IncreaseActiveRequestsCount())
@@ -2172,7 +2048,7 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Проверить доступ к функции.
-                if (ActionPermissionCheck(receivedRequest.ControllerMethod, out IActionResult? permissionError, out ClaimsPrincipal? user))
+                if (ActionPermissionCheck(receivedRequest.Method, out IActionResult? permissionError, out ClaimsPrincipal? user))
                 {
                     IServiceScope scope = ServiceProvider.CreateScope();
                     scopeToDispose = scope;
@@ -2182,7 +2058,7 @@ namespace DanilovSoft.vRPC
                     getProxyScope.ConnectionContext = this;
 
                     // Активируем контроллер через IoC.
-                    var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.ControllerMethod.ControllerType) as Controller;
+                    var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.Method.ControllerType) as Controller;
                     Debug.Assert(controller != null);
 
                     // Подготавливаем контроллер.
@@ -2193,7 +2069,7 @@ namespace DanilovSoft.vRPC
 
                     // Вызов метода контроллера.
                     // (!) Результатом может быть не завершённый Task.
-                    object? actionResult = receivedRequest.ControllerMethod.FastInvokeDelegate.Invoke(controller, receivedRequest.Args);
+                    object? actionResult = receivedRequest.Method.FastInvokeDelegate.Invoke(controller, receivedRequest.Args);
 
                     if (actionResult != null)
                     {
@@ -2272,7 +2148,7 @@ namespace DanilovSoft.vRPC
                 request.Context.ProcessRequestThreadEntryPoint(request);
             }  
 #else
-            ThreadPool.UnsafeQueueUserWorkItem(r => r.Context.ProcessRequestThreadEntryPoint(in r), state: request, preferLocal: true);
+            ThreadPool.UnsafeQueueUserWorkItem(request, preferLocal: true);
 #endif
         }
 
@@ -2280,7 +2156,7 @@ namespace DanilovSoft.vRPC
         /// Выполняет запрос и отправляет результат или ошибку.
         /// </summary>
         /// <remarks>Точка входа потока из пула. Необработанные исключения пользователя крашнут процесс.</remarks>
-        private void ProcessRequestThreadEntryPoint(in RequestContext requestContext)
+        internal void ProcessRequestThreadEntryPoint(in RequestContext requestContext)
         {
             // Сокет может быть уже закрыт, например по таймауту,
             // в этом случае ничего выполнять не нужно.
@@ -2356,14 +2232,14 @@ namespace DanilovSoft.vRPC
                 catch (VRpcBadRequestException ex)
                 {
                     // Вернуть результат с ошибкой.
-                    SendBadRequest(in requestContext, ex);
+                    SendBadRequest(requestContext, ex);
                     return;
                 }
                 catch (Exception)
                 // Злая ошибка обработки запроса -> Internal error (аналогично ошибке 500).
                 {
                     // Вернуть результат с ошибкой.
-                    SendInternalError(in requestContext);
+                    SendInternalError(requestContext);
                     return;
                 }
 
@@ -2371,9 +2247,9 @@ namespace DanilovSoft.vRPC
                 // Результат контроллера получен синхронно.
                 {
                     // Не бросает исключения.
-                    object? actionResult = pendingRequestTask.Result;
+                    requestContext.Result = pendingRequestTask.Result;
 
-                    SendOkResponse(in requestContext, actionResult);
+                    SendOkResponse(requestContext);
                 }
                 else
                 // Результат контроллера — асинхронный таск.
@@ -2386,26 +2262,25 @@ namespace DanilovSoft.vRPC
                     {
                         Debug.Assert(requestToInvoke.Id != null);
 
-                        object? actionResult;
                         // Этот блок Try должен быть идентичен тому который чуть выше — для синхронной обработки.
                         try
                         {
-                            actionResult = await task.ConfigureAwait(false);
+                            requestToInvoke.Result = await task.ConfigureAwait(false);
                         }
                         catch (VRpcBadRequestException ex)
                         {
                             // Вернуть результат с ошибкой.
-                            SendBadRequest(in requestToInvoke, ex);
+                            SendBadRequest(requestToInvoke, ex);
                             return;
                         }
                         catch (Exception)
                         // Злая ошибка обработки запроса. Аналогично ошибке 500.
                         {
                             // Вернуть результат с ошибкой.
-                            SendInternalError(in requestToInvoke);
+                            SendInternalError(requestToInvoke);
                             return;
                         }
-                        SendOkResponse(in requestToInvoke, actionResult);
+                        SendOkResponse(requestToInvoke);
                     }
                 }
             }
@@ -2418,34 +2293,33 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
-        private void SendOkResponse(in RequestContext requestContext, object? actionResult)
+        private void SendOkResponse(RequestContext requestContext)
         {
             Debug.Assert(requestContext.Id != null);
 
-            SerializeResponseAndTrySend(new ResponseMessage(this, requestContext.Id.Value, requestContext.ControllerMethod, actionResult));
+            TryPostMessage(requestContext);
         }
 
-        private void SendInternalError(in RequestContext requestContext)
+        private void SendInternalError(RequestContext requestContext)
         {
             Debug.Assert(requestContext.Id != null);
 
-            var result = new InternalErrorResult("Internal error");
-            var message = new ResponseMessage(this, requestContext.Id.Value, requestContext.ControllerMethod, result);
+            requestContext.Result = new InternalErrorResult("Internal error");
 
             // Вернуть результат с ошибкой.
-            SerializeResponseAndTrySend(message);
+            TryPostMessage(requestContext);
         }
 
-        private void SendBadRequest(in RequestContext requestToInvoke, VRpcBadRequestException exception)
+        private void SendBadRequest(RequestContext requestContext, VRpcBadRequestException exception)
         {
-            Debug.Assert(requestToInvoke.IsResponseRequired);
-            Debug.Assert(requestToInvoke.Id != null);
+            Debug.Assert(requestContext.IsResponseRequired);
+            Debug.Assert(requestContext.Id != null);
 
-            var result = new BadRequestResult(exception.Message);
-            var response = new ResponseMessage(this, requestToInvoke.Id.Value, requestToInvoke.ControllerMethod, result);
+            requestContext.Result = new BadRequestResult(exception.Message);
+            //var response = new ResponseMessage(this, requestContext.Id.Value, requestContext.ControllerMethod, result);
 
             // Вернуть результат с ошибкой.
-            SerializeResponseAndTrySend(response);
+            TryPostMessage(requestContext);
         }
 
         /// <summary>
@@ -2495,12 +2369,12 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
-        private void SerializeResponseAndTrySend(ResponseMessage responseMessage)
+        private void SerializeResponseAndTrySend(IMessageToSend response)
         {
-            SerializedMessageToSend responseToSend = SerializeResponse(responseMessage);
+            //SerializedMessageToSend responseToSend = SerializeResponse(response);
 
             // Не бросает исключения.
-            TryPostMessage(responseToSend);
+            TryPostMessage(response);
         }
 
         /// <summary>

@@ -44,5 +44,40 @@ namespace DanilovSoft.vRPC.JsonRpc
             MethodResult = actionResult;
             Method = null;
         }
+
+        internal ArrayBufferWriter<byte> Serialize()
+        {
+            var buffer = new ArrayBufferWriter<byte>();
+            var toDispose = buffer;
+            try
+            {
+                if (MethodResult is IActionResult actionResult)
+                // Метод контроллера вернул специальный тип.
+                {
+                    var actionContext = new ActionContext(Id, Method, buffer);
+
+                    // Сериализуем ответ.
+                    actionResult.ExecuteResult(ref actionContext);
+                }
+                else
+                // Отправлять результат контроллера будем как есть.
+                {
+                    Debug.Assert(false);
+                    throw new NotImplementedException();
+                    // Сериализуем ответ.
+                    //serMsg.StatusCode = StatusCode.Ok;
+
+                    //    Debug.Assert(jResponse.ActionMeta != null, "RAW результат может быть только на основе запроса");
+                    //    jResponse.ActionMeta.SerializerDelegate(serMsg.MemoryPoolBuffer, responseToSend.ActionResult);
+                    //    serMsg.ContentEncoding = jResponse.ActionMeta.ProducesEncoding;
+                }
+                toDispose = null; // Предотвратить Dispose.
+                return buffer;
+            }
+            finally
+            {
+                toDispose?.Dispose();
+            }
+        }
     }
 }

@@ -244,7 +244,7 @@ namespace DanilovSoft.vRPC
         public void Call(string controllerName, string actionName, params object[] args)
         {
             var method = new RequestMethodMeta(controllerName, actionName, typeof(VoidStruct), false);
-            Task<VoidStruct> requestTask = SendRequestAndWaitResponse(new Request<VoidStruct>(this, method, args));
+            Task<VoidStruct> requestTask = SendRequestAndWaitResponse(new VRequest<VoidStruct>(this, method, args));
             requestTask.GetAwaiter().GetResult();
         }
 
@@ -252,7 +252,7 @@ namespace DanilovSoft.vRPC
         public Task CallAsync(string controllerName, string actionName, params object[] args)
         {
             var method = new RequestMethodMeta(controllerName, actionName, typeof(VoidStruct), false);
-            Task<VoidStruct> requestTask = SendRequestAndWaitResponse(new Request<VoidStruct>(this, method, args));
+            Task<VoidStruct> requestTask = SendRequestAndWaitResponse(new VRequest<VoidStruct>(this, method, args));
             return requestTask;
         }
 
@@ -261,7 +261,7 @@ namespace DanilovSoft.vRPC
         public TResult Call<TResult>(string controllerName, string actionName, params object[] args)
         {
             var method = new RequestMethodMeta(controllerName, actionName, typeof(TResult), false);
-            Task<TResult> requestTask = SendRequestAndWaitResponse(new Request<TResult>(this, method, args));
+            Task<TResult> requestTask = SendRequestAndWaitResponse(new VRequest<TResult>(this, method, args));
             TResult result = requestTask.GetAwaiter().GetResult();
             return result;
         }
@@ -270,7 +270,7 @@ namespace DanilovSoft.vRPC
         public Task<TResult> CallAsync<TResult>(string controllerName, string actionName, params object[] args)
         {
             var method = new RequestMethodMeta(controllerName, actionName, typeof(TResult), false);
-            Task<TResult> requestTask = SendRequestAndWaitResponse(new Request<TResult>(this, method, args));
+            Task<TResult> requestTask = SendRequestAndWaitResponse(new VRequest<TResult>(this, method, args));
             return requestTask;
         }
 

@@ -251,7 +251,7 @@ namespace DanilovSoft.vRPC
             {
                 if (reader.TokenType == JsonTokenType.PropertyName)
                 {
-                    if (!gotCode && reader.ValueTextEquals("code"))
+                    if (!gotCode && reader.ValueTextEquals(HeaderDto.JsonCode.EncodedUtf8Bytes))
                     {
                         if (reader.Read())
                         {
@@ -259,7 +259,7 @@ namespace DanilovSoft.vRPC
                             gotCode = true;
                         }
                     }
-                    else if (!gotId && reader.ValueTextEquals("uid"))
+                    else if (!gotId && reader.ValueTextEquals(HeaderDto.JsonUid.EncodedUtf8Bytes))
                     {
                         if (reader.Read())
                         {
@@ -267,7 +267,7 @@ namespace DanilovSoft.vRPC
                             gotId = true;
                         }
                     }
-                    else if (!gotPayload && reader.ValueTextEquals("payload"))
+                    else if (!gotPayload && reader.ValueTextEquals(HeaderDto.JsonPayload.EncodedUtf8Bytes))
                     {
                         if (reader.Read())
                         {
@@ -275,7 +275,7 @@ namespace DanilovSoft.vRPC
                             gotPayload = true;
                         }
                     }
-                    else if (!gotEncoding && reader.ValueTextEquals("encoding"))
+                    else if (!gotEncoding && reader.ValueTextEquals(HeaderDto.JsonEncoding.EncodedUtf8Bytes))
                     {
                         if (reader.Read())
                         {
@@ -283,7 +283,7 @@ namespace DanilovSoft.vRPC
                             gotEncoding = true;
                         }
                     }
-                    else if (!gotMethod && reader.ValueTextEquals("method"))
+                    else if (!gotMethod && reader.ValueTextEquals(HeaderDto.JsonMethod.EncodedUtf8Bytes))
                     {
                         if (reader.Read())
                         {

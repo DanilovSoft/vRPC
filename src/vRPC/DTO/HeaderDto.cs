@@ -20,11 +20,11 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay("{DebugDisplay,nq}")]
     internal readonly struct HeaderDto : IEquatable<HeaderDto>
     {
-        private static readonly JsonEncodedText JsonUid = JsonEncodedText.Encode("uid");
-        private static readonly JsonEncodedText JsonCode = JsonEncodedText.Encode("code");
-        private static readonly JsonEncodedText JsonPayload = JsonEncodedText.Encode("payload");
-        private static readonly JsonEncodedText JsonEncoding = JsonEncodedText.Encode("encoding");
-        private static readonly JsonEncodedText JsonMethod = JsonEncodedText.Encode("method");
+        internal static readonly JsonEncodedText JsonUid = JsonEncodedText.Encode("uid");
+        internal static readonly JsonEncodedText JsonCode = JsonEncodedText.Encode("code");
+        internal static readonly JsonEncodedText JsonPayload = JsonEncodedText.Encode("payload");
+        internal static readonly JsonEncodedText JsonEncoding = JsonEncodedText.Encode("encoding");
+        internal static readonly JsonEncodedText JsonMethod = JsonEncodedText.Encode("method");
 
         public const int HeaderMaxSize = 256;
         private static readonly string HeaderSizeExceededException = $"Размер заголовка сообщения превысил максимально допустимый размер в {HeaderMaxSize} байт.";
@@ -103,7 +103,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Конструктор ответа на запрос.
         /// </summary>
-        public HeaderDto(int id, StatusCode responseCode, int payloadLength, string? contentEncoding)
+        public HeaderDto(int id, int payloadLength, string? contentEncoding, StatusCode responseCode)
         {
             Id = id;
             StatusCode = responseCode;
@@ -113,7 +113,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Конструктор и для ответа и для запроса.
+        /// Конструктор сериализатора, для ответа и для запроса.
         /// </summary>
         public HeaderDto(int? uid, StatusCode responseCode, int payloadLength, string? contentEncoding, string? actionName)
         {

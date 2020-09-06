@@ -96,9 +96,9 @@ namespace DanilovSoft.vRPC
                 object? arg = Interlocked.Exchange(ref args[argIndex], null);
 
                 // Массив может быть не полностью инициирован.
-                if (arg is IDisposable disposable)
+                if (arg != null)
                 {
-                    disposable.Dispose();
+                    (arg as IDisposable)!.Dispose();
                 }
             }
         }

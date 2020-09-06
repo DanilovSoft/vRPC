@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DanilovSoft.vRPC.Context;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -10,11 +11,11 @@ using System.Threading;
 namespace DanilovSoft.vRPC
 {
     /// <summary>
-    /// Содержит разобранный запрос с параметрами полученный от удалённой стороны.
+    /// Содержит запрос с параметрами полученный от удалённой стороны который необходимо выполнить.
     /// </summary>
     [StructLayout(LayoutKind.Auto)]
-    [DebuggerDisplay(@"\{{" + nameof(ControllerMethod) + @" ?? default}\}")]
-    internal readonly struct RequestContext : IDisposable
+    [DebuggerDisplay(@"\{{" + nameof(Method) + @" ?? default}\}")]
+    internal sealed class RequestContext : IThreadPoolWorkItem, IMessageToSend, IDisposable
     {
         /// <summary>
         /// Когда Id не Null.
@@ -25,7 +26,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Запрашиваемый метод контроллера.
         /// </summary>
-        public ControllerMethodMeta ControllerMethod { get; }
+        public ControllerMethodMeta Method { get; }
 
         /// <summary>
         /// Аргументы для вызываемого метода.
@@ -33,7 +34,14 @@ namespace DanilovSoft.vRPC
         public object[] Args { get; }
 
         public ManagedConnection Context { get; }
-        public bool IsJsonRpc { get; }
+        /// <summary>
+        /// Если запрос получен в формате JSON-RPC, то и ответ должен быть в формате JSON-RPC.
+        /// </summary>
+        public bool IsJsonRpcRequest { get; }
+
+        internal object? Result { get; set; }
+        internal StatusCode ResultCode { get; private set; }
+        internal string? ResultEncoding { get; private set; }
 
         // ctor
         public RequestContext(ManagedConnection connection, int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
@@ -42,14 +50,102 @@ namespace DanilovSoft.vRPC
 
             Context = connection;
             Id = id;
-            ControllerMethod = method;
+            Method = method;
             Args = args;
-            IsJsonRpc = isJsonRpc;
+            IsJsonRpcRequest = isJsonRpc;
         }
+
+        // Вызывается пулом потоков.
+        public void Execute()
+        {
+            Context.ProcessRequestThreadEntryPoint(this);
+        }
+
+        /// <summary>
+        /// Сериализует сообщение в память. Может бросить исключение сериализации.
+        /// </summary>
+        /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
+        internal ArrayBufferWriter<byte> SerializeResponse(out int headerSize)
+        {
+            var buffer = new ArrayBufferWriter<byte>();
+            var toDispose = buffer;
+            try
+            {
+                if (Result is IActionResult actionResult)
+                // Метод контроллера вернул специальный тип.
+                {
+                    var actionContext = new ActionContext(Id, Method, buffer);
+
+                    // Сериализуем ответ.
+                    actionResult.ExecuteResult(ref actionContext);
+                    ResultCode = actionContext.StatusCode;
+                    ResultEncoding = actionContext.ProducesEncoding;
+                }
+                else
+                // Отправлять результат контроллера будем как есть.
+                {
+                    // Сериализуем ответ.
+                    ResultCode = StatusCode.Ok;
+
+                    // Сериализуем контент если он есть (у void его нет).
+                    if (Result != null)
+                    {
+                        Debug.Assert(Method != null, "RAW результат может быть только на основе запроса");
+                        Method.SerializerDelegate(buffer, Result);
+                        ResultEncoding = Method.ProducesEncoding;
+                    }
+                }
+
+                headerSize = AppendHeader(buffer);
+
+                toDispose = null;
+                return buffer;
+            }
+            finally
+            {
+                toDispose?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Сериализует хэдер в стрим сообщения.
+        /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
+        private int AppendHeader(ArrayBufferWriter<byte> buffer)
+        {
+            //Debug.Assert(Id != null);
+
+            HeaderDto header = new HeaderDto(Id.Value, buffer.WrittenCount, ResultEncoding, responseCode: ResultCode);
+
+            // Записать заголовок в конец стрима. Не бросает исключения.
+            int headerSize = header.SerializeJson(buffer);
+
+            // Запомним размер хэдера.
+            return headerSize;
+        }
+
+        //private HeaderDto CreateHeader(int payloadLength)
+        //{
+        //    if (Result is ResponseMessage responseToSend)
+        //    // Создать хедер ответа на запрос.
+        //    {
+        //        //Debug.Assert(ResultCode != null, "StatusCode ответа не может быть Null");
+
+        //        return new HeaderDto(Id.Value, payloadLength, ResultEncoding, responseCode: ResultCode);
+        //    }
+        //    else
+        //    // Создать хедер для нового запроса.
+        //    {
+        //        var request = messageToSend.MessageToSend as RequestMethodMeta;
+        //        Debug.Assert(request != null);
+
+        //        return new HeaderDto(messageToSend.Uid, messageToSend.ContentEncoding, request.FullName, messageToSend.Buffer.WrittenCount);
+        //    }
+        //}
 
         public void Dispose()
         {
-            ControllerMethod.DisposeArgs(Args);
+            Method.DisposeArgs(Args);
         }
     }
 }

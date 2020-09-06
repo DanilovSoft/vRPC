@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC.Decorator;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace DanilovSoft.vRPC
 {
@@ -96,17 +97,20 @@ namespace DanilovSoft.vRPC
 
         private static string GetControllerNameFromInterface(Type interfaceType)
         {
-            string controllerName;
             var attrib = interfaceType.GetCustomAttribute<ControllerContractAttribute>(inherit: false);
             if (attrib != null)
             {
-                controllerName = attrib.ControllerName;
+                if (attrib.ControllerName.EndsWith("Controller", StringComparison.Ordinal))
+                {
+                    return attrib.ControllerName.TrimEnd("Controller", StringComparison.Ordinal);
+                }
+                else
+                    return attrib.ControllerName;
             }
             else
             {
-                controllerName = ControllerNameFromTypeName(interfaceType);
+                return ControllerNameFromTypeName(interfaceType);
             }
-            return controllerName;
         }
 
         private static string ControllerNameFromTypeName(Type interfaceType)

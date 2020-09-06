@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-#if NET461 || NETSTANDARD2_0 || NET472
+#if NETSTANDARD2_0 || NET472
 
 namespace DanilovSoft.vRPC
 {

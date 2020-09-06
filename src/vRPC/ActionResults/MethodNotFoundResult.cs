@@ -1,15 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class NotFoundResult : IActionResult
+    [DebuggerDisplay(@"\{{_message}\}")]
+    internal sealed class MethodNotFoundResult : IActionResult
     {
         private const StatusCode DefaultStatusCode = StatusCode.MethodNotFound;
         private readonly string _message;
 
-        public NotFoundResult(string message)
+        public MethodNotFoundResult(string message)
         {
             _message = message;
         }
