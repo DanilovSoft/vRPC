@@ -14,45 +14,45 @@ using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC
 {
-    [Obsolete]
-    internal class SerializedMessageToSend : IMessageToSend
-    {
-        public SerializedMessageToSend(ResponseMessage responseToSend)
-        {
-            Debug.Assert(false);
-        }
+    //[Obsolete]
+    //internal class SerializedMessageToSend : IMessageToSend
+    //{
+    //    public SerializedMessageToSend(ResponseMessage responseToSend)
+    //    {
+    //        Debug.Assert(false);
+    //    }
 
-        public SerializedMessageToSend(RequestMethodMeta requestMethodMeta)
-        {
-            Debug.Assert(false);
-        }
+    //    public SerializedMessageToSend(RequestMethodMeta requestMethodMeta)
+    //    {
+    //        Debug.Assert(false);
+    //    }
 
-        public StatusCode? StatusCode { get; internal set; }
-        public string? ContentEncoding { get; internal set; }
-        public ArrayBufferWriter<byte> Buffer { get; internal set; }
+    //    public StatusCode? StatusCode { get; internal set; }
+    //    public string? ContentEncoding { get; internal set; }
+    //    public ArrayBufferWriter<byte> Buffer { get; internal set; }
 
-        public ManagedConnection Context 
-        { 
-            get { Debug.Assert(false); throw new NotImplementedException(); } 
-        }
+    //    public ManagedConnection Context 
+    //    { 
+    //        get { Debug.Assert(false); throw new NotImplementedException(); } 
+    //    }
 
-        public IMessageMeta MessageToSend { get; internal set; }
-        public Multipart[]? Parts { get; internal set; }
-        public int Uid { get; internal set; }
-        public int HeaderSize { get; internal set; }
+    //    public IMessageMeta MessageToSend { get; internal set; }
+    //    public Multipart[]? Parts { get; internal set; }
+    //    public int Uid { get; internal set; }
+    //    public int HeaderSize { get; internal set; }
 
-        internal void Dispose()
-        {
-            Debug.Assert(false);
-            throw new NotImplementedException();
-        }
+    //    internal void Dispose()
+    //    {
+    //        Debug.Assert(false);
+    //        throw new NotImplementedException();
+    //    }
 
-        internal ValueTask WaitNotificationAsync()
-        {
-            Debug.Assert(false);
-            throw new NotImplementedException();
-        }
-    }
+    //    internal ValueTask WaitNotificationAsync()
+    //    {
+    //        Debug.Assert(false);
+    //        throw new NotImplementedException();
+    //    }
+    //}
 
     //    /// <summary>
     //    /// Является запросом или ответом на запрос.

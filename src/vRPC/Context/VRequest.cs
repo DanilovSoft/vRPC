@@ -10,21 +10,21 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    internal interface IVRequest : IResponseAwaiter
+    internal interface IVRequest
     {
         RequestMethodMeta Method { get; }
         object[] Args { get; }
-        int Id { get; }
+        int Id { get; set; }
         bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize);
     }
 
     [DebuggerDisplay(@"\{Request = {Method.FullName}\}")]
-    internal sealed class VRequest<TResult> : IMessageToSend, IVRequest
+    internal sealed class VRequest<TResult> : IMessageToSend, IVRequest, IRequest<TResult>
     {
         private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         public RequestMethodMeta Method { get; }
         public object[] Args { get; }
-        internal Task<TResult> Task => _tcs.Task;
+        public Task<TResult> Task => _tcs.Task;
 
 #if DEBUG
         [SuppressMessage("CodeQuality", "IDE0051:Удалите неиспользуемые закрытые члены", Justification = "Для отладчика")]

@@ -5,7 +5,7 @@ using System.Text;
 
 namespace DanilovSoft.vRPC.JsonRpc.ActionResults
 {
-    internal sealed class JInvalidRequestResult : IActionResult
+    internal sealed class JInvalidRequestResult : IJActionResult
     {
         public const StatusCode DefaultStatusCode = StatusCode.InvalidRequest;
 

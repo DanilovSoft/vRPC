@@ -22,6 +22,7 @@ namespace ConsoleApp
         void TestExceptionThrow(string exceptionMessage);
         void TestDelay();
         Task Test2Async();
+        [JsonRpc]
         int GetSum(int x1, int x2);
         int GetSum2(int x1, int x2);
         Task<int> GetSumAsync(int x1, int x2);

@@ -13,10 +13,10 @@ namespace DanilovSoft.vRPC
     // Note: this is currently an internal class that will be replaced with a shared version.
     internal sealed class ArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
     {
+        private const int MinimumBufferSize = 256;
+
         private T[] _rentedBuffer;
         private int _index;
-
-        private const int MinimumBufferSize = 256;
 
         public ArrayBufferWriter()
         {

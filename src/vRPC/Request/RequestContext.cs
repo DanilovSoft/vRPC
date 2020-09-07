@@ -65,8 +65,10 @@ namespace DanilovSoft.vRPC
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
-        internal ArrayBufferWriter<byte> SerializeResponse(out int headerSize)
+        internal ArrayBufferWriter<byte> SerializeResponseAsVrpc(out int headerSize)
         {
+            Debug.Assert(!IsJsonRpcRequest, "Формат ответа и запроса не совпадают");
+
             var buffer = new ArrayBufferWriter<byte>();
             var toDispose = buffer;
             try
@@ -99,6 +101,43 @@ namespace DanilovSoft.vRPC
                 headerSize = AppendHeader(buffer);
 
                 toDispose = null;
+                return buffer;
+            }
+            finally
+            {
+                toDispose?.Dispose();
+            }
+        }
+
+        internal ArrayBufferWriter<byte> SerializeResponseAsJrpv()
+        {
+            Debug.Assert(IsJsonRpcRequest, "Формат ответа и запроса не совпадают");
+
+            var buffer = new ArrayBufferWriter<byte>();
+            var toDispose = buffer;
+            try
+            {
+                if (Result is IActionResult actionResult)
+                // Метод контроллера вернул специальный тип.
+                {
+                    var actionContext = new ActionContext(Id, Method, buffer);
+
+                    // Сериализуем ответ.
+                    actionResult.ExecuteResult(ref actionContext);
+                }
+                else
+                // Отправлять результат контроллера будем как есть.
+                {
+                    Debug.Assert(false);
+                    throw new NotImplementedException();
+                    // Сериализуем ответ.
+                    //serMsg.StatusCode = StatusCode.Ok;
+
+                    //    Debug.Assert(jResponse.ActionMeta != null, "RAW результат может быть только на основе запроса");
+                    //    jResponse.ActionMeta.SerializerDelegate(serMsg.MemoryPoolBuffer, responseToSend.ActionResult);
+                    //    serMsg.ContentEncoding = jResponse.ActionMeta.ProducesEncoding;
+                }
+                toDispose = null; // Предотвратить Dispose.
                 return buffer;
             }
             finally

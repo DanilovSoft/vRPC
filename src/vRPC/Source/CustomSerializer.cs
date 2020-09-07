@@ -123,7 +123,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <exception cref="Exception"/>
-        private static bool TryDeserializeMultipart(ManagedConnection context, ReadOnlyMemory<byte> content, ControllerMethodMeta method, int? uid,
+        private static bool TryDeserializeMultipart(ManagedConnection context, ReadOnlyMemory<byte> content, ControllerMethodMeta method, int? id,
             [MaybeNullWhen(false)] out RequestContext result,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
@@ -140,7 +140,7 @@ namespace DanilovSoft.vRPC
             {
                 if (DeserializeProtoBufArgs(content, method, args, out error))
                 {
-                    result = new RequestContext(context, uid, method, args, false);
+                    result = new RequestContext(context, id, method, args, false);
                     args = null; // Предотвратить Dispose.
                     error = null;
                     return true;

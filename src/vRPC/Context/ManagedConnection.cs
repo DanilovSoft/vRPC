@@ -398,17 +398,17 @@ namespace DanilovSoft.vRPC
         /// <remarks>Со стороны сервера.</remarks>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal ValueTask OnServerNotificationCall(RequestMethodMeta methodMeta, object[] args)
+        internal ValueTask OnServerNotificationCall(RequestMethodMeta method, object[] args)
         {
-            Debug.Assert(methodMeta.IsNotificationRequest);
+            Debug.Assert(method.IsNotificationRequest);
 
             // Сериализуем запрос в память.
-            SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
+            SerializedMessageToSend serMsg = method.SerializeRequest(args);
             SerializedMessageToSend? serMsgToDispose = serMsg;
             try
             {
                 // Отправляем запрос.
-                ValueTask task = SendNotificationAsync(serMsg);
+                ValueTask task = SendNotification(serMsg);
                 serMsgToDispose = null;
                 return task;
             }
@@ -424,30 +424,17 @@ namespace DanilovSoft.vRPC
         /// <remarks>Со стороны сервера.</remarks>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal Task<TResult> OnServerMethodCall<TResult>(VRequest<TResult> request)
+        internal Task<TResult> OnServerRequestCall<TResult>(VRequest<TResult> vRequest)
         {
-            Debug.Assert(!request.Method.IsNotificationRequest);
+            Debug.Assert(!vRequest.Method.IsNotificationRequest);
 
-            if (request.Method.IsJsonRpc)
+            if (vRequest.Method.IsJsonRpc)
             {
-                return ExecuteJsonRequest(request);
+                return SendRequestAndGetResponse(vRequest);
             }
             else
             {
-                // Сериализуем запрос в память.
-                //SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
-                //SerializedMessageToSend? serMsgToDispose = serMsg;
-                //try
-                //{
-                    // Отправляем запрос.
-                    Task<TResult> task = SendSerializedRequestAndWaitResponse<TResult>(request);
-                    //serMsgToDispose = null;
-                    return task;
-                //}
-                //finally
-                //{
-                //    serMsgToDispose?.Dispose();
-                //}
+                return SendRequestAndWaitResponse((IRequest<TResult>)vRequest);
             }
         }
 
@@ -462,11 +449,11 @@ namespace DanilovSoft.vRPC
 
             if (method.IsJsonRpc)
             {
-                return StaticExecuteJsonRequest<TResult>(connectionTask, method, args);
+                return StaticSendJRequestAndWaitResult<TResult>(connectionTask, method, args);
             }
             else
             {
-                return SendClientRequestAndGetResultStatic<TResult>(connectionTask, method, args);
+                return StaticSendVRequestAndWaitResult<TResult>(connectionTask, method, args);
 
                 // Сериализуем запрос в память. Лучше выполнить до завершения подключения.
                 //SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
@@ -487,8 +474,9 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        /// <summary>JSON-RPC</summary>
         /// <exception cref="Exception">Могут быть исключения не инкапсулированные в Task.</exception>
-        private static Task<TResult> StaticExecuteJsonRequest<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
+        private static Task<TResult> StaticSendJRequestAndWaitResult<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
         {
             Debug.Assert(method.IsJsonRpc);
             Debug.Assert(!method.IsNotificationRequest);
@@ -498,7 +486,7 @@ namespace DanilovSoft.vRPC
                 // Может быть исключение если не удалось подключиться.
                 ClientSideConnection connection = connectionTask.GetAwaiter().GetResult();
 
-                return connection.ExecuteJsonRequest(new VRequest<TResult>(connection, method, args));
+                return connection.SendRequestAndGetResponse(new JRequest<TResult>(connection, method, args));
             }
             else
             {
@@ -507,30 +495,27 @@ namespace DanilovSoft.vRPC
                 static async Task<Task<TResult>> WaitAsync(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
                 {
                     var connection = await connectionTask.ConfigureAwait(false);
-                    return connection.ExecuteJsonRequest(new VRequest<TResult>(connection, method, args));
+                    return connection.SendRequestAndGetResponse(new JRequest<TResult>(connection, method, args));
                 }
             }
         }
 
-        private Task<TResult> ExecuteJsonRequest<TResult>(VRequest<TResult> request)
+        private Task<TResult> SendRequestAndGetResponse<TResult>(IRequest<TResult> request)
         {
             // Shutdown нужно проверять раньше чем Dispose потому что Dispose может быть по причине Shutdown.
             if (_shutdownRequest == null) // volatile проверка.
             {
                 if (!IsDisposed) // volatile проверка.
                 {
-                    Debug.Assert(false);
-                    throw new NotImplementedException();
-
                     // Добавить запрос в словарь для дальнейшей связки с ответом.
-                    //ResponseAwaiter<TResult> responseAwaiter = _responseAwaiters.AddRequest<TResult>(methodMeta, out int uid);
+                    _responseAwaiters.AddRequest(request, out int uid);
 
-                    //var request = new JRequest(this, responseAwaiter, methodMeta, args, uid);
+                    request.Id = uid;
 
-                    //TryPostMessage(request);
+                    TryPostMessage(request);
 
-                    //// Ожидаем результат от потока поторый читает из сокета.
-                    //return responseAwaiter.Task;
+                    // Ожидаем результат от потока поторый читает из сокета.
+                    return request.Task;
                 }
                 else
                     return Task.FromException<TResult>(new ObjectDisposedException(GetType().FullName));
@@ -545,12 +530,12 @@ namespace DanilovSoft.vRPC
         /// <remarks>Со стороны клиента.</remarks>
         /// <exception cref="Exception">Могут быть исключения не инкапсулированные в Task.</exception>
         //[SuppressMessage("Reliability", "CA2000:Ликвидировать объекты перед потерей области", Justification = "Анализатор не понимает смену ответственности на Channel")]
-        internal static ValueTask OnClientNotificationCall(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta methodMeta, object[] args)
+        internal static ValueTask OnClientNotificationCall(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
         {
-            Debug.Assert(methodMeta.IsNotificationRequest);
+            Debug.Assert(method.IsNotificationRequest);
 
             // Сериализуем запрос в память. Лучше выполнить до завершения подключения.
-            SerializedMessageToSend serMsg = methodMeta.SerializeRequest(args);
+            SerializedMessageToSend serMsg = method.SerializeRequest(args);
             SerializedMessageToSend? serMsgToDispose = serMsg;
             try
             {
@@ -574,24 +559,24 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        private static ValueTask WaitConnectionAndSendNotificationAsync(ValueTask<ClientSideConnection> connectingTask, SerializedMessageToSend serMsg)
+        private static ValueTask WaitConnectionAndSendNotificationAsync(ValueTask<ClientSideConnection> connectionTask, SerializedMessageToSend serMsg)
         {
             Debug.Assert(serMsg.MessageToSend.IsNotificationRequest);
 
-            if (connectingTask.IsCompleted)
+            if (connectionTask.IsCompleted)
             {
                 // Может бросить исключение.
-                ManagedConnection connection = connectingTask.Result;
+                ManagedConnection connection = connectionTask.Result;
                 
                 // Отправляет уведомление через очередь.
-                ValueTask pendingSendTask = connection.SendNotificationAsync(serMsg);
+                ValueTask pendingSendTask = connection.SendNotification(serMsg);
 
                 return pendingSendTask;
             }
             else
             // Подключение к серверу ещё не завершено.
             {
-                return WaitForConnectAndSendNotification(connectingTask, serMsg);
+                return WaitForConnectAndSendNotification(connectionTask, serMsg);
             }
 
             // Локальная функция.
@@ -600,7 +585,7 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = await conTask.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                await connection.SendNotificationAsync(serializedMessage).ConfigureAwait(false);
+                await connection.SendNotification(serializedMessage).ConfigureAwait(false);
             }
         }
 
@@ -609,7 +594,7 @@ namespace DanilovSoft.vRPC
         /// Может бросить исключение.
         /// </summary>
         /// <remarks>Со стороны клиента.</remarks>
-        private static Task<TResult> SendClientRequestAndGetResultStatic<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
+        private static Task<TResult> StaticSendVRequestAndWaitResult<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
         {
             Debug.Assert(!method.IsNotificationRequest);
 
@@ -619,7 +604,7 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = connectionTask.GetAwaiter().GetResult();
 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendSerializedRequestAndWaitResponse(new VRequest<TResult>(connection, method, args));
+                return connection.SendRequestAndWaitResponse(new VRequest<TResult>(connection, method, args));
             }
             else
             {
@@ -631,7 +616,7 @@ namespace DanilovSoft.vRPC
                 ClientSideConnection connection = await t.ConfigureAwait(false);
                 
                 // Отправляет запрос и получает результат от удалённой стороны.
-                return connection.SendSerializedRequestAndWaitResponse(new VRequest<TResult>(connection, method, args));
+                return connection.SendRequestAndWaitResponse(new VRequest<TResult>(connection, method, args));
             }
         }
 
@@ -640,9 +625,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal ValueTask SendNotificationAsync(SerializedMessageToSend serializedMessage)
+        internal ValueTask SendNotification(INotification notification)
         {
-            Debug.Assert(serializedMessage.MessageToSend.IsNotificationRequest);
+            //Debug.Assert(serializedMessage.MessageToSend.IsNotificationRequest);
 
             if (_shutdownRequest == null)
             {
@@ -650,9 +635,9 @@ namespace DanilovSoft.vRPC
                 {
                     //ValidateAuthenticationRequired(requestMeta);
 
-                    TryPostMessage(serializedMessage);
+                    TryPostMessage(notification);
 
-                    return serializedMessage.WaitNotificationAsync();
+                    return notification.WaitNotificationAsync();
                 }
                 else
                     return new ValueTask(Task.FromException(new ObjectDisposedException(GetType().FullName)));
@@ -661,39 +646,39 @@ namespace DanilovSoft.vRPC
                 return new ValueTask(Task.FromException(new VRpcShutdownException(_shutdownRequest)));
         }
 
-        /// <summary>
-        /// Отправляет запрос и ожидает его ответ.
-        /// </summary>
-        /// <exception cref="VRpcShutdownException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        private protected Task<TResult> SendRequestAndWaitResponse<TResult>(VRequest<TResult> request)
-        {
-            Debug.Assert(!request.Method.IsNotificationRequest);
+        ///// <summary>
+        ///// Отправляет запрос и ожидает его ответ.
+        ///// </summary>
+        ///// <exception cref="VRpcShutdownException"/>
+        ///// <exception cref="ObjectDisposedException"/>
+        //private protected Task<TResult> SendRequestAndWaitResponse<TResult>(VRequest<TResult> request)
+        //{
+        //    Debug.Assert(!request.Method.IsNotificationRequest);
 
-            //SerializedMessageToSend serMsgRequest = requestMeta.SerializeRequest(args);
-            //SerializedMessageToSend? serMsgToDispose = serMsgRequest;
-            //try
-            //{
-                Task<TResult> pendingRequestTask = SendSerializedRequestAndWaitResponse(request);
-                //serMsgToDispose = null;
-                return pendingRequestTask;
-            //}
-            //finally
-            //{
-            //    serMsgToDispose?.Dispose();
-            //}
-        }
+        //    //SerializedMessageToSend serMsgRequest = requestMeta.SerializeRequest(args);
+        //    //SerializedMessageToSend? serMsgToDispose = serMsgRequest;
+        //    //try
+        //    //{
+        //    Task<TResult> pendingRequestTask = SendRequestAndWaitResponse((IRequest<TResult>)request);
+        //        //serMsgToDispose = null;
+        //        return pendingRequestTask;
+        //    //}
+        //    //finally
+        //    //{
+        //    //    serMsgToDispose?.Dispose();
+        //    //}
+        //}
 
         /// <summary>
         /// Отправляет запрос и ожидает ответ.
-        /// Передаёт владение объектом <paramref name="serMsg"/> другому потоку.
+        /// Передаёт владение объектом <paramref name="request"/> другому потоку.
         /// </summary>
         /// <remarks>Происходит при обращении к прокси-интерфейсу.</remarks>
         /// <exception cref="SocketException"/>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <returns>Таск с результатом от сервера.</returns>
-        private protected Task<TResult> SendSerializedRequestAndWaitResponse<TResult>(VRequest<TResult> request)
+        private protected Task<TResult> SendRequestAndWaitResponse<TResult>(IRequest<TResult> request)
         {
             Debug.Assert(!request.Method.IsNotificationRequest);
 
@@ -702,9 +687,6 @@ namespace DanilovSoft.vRPC
             {
                 if (!IsDisposed) // volatile проверка.
                 {
-                    //SerializedMessageToSend? serMsgToDispose = serMsg;
-                    //try
-                    //{
                     // Добавить запрос в словарь для дальнейшей связки с ответом.
                     _responseAwaiters.AddRequest(request, out int uid);
 
@@ -712,19 +694,10 @@ namespace DanilovSoft.vRPC
                     request.Id = uid;
 
                     // Планируем отправку запроса.
-                    // Не бросает исключения.
                     TryPostMessage(request);
-
-                    // Мы больше не владеем этим объектом.
-                    //serMsgToDispose = null;
 
                     // Ожидаем результат от потока поторый читает из сокета.
                     return request.Task;
-                    //}
-                    //finally
-                    //{
-                    //    serMsgToDispose?.Dispose();
-                    //}
                 }
                 else
                     return Task.FromException<TResult>(new ObjectDisposedException(GetType().FullName));
@@ -945,7 +918,7 @@ namespace DanilovSoft.vRPC
 
             if (error != null)
             {
-                PostJResponse(error);
+                TryPostMessage(error);
             }
             return result;
         }
@@ -1127,7 +1100,7 @@ namespace DanilovSoft.vRPC
                         if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
                         {
                             // Передать на отправку результат с ошибкой через очередь.
-                            error = new JResponse(this, id.Value, new JMethodNotFoundResult());
+                            error = new JErrorResponse(id.Value, new JMethodNotFoundResult());
                             return true;
                         }
                         else
@@ -1140,7 +1113,7 @@ namespace DanilovSoft.vRPC
                     else if (methodName == null)
                     // Не валидное сообщение.
                     {
-                        error = new JResponse(this, id.Value, new JInvalidRequestResult());
+                        error = new JErrorResponse(id.Value, new JInvalidRequestResult());
                         return true; // Продолжить получение сообщений.
                     }
                 }
@@ -1258,7 +1231,7 @@ namespace DanilovSoft.vRPC
                                     Debug.Assert(header.Id != null, "Не может быть Null когда IsResponseRequired");
 
                                     // Передать на отправку результат с ошибкой через очередь.
-                                    PostResponse(new ResponseMessage(this, header.Id.Value, error));
+                                    TryPostMessage(new VErrorResponse(header.Id.Value, error));
                                 }
 
                                 // Вернуться к чтению следующего сообщения.
@@ -1327,7 +1300,7 @@ namespace DanilovSoft.vRPC
                     MethodNotFoundResult error = ResponseHelper.MethodNotFound(header.MethodName);
 
                     // Передать на отправку результат с ошибкой через очередь.
-                    PostResponse(new ResponseMessage(this, header.Id.Value, error));
+                    TryPostMessage(new VErrorResponse(header.Id.Value, error));
                 }
                 return false;
             }
@@ -1346,7 +1319,7 @@ namespace DanilovSoft.vRPC
                 Debug.Assert(header.Id != null, "Не может быть Null когда IsResponseRequired");
 
                 // Передать на отправку результат с ошибкой через очередь.
-                PostResponse(new ResponseMessage(this, header.Id.Value, new InvalidRequestResult("В заголовке запроса отсутствует имя метода")));
+                TryPostMessage(new VErrorResponse(header.Id.Value, new InvalidRequestResult("В заголовке запроса отсутствует имя метода")));
 
                 return false;
             }
@@ -1543,57 +1516,57 @@ namespace DanilovSoft.vRPC
             return;
         }
 
-        /// <summary>
-        /// Отправляет через очередь.
-        /// Уменьшит <see cref="_activeRequestCount"/>.
-        /// </summary>
-        /// <remarks>Исключение по вине пользователеля крашнет процесс.</remarks>
-        private static void PostResponse(ResponseMessage responseToSend)
-        {
-#if NETSTANDARD2_0 || NET472
-            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, responseToSend);
+//        /// <summary>
+//        /// Отправляет через очередь.
+//        /// Уменьшит <see cref="_activeRequestCount"/>.
+//        /// </summary>
+//        /// <remarks>Исключение по вине пользователеля крашнет процесс.</remarks>
+//        private static void PostResponse(ResponseMessage responseToSend)
+//        {
+//#if NETSTANDARD2_0 || NET472
+//            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, responseToSend);
 
-            static void SerializeResponseAndTrySendThreadEntryPoint(object? state)
-            {
-                var responseToSend = state as ResponseMessage;
-                Debug.Assert(responseToSend != null);
-                responseToSend.Context.SerializeResponseAndTrySendEntryPoint(responseToSend);
-            }
-#else
-            // Предпочитаем глобальную очередь.
-            ThreadPool.UnsafeQueueUserWorkItem(responseToSend, preferLocal: true);
-#endif
-        }
+//            static void SerializeResponseAndTrySendThreadEntryPoint(object? state)
+//            {
+//                var responseToSend = state as ResponseMessage;
+//                Debug.Assert(responseToSend != null);
+//                responseToSend.Context.SerializeResponseAndTrySendEntryPoint(responseToSend);
+//            }
+//#else
+//            // Предпочитаем глобальную очередь.
+//            ThreadPool.UnsafeQueueUserWorkItem(responseToSend, preferLocal: true);
+//#endif
+//        }
 
-        private static void PostJResponse(IMessageToSend responseToSend)
-        {
-#if NETSTANDARD2_0 || NET472
-            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, responseToSend);
+//        private static void PostJResponse(IMessageToSend responseToSend)
+//        {
+//#if NETSTANDARD2_0 || NET472
+//            ThreadPool.UnsafeQueueUserWorkItem(SerializeResponseAndTrySendThreadEntryPoint, responseToSend);
 
-            static void SerializeResponseAndTrySendThreadEntryPoint(object? state)
-            {
-                var responseToSend = state as IMessageToSend;
-                Debug.Assert(responseToSend != null);
-                responseToSend.Context.TryPostMessage(responseToSend);
-            }
-#else
-            // Предпочитаем глобальную очередь.
-            ThreadPool.UnsafeQueueUserWorkItem(r => r.Context.TryPostMessage(r), responseToSend, preferLocal: false);
-#endif
-        }
+//            static void SerializeResponseAndTrySendThreadEntryPoint(object? state)
+//            {
+//                var responseToSend = state as IMessageToSend;
+//                Debug.Assert(responseToSend != null);
+//                responseToSend.Context.TryPostMessage(responseToSend);
+//            }
+//#else
+//            // Предпочитаем глобальную очередь.
+//            ThreadPool.UnsafeQueueUserWorkItem(r => r.Context.TryPostMessage(r), responseToSend, preferLocal: false);
+//#endif
+//        }
 
-        // Точка входа потока тред-пула.
-        internal void SerializeResponseAndTrySendEntryPoint(ResponseMessage message)
-        {
-            Debug.Assert(false);
-            throw new NotImplementedException();
+        //// Точка входа потока тред-пула.
+        //internal void SerializeResponseAndTrySendEntryPoint(ResponseMessage message)
+        //{
+        //    Debug.Assert(false);
+        //    throw new NotImplementedException();
 
-            //// Сериализуем.
-            //SerializedMessageToSend serializedMessage = SerializeResponse(message);
+        //    //// Сериализуем.
+        //    //SerializedMessageToSend serializedMessage = SerializeResponse(message);
 
-            //// Ставим в очередь.
-            //TryPostMessage(serializedMessage);
-        }
+        //    //// Ставим в очередь.
+        //    //TryPostMessage(serializedMessage);
+        //}
 
         /// <summary>
         /// Передает на отправку другому потоку если канал ещё не закрыт.
@@ -1640,47 +1613,22 @@ namespace DanilovSoft.vRPC
                 _sendChannel.Reader.TryRead(out IMessageToSend message);
                 Debug.Assert(message != null);
 
-                if (message is RequestContext response)
+                if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь и сделать Dispose всем сообщениям.
                 {
-                    if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь и сделать Dispose всем сообщениям.
+                    if (message is RequestContext vResponse)
+                    // Ответ на основе результата контроллера.
                     {
-                        // TODO нужно предотвратить крах всего процесса.
-                        // Исключение сериализации пользовательского ответа может крашнуть процесс.
-                        ArrayBufferWriter<byte> buffer = response.SerializeResponse(out int headerSize);
-                        try
+                        if (vResponse.IsJsonRpcRequest)
                         {
-                            ReadOnlyMemory<byte> streamBuffer = buffer.WrittenMemory;
-
-                            // Размер сообщения без заголовка.
-                            int messageSize = buffer.WrittenCount - headerSize;
-
-                            SetTcpNoDelay(response.Method.TcpNoDelay);
-
-                            #region Отправка заголовка
-
+                            ArrayBufferWriter<byte> buffer = vResponse.SerializeResponseAsJrpv();
                             try
                             {
-                                // Заголовок лежит в конце стрима.
-                                await SendBufferAsync(streamBuffer.Slice(messageSize, headerSize), endOfMessage: true).ConfigureAwait(false);
-                            }
-                            catch (Exception ex)
-                            // Обрыв соединения.
-                            {
-                                // Оповестить об обрыве.
-                                TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+                                SetTcpNoDelay(vResponse.Method.TcpNoDelay);
 
-                                // Завершить поток.
-                                return;
-                            }
-                            #endregion
-
-                            #region Отправка тела сообщения (запрос или ответ на запрос)
-
-                            if (messageSize > 0)
-                            {
+                                DebugDisplayJson(buffer.WrittenMemory.Span);
                                 try
                                 {
-                                    await SendBufferAsync(streamBuffer.Slice(0, messageSize), true).ConfigureAwait(false);
+                                    await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
                                 }
                                 catch (Exception ex)
                                 // Обрыв соединения.
@@ -1692,27 +1640,80 @@ namespace DanilovSoft.vRPC
                                     return;
                                 }
                             }
-                            #endregion
-
-                            // Уменьшить счетчик активных запросов.
-                            if (!TryDecreaseActiveRequestsCount())
-                            // Пользователь запросил остановку сервиса.
+                            finally
                             {
-                                // Завершить поток.
-                                return;
+                                buffer.Dispose();
                             }
                         }
-                        finally
+                        else
                         {
-                            buffer.Dispose();
+                            // TODO нужно предотвратить крах всего процесса.
+                            // Исключение сериализации пользовательского ответа может крашнуть процесс.
+                            ArrayBufferWriter<byte> buffer = vResponse.SerializeResponseAsVrpc(out int headerSize);
+                            try
+                            {
+                                ReadOnlyMemory<byte> streamBuffer = buffer.WrittenMemory;
+
+                                // Размер сообщения без заголовка.
+                                int messageSize = buffer.WrittenCount - headerSize;
+
+                                SetTcpNoDelay(vResponse.Method.TcpNoDelay);
+
+                                #region Отправка заголовка
+
+                                try
+                                {
+                                    // Заголовок лежит в конце стрима.
+                                    await SendBufferAsync(streamBuffer.Slice(messageSize, headerSize), endOfMessage: true).ConfigureAwait(false);
+                                }
+                                catch (Exception ex)
+                                // Обрыв соединения.
+                                {
+                                    // Оповестить об обрыве.
+                                    TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+
+                                    // Завершить поток.
+                                    return;
+                                }
+                                #endregion
+
+                                #region Отправка тела сообщения (запрос или ответ на запрос)
+
+                                if (messageSize > 0)
+                                {
+                                    try
+                                    {
+                                        await SendBufferAsync(streamBuffer.Slice(0, messageSize), true).ConfigureAwait(false);
+                                    }
+                                    catch (Exception ex)
+                                    // Обрыв соединения.
+                                    {
+                                        // Оповестить об обрыве.
+                                        TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+
+                                        // Завершить поток.
+                                        return;
+                                    }
+                                }
+                                #endregion
+                            }
+                            finally
+                            {
+                                buffer.Dispose();
+                            }
+                        }
+
+                        // Уменьшить счетчик активных запросов.
+                        if (!TryDecreaseActiveRequestsCount())
+                        // Пользователь запросил остановку сервиса.
+                        {
+                            // Завершить поток.
+                            return;
                         }
                     }
-                } 
-                else if (message is IVRequest vrequest)
-                {
-                    if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь и сделать Dispose всем сообщениям.
+                    else if (message is IVRequest vRequest)
                     {
-                        if (vrequest.TrySerialize(out ArrayBufferWriter<byte>? buffer, out int headerSize))
+                        if (vRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer, out int headerSize))
                         {
                             try
                             {
@@ -1726,7 +1727,7 @@ namespace DanilovSoft.vRPC
                                     // Размер сообщения без заголовка.
                                     int messageSize = buffer.WrittenCount - headerSize;
 
-                                    SetTcpNoDelay(vrequest.Method.TcpNoDelay);
+                                    SetTcpNoDelay(vRequest.Method.TcpNoDelay);
 
                                     #region Отправка заголовка
 
@@ -1792,19 +1793,16 @@ namespace DanilovSoft.vRPC
                             continue;
                         }
                     }
-                }
-                else if (message is JRequest jsonRequest)
-                {
-                    if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь.
+                    else if (message is IJRequest jRequest)
                     {
-                        if (jsonRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer))
+                        if (jRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer))
                         {
                             try
                             {
                                 //  Увеличить счетчик активных запросов.
                                 if (IncreaseActiveRequestsCount())
                                 {
-                                    SetTcpNoDelay(jsonRequest.MethodMeta.TcpNoDelay);
+                                    SetTcpNoDelay(jRequest.Method.TcpNoDelay);
 
                                     DebugDisplayJson(buffer.WrittenMemory.Span);
                                     try
@@ -1843,51 +1841,21 @@ namespace DanilovSoft.vRPC
                             continue;
                         }
                     }
-                }
-                else if (message is JResponse jsonResponse)
-                {
-                    if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь.
+                    else if (message is JErrorResponse jError)
                     {
-                        ArrayBufferWriter<byte> buffer = jsonResponse.Serialize();
-                        try
-                        {
-                            SetTcpNoDelay(jsonResponse.Method?.TcpNoDelay ?? false);
-
-                            DebugDisplayJson(buffer.WrittenMemory.Span);
-                            try
-                            {
-                                await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
-                            }
-                            catch (Exception ex)
-                            // Обрыв соединения.
-                            {
-                                // Оповестить об обрыве.
-                                TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
-
-                                // Завершить поток.
-                                return;
-                            }
-
-                            // Уменьшить счетчик активных запросов.
-                            if (!DecreaseActiveRequestsCount())
-                            // Пользователь запросил остановку сервиса.
-                            {
-                                // Завершить поток.
-                                return;
-                            }
-                        }
-                        finally
-                        {
-                            buffer.Dispose();
-                        }
+                        Debug.Assert(false);
                     }
-                }
+                    else if (message is VErrorResponse vError)
+                    {
+                        Debug.Assert(false);
+                    }
 #if DEBUG
-                else
-                {
-                    Debug.Assert(false, "Неизвестное сообщение");
-                }
+                    else
+                    {
+                        Debug.Assert(false, "Неизвестное сообщение");
+                    }
 #endif
+                }
             }
         }
 

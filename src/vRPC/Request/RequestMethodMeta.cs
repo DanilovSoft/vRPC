@@ -17,7 +17,7 @@ namespace DanilovSoft.vRPC
     /// Потокобезопасен.
     /// </summary>
     [DebuggerDisplay(@"\{Request = {FullName}\}")]
-    internal sealed class RequestMethodMeta : IMessageMeta
+    internal sealed class RequestMethodMeta /*: IMessageMeta*/
     {
         /// <summary>
         /// Инкапсулированный в Task тип результата функции.
@@ -34,7 +34,7 @@ namespace DanilovSoft.vRPC
         public string FullName { get; }
         public bool TcpNoDelay { get; }
         public bool IsJsonRpc { get; }
-        public bool IsRequest => true;
+        //public bool IsRequest => true;
         ///// <summary>
         ///// Когда все параметры метода являются <see cref="VRpcContent"/> то обрабатываются
         ///// по отдельному сценарию.
