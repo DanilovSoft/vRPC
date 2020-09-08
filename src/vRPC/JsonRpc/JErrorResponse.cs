@@ -12,14 +12,14 @@ namespace DanilovSoft.vRPC
         /// Идентификатор запроса.
         /// </summary>
         internal int Id { get; }
-        internal IJActionResult Result { get; }
+        internal IActionResult Result { get; }
 
         /// <summary>
         /// Конструктор ответа в случае ошибки десериализации запроса.
         /// </summary>
         /// <param name="actionResult">Может быть <see cref="IActionResult"/> или произвольный объект пользователя.</param>
         [DebuggerStepThrough]
-        public JErrorResponse(int id, IJActionResult actionResult)
+        public JErrorResponse(int id, IActionResult actionResult)
         {
             Id = id;
             Result = actionResult;
@@ -31,10 +31,8 @@ namespace DanilovSoft.vRPC
             var toDispose = buffer;
             try
             {
-                var actionContext = new ActionContext(Id, method: null, buffer);
-
                 // Сериализуем ответ.
-                Result.ExecuteResult(ref actionContext);
+                Result.WriteJsonRpcResult(Id, buffer);
 
                 toDispose = null; // Предотвратить Dispose.
                 return buffer;

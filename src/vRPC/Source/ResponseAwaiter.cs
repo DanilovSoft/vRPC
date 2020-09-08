@@ -18,11 +18,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        void SetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
+        void TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        void TrySetResponse(ref Utf8JsonReader reader);
+        void TrySetJResponse(ref Utf8JsonReader reader);
     }
 
     /// <summary>
@@ -88,7 +88,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        public void SetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        public void TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             Debug.Assert(header.IsRequest == false);
 
@@ -152,7 +152,7 @@ namespace DanilovSoft.vRPC
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        public void TrySetResponse(ref Utf8JsonReader reader)
+        public void TrySetJResponse(ref Utf8JsonReader reader)
         {
             if (typeof(TResult) != typeof(VoidStruct))
             // Поток ожидает некий объект как результат.

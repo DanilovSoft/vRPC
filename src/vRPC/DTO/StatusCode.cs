@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
         Ok = 20,
         Request = 21,
         BadRequest = 40,
-        Unauthorized = 41,
+        Unauthorized = 32000,
         /// <summary>
         /// Invalid JSON was received by the server.
         /// An error occurred on the server while parsing the JSON text.

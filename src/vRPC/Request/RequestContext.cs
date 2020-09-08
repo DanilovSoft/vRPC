@@ -79,7 +79,7 @@ namespace DanilovSoft.vRPC
                     var actionContext = new ActionContext(Id, Method, buffer);
 
                     // Сериализуем ответ.
-                    actionResult.ExecuteResult(ref actionContext);
+                    actionResult.WriteResult(ref actionContext);
                     ResultCode = actionContext.StatusCode;
                     ResultEncoding = actionContext.ProducesEncoding;
                 }
@@ -109,9 +109,10 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        internal ArrayBufferWriter<byte> SerializeResponseAsJrpv()
+        internal ArrayBufferWriter<byte> SerializeResponseAsJrpc()
         {
             Debug.Assert(IsJsonRpcRequest, "Формат ответа и запроса не совпадают");
+            Debug.Assert(Id != null);
 
             var buffer = new ArrayBufferWriter<byte>();
             var toDispose = buffer;
@@ -120,10 +121,8 @@ namespace DanilovSoft.vRPC
                 if (Result is IActionResult actionResult)
                 // Метод контроллера вернул специальный тип.
                 {
-                    var actionContext = new ActionContext(Id, Method, buffer);
-
                     // Сериализуем ответ.
-                    actionResult.ExecuteResult(ref actionContext);
+                    actionResult.WriteJsonRpcResult(Id.Value, buffer);
                 }
                 else
                 // Отправлять результат контроллера будем как есть.

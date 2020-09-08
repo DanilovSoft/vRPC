@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
@@ -15,7 +16,7 @@ namespace DanilovSoft.vRPC
             Value = value;
         }
 
-        private protected sealed override void FinalExecuteResult(ref ActionContext context)
+        private protected sealed override void FinalWriteResult(ref ActionContext context)
         {
             context.StatusCode = StatusCode;
 
@@ -30,6 +31,14 @@ namespace DanilovSoft.vRPC
                 // Устанавливаем формат.
                 context.ProducesEncoding = context.Method.ProducesEncoding;
             }
+        }
+
+        private protected override void FinalWriteJsonRpcResult(int id, IBufferWriter<byte> buffer)
+        {
+            Debug.Assert(false);
+            throw new NotImplementedException();
+
+            //JsonRpcSerializer.SerializeErrorResponse(buffer, DefaultStatusCode, _message, id);
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
@@ -43,10 +44,16 @@ namespace DanilovSoft.vRPC
             };
         }
 
-        public void ExecuteResult(ref ActionContext context)
+        public void WriteResult(ref ActionContext context)
         {
             ActionResult result = Convert();
-            result.ExecuteResult(ref context);
+            result.WriteResult(ref context);
+        }
+
+        public void WriteJsonRpcResult(int id, IBufferWriter<byte> buffer)
+        {
+            ActionResult result = Convert();
+            result.WriteJsonRpcResult(id, buffer);
         }
     }
 }

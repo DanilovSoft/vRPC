@@ -952,7 +952,7 @@
             <exception cref="T:DanilovSoft.vRPC.VRpcShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.OnServerMethodCall``1(DanilovSoft.vRPC.VRequest{``0})">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.OnServerRequestCall``1(DanilovSoft.vRPC.VRequest{``0})">
             <summary>
             Происходит при обращении к проксирующему интерфейсу.
             </summary>
@@ -978,7 +978,7 @@
             <remarks>Со стороны клиента.</remarks>
             <exception cref="T:System.Exception">Могут быть исключения не инкапсулированные в Task.</exception>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.WaitConnectionAndSendNotificationAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.SerializedMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.WaitConnectionAndSendNotificationAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection})">
             <summary>
             Ожидает завершение подключения к серверу и передаёт сообщение в очередь на отправку.
             Может бросить исключение.
@@ -994,7 +994,7 @@
             </summary>
             <remarks>Со стороны клиента.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotificationAsync(DanilovSoft.vRPC.SerializedMessageToSend)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotification(DanilovSoft.vRPC.INotification)">
             <summary>
             Отправляет запрос-уведомление через очередь (выполнит отправку текущим потоком если очередь пуста).
             </summary>
@@ -1087,13 +1087,6 @@
             <remarks>Не бросает исключения.</remarks>
             <param name="protocolErrorException">Распространяет исключение ожидаюшим потокам.</param>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.PostResponse(DanilovSoft.vRPC.ResponseMessage)">
-            <summary>
-            Отправляет через очередь.
-            Уменьшит <see cref="F:DanilovSoft.vRPC.ManagedConnection._activeRequestCount"/>.
-            </summary>
-            <remarks>Исключение по вине пользователеля крашнет процесс.</remarks>
-        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryPostMessage(DanilovSoft.vRPC.Context.IMessageToSend)">
             <summary>
             Передает на отправку другому потоку если канал ещё не закрыт.
@@ -1121,7 +1114,7 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryIncreaseActiveRequestsCount(System.Boolean,System.Boolean)">
             <returns>False если сервис требуется остановить.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.InvokeControllerAsync(DanilovSoft.vRPC.VRequestContext@)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.InvokeControllerAsync(DanilovSoft.vRPC.RequestContext@)">
             <summary>
             Вызывает запрошенный метод контроллера и возвращает результат.
             Результатом может быть IActionResult или Raw объект или исключение.
@@ -1137,13 +1130,13 @@
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.StartProcessRequest(DanilovSoft.vRPC.VRequestContext@)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.StartProcessRequest(DanilovSoft.vRPC.RequestContext@)">
             <summary>
             В новом потоке выполняет запрос и отправляет обратно результат или ошибку.
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessRequestThreadEntryPoint(DanilovSoft.vRPC.VRequestContext@)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessRequestThreadEntryPoint(DanilovSoft.vRPC.RequestContext@)">
             <summary>
             Выполняет запрос и отправляет результат или ошибку.
             </summary>
@@ -1161,10 +1154,10 @@
             </summary>
             <returns>False если был запрошен Shutdown и сервис нужно остановить.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendOkResponse(DanilovSoft.vRPC.VRequestContext)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendOkResponse(DanilovSoft.vRPC.RequestContext)">
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessNotificationRequest(DanilovSoft.vRPC.VRequestContext@)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessNotificationRequest(DanilovSoft.vRPC.RequestContext@)">
             <summary>
             
             </summary>
@@ -1188,34 +1181,6 @@
             <summary>
             Потокобезопасно закрывает соединение и освобождает все ресурсы.
             </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.ResponseMessage">
-            <summary>
-            Ответ на запрос для передачи удаленной стороне. Не подлежит сериализации.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.ResponseMessage.Id">
-            <summary>
-            Идентификатор скопированный из запроса.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.ResponseMessage.MethodResult">
-            <summary>
-            Результат вызова метода контроллера.
-            Может быть <see cref="T:DanilovSoft.vRPC.IActionResult"/> или произвольный объект пользователя.
-            Может быть Null если результат контроллера - void.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.ResponseMessage.Method">
-            <summary>
-            Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ResponseMessage.#ctor(DanilovSoft.vRPC.ManagedConnection,System.Int32,DanilovSoft.vRPC.IActionResult)">
-            <summary>
-            Конструктор ответа в случае ошибки десериализации запроса.
-            </summary>
-            <param name="actionResult">Может быть <see cref="T:DanilovSoft.vRPC.IActionResult"/> или произвольный объект пользователя.</param>
         </member>
         <member name="T:DanilovSoft.vRPC.ServerSideConnection">
             <summary>
@@ -1285,12 +1250,12 @@
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.VRequest`1.SetResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
+        <member name="M:DanilovSoft.vRPC.VRequest`1.TrySetVResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.VRequest`1.TrySetResponse(System.Text.Json.Utf8JsonReader@)">
+        <member name="M:DanilovSoft.vRPC.VRequest`1.TrySetJResponse(System.Text.Json.Utf8JsonReader@)">
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>
@@ -1524,22 +1489,12 @@
             Прозрачный прокси к удалённой стороне.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.JsonRpc.JResponse.Id">
+        <member name="P:DanilovSoft.vRPC.JErrorResponse.Id">
             <summary>
             Идентификатор запроса.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.JsonRpc.JResponse.Method">
-            <summary>
-            Может быть <see langword="null"/> например если ответ это ошибка разбора запроса.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.JsonRpc.JResponse.#ctor(DanilovSoft.vRPC.ManagedConnection,System.Int32,DanilovSoft.vRPC.ControllerMethodMeta,System.Object)">
-            <summary>
-            Ответ на основе запроса.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.JsonRpc.JResponse.#ctor(DanilovSoft.vRPC.ManagedConnection,System.Nullable{System.Int32},DanilovSoft.vRPC.IActionResult)">
+        <member name="M:DanilovSoft.vRPC.JErrorResponse.#ctor(System.Int32,DanilovSoft.vRPC.IActionResult)">
             <summary>
             Конструктор ответа в случае ошибки десериализации запроса.
             </summary>
@@ -1560,6 +1515,43 @@
             <summary>
             Перегрузка для Net Framework.
             </summary>
+        </member>
+        <member name="T:DanilovSoft.vRPC.RequestContext">
+            <summary>
+            Содержит запрос с параметрами полученный от удалённой стороны который необходимо выполнить.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestContext.IsResponseRequired">
+            <summary>
+            Когда Id не Null.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestContext.Method">
+            <summary>
+            Запрашиваемый метод контроллера.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestContext.Args">
+            <summary>
+            Аргументы для вызываемого метода.
+            </summary>
+        </member>
+        <member name="P:DanilovSoft.vRPC.RequestContext.IsJsonRpcRequest">
+            <summary>
+            Если запрос получен в формате JSON-RPC, то и ответ должен быть в формате JSON-RPC.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestContext.SerializeResponseAsVrpc(System.Int32@)">
+            <summary>
+            Сериализует сообщение в память. Может бросить исключение сериализации.
+            </summary>
+            <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
+        </member>
+        <member name="M:DanilovSoft.vRPC.RequestContext.AppendHeader(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte})">
+            <summary>
+            Сериализует хэдер в стрим сообщения.
+            </summary>
+            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="T:DanilovSoft.vRPC.RequestMethodMeta">
             <summary>
@@ -1595,49 +1587,6 @@
         </member>
         <member name="M:DanilovSoft.vRPC.RequestMethodMeta.ValidateNotification(System.String)">
             <exception cref="T:DanilovSoft.vRPC.VRpcException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.RequestMethodMeta.SerializeRequest(System.Object[])">
-            <summary>
-            Сериализует сообщение в память. Может бросить исключение сериализации.
-            </summary>
-            <exception cref="T:System.Exception"/>
-        </member>
-        <member name="T:DanilovSoft.vRPC.VRequestContext">
-            <summary>
-            Содержит запрос с параметрами полученный от удалённой стороны который необходимо выполнить.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.VRequestContext.IsResponseRequired">
-            <summary>
-            Когда Id не Null.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.VRequestContext.Method">
-            <summary>
-            Запрашиваемый метод контроллера.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.VRequestContext.Args">
-            <summary>
-            Аргументы для вызываемого метода.
-            </summary>
-        </member>
-        <member name="P:DanilovSoft.vRPC.VRequestContext.IsJsonRpcRequest">
-            <summary>
-            Если запрос получен в формате JSON-RPC, то и ответ должен быть в формате JSON-RPC.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.VRequestContext.SerializeResponse(System.Int32@)">
-            <summary>
-            Сериализует сообщение в память. Может бросить исключение сериализации.
-            </summary>
-            <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
-        </member>
-        <member name="M:DanilovSoft.vRPC.VRequestContext.AppendHeader(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte})">
-            <summary>
-            Сериализует хэдер в стрим сообщения.
-            </summary>
-            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.Resources.SR2.GetString(System.String,System.Object)">
             <summary>
@@ -1934,18 +1883,18 @@
             Контроллер для активации через IoC.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequest(DanilovSoft.vRPC.ManagedConnection,System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,DanilovSoft.vRPC.HeaderDto@,DanilovSoft.vRPC.VRequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequest(DanilovSoft.vRPC.ManagedConnection,System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,DanilovSoft.vRPC.HeaderDto@,DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <param name="result">Не Null когда True.</param>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequestJson(DanilovSoft.vRPC.ManagedConnection,System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.VRequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeRequestJson(DanilovSoft.vRPC.ManagedConnection,System.ReadOnlySpan{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <summary>
             Десериализует json запрос.
             </summary>
             <exception cref="T:System.Text.Json.JsonException"/>
             <returns>True если успешно десериализовали.</returns>
         </member>
-        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeMultipart(DanilovSoft.vRPC.ManagedConnection,System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.VRequestContext@,DanilovSoft.vRPC.IActionResult@)">
+        <member name="M:DanilovSoft.vRPC.CustomSerializer.TryDeserializeMultipart(DanilovSoft.vRPC.ManagedConnection,System.ReadOnlyMemory{System.Byte},DanilovSoft.vRPC.ControllerMethodMeta,System.Nullable{System.Int32},DanilovSoft.vRPC.RequestContext@,DanilovSoft.vRPC.IActionResult@)">
             <exception cref="T:System.Exception"/>
         </member>
         <member name="M:DanilovSoft.vRPC.CustomSerializer.DeserializeHeader(System.ReadOnlySpan{System.Byte})">
@@ -2144,12 +2093,12 @@
             Передает ожидающему потоку исключение как результат запроса.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.IResponseAwaiter.SetResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
+        <member name="M:DanilovSoft.vRPC.IResponseAwaiter.TrySetVResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.IResponseAwaiter.TrySetResponse(System.Text.Json.Utf8JsonReader@)">
+        <member name="M:DanilovSoft.vRPC.IResponseAwaiter.TrySetJResponse(System.Text.Json.Utf8JsonReader@)">
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>
@@ -2170,12 +2119,12 @@
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
+        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.TrySetVResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.TrySetResponse(System.Text.Json.Utf8JsonReader@)">
+        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.TrySetJResponse(System.Text.Json.Utf8JsonReader@)">
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>

@@ -161,74 +161,74 @@ namespace DanilovSoft.vRPC
             ExtensionMethods.SerializeObject(buffer, args);
         }
 
-        /// <summary>
-        /// Сериализует сообщение в память. Может бросить исключение сериализации.
-        /// </summary>
-        /// <exception cref="Exception"/>
-        [Obsolete]
-        public SerializedMessageToSend SerializeRequest(object[] args)
-        {
-            //if (!_multipartStrategy)
-            {
-                return SerializeToJson(args);
-            }
-            //else
-            //{
-            //    return SerializeToMultipart(args);
-            //}
-        }
+        ///// <summary>
+        ///// Сериализует сообщение в память. Может бросить исключение сериализации.
+        ///// </summary>
+        ///// <exception cref="Exception"/>
+        //[Obsolete]
+        //public SerializedMessageToSend SerializeRequest(object[] args)
+        //{
+        //    //if (!_multipartStrategy)
+        //    {
+        //        return SerializeToJson(args);
+        //    }
+        //    //else
+        //    //{
+        //    //    return SerializeToMultipart(args);
+        //    //}
+        //}
 
-        private SerializedMessageToSend SerializeToMultipart(object[] args)
-        {
-            //Debug.Assert(_multipartStrategy);
+        //private SerializedMessageToSend SerializeToMultipart(object[] args)
+        //{
+        //    //Debug.Assert(_multipartStrategy);
 
-            var serMsg = new SerializedMessageToSend(this)
-            {
-                ContentEncoding = KnownEncoding.MultipartEncoding,
-                Parts = new Multipart[args.Length]
-            };
-            SerializedMessageToSend? toDispose = serMsg;
-            try
-            {
-                for (int i = 0; i < args.Length; i++)
-                {
-                    using (VRpcContent? part = args[i] as VRpcContent)
-                    {
-                        Debug.Assert(part != null, "Мы заранее проверяли что все аргументы являются VRpcContent.");
+        //    var serMsg = new SerializedMessageToSend(this)
+        //    {
+        //        ContentEncoding = KnownEncoding.MultipartEncoding,
+        //        Parts = new Multipart[args.Length]
+        //    };
+        //    SerializedMessageToSend? toDispose = serMsg;
+        //    try
+        //    {
+        //        for (int i = 0; i < args.Length; i++)
+        //        {
+        //            using (VRpcContent? part = args[i] as VRpcContent)
+        //            {
+        //                Debug.Assert(part != null, "Мы заранее проверяли что все аргументы являются VRpcContent.");
 
-                        if (part.TryComputeLength(out int length))
-                        {
-                            if (serMsg.Buffer.FreeCapacity < length)
-                            {
-                                //serMsg.MemoryPoolBuffer.Advance(length);
-                            }
-                        }
-                        serMsg.Parts[i] = part.InnerSerializeToStream(serMsg.Buffer);
-                    }
-                }
-                toDispose = null;
-                return serMsg;
-            }
-            finally
-            {
-                toDispose?.Dispose();
-            }
-        }
+        //                if (part.TryComputeLength(out int length))
+        //                {
+        //                    if (serMsg.Buffer.FreeCapacity < length)
+        //                    {
+        //                        //serMsg.MemoryPoolBuffer.Advance(length);
+        //                    }
+        //                }
+        //                serMsg.Parts[i] = part.InnerSerializeToStream(serMsg.Buffer);
+        //            }
+        //        }
+        //        toDispose = null;
+        //        return serMsg;
+        //    }
+        //    finally
+        //    {
+        //        toDispose?.Dispose();
+        //    }
+        //}
 
-        private SerializedMessageToSend SerializeToJson(object[] args)
-        {
-            var serializedMessage = new SerializedMessageToSend(this);
-            SerializedMessageToSend? toDispose = serializedMessage;
-            try
-            {
-                ExtensionMethods.SerializeObjectJson(serializedMessage.Buffer, args);
-                toDispose = null;
-                return serializedMessage;
-            }
-            finally
-            {
-                toDispose?.Dispose();
-            }
-        }
+        //private SerializedMessageToSend SerializeToJson(object[] args)
+        //{
+        //    var serializedMessage = new SerializedMessageToSend(this);
+        //    SerializedMessageToSend? toDispose = serializedMessage;
+        //    try
+        //    {
+        //        ExtensionMethods.SerializeObjectJson(serializedMessage.Buffer, args);
+        //        toDispose = null;
+        //        return serializedMessage;
+        //    }
+        //    finally
+        //    {
+        //        toDispose?.Dispose();
+        //    }
+        //}
     }
 }

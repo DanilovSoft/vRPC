@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,18 +19,22 @@ namespace DanilovSoft.vRPC
 
         public virtual Task ExecuteResultAsync(ref ActionContext context)
         {
-            ExecuteResult(ref context);
+            WriteResult(ref context);
             return Task.CompletedTask;
         }
 
-        public virtual void ExecuteResult(ref ActionContext context)
+        public virtual void WriteResult(ref ActionContext context)
         {
-            FinalExecuteResult(ref context);
+            FinalWriteResult(ref context);
         }
 
-        private protected virtual void FinalExecuteResult(ref ActionContext context)
-        {
+        private protected abstract void FinalWriteResult(ref ActionContext context);
 
+        public void WriteJsonRpcResult(int id, IBufferWriter<byte> buffer)
+        {
+            FinalWriteJsonRpcResult(id, buffer);
         }
+
+        private protected abstract void FinalWriteJsonRpcResult(int id, IBufferWriter<byte> buffer);
     }
 }

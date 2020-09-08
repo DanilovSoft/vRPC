@@ -231,7 +231,7 @@ namespace DanilovSoft.vRPC
                 return true;
             }
 
-            permissionError = new UnauthorizedResult($"Action '{actionMeta.MethodFullName}' requires user authentication.", StatusCode.Unauthorized);
+            permissionError = new UnauthorizedErrorResult($"Action '{actionMeta.MethodFullName}' requires user authentication.");
             return false;
         }
 

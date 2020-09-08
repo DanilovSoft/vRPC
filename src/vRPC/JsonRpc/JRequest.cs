@@ -63,13 +63,13 @@ namespace DanilovSoft.vRPC.Context
             _tcs.TrySetException(exception);
         }
 
-        public void SetResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        public void TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             Debug.Assert(false);
             throw new NotImplementedException();
         }
 
-        public void TrySetResponse(ref Utf8JsonReader reader)
+        public void TrySetJResponse(ref Utf8JsonReader reader)
         {
             Debug.Assert(false);
             throw new NotImplementedException();

@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
             _message = message;
         }
 
-        private protected sealed override void FinalExecuteResult(ref ActionContext context)
+        private protected sealed override void FinalWriteResult(ref ActionContext context)
         {
             context.StatusCode = DefaultStatusCode;
             context.ResponseBuffer.WriteStringBinary(_message);

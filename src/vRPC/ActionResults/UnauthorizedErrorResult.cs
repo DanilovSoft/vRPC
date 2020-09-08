@@ -1,23 +1,16 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
 
 namespace DanilovSoft.vRPC
 {
-    [DebuggerDisplay(@"\{{_message}\}")]
-    internal sealed class MethodNotFoundResult : IActionResult
+    internal sealed class UnauthorizedErrorResult : IActionResult
     {
-        private const StatusCode DefaultStatusCode = StatusCode.MethodNotFound;
+        private const StatusCode DefaultStatusCode = StatusCode.Unauthorized;
         private readonly string _message;
 
-        public MethodNotFoundResult()
-        {
-            _message = "Method not found";
-        }
-
-        public MethodNotFoundResult(string message)
+        public UnauthorizedErrorResult(string message)
         {
             _message = message;
         }

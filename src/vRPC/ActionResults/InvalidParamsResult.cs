@@ -2,22 +2,22 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 
 namespace DanilovSoft.vRPC
 {
-    [DebuggerDisplay(@"\{{_message}\}")]
-    internal sealed class MethodNotFoundResult : IActionResult
+    internal sealed class InvalidParamsResult : IActionResult
     {
-        private const StatusCode DefaultStatusCode = StatusCode.MethodNotFound;
+        private const StatusCode DefaultStatusCode = StatusCode.InvalidParams;
         private readonly string _message;
 
-        public MethodNotFoundResult()
+        public InvalidParamsResult()
         {
-            _message = "Method not found";
+            _message = "Invalid params";
         }
 
-        public MethodNotFoundResult(string message)
+        public InvalidParamsResult(string message)
         {
             _message = message;
         }

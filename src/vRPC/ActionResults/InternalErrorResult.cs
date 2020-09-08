@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Text;
 
@@ -20,7 +21,12 @@ namespace DanilovSoft.vRPC
             _message = message;
         }
 
-        public void ExecuteResult(ref ActionContext context)
+        public void WriteJsonRpcResult(int id, IBufferWriter<byte> buffer)
+        {
+            JsonRpcSerializer.SerializeErrorResponse(buffer, DefaultStatusCode, "Invalid Request", id);
+        }
+
+        public void WriteResult(ref ActionContext context)
         {
             context.StatusCode = DefaultStatusCode;
             context.ResponseBuffer.WriteStringBinary(_message);
