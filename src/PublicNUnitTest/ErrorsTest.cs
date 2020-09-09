@@ -67,12 +67,17 @@ namespace PublicXUnitTest
             var ws = new DanilovSoft.WebSockets.ClientWebSocket();
 
             await ws.ConnectAsync(new Uri($"ws://localhost:{listener.Port}"), default);
-            await ws.SendAsync(Encoding.UTF8.GetBytes(@"{""jsonrpc"": ""2.0"", ""method"": 1, ""params"": ""bar""}"), WebSocketMessageType.Text, true, default);
+            await ws.SendAsync(Encoding.UTF8.GetBytes(@"{""jsonrpc"": ""2.0"", ""method"": ""foobar, ""params"": ""bar"", ""baz]"), WebSocketMessageType.Text, true, default);
 
             var buf = new byte[1024];
-            var m = await ws.ReceiveAsync(buf, default);
+            var m = ws.ReceiveExAsync(buf, default).AsTask().GetAwaiter().GetResult();
 
-            Assert.AreEqual("Parse error (-32700)", m.CloseStatusDescription);
+            if (m.MessageType == WebSocketMessageType.Text)
+            {
+                string wtf = Encoding.UTF8.GetString(buf, 0, m.Count);
+            }
+
+            Assert.AreEqual("Parse error (-32700)", ws.CloseStatusDescription);
         }
     }
 }

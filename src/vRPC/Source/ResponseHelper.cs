@@ -53,9 +53,9 @@ namespace DanilovSoft.vRPC.Source
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static BadRequestResult ArgumentsCountMismatchError(string actionName, int targetArgumentsCount)
+        internal static InvalidParamsResult ArgumentsCountMismatchError(string actionName, int targetArgumentsCount)
         {
-            return new BadRequestResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
+            return new InvalidParamsResult(string.Format(CultureInfo.InvariantCulture, ArgumentsCountMismatch, actionName, targetArgumentsCount));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

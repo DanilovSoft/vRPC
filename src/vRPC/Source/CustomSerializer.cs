@@ -18,21 +18,21 @@ namespace DanilovSoft.vRPC
 {
     internal static partial class CustomSerializer
     {
-        /// <param name="result">Не Null когда True.</param>
+        /// <param name="requestContext">Не Null когда True.</param>
         /// <remarks>Не бросает исключения.</remarks>
         internal static bool TryDeserializeRequest(ManagedConnection context, ReadOnlyMemory<byte> content, ControllerMethodMeta method, in HeaderDto header, 
-            [MaybeNullWhen(false)] out RequestContext result,
+            [MaybeNullWhen(false)] out RequestContext requestContext,
             [MaybeNullWhen(true)] out IActionResult? error)
         {
             try
             {
                 if (header.PayloadEncoding != KnownEncoding.MultipartEncoding)
                 {
-                    return TryDeserializeRequestJson(context, content.Span, method, header.Id, out result, out error);
+                    return TryDeserializeRequestJson(context, content.Span, method, header.Id, out requestContext, out error);
                 }
                 else
                 {
-                    return TryDeserializeMultipart(context, content, method, header.Id, out result, out error);
+                    return TryDeserializeMultipart(context, content, method, header.Id, out requestContext, out error);
                 }
             }
             catch (Exception ex)
@@ -44,13 +44,13 @@ namespace DanilovSoft.vRPC
                 {
                     // Подготовить ответ с ошибкой.
                     error = new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\".");
-                    result = default;
+                    requestContext = default;
                     return false;
                 }
                 else
                 {
                     error = null;
-                    result = default;
+                    requestContext = default;
                     return false;
                 }
             }

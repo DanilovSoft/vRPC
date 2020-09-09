@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
         {
         }
 
-        private protected override void FinalWriteJsonRpcResult(int id, IBufferWriter<byte> buffer)
+        private protected override void FinalWriteJsonRpcResult(int? id, IBufferWriter<byte> buffer)
         {
             Debug.Assert(false);
             throw new NotImplementedException();

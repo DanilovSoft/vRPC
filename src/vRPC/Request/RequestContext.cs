@@ -55,12 +55,6 @@ namespace DanilovSoft.vRPC
             IsJsonRpcRequest = isJsonRpc;
         }
 
-        // Вызывается пулом потоков.
-        public void Execute()
-        {
-            Context.ProcessRequestThreadEntryPoint(this);
-        }
-
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
@@ -79,7 +73,7 @@ namespace DanilovSoft.vRPC
                     var actionContext = new ActionContext(Id, Method, buffer);
 
                     // Сериализуем ответ.
-                    actionResult.WriteResult(ref actionContext);
+                    actionResult.WriteVRpcResult(ref actionContext);
                     ResultCode = actionContext.StatusCode;
                     ResultEncoding = actionContext.ProducesEncoding;
                 }
@@ -151,7 +145,7 @@ namespace DanilovSoft.vRPC
         /// <remarks>Не бросает исключения.</remarks>
         private int AppendHeader(ArrayBufferWriter<byte> buffer)
         {
-            //Debug.Assert(Id != null);
+            Debug.Assert(Id != null);
 
             HeaderDto header = new HeaderDto(Id.Value, buffer.WrittenCount, ResultEncoding, responseCode: ResultCode);
 
@@ -180,6 +174,31 @@ namespace DanilovSoft.vRPC
         //        return new HeaderDto(messageToSend.Uid, messageToSend.ContentEncoding, request.FullName, messageToSend.Buffer.WrittenCount);
         //    }
         //}
+
+        /// <summary>
+        /// В новом потоке выполняет запрос и отправляет обратно результат или ошибку.
+        /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
+        internal void StartProcessRequest()
+        {
+#if NETSTANDARD2_0 || NET472
+            ThreadPool.UnsafeQueueUserWorkItem(ProcessRequestThreadEntryPoint, state: this); // Без замыкания.
+            
+            static void ProcessRequestThreadEntryPoint(object? state)
+            {
+                var request = (RequestContext)state!;
+                request.Context.OnStartProcessRequest(request);
+            }  
+#else
+            ThreadPool.UnsafeQueueUserWorkItem(this, preferLocal: true);
+#endif
+        }
+
+        // Вызывается пулом потоков.
+        public void Execute()
+        {
+            Context.OnStartProcessRequest(this);
+        }
 
         public void Dispose()
         {

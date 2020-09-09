@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
 
     public interface IActionResult
     {
-        void WriteResult(ref ActionContext context);
-        void WriteJsonRpcResult(int id, IBufferWriter<byte> buffer);
+        void WriteVRpcResult(ref ActionContext context);
+        void WriteJsonRpcResult(int? id, IBufferWriter<byte> buffer);
     }
 }

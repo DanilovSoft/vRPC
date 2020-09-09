@@ -54,7 +54,7 @@ namespace DanilovSoft.vRPC
 
         public static void SerializeErrorResponse(IBufferWriter<byte> bufferWriter, StatusCode code, string message, int? id)
         {
-            // {"jsonrpc": "2.0", "error": {"code": -32601, "message": "Method not found"}, "id": "1"}
+            // {"jsonrpc": "2.0", "id": "1", "error": {"code": -32601, "message": "Method not found"}}
             using (var writer = new Utf8JsonWriter(bufferWriter))
             {
                 // {
@@ -62,6 +62,17 @@ namespace DanilovSoft.vRPC
 
                 // "jsonrpc": "2.0"
                 writer.WriteString(JsonRpcVersion, "2.0");
+
+                if (id != null)
+                {
+                    // Id: 1
+                    writer.WriteNumber(Id, id.Value);
+                }
+                else
+                // По стандарту мы должны записать Null если не удалось получить id запроса.
+                {
+                    writer.WriteNull(Id);
+                }
 
                 // "error": "{"
                 writer.WriteStartObject(Error);
@@ -74,17 +85,6 @@ namespace DanilovSoft.vRPC
 
                 // "}"
                 writer.WriteEndObject();
-
-                if (id != null)
-                {
-                    // Id: 1
-                    writer.WriteNumber(Id, id.Value);
-                }
-                else
-                // По стандарту мы должны записать Null если не удалось получить id запроса.
-                {
-                    writer.WriteNull(Id);
-                }
 
                 // }
                 writer.WriteEndObject();

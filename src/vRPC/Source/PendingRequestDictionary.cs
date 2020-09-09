@@ -95,7 +95,7 @@ namespace DanilovSoft.vRPC
                     {
                         foreach (IResponseAwaiter tcs in _dict.Values)
                         {
-                            tcs.TrySetException(exception);
+                            tcs.SetException(exception);
                         }
                         _dict.Clear();
                     }

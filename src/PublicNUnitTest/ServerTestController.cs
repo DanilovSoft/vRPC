@@ -11,8 +11,8 @@ namespace XUnitTest
 {
     public interface IServerTestController
     {
-        void TestException(string exceptionMessage);
-        void TestExceptionThrow(string exceptionMessage);
+        void InvalidParamsResult(string exceptionMessage);
+        void TestInternalErrorThrow(string exceptionMessage);
         void TestDelay();
         Task Test2Async();
         int GetSum(int x1, int x2);
@@ -46,14 +46,14 @@ namespace XUnitTest
             throw new InvalidOperationException("Не удалось подключиться к БД");
         }
 
-        public void TestExceptionThrow(string message)
+        public void TestInternalErrorThrow(string message)
         {
-            throw new VRpcBadRequestException(message);
+            throw new VRpcInternalErrorException(message);
         }
 
-        public IActionResult TestException(string message)
+        public IActionResult InvalidParamsResult(string message)
         {
-            return BadRequest(message);
+            return InvalidParams(message);
         }
 
         public void TestDelay()

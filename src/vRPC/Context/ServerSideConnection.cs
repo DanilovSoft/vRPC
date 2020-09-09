@@ -124,7 +124,7 @@ namespace DanilovSoft.vRPC
             }
             catch (Exception)
             {
-                return new BadRequestResult("Токен не валиден");
+                return new InvalidParamsResult("Токен не валиден");
             }
 
             ServerAccessToken bearerToken;
@@ -137,7 +137,7 @@ namespace DanilovSoft.vRPC
             }
             catch (Exception)
             {
-                return new BadRequestResult("Токен не валиден");
+                return new InvalidParamsResult("Токен не валиден");
             }
 
             return SignIn(bearerToken);
@@ -160,17 +160,17 @@ namespace DanilovSoft.vRPC
                     }
                     catch (EndOfStreamException)
                     {
-                        return new BadRequestResult("Аутентификация не работает на .NET Framework из-за бага");
+                        return new InvalidParamsResult("Аутентификация не работает на .NET Framework из-за бага");
                     }
                     catch (Exception)
                     {
-                        return new BadRequestResult("Токен не валиден");
+                        return new InvalidParamsResult("Токен не валиден");
                     }
                 }
             }
             else
             {
-                return new BadRequestResult("Токен истёк");
+                return new InvalidParamsResult("Токен истёк");
             }
 
             // Эта строка фактически атомарно аутентифицирует соединение для всех последующих запросов.

@@ -44,13 +44,13 @@ namespace DanilovSoft.vRPC
             };
         }
 
-        public void WriteResult(ref ActionContext context)
+        public void WriteVRpcResult(ref ActionContext context)
         {
             ActionResult result = Convert();
-            result.WriteResult(ref context);
+            result.WriteVRpcResult(ref context);
         }
 
-        public void WriteJsonRpcResult(int id, IBufferWriter<byte> buffer)
+        public void WriteJsonRpcResult(int? id, IBufferWriter<byte> buffer)
         {
             ActionResult result = Convert();
             result.WriteJsonRpcResult(id, buffer);

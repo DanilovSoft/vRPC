@@ -24,7 +24,7 @@ namespace ConsoleApp
         [TcpNoDelay]
         public int VoidOneArg(int n)
         {
-            throw new VRpcBadRequestException("проверка");
+            throw new VRpcInvalidParamsException("проверка");
             return 123;
         }
     }

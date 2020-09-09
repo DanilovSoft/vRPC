@@ -11,18 +11,18 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Идентификатор запроса.
         /// </summary>
-        internal int Id { get; }
-        internal IActionResult Result { get; }
+        internal int? Id { get; }
+        private readonly IActionResult _errorResult;
 
         /// <summary>
         /// Конструктор ответа в случае ошибки десериализации запроса.
         /// </summary>
-        /// <param name="actionResult">Может быть <see cref="IActionResult"/> или произвольный объект пользователя.</param>
+        /// <param name="errorResult">Может быть <see cref="IActionResult"/> или произвольный объект пользователя.</param>
         [DebuggerStepThrough]
-        public JErrorResponse(int id, IActionResult actionResult)
+        public JErrorResponse(int? id, IActionResult errorResult)
         {
             Id = id;
-            Result = actionResult;
+            _errorResult = errorResult;
         }
 
         internal ArrayBufferWriter<byte> Serialize()
@@ -32,7 +32,7 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Сериализуем ответ.
-                Result.WriteJsonRpcResult(Id, buffer);
+                _errorResult.WriteJsonRpcResult(Id, buffer);
 
                 toDispose = null; // Предотвратить Dispose.
                 return buffer;

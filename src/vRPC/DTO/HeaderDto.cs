@@ -129,21 +129,21 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <param name="stream"></param>
         /// <param name="headerSize"></param>
-        public void SerializeProtoBuf(Stream stream, out int headerSize)
+        public void SerializeProtoBuf(ArrayBufferWriter<byte> buffer, out int headerSize)
         {
-            int initialPos = (int)stream.Position;
-            
+            int initialPos = buffer.WrittenCount;
+
             // Сериализуем хедэр.
-            ProtoBufSerializer.Serialize(stream, this);
-            
-            headerSize = (int)stream.Position - initialPos;
+            ProtoBufSerializer.Serialize(buffer, this);
+
+            headerSize = buffer.WrittenCount - initialPos;
 
             Debug.Assert(headerSize <= HeaderMaxSize);
 
             if (headerSize <= HeaderMaxSize)
                 return;
-
-            ThrowHelper.ThrowVRpcException(HeaderSizeExceededException);
+            else
+                ThrowHelper.ThrowVRpcException(HeaderSizeExceededException);
         }
 
         /// <summary>

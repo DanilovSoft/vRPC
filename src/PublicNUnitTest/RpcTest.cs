@@ -17,44 +17,43 @@ namespace XUnitTest
         [Test]
         public void TestExceptionThrow()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
-
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
+
             var iface = cli.GetProxy<IServerTestController>();
             try
             {
-                iface.TestExceptionThrow("проверка");
+                iface.TestInternalErrorThrow("проверка");
             }
-            catch (VRpcBadRequestException ex)
+            catch (VRpcInternalErrorException ex)
             {
                 Assert.AreEqual("проверка", ex.Message);
             }
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestException()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
             try
             {
-                iface.TestException("проверка");
+                iface.InvalidParamsResult("проверка");
             }
-            catch (VRpcBadRequestException ex)
+            catch (VRpcInvalidParamsException ex)
             {
                 Assert.AreEqual("проверка", ex.Message);
             }
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestDelayVoid()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, false);
             var iface = cli.GetProxy<IServerTestController>();
@@ -64,13 +63,14 @@ namespace XUnitTest
             var sw = Stopwatch.StartNew();
             iface.TestDelay();
             Assert.True(sw.ElapsedMilliseconds >= 500);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public async Task TestAsyncVoid()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, false);
             var iface = cli.GetProxy<IServerTestController>();
@@ -80,141 +80,152 @@ namespace XUnitTest
             var sw = Stopwatch.StartNew();
             await iface.Test2Async();
             Assert.True(sw.ElapsedMilliseconds >= 500);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestSumResult()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
-            
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
+
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
             int sum = iface.GetSum(1, 2);
             Assert.AreEqual(3, sum);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestSumValueTask()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
             int sum = iface.GetSum2(1, 2);
             Assert.AreEqual(3, sum);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestStringResult()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
             string value = iface.GetString();
             Assert.AreEqual("OK", value);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestNullStringResult()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
             string value = iface.GetNullString();
             Assert.Null(value);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public async Task TestNullStringAsync()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
             string value = await iface.GetNullStringAsync();
             Assert.Null(value);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public async Task TestSumAsync()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
             int sum = await iface.GetSumAsync(1, 2);
             Assert.AreEqual(3, sum);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public async Task TestNotificationAsync()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
             await iface.NotifyAsync(123);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestNotification()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
             iface.Notify(123);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestCallback()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
             string selfEcho = iface.MakeCallback("qwerty");
             Assert.AreEqual("qwerty", selfEcho);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestAsyncCallback()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
             string selfEcho = iface.MakeAsyncCallback("qwerty");
             Assert.AreEqual("qwerty", selfEcho);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestNotificationCallback()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
 
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var mre = new ManualResetEventSlim(false);
@@ -224,14 +235,14 @@ namespace XUnitTest
             iface.NotifyCallback(123);
 
             Assert.True(mre.Wait(30_000));
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
 
         [Test]
         public void TestMethodNotFound()
         {
-            using var listener = new VRpcListener(IPAddress.Any);
-            listener.Start();
-
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
             try
@@ -239,10 +250,13 @@ namespace XUnitTest
                 iface.NotExistedMethod();
                 Assert.True(false);
             }
-            catch (VRpcException)
+            catch (VRpcMethodNotFoundException)
             {
-                Assert.Pass();
+                return;
             }
+            Assert.Fail();
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
     }
 }

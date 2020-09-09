@@ -20,9 +20,9 @@ namespace DanilovSoft.vRPC
             IsNotification = !requestContext.IsResponseRequired;
         }
 
-        protected static BadRequestResult BadRequest(string errorMessage)
+        protected static InvalidParamsResult InvalidParams(string errorMessage)
         {
-            return new BadRequestResult(errorMessage);
+            return new InvalidParamsResult(errorMessage);
         }
 
         protected static OkResult Ok()

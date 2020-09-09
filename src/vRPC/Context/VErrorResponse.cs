@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace DanilovSoft.vRPC.Context
@@ -7,12 +8,18 @@ namespace DanilovSoft.vRPC.Context
     internal sealed class VErrorResponse : IMessageToSend
     {
         internal int Id { get; }
-        private IActionResult _result { get; }
+        internal IActionResult ErrorResult { get; }
 
-        public VErrorResponse(int id, IActionResult error)
+        public VErrorResponse(int id, IActionResult errorResult)
         {
             Id = id;
-            _result = error;
+            ErrorResult = errorResult;
+        }
+
+        internal ArrayBufferWriter<byte> Serialize(out int headerSize)
+        {
+            Debug.Assert(false);
+            throw new NotImplementedException();
         }
     }
 }

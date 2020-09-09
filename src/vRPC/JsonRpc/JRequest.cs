@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -49,7 +50,7 @@ namespace DanilovSoft.vRPC.Context
             catch (Exception ex)
             {
                 var vex = new VRpcSerializationException("Ошибка при сериализации пользовательских данных.", ex);
-                TrySetException(vex);
+                SetException(vex);
                 return false;
             }
             finally
@@ -58,18 +59,24 @@ namespace DanilovSoft.vRPC.Context
             }
         }
 
-        public void TrySetException(Exception exception)
+        public void SetException(VRpcException rpcException)
+        {
+            SetException(exception: rpcException);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetException(Exception exception)
         {
             _tcs.TrySetException(exception);
         }
 
-        public void TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        public void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             Debug.Assert(false);
             throw new NotImplementedException();
         }
 
-        public void TrySetJResponse(ref Utf8JsonReader reader)
+        public void SetJResponse(ref Utf8JsonReader reader)
         {
             Debug.Assert(false);
             throw new NotImplementedException();

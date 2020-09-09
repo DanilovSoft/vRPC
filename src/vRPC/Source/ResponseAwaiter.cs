@@ -14,15 +14,19 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
-        void TrySetException(Exception exception);
+        void SetException(VRpcException exception);
+        /// <summary>
+        /// Передает ожидающему потоку исключение как результат запроса.
+        /// </summary>
+        void SetException(Exception exception);
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        void TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
+        void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        void TrySetJResponse(ref Utf8JsonReader reader);
+        void SetJResponse(ref Utf8JsonReader reader);
     }
 
     /// <summary>
@@ -61,7 +65,16 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
-        public void TrySetException(Exception exception)
+        public void SetException(VRpcException rpcException)
+        {
+            SetException(exception: rpcException);
+        }
+
+        /// <summary>
+        /// Передает ожидающему потоку исключение как результат запроса.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetException(Exception exception)
         {
             _tcs.TrySetException(exception);
         }
@@ -88,7 +101,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        public void TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        public void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             Debug.Assert(header.IsRequest == false);
 
@@ -109,7 +122,7 @@ namespace DanilovSoft.vRPC
                         catch (Exception deserializationException)
                         {
                             // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
-                            TrySetException(new VRpcProtocolErrorException(
+                            SetException(new VRpcProtocolErrorException(
                                 $"Ошибка десериализации ответа на запрос \"{Request.FullName}\".", deserializationException));
                         }
                     }
@@ -125,7 +138,7 @@ namespace DanilovSoft.vRPC
                         // Результатом этого запроса не может быть Null.
                         {
                             // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
-                            TrySetException(new VRpcProtocolErrorException(
+                            SetException(new VRpcProtocolErrorException(
                                 $"Ожидался не пустой результат запроса но был получен ответ без результата."));
                         }
                     }
@@ -143,8 +156,10 @@ namespace DanilovSoft.vRPC
                 // Телом ответа в этом случае будет строка.
                 string errorMessage = payload.ReadAsString();
 
+                var rpcException = ExceptionHelper.ToException(header.StatusCode, errorMessage);
+
                 // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
-                TrySetException(new VRpcBadRequestException(errorMessage, header.StatusCode));
+                SetException(rpcException);
             }
         }
 
@@ -152,7 +167,7 @@ namespace DanilovSoft.vRPC
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        public void TrySetJResponse(ref Utf8JsonReader reader)
+        public void SetJResponse(ref Utf8JsonReader reader)
         {
             if (typeof(TResult) != typeof(VoidStruct))
             // Поток ожидает некий объект как результат.
@@ -166,7 +181,7 @@ namespace DanilovSoft.vRPC
                 catch (JsonException deserializationException)
                 {
                     // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
-                    TrySetException(new VRpcProtocolErrorException(
+                    SetException(new VRpcProtocolErrorException(
                         $"Ошибка десериализации ответа на запрос \"{Request.FullName}\".", deserializationException));
 
                     return;
