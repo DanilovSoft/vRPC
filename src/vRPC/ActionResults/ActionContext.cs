@@ -25,6 +25,12 @@ namespace DanilovSoft.vRPC
         internal StatusCode StatusCode { get; set; }
         internal string? ProducesEncoding { get; set; }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="method">Может быть Null если не удалось разобрать запрос.</param>
+        /// <param name="responseBuffer"></param>
         internal ActionContext(int? id, ControllerMethodMeta? method, ArrayBufferWriter<byte> responseBuffer)
         {
             Id = id;

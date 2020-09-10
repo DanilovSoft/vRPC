@@ -24,6 +24,14 @@
             Может быть <see langword="null"/> если не удалось разобрать запрос.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.ActionContext.#ctor(System.Nullable{System.Int32},DanilovSoft.vRPC.ControllerMethodMeta,DanilovSoft.vRPC.ArrayBufferWriter{System.Byte})">
+            <summary>
+            
+            </summary>
+            <param name="id"></param>
+            <param name="method">Может быть Null если не удалось разобрать запрос.</param>
+            <param name="responseBuffer"></param>
+        </member>
         <member name="T:DanilovSoft.vRPC.InternalErrorResult">
             <summary>
             Код ошибки -32603, аналогично 500.
@@ -787,6 +795,12 @@
             Может быть True когда IsRequest тоже является True.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.Context.VErrorResponse.AppendHeader(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte},System.Int32,DanilovSoft.vRPC.StatusCode,System.String)">
+            <summary>
+            Сериализует хэдер в стрим сообщения.
+            </summary>
+            <remarks>Не бросает исключения.</remarks>
+        </member>
         <member name="M:DanilovSoft.vRPC.Context.JRequest`1.TrySerialize(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte}@)">
             <summary>
             Сериализация пользовательских данных может спровоцировать исключение 
@@ -1157,9 +1171,6 @@
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SerializeResponseAndTrySend(DanilovSoft.vRPC.Context.IMessageToSend)">
-            <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
-        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDispose(DanilovSoft.vRPC.CloseReason)">
             <summary>
             Потокобезопасно освобождает ресурсы соединения. Вызывается при закрытии соединения.
@@ -1359,7 +1370,7 @@
             Конструктор сериализатора, для ответа и для запроса.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.HeaderDto.SerializeProtoBuf(System.IO.Stream,System.Int32@)">
+        <member name="M:DanilovSoft.vRPC.HeaderDto.SerializeProtoBuf(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte},System.Int32@)">
             <summary>
             Сериализует заголовок.
             </summary>
@@ -1540,7 +1551,7 @@
             </summary>
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
         </member>
-        <member name="M:DanilovSoft.vRPC.RequestContext.AppendHeader(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte})">
+        <member name="M:DanilovSoft.vRPC.RequestContext.AppendHeader(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte},System.Int32,DanilovSoft.vRPC.StatusCode,System.String)">
             <summary>
             Сериализует хэдер в стрим сообщения.
             </summary>

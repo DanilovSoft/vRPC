@@ -8,18 +8,48 @@ namespace DanilovSoft.vRPC.Context
     internal sealed class VErrorResponse : IMessageToSend
     {
         internal int Id { get; }
-        internal IActionResult ErrorResult { get; }
+        private IActionResult _errorResult { get; }
 
         public VErrorResponse(int id, IActionResult errorResult)
         {
             Id = id;
-            ErrorResult = errorResult;
+            _errorResult = errorResult;
         }
 
         internal ArrayBufferWriter<byte> Serialize(out int headerSize)
         {
-            Debug.Assert(false);
-            throw new NotImplementedException();
+            var buffer = new ArrayBufferWriter<byte>();
+            var toDispose = buffer;
+            var context = new ActionContext(Id, null, buffer);
+            try
+            {
+                // Сериализуем ответ.
+                _errorResult.WriteVRpcResult(ref context);
+
+                headerSize = AppendHeader(buffer, Id, context.StatusCode, context.ProducesEncoding);
+
+                toDispose = null; // Предотвратить Dispose.
+                return buffer;
+            }
+            finally
+            {
+                toDispose?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Сериализует хэдер в стрим сообщения.
+        /// </summary>
+        /// <remarks>Не бросает исключения.</remarks>
+        private static int AppendHeader(ArrayBufferWriter<byte> buffer, int id, StatusCode responseCode, string? encoding)
+        {
+            var header = new HeaderDto(id, buffer.WrittenCount, encoding, responseCode);
+
+            // Записать заголовок в конец стрима. Не бросает исключения.
+            int headerSize = header.SerializeJson(buffer);
+
+            // Запомним размер хэдера.
+            return headerSize;
         }
     }
 }

@@ -40,8 +40,8 @@ namespace DanilovSoft.vRPC
         public bool IsJsonRpcRequest { get; }
 
         internal object? Result { get; set; }
-        internal StatusCode ResultCode { get; private set; }
-        internal string? ResultEncoding { get; private set; }
+        //internal StatusCode ResultCode { get; private set; }
+        //internal string? ResultEncoding { get; private set; }
 
         // ctor
         public RequestContext(ManagedConnection connection, int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
@@ -62,6 +62,7 @@ namespace DanilovSoft.vRPC
         internal ArrayBufferWriter<byte> SerializeResponseAsVrpc(out int headerSize)
         {
             Debug.Assert(!IsJsonRpcRequest, "Формат ответа и запроса не совпадают");
+            Debug.Assert(Id != null);
 
             var buffer = new ArrayBufferWriter<byte>();
             var toDispose = buffer;
@@ -74,25 +75,25 @@ namespace DanilovSoft.vRPC
 
                     // Сериализуем ответ.
                     actionResult.WriteVRpcResult(ref actionContext);
-                    ResultCode = actionContext.StatusCode;
-                    ResultEncoding = actionContext.ProducesEncoding;
+
+                    headerSize = AppendHeader(buffer, Id.Value, actionContext.StatusCode, actionContext.ProducesEncoding);
                 }
                 else
                 // Отправлять результат контроллера будем как есть.
                 {
-                    // Сериализуем ответ.
-                    ResultCode = StatusCode.Ok;
-
                     // Сериализуем контент если он есть (у void его нет).
                     if (Result != null)
                     {
                         Debug.Assert(Method != null, "RAW результат может быть только на основе запроса");
                         Method.SerializerDelegate(buffer, Result);
-                        ResultEncoding = Method.ProducesEncoding;
+                        
+                        headerSize = AppendHeader(buffer, Id.Value, StatusCode.Ok, Method.ProducesEncoding);
+                    }
+                    else
+                    {
+                        headerSize = AppendHeader(buffer, Id.Value, StatusCode.Ok, null);
                     }
                 }
-
-                headerSize = AppendHeader(buffer);
 
                 toDispose = null;
                 return buffer;
@@ -143,11 +144,9 @@ namespace DanilovSoft.vRPC
         /// Сериализует хэдер в стрим сообщения.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        private int AppendHeader(ArrayBufferWriter<byte> buffer)
+        private static int AppendHeader(ArrayBufferWriter<byte> buffer, int id, StatusCode responseCode, string? encoding)
         {
-            Debug.Assert(Id != null);
-
-            HeaderDto header = new HeaderDto(Id.Value, buffer.WrittenCount, ResultEncoding, responseCode: ResultCode);
+            var header = new HeaderDto(id, buffer.WrittenCount, encoding, responseCode);
 
             // Записать заголовок в конец стрима. Не бросает исключения.
             int headerSize = header.SerializeJson(buffer);
