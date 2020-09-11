@@ -981,32 +981,12 @@
             <remarks>Со стороны клиента.</remarks>
             <exception cref="T:System.Exception">Могут быть исключения не инкапсулированные в Task.</exception>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.StaticSendJRequestAndWaitResult``1(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.RequestMethodMeta,System.Object[])">
-            <summary>JSON-RPC</summary>
-            <exception cref="T:System.Exception">Могут быть исключения не инкапсулированные в Task.</exception>
-        </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.OnClientNotificationCall(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.RequestMethodMeta,System.Object[])">
             <summary>
             Происходит при обращении к проксирующему интерфейсу.
             </summary>
             <remarks>Со стороны клиента.</remarks>
             <exception cref="T:System.Exception">Могут быть исключения не инкапсулированные в Task.</exception>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.WaitConnectionAndSendNotificationAsync(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection})">
-            <summary>
-            Ожидает завершение подключения к серверу и передаёт сообщение в очередь на отправку.
-            Может бросить исключение.
-            Чаще всего возвращает <see cref="P:System.Threading.Tasks.Task.CompletedTask"/>.
-            </summary>
-            <exception cref="T:DanilovSoft.vRPC.VRpcShutdownException"/>
-            <exception cref="T:System.ObjectDisposedException"/>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.StaticSendVRequestAndWaitResult``1(System.Threading.Tasks.ValueTask{DanilovSoft.vRPC.ClientSideConnection},DanilovSoft.vRPC.RequestMethodMeta,System.Object[])">
-            <summary>
-            Отправляет запрос и возвращает результат.
-            Может бросить исключение.
-            </summary>
-            <remarks>Со стороны клиента.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendNotification(DanilovSoft.vRPC.INotification)">
             <summary>
@@ -1107,26 +1087,11 @@
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.LoopSendAsync">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendLoop">
             <summary>
             Ждёт сообщения через очередь и отправляет в сокет.
             </summary>
             <remarks>Не бросает исключения.</remarks>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDecreaseActiveRequestsCount(System.Boolean)">
-            <summary>
-            Уменьшает счётчик после отправки ответа на запрос.
-            </summary>
-            <returns>False если сервис требуется остановить.</returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDecreaseActiveRequestsCount">
-            <summary>
-            Уменьшает счётчик после отправки ответа на запрос.
-            </summary>
-            <returns>False если сервис требуется остановить.</returns>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryIncreaseActiveRequestsCount(System.Boolean,System.Boolean)">
-            <returns>False если сервис требуется остановить.</returns>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.InvokeControllerAsync(DanilovSoft.vRPC.RequestContext@)">
             <summary>
@@ -1150,13 +1115,21 @@
             </summary>
             <remarks>Точка входа потока из пула. Необработанные исключения пользователя крашнут процесс.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.IncreaseActiveRequestsCount">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryIncreaseActiveRequestsCount">
             <summary>
             Увеличивает счётчик на 1 при получении запроса или при отправке запроса.
             </summary>
             <returns>False если был запрошен Shutdown и сервис нужно остановить.</returns>
+            <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.DecreaseActiveRequestsCount">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.DecreaseActiveRequestsCountOrClose">
+            <summary>
+            Уменьшает счётчик после отправки ответа на запрос.
+            </summary>
+            <returns>False если сервис требуется остановить.</returns>
+            <remarks>Не бросает исключения.</remarks>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TryDecreaseActiveRequestsCount">
             <summary>
             Безусловно уменьшает счётчик активных запросов на 1.
             </summary>
@@ -1165,7 +1138,7 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.SendOkResponse(DanilovSoft.vRPC.RequestContext)">
             <exception cref="T:System.Exception">Ошибка сериализации пользовательских данных.</exception>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessNotificationRequest(DanilovSoft.vRPC.RequestContext@)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.ProcessNotificationRequest(DanilovSoft.vRPC.RequestContext)">
             <summary>
             
             </summary>
@@ -1253,12 +1226,6 @@
             <summary>
             Передает ожидающему потоку исключение как результат запроса.
             </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.VRequest`1.TrySetResult(`0)">
-            <summary>
-            Передает результат ожидающему потоку.
-            </summary>
-            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.VRequest`1.SetVResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
             <summary>
@@ -2117,38 +2084,6 @@
             <summary>
             Передаёт ответ ожидающему потоку.
             </summary>
-        </member>
-        <member name="T:DanilovSoft.vRPC.ResponseAwaiter`1">
-            <summary>
-            Атомарный <see langword="await"/>'ер. Связывает результат с запросом.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetException(DanilovSoft.vRPC.VRpcException)">
-            <summary>
-            Передает ожидающему потоку исключение как результат запроса.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetException(System.Exception)">
-            <summary>
-            Передает ожидающему потоку исключение как результат запроса.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.TrySetResult(`0)">
-            <summary>
-            Передает результат ожидающему потоку.
-            </summary>
-            <remarks>Не бросает исключения.</remarks>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetVResponse(DanilovSoft.vRPC.HeaderDto@,System.ReadOnlyMemory{System.Byte})">
-            <summary>
-            Передаёт ответ ожидающему потоку.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.ResponseAwaiter`1.SetJResponse(System.Text.Json.Utf8JsonReader@)">
-            <summary>
-            Передаёт ответ ожидающему потоку.
-            </summary>
-            <remarks>Не бросает исключения.</remarks>
         </member>
         <member name="P:DanilovSoft.vRPC.ShutdownRequest.CloseDescription">
             <summary>

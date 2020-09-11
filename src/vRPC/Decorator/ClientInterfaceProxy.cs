@@ -158,7 +158,12 @@ namespace DanilovSoft.vRPC.Decorator
             else
             {
                 ValueTask valueTask = Client.OnClientNotificationCall(methodMeta, args);
-                if (!valueTask.IsCompletedSuccessfully)
+                if (valueTask.IsCompletedSuccessfully)
+                {
+                    // для ValueTask нужно всегда забирать результат.
+                    valueTask.GetAwaiter().GetResult();
+                }
+                else
                 {
                     valueTask.AsTask().GetAwaiter().GetResult();
                 }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DanilovSoft.vRPC.Source;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -12,7 +13,7 @@ namespace DanilovSoft.vRPC.Context
     internal interface IJRequest
     {
         RequestMethodMeta Method { get; }
-        object[] Args { get; }
+        object[]? Args { get; }
         int Id { get; set; }
         bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer);
     }
@@ -24,10 +25,12 @@ namespace DanilovSoft.vRPC.Context
         public RequestMethodMeta Method { get; }
         public int Id { get; set; }
         public Task<TResult> Task => _tcs.Task;
-        public object[] Args { get; }
+        public object[]? Args { get; private set; }
 
         public JRequest(ManagedConnection context, RequestMethodMeta method, object[] args)
         {
+            Debug.Assert(!method.IsNotificationRequest);
+
             Context = context;
             Method = method;
             Args = args;
@@ -39,6 +42,8 @@ namespace DanilovSoft.vRPC.Context
         /// </summary>
         public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
         {
+            Debug.Assert(Args != null);
+
             buffer = new ArrayBufferWriter<byte>();
             var toDispose = buffer;
             try
@@ -55,6 +60,7 @@ namespace DanilovSoft.vRPC.Context
             }
             finally
             {
+                Args = null; // Освободить память.
                 toDispose?.Dispose();
             }
         }
@@ -72,14 +78,36 @@ namespace DanilovSoft.vRPC.Context
 
         public void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
-            Debug.Assert(false);
-            throw new NotImplementedException();
+            Debug.Assert(false, "Сюда не должны попадать");
+            throw new InvalidOperationException();
         }
 
         public void SetJResponse(ref Utf8JsonReader reader)
         {
-            Debug.Assert(false);
-            throw new NotImplementedException();
+            if (typeof(TResult) != typeof(VoidStruct))
+            // Поток ожидает некий объект как результат.
+            {
+                TResult result;
+                try
+                {
+                    // Шаблонный сериализатор экономит на упаковке.
+                    result = JsonSerializer.Deserialize<TResult>(ref reader);
+                }
+                catch (JsonException deserializationException)
+                {
+                    // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
+                    SetException(new VRpcProtocolErrorException(
+                        $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
+
+                    return;
+                }
+                _tcs.TrySetResult(result);
+            }
+            else
+            // void.
+            {
+                _tcs.TrySetResult(default!);
+            }
         }
     }
 }

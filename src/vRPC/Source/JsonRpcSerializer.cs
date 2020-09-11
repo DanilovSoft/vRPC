@@ -12,6 +12,7 @@ namespace DanilovSoft.vRPC
     internal static class JsonRpcSerializer
     {
         internal static readonly JsonEncodedText JsonRpcVersion = JsonEncodedText.Encode("jsonrpc");
+        internal static readonly JsonEncodedText JsonRpcVersionValue = JsonEncodedText.Encode("2.0");
         internal static readonly JsonEncodedText Method = JsonEncodedText.Encode("method");
         internal static readonly JsonEncodedText Error = JsonEncodedText.Encode("error");
         internal static readonly JsonEncodedText Code = JsonEncodedText.Encode("code");
@@ -20,15 +21,15 @@ namespace DanilovSoft.vRPC
         internal static readonly JsonEncodedText Result = JsonEncodedText.Encode("result");
         internal static readonly JsonEncodedText Id = JsonEncodedText.Encode("id");
 
-        public static void SerializeRequest(IBufferWriter<byte> bufferWriter, string method, object[] args, int id)
+        internal static void SerializeRequest(IBufferWriter<byte> buffer, string method, object[] args, int id)
         {
-            using (var writer = new Utf8JsonWriter(bufferWriter))
+            using (var writer = new Utf8JsonWriter(buffer))
             {
                 // {
                 writer.WriteStartObject();
 
                 // jsonrpc: "2.0"
-                writer.WriteString(JsonRpcVersion, "2.0");
+                writer.WriteString(JsonRpcVersion, JsonRpcVersionValue);
 
                 // method: "..."
                 writer.WriteString(Method, method);
@@ -52,16 +53,47 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public static void SerializeErrorResponse(IBufferWriter<byte> bufferWriter, StatusCode code, string message, int? id)
+        internal static void SerializeResponse(IBufferWriter<byte> buffer, int id, object? result)
+        {
+            // {"jsonrpc": "2.0", "result": 19, "id": 1}
+            using (var writer = new Utf8JsonWriter(buffer))
+            {
+                // {
+                writer.WriteStartObject();
+
+                // jsonrpc: "2.0"
+                writer.WriteString(JsonRpcVersion, JsonRpcVersionValue);
+
+                // Id: 1
+                writer.WriteNumber(Id, id);
+
+                if (result != null)
+                {
+                    // result: "..."
+                    writer.WritePropertyName(Result);
+
+                    JsonSerializer.Serialize(writer, result, result.GetType());
+                }
+                else
+                {
+                    writer.WriteNull(Result);
+                }
+
+                // }
+                writer.WriteEndObject();
+            }
+        }
+
+        internal static void SerializeErrorResponse(IBufferWriter<byte> buffer, StatusCode code, string message, int? id)
         {
             // {"jsonrpc": "2.0", "id": "1", "error": {"code": -32601, "message": "Method not found"}}
-            using (var writer = new Utf8JsonWriter(bufferWriter))
+            using (var writer = new Utf8JsonWriter(buffer))
             {
                 // {
                 writer.WriteStartObject();
 
                 // "jsonrpc": "2.0"
-                writer.WriteString(JsonRpcVersion, "2.0");
+                writer.WriteString(JsonRpcVersion, JsonRpcVersionValue);
 
                 if (id != null)
                 {

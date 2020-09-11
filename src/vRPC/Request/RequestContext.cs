@@ -61,7 +61,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
         internal ArrayBufferWriter<byte> SerializeResponseAsVrpc(out int headerSize)
         {
-            Debug.Assert(!IsJsonRpcRequest, "Формат ответа и запроса не совпадают");
+            Debug.Assert(!IsJsonRpcRequest, "Формат ответа не совпадает с запросом");
             Debug.Assert(Id != null);
 
             var buffer = new ArrayBufferWriter<byte>();
@@ -106,7 +106,7 @@ namespace DanilovSoft.vRPC
 
         internal ArrayBufferWriter<byte> SerializeResponseAsJrpc()
         {
-            Debug.Assert(IsJsonRpcRequest, "Формат ответа и запроса не совпадают");
+            Debug.Assert(IsJsonRpcRequest, "Формат ответа не совпадает с запросом");
             Debug.Assert(Id != null);
 
             var buffer = new ArrayBufferWriter<byte>();
@@ -122,14 +122,8 @@ namespace DanilovSoft.vRPC
                 else
                 // Отправлять результат контроллера будем как есть.
                 {
-                    Debug.Assert(false);
-                    throw new NotImplementedException();
                     // Сериализуем ответ.
-                    //serMsg.StatusCode = StatusCode.Ok;
-
-                    //    Debug.Assert(jResponse.ActionMeta != null, "RAW результат может быть только на основе запроса");
-                    //    jResponse.ActionMeta.SerializerDelegate(serMsg.MemoryPoolBuffer, responseToSend.ActionResult);
-                    //    serMsg.ContentEncoding = jResponse.ActionMeta.ProducesEncoding;
+                    JsonRpcSerializer.SerializeResponse(buffer, Id.Value, Result);
                 }
                 toDispose = null; // Предотвратить Dispose.
                 return buffer;

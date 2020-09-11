@@ -8,23 +8,25 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Sources;
 
 namespace DanilovSoft.vRPC
 {
     internal interface IVRequest
     {
         RequestMethodMeta Method { get; }
-        object[] Args { get; }
+        object[]? Args { get; }
         int Id { get; set; }
         bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize);
     }
 
     [DebuggerDisplay(@"\{Request = {Method.FullName}\}")]
-    internal sealed class VRequest<TResult> : IMessageToSend, IVRequest, IRequest<TResult>
+    internal sealed class VRequest<TResult> : IMessageToSend, IVRequest, IRequest<TResult>, IValueTaskSource<TResult>
     {
-        private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        private ManualResetValueTaskSourceCore<TResult> _valueTcs;
+        private TaskCompletionSource<TResult>? _tcs;
         public RequestMethodMeta Method { get; }
-        public object[] Args { get; }
+        public object[]? Args { get; private set; }
         public Task<TResult> Task => _tcs.Task;
 
 #if DEBUG
@@ -50,9 +52,12 @@ namespace DanilovSoft.vRPC
         // ctor
         internal VRequest(ManagedConnection context, RequestMethodMeta method, object[] args)
         {
+            Debug.Assert(!method.IsNotificationRequest);
+
             Context = context;
             Method = method;
             Args = args;
+            _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         /// <summary>
@@ -69,15 +74,15 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetException(Exception exception)
         {
+            Debug.Assert(_tcs != null);
+
             _tcs.TrySetException(exception);
         }
 
-        /// <summary>
-        /// Передает результат ожидающему потоку.
-        /// </summary>
-        /// <remarks>Не бросает исключения.</remarks>
-        private void TrySetResult([AllowNull] TResult result)
+        private void SetResult([AllowNull] TResult result)
         {
+            Debug.Assert(_tcs != null);
+
             _tcs.TrySetResult(result!);
         }
 
@@ -88,7 +93,7 @@ namespace DanilovSoft.vRPC
                 KnownEncoding.ProtobufEncoding => ExtensionMethods.DeserializeProtoBuf<TResult>(payload),
                 _ => ExtensionMethods.DeserializeJson<TResult>(payload.Span), // Сериализатор по умолчанию.
             };
-            TrySetResult(result);
+            SetResult(result);
         }
 
         /// <summary>
@@ -125,7 +130,7 @@ namespace DanilovSoft.vRPC
                         if (typeof(TResult).CanBeNull())
                         // Результат запроса поддерживает Null.
                         {
-                            TrySetResult(default);
+                            SetResult(default);
                         }
                         else
                         // Результатом этого запроса не может быть Null.
@@ -139,7 +144,7 @@ namespace DanilovSoft.vRPC
                 else
                 // void.
                 {
-                    TrySetResult(default);
+                    SetResult(default);
                 }
                 #endregion
             }
@@ -162,34 +167,14 @@ namespace DanilovSoft.vRPC
         /// <remarks>Не бросает исключения.</remarks>
         public void SetJResponse(ref Utf8JsonReader reader)
         {
-            if (typeof(TResult) != typeof(VoidStruct))
-            // Поток ожидает некий объект как результат.
-            {
-                TResult result;
-                try
-                {
-                    // Шаблонный сериализатор экономит на упаковке.
-                    result = JsonSerializer.Deserialize<TResult>(ref reader);
-                }
-                catch (JsonException deserializationException)
-                {
-                    // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
-                    SetException(new VRpcProtocolErrorException(
-                        $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
-
-                    return;
-                }
-                TrySetResult(result);
-            }
-            else
-            // void.
-            {
-                TrySetResult(default);
-            }
+            Debug.Assert(false, "Сюда не должны попадать");
+            throw new InvalidOperationException();
         }
 
         public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
         {
+            Debug.Assert(Args != null);
+
             buffer = new ArrayBufferWriter<byte>();
             var toDispose = buffer;
             try
@@ -213,8 +198,24 @@ namespace DanilovSoft.vRPC
             }
             finally
             {
+                Args = null; // Освободить память.
                 toDispose?.Dispose();
             }
+        }
+
+        public TResult GetResult(short token)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTaskSourceStatus GetStatus(short token)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+        {
+            throw new NotImplementedException();
         }
     }
 }
