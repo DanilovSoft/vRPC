@@ -85,5 +85,8 @@
       <LogicalName>DanilovSoft.vRPC.Resources.SR.resources</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="JsonRpc\" />
+  </ItemGroup>
 
 </Project>

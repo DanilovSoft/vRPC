@@ -108,7 +108,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
+            RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
             Task<T> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
             return new ValueTask<T>(task: pendingRequest);
         }
@@ -119,7 +119,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
+            RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
 
             Task<T> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
             return pendingRequest;
@@ -131,13 +131,14 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
-
+            RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
+            
             Task<T> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
 
             // Результатом может быть исключение.
             T result = pendingRequest.GetAwaiter().GetResult();
-            return result;
+
+            return result!;
         }
 
         // Вызывается через рефлексию — не переименовывать.

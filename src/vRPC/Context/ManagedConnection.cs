@@ -18,6 +18,7 @@ using DanilovSoft.vRPC.Source;
 using System.IO;
 using DanilovSoft.vRPC.Context;
 using System.Text.Json;
+using System.ComponentModel;
 
 namespace DanilovSoft.vRPC
 {
@@ -67,7 +68,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Коллекция запросов ожидающие ответ от удалённой стороны.
         /// </summary>
-        private readonly PendingRequestDictionary _responseAwaiters;
+        private readonly PendingRequestDictionary _pendingRequests;
         public EndPoint LocalEndPoint { get; }
         public EndPoint RemoteEndPoint { get; }
         /// <summary>
@@ -153,6 +154,12 @@ namespace DanilovSoft.vRPC
         public abstract bool IsAuthenticated { get; }
         private Task? _senderTask;
         private bool _tcpNoDelay;
+        /// <summary>
+        /// Потоки могут арендровать этот экземпляр, по очереди.
+        /// </summary>
+        private ReusableJNotification? _reusableJNotification = new ReusableJNotification();
+        private ReusableVNotification? _reusableVNotification = new ReusableVNotification();
+        private ReusableJRequest? _reusableJRequest = new ReusableJRequest();
 
         // ctor.
         /// <summary>
@@ -170,7 +177,7 @@ namespace DanilovSoft.vRPC
             _tcpNoDelay = webSocket.Socket.NoDelay;
             //_pipe = new Pipe();
 
-            _responseAwaiters = new PendingRequestDictionary();
+            _pendingRequests = new PendingRequestDictionary();
 
             // IoC готов к работе.
             ServiceProvider = serviceProvider;
@@ -409,7 +416,12 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(!vRequest.Method.IsNotificationRequest);
 
-            return SendRequestAndWaitResponse(vRequest);
+            if (TrySendRequest<TResult>(vRequest, out var errorTask))
+            {
+                return vRequest.Task;
+            }
+            else
+                return errorTask;
         }
 
         /// <summary>
@@ -443,20 +455,54 @@ namespace DanilovSoft.vRPC
 
         private Task<TResult> OnClientMethodCall<TResult>(RequestMethodMeta method, object[] args)
         {
-            var request = CreateJRequest<TResult>(method, args);
-
-            return SendRequestAndWaitResponse(request);
-        }
-
-        private IRequest<TResult> CreateJRequest<TResult>(RequestMethodMeta method, object[] args)
-        {
             if (method.IsJsonRpc)
             {
-                return new JRequest<TResult>(this, method, args);
+                ReusableJRequest? reusableRequest = Interlocked.Exchange(ref _reusableJRequest, null);
+                if (reusableRequest != null)
+                {
+                    Task<TResult> task = reusableRequest.Initialize<TResult>(method, args);
+
+                    if (TrySendRequest<TResult>(reusableRequest, out Task<TResult>? error))
+                    {
+                        return task;
+                    }
+                    else
+                        return error;
+                }
+                else
+                {
+                    var request = new JRequest<TResult>(method, args);
+
+                    if (TrySendRequest<TResult>(request, out Task<TResult>? error))
+                    {
+                        return request.Task;
+                    }
+                    else
+                        return error;
+                }
             }
             else
             {
-                return new VRequest<TResult>(this, method, args);
+                var request = new VRequest<TResult>(method, args);
+
+                if (TrySendRequest<TResult>(request, out var errorTask))
+                {
+                    return request.Task;
+                }
+                else
+                    return errorTask;
+            }
+        }
+
+        private IRequest CreateJRequest<TResult>(RequestMethodMeta method, object[] args)
+        {
+            if (method.IsJsonRpc)
+            {
+                return new JRequest<TResult>(method, args);
+            }
+            else
+            {
+                return new VRequest<TResult>(method, args);
             }
         }
 
@@ -505,11 +551,31 @@ namespace DanilovSoft.vRPC
             // TODO добавить переиспользование.
             if (method.IsJsonRpc)
             {
-                return new JNotification(this, method, args);
+                var notification = Interlocked.Exchange(ref _reusableJNotification, null);
+                if (notification != null)
+                // Успешно арендовали объект.
+                {
+                    notification.Initialize(method, args);
+                    return notification;
+                }
+                else
+                {
+                    return new JNotification(method, args);
+                }
             }
             else
             {
-                return new VNotification(this, method, args);
+                var notification = Interlocked.Exchange(ref _reusableVNotification, null);
+                if (notification != null)
+                // Успешно арендовали объект.
+                {
+                    notification.Initialize(method, args);
+                    return notification;
+                }
+                else
+                {
+                    return new VNotification(method, args);
+                }
             }
         }
 
@@ -544,7 +610,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <returns>Таск с результатом от сервера.</returns>
-        private protected Task<TResult> SendRequestAndWaitResponse<TResult>(IRequest<TResult> request)
+        private protected bool TrySendRequest<TResult>(IRequest request, [NotNullWhen(false)] out Task<TResult>? errorTask)
         {
             Debug.Assert(!request.Method.IsNotificationRequest);
 
@@ -553,23 +619,33 @@ namespace DanilovSoft.vRPC
             {
                 if (!IsDisposed) // volatile проверка.
                 {
-                    // Добавить запрос в словарь для дальнейшей связки с ответом.
-                    _responseAwaiters.AddRequest(request, out int uid);
+                    //var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                    // Добавить запрос в словарь для последующей связки с ответом.
+                    _pendingRequests.Add(request, out int id);
 
                     // Назначить запросу уникальный идентификатор.
-                    request.Id = uid;
+                    request.Id = id;
 
                     // Планируем отправку запроса.
                     TryPostMessage(request);
 
+                    errorTask = default;
+                    return true;
                     // Ожидаем результат от потока поторый читает из сокета.
-                    return request.Task;
+                    //return tcs.Task;
                 }
                 else
-                    return Task.FromException<TResult>(new ObjectDisposedException(GetType().FullName));
+                {
+                    errorTask = Task.FromException<TResult>(new ObjectDisposedException(GetType().FullName));
+                    return false;
+                }
             }
             else
-                return Task.FromException<TResult>(new VRpcShutdownException(_shutdownRequest));
+            {
+                errorTask = Task.FromException<TResult>(new VRpcShutdownException(_shutdownRequest));
+                return false;
+            }
         }
 
         /// <summary>
@@ -866,7 +942,7 @@ namespace DanilovSoft.vRPC
                         {
                             if (reader.Read())
                             {
-                                if (_responseAwaiters.TryRemove(id.Value, out IResponseAwaiter? jRequest))
+                                if (_pendingRequests.TryRemove(id.Value, out IResponseAwaiter? jRequest))
                                 {
                                     // Десериализовать ответ в тип возврата.
                                     jRequest.SetJResponse(ref reader);
@@ -949,7 +1025,7 @@ namespace DanilovSoft.vRPC
                     if (error != default)
                     // Ответ на запрос где результат — ошибка.
                     {
-                        if (_responseAwaiters.TryRemove(id.Value, out IResponseAwaiter? awaiter))
+                        if (_pendingRequests.TryRemove(id.Value, out IResponseAwaiter? awaiter))
                         {
                             // На основе кода и сообщения можно создать исключение.
                             var exception = ExceptionHelper.ToException(error.Code, error.Message);
@@ -1144,7 +1220,7 @@ namespace DanilovSoft.vRPC
                 Debug.Assert(header.Id != null, "У ответа на запрос должен быть идентификатор");
 
                 // Удалить запрос из словаря.
-                if (header.Id != null && _responseAwaiters.TryRemove(header.Id.Value, out IResponseAwaiter? vRequest))
+                if (header.Id != null && _pendingRequests.TryRemove(header.Id.Value, out IResponseAwaiter? vRequest))
                 // Передать ответ ожидающему потоку.
                 {
                     vRequest.SetVResponse(in header, payload);
@@ -1206,6 +1282,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <returns>true если разрешено продолжить выполнение запроса, 
         /// false если требуется остановить сервис.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool TryIncreaseActiveRequestsCount(bool isResponseRequired)
         {
             if (isResponseRequired)
@@ -1362,7 +1439,7 @@ namespace DanilovSoft.vRPC
         private async Task TryCloseAndDisposeAsync(VRpcProtocolErrorException protocolErrorException, string closeDescription)
         {
             // Сообщить потокам что обрыв произошел по вине удалённой стороны.
-            _responseAwaiters.TryPropagateExceptionAndLockup(protocolErrorException);
+            _pendingRequests.TryPropagateExceptionAndLockup(protocolErrorException);
 
             if (await TryCompleteSenderAsync().ConfigureAwait(false))
             {
@@ -1439,15 +1516,15 @@ namespace DanilovSoft.vRPC
 
                 if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь и сделать Dispose всем сообщениям.
                 {
-                    if (message is RequestContext vRequestResponse)
+                    if (message is RequestContext response)
                     // Ответ на основе результата контроллера.
                     {
-                        if (vRequestResponse.IsJsonRpcRequest)
+                        if (response.IsJsonRpcRequest)
                         {
-                            ArrayBufferWriter<byte> buffer = vRequestResponse.SerializeResponseAsJrpc();
+                            ArrayBufferWriter<byte> buffer = response.SerializeResponseAsJrpc();
                             try
                             {
-                                SetTcpNoDelay(vRequestResponse.Method.TcpNoDelay);
+                                SetTcpNoDelay(response.Method.TcpNoDelay);
 
                                 DebugDisplayJson(buffer.WrittenMemory.Span);
                                 try
@@ -1473,13 +1550,13 @@ namespace DanilovSoft.vRPC
                         {
                             // TODO нужно предотвратить крах всего процесса.
                             // Исключение сериализации пользовательского ответа может крашнуть процесс.
-                            ArrayBufferWriter<byte> buffer = vRequestResponse.SerializeResponseAsVrpc(out int headerSize);
+                            ArrayBufferWriter<byte> buffer = response.SerializeResponseAsVrpc(out int headerSize);
                             try
                             {
                                 // Размер сообщения без заголовка.
                                 int messageSize = buffer.WrittenCount - headerSize;
 
-                                SetTcpNoDelay(vRequestResponse.Method.TcpNoDelay);
+                                SetTcpNoDelay(response.Method.TcpNoDelay);
 
                                 #region Отправка заголовка
 
@@ -1541,12 +1618,8 @@ namespace DanilovSoft.vRPC
                             try
                             {
                                 //  Увеличить счетчик активных запросов.
-                                if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
+                                if (TryIncreaseActiveRequestsCount())
                                 {
-                                    //LogSend(serializedMessage);
-
-                                    ReadOnlyMemory<byte> streamBuffer = buffer.WrittenMemory;
-
                                     // Размер сообщения без заголовка.
                                     int messageSize = buffer.WrittenCount - headerSize;
 
@@ -1557,7 +1630,7 @@ namespace DanilovSoft.vRPC
                                     try
                                     {
                                         // Заголовок лежит в конце стрима.
-                                        await SendBufferAsync(streamBuffer.Slice(messageSize, headerSize), endOfMessage: true).ConfigureAwait(false);
+                                        await SendBufferAsync(buffer.WrittenMemory.Slice(messageSize, headerSize), endOfMessage: true).ConfigureAwait(false);
                                     }
                                     catch (Exception ex)
                                     // Обрыв соединения.
@@ -1576,7 +1649,7 @@ namespace DanilovSoft.vRPC
                                     {
                                         try
                                         {
-                                            await SendBufferAsync(streamBuffer.Slice(0, messageSize), true).ConfigureAwait(false);
+                                            await SendBufferAsync(buffer.WrittenMemory.Slice(0, messageSize), true).ConfigureAwait(false);
                                         }
                                         catch (Exception ex)
                                         // Обрыв соединения.
@@ -2189,7 +2262,7 @@ namespace DanilovSoft.vRPC
                 _sendChannel.Writer.TryComplete();
 
                 // Передать исключение всем ожидающим потокам.
-                _responseAwaiters.TryPropagateExceptionAndLockup(possibleReason.ToException());
+                _pendingRequests.TryPropagateExceptionAndLockup(possibleReason.ToException());
 
                 // Закрыть соединение.
                 _ws.Dispose();

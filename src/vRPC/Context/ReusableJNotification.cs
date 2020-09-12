@@ -4,18 +4,24 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Sources;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class VNotification : INotification
+    internal sealed class ReusableJNotification : INotification
     {
-        public RequestMethodMeta Method { get; }
-        public object[] Args { get; }
+        public RequestMethodMeta? Method { get; private set; }
+        public object[]? Args { get; private set; }
         public bool IsNotification => true;
 
-        public VNotification(RequestMethodMeta method, object[] args)
+        public ReusableJNotification()
         {
-            Debug.Assert(!method.IsJsonRpc);
+
+        }
+
+        internal void Initialize(RequestMethodMeta method, object[] args)
+        {
+            Debug.Assert(method.IsJsonRpc);
             Debug.Assert(method.IsNotificationRequest);
 
             Method = method;
@@ -26,6 +32,17 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(false);
             throw new NotImplementedException();
+
+            //if (_continuation == s_completedSentinel)
+            //// Операция уже завершена.
+            //{
+            //    ResetTaskState();
+            //    return default;
+            //}
+            //else
+            //{
+            //    return new ValueTask(this, _token);
+            //}
         }
 
         public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)

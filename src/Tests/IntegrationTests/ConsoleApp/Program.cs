@@ -32,7 +32,7 @@ namespace ConsoleApp
         [Notification]
         void Notify(int n);
         [Notification]
-        Task NotifyAsync(int n);
+        ValueTask NotifyAsync(int n);
         [Notification]
         void NotifyCallback(int n);
 
@@ -42,17 +42,18 @@ namespace ConsoleApp
 
     class Program
     {
-        static void Main()
+        static async Task Main()
         {
             var listener = VRpcListener.StartNew(IPAddress.Any);
 
             var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
-            
-            iface.GetSum(1, 2);
-            iface.GetSum(1, 2);
-            iface.GetSum(1, 2);
-            
+
+            cli.Connect();
+
+            int sum = iface.GetSum(1, 2);
+
+
             Thread.Sleep(-1);
         }
 

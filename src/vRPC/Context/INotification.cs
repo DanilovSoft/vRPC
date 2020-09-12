@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    internal interface INotification : IMessageToSend
+    internal interface INotification : IVRequest, IMessageToSend
     {
         ValueTask WaitNotificationAsync();
     }

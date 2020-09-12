@@ -120,7 +120,14 @@ namespace DanilovSoft.vRPC
         /// <exception cref="SocketException"/>
         internal async Task PrivateSignInAsync(AccessToken accessToken)
         {
-            await SendRequestAndWaitResponse((IRequest<VoidStruct>)new VRequest<VoidStruct>(this, SignInAsyncMeta, new object[] { accessToken })).ConfigureAwait(false);
+            var request = new VRequest<VoidStruct>(SignInAsyncMeta, new object[] { accessToken });
+
+            if (TrySendRequest<VoidStruct>(request, out var error))
+            {
+                await request.Task.ConfigureAwait(false);
+            }
+            else
+                await error.ConfigureAwait(false);
 
             // Делать lock нельзя! Может случиться дедлок (а нам и не нужно).
             _isAuthenticated = true;
@@ -186,8 +193,15 @@ namespace DanilovSoft.vRPC
         /// <exception cref="SocketException"/>
         private async Task PrivateSignOutAsync()
         {
+            var request = new VRequest<VoidStruct>(SignOutAsyncMeta, Array.Empty<object>());
+
             // Ждём завершения SignOut — исключений быть не может, только при обрыве связи.
-            await SendRequestAndWaitResponse((IRequest<VoidStruct>)new VRequest<VoidStruct>(this, SignOutAsyncMeta, Array.Empty<object>())).ConfigureAwait(false);
+            if (TrySendRequest<VoidStruct>(request, out var error))
+            {
+                await request.Task.ConfigureAwait(false);
+            }
+            else
+                await error.ConfigureAwait(false);
 
             // Делать lock нельзя! Может случиться дедлок (а нам и не нужно).
             _isAuthenticated = false;

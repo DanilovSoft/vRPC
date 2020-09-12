@@ -16,15 +16,13 @@ namespace DanilovSoft.vRPC
     {
         RequestMethodMeta Method { get; }
         object[]? Args { get; }
-        int Id { get; set; }
         bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize);
     }
 
     [DebuggerDisplay(@"\{Request = {Method.FullName}\}")]
-    internal sealed class VRequest<TResult> : IMessageToSend, IVRequest, IRequest<TResult>, IValueTaskSource<TResult>
+    internal sealed class VRequest<TResult> : IMessageToSend, IVRequest, IRequest
     {
-        private ManualResetValueTaskSourceCore<TResult> _valueTcs;
-        private TaskCompletionSource<TResult>? _tcs;
+        private TaskCompletionSource<TResult> _tcs;
         public RequestMethodMeta Method { get; }
         public object[]? Args { get; private set; }
         public Task<TResult> Task => _tcs.Task;
@@ -46,15 +44,13 @@ namespace DanilovSoft.vRPC
             }
         }
 #endif
-        public ManagedConnection Context { get; }
         public int Id { get; set; }
 
         // ctor
-        internal VRequest(ManagedConnection context, RequestMethodMeta method, object[] args)
+        internal VRequest(RequestMethodMeta method, object[] args)
         {
             Debug.Assert(!method.IsNotificationRequest);
 
-            Context = context;
             Method = method;
             Args = args;
             _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -86,7 +82,7 @@ namespace DanilovSoft.vRPC
             _tcs.TrySetResult(result!);
         }
 
-        public void DeserializeResponse(ReadOnlyMemory<byte> payload, string? contentEncoding)
+        private void DeserializeResponse(ReadOnlyMemory<byte> payload, string? contentEncoding)
         {
             TResult result = contentEncoding switch
             {
@@ -192,7 +188,7 @@ namespace DanilovSoft.vRPC
             catch (Exception ex)
             {
                 var vex = new VRpcSerializationException($"Не удалось сериализовать запрос в json.", ex);
-                SetException(ex);
+                SetException(vex);
                 headerSize = -1;
                 return false;
             }

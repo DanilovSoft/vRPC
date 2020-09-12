@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    internal interface IRequest<TResult> : IMessageToSend, IResponseAwaiter
+    internal interface IRequest : IMessageToSend, IResponseAwaiter
     {
         RequestMethodMeta Method { get; }
         int Id { get; set; }
-        Task<TResult> Task { get; }
+        //Task<TResult> Task { get; }
     }
 }

@@ -801,7 +801,18 @@
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.Context.JRequest`1.TrySerialize(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte}@)">
+        <member name="P:DanilovSoft.vRPC.JErrorResponse.Id">
+            <summary>
+            Идентификатор запроса.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.JErrorResponse.#ctor(System.Nullable{System.Int32},DanilovSoft.vRPC.IActionResult)">
+            <summary>
+            Конструктор ответа в случае ошибки десериализации запроса.
+            </summary>
+            <param name="errorResult">Может быть <see cref="T:DanilovSoft.vRPC.IActionResult"/> или произвольный объект пользователя.</param>
+        </member>
+        <member name="M:DanilovSoft.vRPC.JRequest`1.TrySerialize(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte}@)">
             <summary>
             Сериализация пользовательских данных может спровоцировать исключение 
             <exception cref="T:DanilovSoft.vRPC.VRpcSerializationException"/> которое будет перенаправлено ожидающему потоку.
@@ -852,7 +863,7 @@
             Подключенный TCP сокет.
             </summary>
         </member>
-        <member name="F:DanilovSoft.vRPC.ManagedConnection._responseAwaiters">
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._pendingRequests">
             <summary>
             Коллекция запросов ожидающие ответ от удалённой стороны.
             </summary>
@@ -905,6 +916,11 @@
             После разъединения текущий экземпляр не может быть переподключен.
             </summary>
             <remarks><see langword="volatile"/>.</remarks>
+        </member>
+        <member name="F:DanilovSoft.vRPC.ManagedConnection._reusableJNotification">
+            <summary>
+            Потоки могут арендровать этот экземпляр, по очереди.
+            </summary>
         </member>
         <member name="M:DanilovSoft.vRPC.ManagedConnection.#ctor(DanilovSoft.WebSockets.ManagedWebSocket,System.Boolean,Microsoft.Extensions.DependencyInjection.ServiceProvider,DanilovSoft.vRPC.InvokeActionsDictionary)">
             <summary>
@@ -995,7 +1011,7 @@
             <exception cref="T:DanilovSoft.vRPC.VRpcShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.SendRequestAndWaitResponse``1(DanilovSoft.vRPC.IRequest{``0})">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TrySendRequest``1(DanilovSoft.vRPC.IRequest,System.Threading.Tasks.Task{``0}@)">
             <summary>
             Отправляет запрос и ожидает ответ.
             Передаёт владение объектом <paramref name="request"/> другому потоку.
@@ -1158,6 +1174,11 @@
         <member name="M:DanilovSoft.vRPC.ManagedConnection.Dispose">
             <summary>
             Потокобезопасно закрывает соединение и освобождает все ресурсы.
+            </summary>
+        </member>
+        <member name="M:DanilovSoft.vRPC.ReusableVNotification.#ctor">
+            <summary>
+            Для создания синглтона.
             </summary>
         </member>
         <member name="T:DanilovSoft.vRPC.ServerSideConnection">
@@ -1326,6 +1347,7 @@
             <summary>
             Конструктор запроса.
             </summary>
+            <param name="id">Может быть Null если запрос является нотификацией.</param>
         </member>
         <member name="M:DanilovSoft.vRPC.HeaderDto.#ctor(System.Int32,System.Int32,System.String,DanilovSoft.vRPC.StatusCode)">
             <summary>
@@ -1460,17 +1482,6 @@
             Прозрачный прокси к удалённой стороне.
             </summary>
         </member>
-        <member name="P:DanilovSoft.vRPC.JErrorResponse.Id">
-            <summary>
-            Идентификатор запроса.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.JErrorResponse.#ctor(System.Nullable{System.Int32},DanilovSoft.vRPC.IActionResult)">
-            <summary>
-            Конструктор ответа в случае ошибки десериализации запроса.
-            </summary>
-            <param name="errorResult">Может быть <see cref="T:DanilovSoft.vRPC.IActionResult"/> или произвольный объект пользователя.</param>
-        </member>
         <member name="T:DanilovSoft.vRPC.CompatibilityExtensionMethods">
             <summary>
             Существует только для Net Framework.
@@ -1539,7 +1550,7 @@
         </member>
         <member name="P:DanilovSoft.vRPC.RequestMethodMeta.ReturnType">
             <summary>
-            Инкапсулированный в Task тип результата функции.
+            Инкапсулированный в Task тип результата функции. Может быть <see cref="T:DanilovSoft.vRPC.VoidStruct"/> символизирующий тип void.
             </summary>
         </member>
         <member name="P:DanilovSoft.vRPC.RequestMethodMeta.IsNotificationRequest">
@@ -2037,7 +2048,7 @@
             Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.PendingRequestDictionary.AddRequest(DanilovSoft.vRPC.IResponseAwaiter,System.Int32@)">
+        <member name="M:DanilovSoft.vRPC.PendingRequestDictionary.Add(DanilovSoft.vRPC.IResponseAwaiter,System.Int32@)">
             <summary>
             Потокобезопасно добавляет запрос в словарь запросов и возвращает уникальный идентификатор.
             </summary>

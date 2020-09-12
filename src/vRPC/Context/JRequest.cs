@@ -8,30 +8,27 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace DanilovSoft.vRPC.Context
+namespace DanilovSoft.vRPC
 {
     internal interface IJRequest
     {
         RequestMethodMeta Method { get; }
         object[]? Args { get; }
-        int Id { get; set; }
         bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer);
     }
 
-    internal sealed class JRequest<TResult> : IJRequest, IRequest<TResult>
+    internal sealed class JRequest<TResult> : IJRequest, IRequest
     {
         private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        public ManagedConnection Context { get; }
         public RequestMethodMeta Method { get; }
         public int Id { get; set; }
         public Task<TResult> Task => _tcs.Task;
         public object[]? Args { get; private set; }
 
-        public JRequest(ManagedConnection context, RequestMethodMeta method, object[] args)
+        public JRequest(RequestMethodMeta method, object[] args)
         {
             Debug.Assert(!method.IsNotificationRequest);
 
-            Context = context;
             Method = method;
             Args = args;
         }

@@ -91,6 +91,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Конструктор запроса.
         /// </summary>
+        /// <param name="id">Может быть Null если запрос является нотификацией.</param>
         public HeaderDto(int? id, int payloadLength, string? contentEncoding, string actionName)
         {
             Id = id;

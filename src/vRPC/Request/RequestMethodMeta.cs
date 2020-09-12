@@ -20,7 +20,7 @@ namespace DanilovSoft.vRPC
     internal sealed class RequestMethodMeta /*: IMessageMeta*/
     {
         /// <summary>
-        /// Инкапсулированный в Task тип результата функции.
+        /// Инкапсулированный в Task тип результата функции. Может быть <see cref="VoidStruct"/> символизирующий тип void.
         /// </summary>
         public Type ReturnType { get; }
         /// <summary>

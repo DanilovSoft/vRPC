@@ -244,16 +244,26 @@ namespace DanilovSoft.vRPC
         public void Call(string controllerName, string actionName, params object[] args)
         {
             var method = new RequestMethodMeta(controllerName, actionName, typeof(VoidStruct), false);
-            Task<VoidStruct> requestTask = SendRequestAndWaitResponse(new VRequest<VoidStruct>(this, method, args));
-            requestTask.GetAwaiter().GetResult();
+            var request = new VRequest<VoidStruct>(method, args);
+            if (TrySendRequest<VoidStruct>(request, out var error))
+            {
+                request.Task.GetAwaiter().GetResult();
+            }
+            else
+                error.GetAwaiter().GetResult();
         }
 
         /// <exception cref="VRpcException"/>
         public Task CallAsync(string controllerName, string actionName, params object[] args)
         {
             var method = new RequestMethodMeta(controllerName, actionName, typeof(VoidStruct), false);
-            Task<VoidStruct> requestTask = SendRequestAndWaitResponse(new VRequest<VoidStruct>(this, method, args));
-            return requestTask;
+            var request = new VRequest<VoidStruct>(method, args);
+            if (TrySendRequest<VoidStruct>(request, out var error))
+            {
+                return request.Task;
+            }
+            else
+                return error;
         }
 
         /// <exception cref="VRpcException"/>
@@ -261,17 +271,26 @@ namespace DanilovSoft.vRPC
         public TResult Call<TResult>(string controllerName, string actionName, params object[] args)
         {
             var method = new RequestMethodMeta(controllerName, actionName, typeof(TResult), false);
-            Task<TResult> requestTask = SendRequestAndWaitResponse(new VRequest<TResult>(this, method, args));
-            TResult result = requestTask.GetAwaiter().GetResult();
-            return result;
+            var request = new VRequest<TResult>(method, args);
+            if (TrySendRequest<TResult>(request, out var error))
+            {
+                return request.Task.GetAwaiter().GetResult();
+            }
+            else
+                return error.GetAwaiter().GetResult();
         }
 
         /// <exception cref="VRpcException"/>
         public Task<TResult> CallAsync<TResult>(string controllerName, string actionName, params object[] args)
         {
             var method = new RequestMethodMeta(controllerName, actionName, typeof(TResult), false);
-            Task<TResult> requestTask = SendRequestAndWaitResponse(new VRequest<TResult>(this, method, args));
-            return requestTask;
+            var request = new VRequest<TResult>(method, args);
+            if (TrySendRequest<TResult>(request, out var error))
+            {
+                return request.Task;
+            }
+            else
+                return error;
         }
 
         #endregion
