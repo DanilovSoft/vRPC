@@ -13,42 +13,61 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Содержит запрос с параметрами полученный от удалённой стороны который необходимо выполнить.
     /// </summary>
-    [StructLayout(LayoutKind.Auto)]
-    [DebuggerDisplay(@"\{{" + nameof(Method) + @" ?? default}\}")]
+    //[StructLayout(LayoutKind.Auto)]
+    //[DebuggerDisplay(@"\{{" + nameof(Method) + @" ?? default}\}")]
     internal sealed class RequestContext : IThreadPoolWorkItem, IMessageToSend, IDisposable
     {
+        internal bool IsReusable { get; }
         /// <summary>
         /// Когда Id не Null.
         /// </summary>
         public bool IsResponseRequired => Id != null;
-        public int? Id { get; }
-
+        public int? Id { get; private set; }
         /// <summary>
         /// Запрашиваемый метод контроллера.
         /// </summary>
-        public ControllerMethodMeta Method { get; }
-
+        public ControllerMethodMeta? Method { get; private set; }
         /// <summary>
         /// Аргументы для вызываемого метода.
         /// </summary>
-        public object[] Args { get; }
-
+        public object[]? Args { get; private set; }
         public ManagedConnection Context { get; }
         /// <summary>
         /// Если запрос получен в формате JSON-RPC, то и ответ должен быть в формате JSON-RPC.
         /// </summary>
-        public bool IsJsonRpcRequest { get; }
-
+        public bool IsJsonRpcRequest { get; private set; }
         internal object? Result { get; set; }
-        //internal StatusCode ResultCode { get; private set; }
-        //internal string? ResultEncoding { get; private set; }
+
+        public RequestContext(ManagedConnection context)
+        {
+            Context = context;
+            IsReusable = true;
+        }
 
         // ctor
         public RequestContext(ManagedConnection connection, int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
         {
-            Debug.Assert(method != null);
-
+            IsReusable = false;
             Context = connection;
+            Initialize(id, method, args, isJsonRpc);
+        }
+
+        internal void Reset()
+        {
+            Id = null;
+            Method = null;
+            Args = null;
+            IsJsonRpcRequest = false;
+            Result = null;
+        }
+
+        internal void Initialize(int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
+        {
+            Debug.Assert(Id == null);
+            Debug.Assert(Method == null);
+            Debug.Assert(Args == null);
+            Debug.Assert(IsJsonRpcRequest == default);
+
             Id = id;
             Method = method;
             Args = args;
@@ -149,25 +168,6 @@ namespace DanilovSoft.vRPC
             return headerSize;
         }
 
-        //private HeaderDto CreateHeader(int payloadLength)
-        //{
-        //    if (Result is ResponseMessage responseToSend)
-        //    // Создать хедер ответа на запрос.
-        //    {
-        //        //Debug.Assert(ResultCode != null, "StatusCode ответа не может быть Null");
-
-        //        return new HeaderDto(Id.Value, payloadLength, ResultEncoding, responseCode: ResultCode);
-        //    }
-        //    else
-        //    // Создать хедер для нового запроса.
-        //    {
-        //        var request = messageToSend.MessageToSend as RequestMethodMeta;
-        //        Debug.Assert(request != null);
-
-        //        return new HeaderDto(messageToSend.Uid, messageToSend.ContentEncoding, request.FullName, messageToSend.Buffer.WrittenCount);
-        //    }
-        //}
-
         /// <summary>
         /// В новом потоке выполняет запрос и отправляет обратно результат или ошибку.
         /// </summary>
@@ -195,7 +195,11 @@ namespace DanilovSoft.vRPC
 
         public void Dispose()
         {
+            Debug.Assert(Args != null);
+            Debug.Assert(Method != null);
+
             Method.DisposeArgs(Args);
+            Args = null;
         }
     }
 }

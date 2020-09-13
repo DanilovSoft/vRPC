@@ -159,7 +159,8 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private ReusableJNotification? _reusableJNotification = new ReusableJNotification();
         private ReusableVNotification? _reusableVNotification = new ReusableVNotification();
-        private ReusableJRequest? _reusableJRequest = new ReusableJRequest();
+        private ReusableJRequest? _reusableJRequest;
+        private RequestContext? _reusableContext;
 
         // ctor.
         /// <summary>
@@ -195,6 +196,9 @@ namespace DanilovSoft.vRPC
             // Не может сработать сразу потому что пока не запущен 
             // поток чтения или отправки – некому спровоцировать событие.
             _ws.Disconnecting += WebSocket_Disconnected;
+
+            _reusableJRequest = new ReusableJRequest(this);
+            _reusableContext = new RequestContext(this);
         }
 
         /// <summary>
@@ -376,6 +380,8 @@ namespace DanilovSoft.vRPC
             TryBeginClose(_shutdownRequest.CloseDescription);
         }
 
+        #region Отправка запроса
+
         /// <summary>
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
@@ -429,7 +435,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <remarks>Со стороны клиента.</remarks>
         /// <exception cref="Exception">Могут быть исключения не инкапсулированные в Task.</exception>
-        internal static Task<TResult> OnClientMethodCall<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
+        internal static Task<TResult> OnClientRequestCall<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
         {
             Debug.Assert(!method.IsNotificationRequest);
 
@@ -438,7 +444,7 @@ namespace DanilovSoft.vRPC
                 // Может быть исключение если не удалось подключиться.
                 ClientSideConnection connection = connectionTask.Result; // у ValueTask можно обращаться к Result.
 
-                return connection.OnClientMethodCall<TResult>(method, args);
+                return connection.SendRequest<TResult>(method, args);
             }
             else
             {
@@ -448,12 +454,12 @@ namespace DanilovSoft.vRPC
                 {
                     var connection = await connectionTask.ConfigureAwait(false);
 
-                    return connection.OnClientMethodCall<TResult>(method, args);
+                    return connection.SendRequest<TResult>(method, args);
                 }
             }
         }
 
-        private Task<TResult> OnClientMethodCall<TResult>(RequestMethodMeta method, object[] args)
+        private Task<TResult> SendRequest<TResult>(RequestMethodMeta method, object[] args)
         {
             if (method.IsJsonRpc)
             {
@@ -471,6 +477,8 @@ namespace DanilovSoft.vRPC
                 }
                 else
                 {
+                    Debug.WriteLine("Не удалось переиспользовать объект запроса и был создан новый.");
+
                     var request = new JRequest<TResult>(method, args);
 
                     if (TrySendRequest<TResult>(request, out Task<TResult>? error))
@@ -483,6 +491,8 @@ namespace DanilovSoft.vRPC
             }
             else
             {
+                Debug.WriteLine("Не удалось переиспользовать объект запроса и был создан новый.");
+
                 var request = new VRequest<TResult>(method, args);
 
                 if (TrySendRequest<TResult>(request, out var errorTask))
@@ -491,18 +501,6 @@ namespace DanilovSoft.vRPC
                 }
                 else
                     return errorTask;
-            }
-        }
-
-        private IRequest CreateJRequest<TResult>(RequestMethodMeta method, object[] args)
-        {
-            if (method.IsJsonRpc)
-            {
-                return new JRequest<TResult>(method, args);
-            }
-            else
-            {
-                return new VRequest<TResult>(method, args);
             }
         }
 
@@ -601,6 +599,15 @@ namespace DanilovSoft.vRPC
                 return new ValueTask(Task.FromException(new VRpcShutdownException(_shutdownRequest)));
         }
 
+        internal void ReleaseReusable(ReusableJRequest reusable)
+        {
+            Debug.Assert(Volatile.Read(ref _reusableJRequest) == null);
+
+            Volatile.Write(ref _reusableJRequest, reusable);
+        }
+
+        #endregion
+
         /// <summary>
         /// Отправляет запрос и ожидает ответ.
         /// Передаёт владение объектом <paramref name="request"/> другому потоку.
@@ -619,8 +626,6 @@ namespace DanilovSoft.vRPC
             {
                 if (!IsDisposed) // volatile проверка.
                 {
-                    //var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-
                     // Добавить запрос в словарь для последующей связки с ответом.
                     _pendingRequests.Add(request, out int id);
 
@@ -632,8 +637,6 @@ namespace DanilovSoft.vRPC
 
                     errorTask = default;
                     return true;
-                    // Ожидаем результат от потока поторый читает из сокета.
-                    //return tcs.Task;
                 }
                 else
                 {
@@ -865,6 +868,7 @@ namespace DanilovSoft.vRPC
             return result;
         }
 
+        /// <summary>Разбор полученного сообщения. Сообщение может быть запросом или ответом на запрос.</summary>
         /// <exception cref="JsonException"/>
         /// <returns>False если нужно завершить поток.</returns>
         internal bool DeserializeJsonRpcMessage(ReadOnlySpan<byte> utf8Json, [MaybeNullWhen(true)] out IMessageToSend? errorResponse)
@@ -1006,8 +1010,7 @@ namespace DanilovSoft.vRPC
                     {
                         Debug.Assert(args != null);
 
-                        var request = new RequestContext(this, id, method, args, isJsonRpc: true);
-                        request.StartProcessRequest();
+                        CreateRequestContextAndStart(id, method, args, isJsonRpc: true);
 
                         errorResponse = null;
                         return true;
@@ -1488,18 +1491,6 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        //private void TryPostJMessage(IMessageToSend message)
-        //{
-        //    // На текущем этапе сокет может быть уже уничтожен другим потоком.
-        //    // В этом случае можем беспоследственно проигнорировать отправку; вызывающий получит исключение через RequestAwaiter.
-        //    if (!IsDisposed)
-        //    {
-        //        // Передать в очередь на отправку.
-        //        // (!) Из-за AllowSynchronousContinuations начнёт отправку текущим потоком если очередь пуста.
-        //        _sendChannel.Writer.TryWrite(message);
-        //    }
-        //}
-
         // Как и для ReceiveLoop здесь не должно быть глубокого async стека.
         /// <summary>
         /// Ждёт сообщения через очередь и отправляет в сокет.
@@ -1519,12 +1510,18 @@ namespace DanilovSoft.vRPC
                     if (message is RequestContext response)
                     // Ответ на основе результата контроллера.
                     {
+                        Debug.Assert(response.Method != null);
+
                         if (response.IsJsonRpcRequest)
                         {
                             ArrayBufferWriter<byte> buffer = response.SerializeResponseAsJrpc();
                             try
                             {
                                 SetTcpNoDelay(response.Method.TcpNoDelay);
+
+                                // Нужно освободить ресурс перед отправкой сообщения.
+                                if (response.IsReusable)
+                                    ReleaseReusable(response);
 
                                 DebugDisplayJson(buffer.WrittenMemory.Span);
                                 try
@@ -1557,6 +1554,10 @@ namespace DanilovSoft.vRPC
                                 int messageSize = buffer.WrittenCount - headerSize;
 
                                 SetTcpNoDelay(response.Method.TcpNoDelay);
+
+                                // Нужно освободить ресурс перед отправкой сообщения.
+                                if (response.IsReusable)
+                                    ReleaseReusable(response);
 
                                 #region Отправка заголовка
 
@@ -1603,7 +1604,11 @@ namespace DanilovSoft.vRPC
                         }
 
                         // Уменьшить счетчик активных запросов.
-                        if (!DecreaseActiveRequestsCountOrClose())
+                        if (DecreaseActiveRequestsCountOrClose())
+                        {
+                            continue;
+                        }
+                        else
                         // Пользователь запросил остановку сервиса.
                         {
                             // Завершить поток.
@@ -1713,7 +1718,7 @@ namespace DanilovSoft.vRPC
                             }
                             finally
                             {
-                                buffer.Dispose();
+                                buffer?.Dispose();
                             }
                         }
                         else
@@ -1809,6 +1814,11 @@ namespace DanilovSoft.vRPC
                     }
 #endif
                 }
+                else
+                {
+                    //if (message is ReusableJRequest reusable)
+                    //    ReleaseReusable(reusable);
+                }
             }
         }
 
@@ -1892,124 +1902,12 @@ namespace DanilovSoft.vRPC
         //}
 
         /// <summary>
-        /// Вызывает запрошенный метод контроллера и возвращает результат.
-        /// Результатом может быть IActionResult или Raw объект или исключение.
-        /// </summary>
-        /// <exception cref="Exception">Исключение пользователя.</exception>
-        /// <exception cref="ObjectDisposedException"/>
-        /// <param name="receivedRequest">Гарантированно выполнит Dispose.</param>
-        /// <returns><see cref="IActionResult"/> или любой объект.</returns>
-        private ValueTask<object?> InvokeControllerAsync(in RequestContext receivedRequest)
-        {
-            bool requestToDispose = true;
-            IServiceScope? scopeToDispose = null;
-            try
-            {
-                // Проверить доступ к функции.
-                if (ActionPermissionCheck(receivedRequest.Method, out IActionResult? permissionError, out ClaimsPrincipal? user))
-                {
-                    IServiceScope scope = ServiceProvider.CreateScope();
-                    scopeToDispose = scope;
-
-                    // Инициализируем Scope текущим соединением.
-                    var getProxyScope = scope.ServiceProvider.GetService<RequestContextScope>();
-                    getProxyScope.ConnectionContext = this;
-
-                    // Активируем контроллер через IoC.
-                    var controller = scope.ServiceProvider.GetRequiredService(receivedRequest.Method.ControllerType) as Controller;
-                    Debug.Assert(controller != null);
-
-                    // Подготавливаем контроллер.
-                    controller.BeforeInvokeController(receivedRequest);
-                    controller.BeforeInvokeController(this, user);
-
-                    //BeforeInvokeController(controller);
-
-                    // Вызов метода контроллера.
-                    // (!) Результатом может быть не завершённый Task.
-                    object? actionResult = receivedRequest.Method.FastInvokeDelegate.Invoke(controller, receivedRequest.Args);
-
-                    if (actionResult != null)
-                    {
-                        // Может бросить исключение.
-                        ValueTask<object?> actionResultAsTask = DynamicAwaiter.ConvertToTask(actionResult);
-
-                        if (actionResultAsTask.IsCompletedSuccessfully)
-                        {
-                            // Извлекаем результат из Task'а.
-                            actionResult = actionResultAsTask.Result;
-
-                            // Результат успешно получен без исключения.
-                            return new ValueTask<object?>(actionResult);
-                        }
-                        else
-                        // Будем ждать асинхронный результат.
-                        {
-                            // Предотвратить Dispose.
-                            scopeToDispose = null;
-                            requestToDispose = false;
-
-                            return WaitForControllerActionAsync(actionResultAsTask, scope, receivedRequest);
-                        }
-                    }
-                    else
-                    {
-                        return new ValueTask<object?>(result: null);
-                    }
-                }
-                else
-                // Нет доступа к методу контроллера.
-                {
-                    return new ValueTask<object?>(result: permissionError);
-                }
-            }
-            finally
-            {
-                if (requestToDispose)
-                    receivedRequest.Dispose();
-
-                // ServiceScope выполнит Dispose всем созданным экземплярам.
-                scopeToDispose?.Dispose();
-            }
-
-            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> task, IServiceScope scope, RequestContext pendingRequest)
-            {
-                using (scope)
-                using (pendingRequest)
-                {
-                    object? result = await task.ConfigureAwait(false);
-
-                    // Результат успешно получен без исключения.
-                    return result;
-                }
-            }
-        }
-
-        /// <summary>
         /// Проверяет доступность запрашиваемого метода для удаленного пользователя.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
         private protected abstract bool ActionPermissionCheck(ControllerMethodMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user);
 
-        /// <summary>
-        /// Выполняет запрос и отправляет результат или ошибку.
-        /// </summary>
-        /// <remarks>Точка входа потока из пула. Необработанные исключения пользователя крашнут процесс.</remarks>
-        internal void OnStartProcessRequest(RequestContext requestContext)
-        {
-            // Сокет может быть уже закрыт, например по таймауту,
-            // в этом случае ничего выполнять не нужно.
-            if (!IsDisposed)
-            {
-                ProcessRequest(requestContext);
-            }
-            else
-            {
-                requestContext.Dispose();
-            }
-        }
-
-#region Монитор активных запросов.
+        #region Монитор активных запросов.
 
         /// <summary>
         /// Увеличивает счётчик на 1 при получении запроса или при отправке запроса.
@@ -2080,7 +1978,43 @@ namespace DanilovSoft.vRPC
             }
         }
 
-#endregion
+        #endregion
+
+        #region Обработка запроса в отдельном потоке
+
+        private void CreateRequestContextAndStart(int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
+        {
+            RequestContext? request = Interlocked.Exchange(ref _reusableContext, null);
+            if (request != null)
+            {
+                request.Initialize(id, method, args, isJsonRpc);
+            }
+            else
+            {
+                Debug.WriteLine("Не удалось переиспользовать контекст запроса и был создан новый.");
+
+                request = new RequestContext(this, id, method, args, isJsonRpc);
+            }
+            request.StartProcessRequest();
+        }
+
+        /// <summary>
+        /// Выполняет запрос и отправляет результат или ошибку.
+        /// </summary>
+        /// <remarks>Точка входа потока из пула.</remarks>
+        internal void OnStartProcessRequest(RequestContext requestContext)
+        {
+            // Сокет может быть уже закрыт, например по таймауту,
+            // в этом случае ничего выполнять не нужно.
+            if (!IsDisposed)
+            {
+                ProcessRequest(requestContext);
+            }
+            else
+            {
+                requestContext.Dispose();
+            }
+        }
 
         private void ProcessRequest(RequestContext requestContext)
         {
@@ -2095,7 +2029,7 @@ namespace DanilovSoft.vRPC
                 {
                     // Выполняет запрос и возвращает результат.
                     // Может быть исключение пользователя.
-                    pendingRequestTask = InvokeControllerAsync(in requestContext);
+                    pendingRequestTask = InvokeControllerAsync(requestContext);
                 }
                 catch (VRpcInternalErrorException ex)
                 {
@@ -2160,45 +2094,104 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
-        private void SendOkResponse(RequestContext requestContext)
+        /// <summary>
+        /// Вызывает запрошенный метод контроллера и возвращает результат.
+        /// Результатом может быть IActionResult или Raw объект или исключение.
+        /// </summary>
+        /// <exception cref="Exception">Исключение пользователя.</exception>
+        /// <exception cref="ObjectDisposedException"/>
+        /// <param name="requestContext">Гарантированно выполнит Dispose.</param>
+        /// <returns><see cref="IActionResult"/> или любой объект.</returns>
+        private ValueTask<object?> InvokeControllerAsync(RequestContext requestContext)
         {
-            Debug.Assert(requestContext.Id != null);
+            Debug.Assert(requestContext.Method != null);
+            Debug.Assert(requestContext.Args != null);
 
-            TryPostMessage(requestContext);
+            bool requestToDispose = true;
+            IServiceScope? scopeToDispose = null;
+            try
+            {
+                // Проверить доступ к функции.
+                if (ActionPermissionCheck(requestContext.Method, out IActionResult? permissionError, out ClaimsPrincipal? user))
+                {
+                    IServiceScope scope = ServiceProvider.CreateScope();
+                    scopeToDispose = scope;
+
+                    // Инициализируем Scope текущим соединением.
+                    var getProxyScope = scope.ServiceProvider.GetService<RequestContextScope>();
+                    getProxyScope.ConnectionContext = this;
+
+                    // Активируем контроллер через IoC.
+                    var controller = scope.ServiceProvider.GetRequiredService(requestContext.Method.ControllerType) as Controller;
+                    Debug.Assert(controller != null);
+
+                    // Подготавливаем контроллер.
+                    controller.BeforeInvokeController(requestContext);
+                    controller.BeforeInvokeController(this, user);
+
+                    //BeforeInvokeController(controller);
+
+                    // Вызов метода контроллера.
+                    // (!) Результатом может быть не завершённый Task.
+                    object? actionResult = requestContext.Method.FastInvokeDelegate.Invoke(controller, requestContext.Args);
+
+                    if (actionResult != null)
+                    // Сконвертировать результат контроллера в Task<>.
+                    {
+                        // Может бросить исключение.
+                        ValueTask<object?> actionResultAsTask = DynamicAwaiter.ConvertToTask(actionResult);
+
+                        if (actionResultAsTask.IsCompletedSuccessfully)
+                        {
+                            // Извлекаем результат из Task'а.
+                            actionResult = actionResultAsTask.Result;
+
+                            // Результат успешно получен без исключения.
+                            return new ValueTask<object?>(actionResult);
+                        }
+                        else
+                        // Будем ждать асинхронный результат.
+                        {
+                            // Предотвратить Dispose.
+                            scopeToDispose = null;
+                            requestToDispose = false;
+
+                            return WaitForControllerActionAsync(actionResultAsTask, scope, requestContext);
+                        }
+                    }
+                    else
+                    // Результатом контроллера был Null.
+                    {
+                        return new ValueTask<object?>(result: null);
+                    }
+                }
+                else
+                // Нет доступа к методу контроллера.
+                {
+                    return new ValueTask<object?>(result: permissionError);
+                }
+            }
+            finally
+            {
+                if (requestToDispose)
+                    requestContext.Dispose();
+
+                // ServiceScope выполнит Dispose всем созданным экземплярам.
+                scopeToDispose?.Dispose();
+            }
+
+            static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> task, IServiceScope scope, RequestContext pendingRequest)
+            {
+                using (scope)
+                using (pendingRequest)
+                {
+                    object? result = await task.ConfigureAwait(false);
+
+                    // Результат успешно получен без исключения.
+                    return result;
+                }
+            }
         }
-
-        private void SendInternalError(RequestContext requestContext)
-        {
-            Debug.Assert(requestContext.Id != null);
-
-            requestContext.Result = new InternalErrorResult("Internal error");
-
-            // Вернуть результат с ошибкой.
-            TryPostMessage(requestContext);
-        }
-
-        private void SendInternalErrorResult(RequestContext requestContext, VRpcInternalErrorException exception)
-        {
-            Debug.Assert(requestContext.IsResponseRequired);
-            Debug.Assert(requestContext.Id != null);
-
-            requestContext.Result = new InternalErrorResult(exception.Message);
-
-            // Вернуть результат с ошибкой.
-            TryPostMessage(requestContext);
-        }
-
-        //private void SendBadRequest(RequestContext requestContext, VRpcBadRequestException exception)
-        //{
-        //    Debug.Assert(requestContext.IsResponseRequired);
-        //    Debug.Assert(requestContext.Id != null);
-
-        //    requestContext.Result = new BadRequestResult(exception.Message);
-            
-        //    // Вернуть результат с ошибкой.
-        //    TryPostMessage(requestContext);
-        //}
 
         /// <summary>
         /// 
@@ -2212,7 +2205,7 @@ namespace DanilovSoft.vRPC
             try
             {
                 // Может быть исключение пользователя.
-                pendingRequestTask = InvokeControllerAsync(in notificationRequest);
+                pendingRequestTask = InvokeControllerAsync(notificationRequest);
             }
             catch (ObjectDisposedException)
             {
@@ -2245,6 +2238,46 @@ namespace DanilovSoft.vRPC
                 }
             }
         }
+
+        private void ReleaseReusable(RequestContext reusableRequest)
+        {
+            Debug.Assert(Volatile.Read(ref _reusableContext) == null);
+
+            reusableRequest.Reset();
+
+            Volatile.Write(ref _reusableContext, reusableRequest);
+        }
+
+        /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
+        private void SendOkResponse(RequestContext requestContext)
+        {
+            Debug.Assert(requestContext.Id != null);
+
+            TryPostMessage(requestContext);
+        }
+
+        private void SendInternalError(RequestContext requestContext)
+        {
+            Debug.Assert(requestContext.Id != null);
+
+            requestContext.Result = new InternalErrorResult("Internal error");
+
+            // Вернуть результат с ошибкой.
+            TryPostMessage(requestContext);
+        }
+
+        private void SendInternalErrorResult(RequestContext requestContext, VRpcInternalErrorException exception)
+        {
+            Debug.Assert(requestContext.IsResponseRequired);
+            Debug.Assert(requestContext.Id != null);
+
+            requestContext.Result = new InternalErrorResult(exception.Message);
+
+            // Вернуть результат с ошибкой.
+            TryPostMessage(requestContext);
+        }
+
+        #endregion // Обработка запроса в отдельном потоке.
 
         /// <summary>
         /// Потокобезопасно освобождает ресурсы соединения. Вызывается при закрытии соединения.

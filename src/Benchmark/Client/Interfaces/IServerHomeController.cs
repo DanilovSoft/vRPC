@@ -14,6 +14,9 @@ namespace Client
         [JsonRpc]
         [TcpNoDelay]
         void VoidNoArgs();
+        [JsonRpc]
+        [TcpNoDelay]
+        Task VoidNoArgsAsync();
         void JsonOnlyInt(int id);
         void MultipartOnlyInt(VRpcContent id);
         [Notification]

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -12,25 +13,29 @@ namespace DanilovSoft.vRPC
 {
     internal sealed class ReusableJRequest : IJRequest, IRequest
     {
+        private readonly ManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
         public int Id { get; set; }
         private object? _tcs;
-        private Action<object?, object>? _setResult;
-        private Action<Exception, object>? _setException;
+        private Action<object?, ReusableJRequest>? _setResult;
+        private Action<Exception, ReusableJRequest>? _setException;
 
-        public ReusableJRequest()
+        public ReusableJRequest(ManagedConnection context)
         {
-
+            _context = context;
         }
 
-        internal void Reset()
+        private void Reset()
         {
             Method = null;
             Args = null;
             _tcs = null;
             _setResult = null;
             _setException = null;
+            Id = 0;
+
+            _context.ReleaseReusable(this);
         }
 
         internal Task<TResult> Initialize<TResult>(RequestMethodMeta method, object[] args)
@@ -53,15 +58,25 @@ namespace DanilovSoft.vRPC
             return tcs.Task;
         }
 
-        private static void SetResult<TResult>(object? result, object state)
+        private static void SetResult<TResult>(object? result, ReusableJRequest self)
         {
-            var tcs = (TaskCompletionSource<TResult>)state;
+            var tcs = self._tcs as TaskCompletionSource<TResult>;
+            Debug.Assert(tcs != null);
+
+            // Нужно сделать сброс перед установкой результата.
+            self.Reset();
+
             tcs.TrySetResult((TResult)result!);
         }
 
-        private static void SetException<TResult>(Exception exception, object state)
+        private static void SetException<TResult>(Exception exception, ReusableJRequest self)
         {
-            var tcs = (TaskCompletionSource<TResult>)state;
+            var tcs = self._tcs as TaskCompletionSource<TResult>;
+            Debug.Assert(tcs != null);
+
+            // Нужно сделать сброс перед установкой результата.
+            self.Reset();
+
             tcs.TrySetException(exception);
         }
 
@@ -73,17 +88,21 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetException(Exception exception)
         {
-            Debug.Assert(_tcs != null);
             Debug.Assert(_setException != null);
 
-            _setException(exception, _tcs);
+            _setException(exception, this);
+        }
+
+        private void SetResult(object result)
+        {
+            Debug.Assert(_setResult != null);
+
+            _setResult(result, this);
         }
 
         public void SetJResponse(ref Utf8JsonReader reader)
         {
             Debug.Assert(Method != null);
-            Debug.Assert(_tcs != null);
-            Debug.Assert(_setResult != null);
 
             if (Method.ReturnType != typeof(VoidStruct))
             // Поток ожидает некий объект как результат.
@@ -102,12 +121,12 @@ namespace DanilovSoft.vRPC
 
                     return;
                 }
-                _setResult(result, _tcs);
+                SetResult(result);
             }
             else
             // void.
             {
-                _setResult(default(VoidStruct), _tcs);
+                SetResult(default(VoidStruct));
             }
         }
 

@@ -10,6 +10,5 @@ namespace DanilovSoft.vRPC
     {
         RequestMethodMeta Method { get; }
         int Id { get; set; }
-        //Task<TResult> Task { get; }
     }
 }

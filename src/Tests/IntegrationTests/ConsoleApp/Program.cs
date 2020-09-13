@@ -51,7 +51,10 @@ namespace ConsoleApp
 
             cli.Connect();
 
-            int sum = iface.GetSum(1, 2);
+            while (true)
+            {
+                int sum = iface.GetSum(1, 2);
+            }
 
 
             Thread.Sleep(-1);

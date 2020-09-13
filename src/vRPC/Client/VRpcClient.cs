@@ -435,7 +435,7 @@ namespace DanilovSoft.vRPC
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(accessToken: default);
 
-            return ManagedConnection.OnClientMethodCall<TResult>(connectionTask, method, args);
+            return ManagedConnection.OnClientRequestCall<TResult>(connectionTask, method, args);
         }
 
         // Когда выполняют вызов метода через интерфейс.

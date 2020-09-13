@@ -54,7 +54,7 @@ namespace Client
             var threads = new List<Task>(Threads);
             for (int i = 0; i < Threads; i++)
             {
-                var t = Task.Factory.StartNew(() =>
+                var t = Task.Run(async () =>
                 {
                     if (_appExit)
                         return;
@@ -91,7 +91,7 @@ namespace Client
                             {
                                 try
                                 {
-                                    controller.VoidNoArgs();
+                                    await controller.VoidNoArgsAsync();
                                 }
                                 catch (VRpcShutdownException)
                                 {
@@ -110,7 +110,7 @@ namespace Client
                         CloseReason closeReason = client.WaitCompletion();
                     }
                     Interlocked.Decrement(ref activeThreads);
-                }, TaskCreationOptions.LongRunning);
+                });
                 
                 threads.Add(t);
             }

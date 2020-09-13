@@ -11,18 +11,25 @@ namespace LoadTestApp
 {
     public interface ITestController
     {
-        Task<string> Ping(string msg);
+        [JsonRpc]
+        [TcpNoDelay]
+        string Ping(string msg);
+
+        [JsonRpc]
+        [TcpNoDelay]
+        Task<string> PingAsync(string msg);
     }
 
     class Program
     {
         private static int _connectionsCount;
         private static VRpcClient[] _clients;
+        private static int _port;
 
         static void Main()
         {
-            VRpcListener listener = new VRpcListener(IPAddress.Any, 1234);
-            listener.Start();
+            var listener = VRpcListener.StartNew(IPAddress.Any);
+            _port = listener.Port;
 
             int count = GetConnectionsCount();
             _clients = new VRpcClient[count];
@@ -87,9 +94,9 @@ namespace LoadTestApp
                     {
                         try
                         {
-                            string pong = await p.Ping("ping");
+                            string pong = await p.PingAsync("ping");
                         }
-                        catch (VRpcShutdownException ex)
+                        catch (VRpcShutdownException)
                         {
                             Interlocked.Decrement(ref _connectionsCount);
                             await Task.Delay(100);
@@ -97,7 +104,7 @@ namespace LoadTestApp
                             skipNextDelay = true;
                             break;
                         }
-                        await Task.Delay(100);
+                        //await Task.Delay(100);
                     }
 
                     if (!skipNextDelay)
@@ -120,7 +127,7 @@ namespace LoadTestApp
 
         private static VRpcClient CreateClient()
         {
-            return new VRpcClient("127.0.0.1", 1234, false, false);
+            return new VRpcClient("127.0.0.1", _port, false, false);
         }
 
         private static int GetConnectionsCount()
