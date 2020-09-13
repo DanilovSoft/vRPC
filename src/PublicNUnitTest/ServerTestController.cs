@@ -94,12 +94,20 @@ namespace XUnitTest
 
         public string MakeCallback(string msg)
         {
-            return Context.GetProxy<IClientTestController>().Echo(msg);
+            string echo = Context.GetProxy<IClientTestController>().Echo(msg);
+
+            Debug.Assert(echo == msg, "Эхо-сообщения не идентичны");
+
+            return echo;
         }
         
         public async Task<string> MakeAsyncCallback(string msg)
         {
-            return await Context.GetProxy<IClientTestController>().EchoAsync(msg);
+            string echo = await Context.GetProxy<IClientTestController>().EchoAsync(msg);
+            
+            Debug.Assert(echo == msg, "Эхо-сообщения не идентичны");
+
+            return echo;
         }
 
         public void NotifyCallback(int n)

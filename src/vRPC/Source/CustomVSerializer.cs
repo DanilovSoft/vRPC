@@ -16,26 +16,19 @@ using System.Buffers.Text;
 
 namespace DanilovSoft.vRPC
 {
-    internal static partial class CustomSerializer
+    internal static partial class CustomVSerializer
     {
         /// <param name="requestContext">Не Null когда True.</param>
         /// <remarks>Не бросает исключения.</remarks>
-        internal static bool TryDeserializeRequest(ManagedConnection context, ReadOnlyMemory<byte> content, ControllerMethodMeta method, in HeaderDto header, 
-            [MaybeNullWhen(false)] out RequestContext requestContext,
-            [MaybeNullWhen(true)] out IActionResult? error)
+        internal static bool TryDeserializeArgs(ReadOnlyMemory<byte> content, ControllerMethodMeta method, in HeaderDto header,
+            [NotNullWhen(true)] out object[]? args,
+            [MaybeNullWhen(false)] out IActionResult? error)
         {
             try
             {
-                if (header.PayloadEncoding != KnownEncoding.MultipartEncoding)
-                {
-                    return TryDeserializeRequestJson(context, content.Span, method, header.Id, out requestContext, out error);
-                }
-                else
-                {
-                    return TryDeserializeMultipart(context, content, method, header.Id, out requestContext, out error);
-                }
+                return TryDeserializeRequestJson(content.Span, method, out args, out error);
             }
-            catch (Exception ex)
+            catch (JsonException ex)
             // Ошибка десериализации запроса.
             {
                 // Игнорируем этот запрос и отправляем обратно ошибку.
@@ -44,13 +37,13 @@ namespace DanilovSoft.vRPC
                 {
                     // Подготовить ответ с ошибкой.
                     error = new InvalidRequestResult($"Не удалось десериализовать запрос. Ошибка: \"{ex.Message}\".");
-                    requestContext = default;
+                    args = null;
                     return false;
                 }
                 else
                 {
                     error = null;
-                    requestContext = default;
+                    args = null;
                     return false;
                 }
             }
@@ -61,16 +54,14 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="JsonException"/>
         /// <returns>True если успешно десериализовали.</returns>
-        private static bool TryDeserializeRequestJson(ManagedConnection context, ReadOnlySpan<byte> utf8Json, ControllerMethodMeta method, int? id, 
-            [MaybeNullWhen(false)] out RequestContext result,
-            [MaybeNullWhen(true)] out IActionResult? error)
+        private static bool TryDeserializeRequestJson(ReadOnlySpan<byte> utf8Json, ControllerMethodMeta method, 
+            [NotNullWhen(true)] out object[]? args,
+            [NotNullWhen(false)] out IActionResult? error)
         {
 #if DEBUG
             var debugDisplayAsString = new DebuggerDisplayJson(utf8Json);
 #endif
-            object[] args = method.Parametergs.Length == 0
-                ? Array.Empty<object>()
-                : (new object[method.Parametergs.Length]);
+            args = method.PrepareArgs();
 
             // Считаем сколько аргументов есть в json'е.
             short argsInJsonCounter = 0;
@@ -91,7 +82,7 @@ namespace DanilovSoft.vRPC
                             }
                             catch (JsonException)
                             {
-                                result = default;
+                                args = null;
                                 error = ResponseHelper.ErrorDeserializingArgument(method.MethodFullName, argIndex: argsInJsonCounter, paramType);
                                 return false;
                             }
@@ -100,7 +91,7 @@ namespace DanilovSoft.vRPC
                         else
                         // Несоответствие числа параметров.
                         {
-                            result = default;
+                            args = null;
                             error = ResponseHelper.ArgumentsCountMismatchError(method.MethodFullName, method.Parametergs.Length);
                             return false;
                         }
@@ -111,54 +102,53 @@ namespace DanilovSoft.vRPC
             if (ResponseHelper.ValidateArgumentsCount(method.Parametergs, argsInJsonCounter, method.MethodFullName, out error))
             {
                 error = null;
-                result = new RequestContext(context, id, method, args, false);
                 return true;
             }
             else
             // Не соответствует число аргументов.
             {
-                result = default;
+                args = null;
                 return false;
             }
         }
 
-        /// <exception cref="Exception"/>
-        private static bool TryDeserializeMultipart(ManagedConnection context, ReadOnlyMemory<byte> content, ControllerMethodMeta method, int? id,
-            [MaybeNullWhen(false)] out RequestContext result,
-            [MaybeNullWhen(true)] out IActionResult? error)
-        {
-            object[]? args;
-            if (method.Parametergs.Length == 0)
-            {
-                args = Array.Empty<object>();
-            }
-            else
-            {
-                args = new object[method.Parametergs.Length];
-            }
-            try
-            {
-                if (DeserializeProtoBufArgs(content, method, args, out error))
-                {
-                    result = new RequestContext(context, id, method, args, false);
-                    args = null; // Предотвратить Dispose.
-                    error = null;
-                    return true;
-                }
-                else
-                {
-                    result = default;
-                    return false;
-                }
-            }
-            finally
-            {
-                if (args != null)
-                {
-                    method.DisposeArgs(args);
-                }
-            }
-        }
+        ///// <exception cref="Exception"/>
+        //private static bool TryDeserializeMultipart(ManagedConnection context, ReadOnlyMemory<byte> content, ControllerMethodMeta method, int? id,
+        //    [MaybeNullWhen(false)] out RequestContext result,
+        //    [MaybeNullWhen(true)] out IActionResult? error)
+        //{
+        //    object[]? args;
+        //    if (method.Parametergs.Length == 0)
+        //    {
+        //        args = Array.Empty<object>();
+        //    }
+        //    else
+        //    {
+        //        args = new object[method.Parametergs.Length];
+        //    }
+        //    try
+        //    {
+        //        if (DeserializeProtoBufArgs(content, method, args, out error))
+        //        {
+        //            result = new RequestContext(context, id, method, args, false);
+        //            args = null; // Предотвратить Dispose.
+        //            error = null;
+        //            return true;
+        //        }
+        //        else
+        //        {
+        //            result = default;
+        //            return false;
+        //        }
+        //    }
+        //    finally
+        //    {
+        //        if (args != null)
+        //        {
+        //            method.DisposeArgs(args);
+        //        }
+        //    }
+        //}
 
         private static bool DeserializeProtoBufArgs(ReadOnlyMemory<byte> content, ControllerMethodMeta method, object[] args, [MaybeNullWhen(true)] out IActionResult? error)
         {

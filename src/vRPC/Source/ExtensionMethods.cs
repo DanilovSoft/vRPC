@@ -16,40 +16,56 @@ namespace DanilovSoft.vRPC
 {
     internal static class ExtensionMethods
     {
+        ///// <summary>
+        ///// Сериализует объект в JSON.
+        ///// </summary>
+        ///// <exception cref="VRpcException"/>
+        //[Obsolete]
+        //public static void SerializeResponseJson(ArrayBufferWriter<byte> destination, object instance)
+        //{
+        //    // Сериализовать Null не нужно (Отправлять тело сообщения при этом тоже не нужно).
+        //    Debug.Assert(instance != null, "Сериализовать и отправлять Null не нужно");
+
+        //    try
+        //    {
+        //        using (var writer = new Utf8JsonWriter(destination))
+        //        {
+        //            JsonSerializer.Serialize(writer, instance/*, new JsonSerializerOptions { IgnoreNullValues = true }*/);
+        //        }
+        //    }
+        //    catch (JsonException ex)
+        //    {
+        //        ThrowHelper.ThrowVRpcException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
+        //    }
+        //}
+
         /// <summary>
         /// Сериализует объект в JSON.
         /// </summary>
-        /// <exception cref="VRpcException"/>
-        [Obsolete]
-        public static void SerializeObjectJson(ArrayBufferWriter<byte> destination, object instance)
+        /// <exception cref="JsonException"/>
+        internal static void SerializeRequestArgsJson(ArrayBufferWriter<byte> destination, object[] args)
         {
             // Сериализовать Null не нужно (Отправлять тело сообщения при этом тоже не нужно).
-            Debug.Assert(instance != null, "Сериализовать и отправлять Null не нужно");
+            Debug.Assert(args != null);
 
-            try
+            using (var writer = new Utf8JsonWriter(destination))
             {
-                using (var writer = new Utf8JsonWriter(destination))
-                {
-                    JsonSerializer.Serialize(writer, instance/*, new JsonSerializerOptions { IgnoreNullValues = true }*/);
-                }
-            }
-            catch (Exception ex)
-            {
-                ThrowHelper.ThrowVRpcException($"Не удалось сериализовать объект типа {instance.GetType().FullName} в json.", ex);
+                JsonSerializer.Serialize(writer, args);
             }
         }
 
         /// <summary>
         /// Сериализует объект в JSON.
         /// </summary>
-        internal static void SerializeObject(ArrayBufferWriter<byte> destination, object instance)
+        /// <exception cref="JsonException"/>
+        internal static void SerializeResponseJson(ArrayBufferWriter<byte> destination, object instance)
         {
             // Сериализовать Null не нужно (Отправлять тело сообщения при этом тоже не нужно).
             Debug.Assert(instance != null, "Сериализовать и отправлять Null не нужно");
 
             using (var writer = new Utf8JsonWriter(destination))
             {
-                JsonSerializer.Serialize(writer, instance/*, new JsonSerializerOptions { IgnoreNullValues = true }*/);
+                JsonSerializer.Serialize(writer, instance, instance.GetType());
             }
         }
 
@@ -98,9 +114,9 @@ namespace DanilovSoft.vRPC
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static object DeserializeProtoBuf(Stream source, Type type)
+        internal static object DeserializeProtoBuf(ReadOnlyMemory<byte> source, Type type)
         {
-            return ProtoBuf.Serializer.Deserialize(type, source);
+            return ProtoBuf.Serializer.NonGeneric.Deserialize(type, source);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -115,10 +131,7 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void SerializeObjectProtobuf(ArrayBufferWriter<byte> destination, object instance)
         {
-            using (var mem = new ReadOnlyMemoryStream(destination.WrittenMemory))
-            {
-                ProtoBuf.Serializer.Serialize(mem, instance);
-            }
+            ProtoBuf.Serializer.Serialize<object>(destination, instance);
         }
 
         public static void WarmupRequestMessageJson()

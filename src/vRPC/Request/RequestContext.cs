@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 
 namespace DanilovSoft.vRPC
@@ -15,7 +16,7 @@ namespace DanilovSoft.vRPC
     /// </summary>
     //[StructLayout(LayoutKind.Auto)]
     //[DebuggerDisplay(@"\{{" + nameof(Method) + @" ?? default}\}")]
-    internal sealed class RequestContext : IThreadPoolWorkItem, IMessageToSend, IDisposable
+    internal sealed class RequestContext : IThreadPoolWorkItem, IMessageToSend
     {
         internal bool IsReusable { get; }
         /// <summary>
@@ -77,7 +78,8 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Сериализует сообщение в память. Может бросить исключение сериализации.
         /// </summary>
-        /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
+        /// <exception cref="JsonException">Ошибка сериализации пользовательских данных.</exception>
+        /// <exception cref="ProtoBuf.ProtoException">Ошибка сериализации пользовательских данных.</exception>
         internal ArrayBufferWriter<byte> SerializeResponseAsVrpc(out int headerSize)
         {
             Debug.Assert(!IsJsonRpcRequest, "Формат ответа не совпадает с запросом");
@@ -104,16 +106,17 @@ namespace DanilovSoft.vRPC
                     if (Result != null)
                     {
                         Debug.Assert(Method != null, "RAW результат может быть только на основе запроса");
+
                         Method.SerializerDelegate(buffer, Result);
-                        
+
                         headerSize = AppendHeader(buffer, Id.Value, StatusCode.Ok, Method.ProducesEncoding);
                     }
                     else
+                    // Null отправлять не нужно.
                     {
                         headerSize = AppendHeader(buffer, Id.Value, StatusCode.Ok, null);
                     }
                 }
-
                 toDispose = null;
                 return buffer;
             }
@@ -193,7 +196,7 @@ namespace DanilovSoft.vRPC
             Context.OnStartProcessRequest(this);
         }
 
-        public void Dispose()
+        public void DisposeArgs()
         {
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);

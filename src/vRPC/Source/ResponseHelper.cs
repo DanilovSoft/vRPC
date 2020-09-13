@@ -65,7 +65,8 @@ namespace DanilovSoft.vRPC.Source
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, string actionName, [MaybeNullWhen(true)] out IActionResult? error)
+        internal static bool ValidateArgumentsCount(ParameterInfo[] targetArguments, short jsonArgsCount, string actionName, 
+            [NotNullWhen(false)] out IActionResult? error)
         {
             if (jsonArgsCount == targetArguments.Length)
             {

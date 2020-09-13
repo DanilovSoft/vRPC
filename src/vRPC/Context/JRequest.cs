@@ -10,13 +10,6 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    internal interface IJRequest
-    {
-        RequestMethodMeta Method { get; }
-        object[]? Args { get; }
-        bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer);
-    }
-
     internal sealed class JRequest<TResult> : IJRequest, IRequest
     {
         private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -105,6 +98,16 @@ namespace DanilovSoft.vRPC
             {
                 _tcs.TrySetResult(default!);
             }
+        }
+
+        public void CompleteNotification(VRpcException exception)
+        {
+            // Игнорируем.
+        }
+
+        public void CompleteNotification()
+        {
+            // Игнорируем.
         }
     }
 }

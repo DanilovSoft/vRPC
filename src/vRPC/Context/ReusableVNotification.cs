@@ -12,7 +12,6 @@ namespace DanilovSoft.vRPC
     {
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
-        public bool IsNotification => true;
         private ManualResetValueTaskSourceCore<VoidStruct> _mrv;
 
         /// <summary>
@@ -47,31 +46,14 @@ namespace DanilovSoft.vRPC
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);
 
-            buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
-            try
+            if (Method.TrySerializeVRequest(Args, id: null, out headerSize, out buffer, out var vException))
             {
-                Method.SerializeRequest(Args, buffer);
-
-                var header = new HeaderDto(id: null, buffer.WrittenCount, contentEncoding: null, Method.FullName);
-
-                // Записать заголовок в конец стрима. Не бросает исключения.
-                headerSize = header.SerializeJson(buffer);
-
-                toDispose = null;
                 return true;
             }
-            catch (Exception ex)
+            else
             {
-                var vex = new VRpcSerializationException($"Не удалось сериализовать запрос в json.", ex);
-                SetException(vex);
-                headerSize = -1;
+                SetException(vException);
                 return false;
-            }
-            finally
-            {
-                Args = null; // Освободить память.
-                toDispose?.Dispose();
             }
         }
 
@@ -94,6 +76,16 @@ namespace DanilovSoft.vRPC
         {
             _mrv.GetResult(token);
             _mrv.Reset();
+        }
+
+        public void CompleteNotification(VRpcException exception)
+        {
+            _mrv.SetException(exception);
+        }
+
+        public void CompleteNotification()
+        {
+            _mrv.SetResult(default);
         }
     }
 }

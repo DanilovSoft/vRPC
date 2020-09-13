@@ -430,6 +430,7 @@ namespace DanilovSoft.vRPC
         // Когда выполняют вызов метода через интерфейс.
         internal Task<TResult> OnClientMethodCall<TResult>(RequestMethodMeta method, object[] args)
         {
+            Debug.Assert(method.ReturnType == typeof(TResult));
             Debug.Assert(!method.IsNotificationRequest);
 
             // Начать соединение или взять существующее.

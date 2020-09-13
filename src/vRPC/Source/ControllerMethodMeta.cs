@@ -59,7 +59,7 @@ namespace DanilovSoft.vRPC
             else
             {
                 // Сериализатор по умолчанию — Json.
-                SerializerDelegate = ExtensionMethods.SerializeObjectJson;
+                SerializerDelegate = ExtensionMethods.SerializeResponseJson;
                 ProducesEncoding = KnownEncoding.JsonEncoding;
             }
 

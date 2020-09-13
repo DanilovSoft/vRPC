@@ -12,17 +12,10 @@ using System.Threading.Tasks.Sources;
 
 namespace DanilovSoft.vRPC
 {
-    internal interface IVRequest
-    {
-        RequestMethodMeta Method { get; }
-        object[]? Args { get; }
-        bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize);
-    }
-
     [DebuggerDisplay(@"\{Request = {Method.FullName}\}")]
     internal sealed class VRequest<TResult> : IMessageToSend, IVRequest, IRequest
     {
-        private TaskCompletionSource<TResult> _tcs;
+        private readonly TaskCompletionSource<TResult> _tcs;
         public RequestMethodMeta Method { get; }
         public object[]? Args { get; private set; }
         public Task<TResult> Task => _tcs.Task;
@@ -82,15 +75,15 @@ namespace DanilovSoft.vRPC
             _tcs.TrySetResult(result!);
         }
 
-        private void DeserializeResponse(ReadOnlyMemory<byte> payload, string? contentEncoding)
-        {
-            TResult result = contentEncoding switch
-            {
-                KnownEncoding.ProtobufEncoding => ExtensionMethods.DeserializeProtoBuf<TResult>(payload),
-                _ => ExtensionMethods.DeserializeJson<TResult>(payload.Span), // Сериализатор по умолчанию.
-            };
-            SetResult(result);
-        }
+        //private void DeserializeResponse(ReadOnlyMemory<byte> payload, string? contentEncoding)
+        //{
+        //    TResult result = contentEncoding switch
+        //    {
+        //        KnownEncoding.ProtobufEncoding => ExtensionMethods.DeserializeProtoBuf<TResult>(payload),
+        //        _ => ExtensionMethods.DeserializeJson<TResult>(payload.Span), // Сериализатор по умолчанию.
+        //    };
+        //    SetResult(result);
+        //}
 
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
@@ -99,61 +92,15 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(header.IsRequest == false);
 
-            if (header.StatusCode == StatusCode.Ok)
-            // Запрос на удалённой стороне был выполнен успешно.
-            {
-                #region Передать успешный результат
+            var result = Method.DeserializeVResponse(in header, payload, out VRpcException? vException);
 
-                if (typeof(TResult) != typeof(VoidStruct))
-                // Поток ожидает некий объект как результат.
-                {
-                    if (!payload.IsEmpty)
-                    {
-                        try
-                        {
-                            DeserializeResponse(payload, header.PayloadEncoding);
-                        }
-                        catch (Exception deserializationException)
-                        {
-                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
-                            SetException(new VRpcProtocolErrorException(
-                                $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
-                        }
-                    }
-                    else
-                    // У ответа отсутствует контент — это равнозначно Null.
-                    {
-                        if (typeof(TResult).CanBeNull())
-                        // Результат запроса поддерживает Null.
-                        {
-                            SetResult(default);
-                        }
-                        else
-                        // Результатом этого запроса не может быть Null.
-                        {
-                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
-                            SetException(new VRpcProtocolErrorException(
-                                $"Ожидался не пустой результат запроса но был получен ответ без результата."));
-                        }
-                    }
-                }
-                else
-                // void.
-                {
-                    SetResult(default);
-                }
-                #endregion
+            if (vException == null)
+            {
+                SetResult((TResult)result);
             }
             else
-            // Сервер прислал код ошибки.
             {
-                // Телом ответа в этом случае будет строка.
-                string errorMessage = payload.ReadAsString();
-
-                var rpcException = ExceptionHelper.ToException(header.StatusCode, errorMessage);
-
-                // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
-                SetException(rpcException);
+                SetException(vException);
             }
         }
 
@@ -171,31 +118,14 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(Args != null);
 
-            buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
-            try
+            if (Method.TrySerializeVRequest(Args, Id, out headerSize, out buffer, out var vException))
             {
-                Method.SerializeRequest(Args, buffer);
-
-                var header = new HeaderDto(Id, buffer.WrittenCount, contentEncoding: null, Method.FullName);
-
-                // Записать заголовок в конец стрима. Не бросает исключения.
-                headerSize = header.SerializeJson(buffer);
-
-                toDispose = null;
                 return true;
             }
-            catch (Exception ex)
+            else
             {
-                var vex = new VRpcSerializationException($"Не удалось сериализовать запрос в json.", ex);
-                SetException(vex);
-                headerSize = -1;
+                SetException(vException);
                 return false;
-            }
-            finally
-            {
-                Args = null; // Освободить память.
-                toDispose?.Dispose();
             }
         }
 
@@ -212,6 +142,16 @@ namespace DanilovSoft.vRPC
         public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
         {
             throw new NotImplementedException();
+        }
+
+        public void CompleteNotification(VRpcException exception)
+        {
+            // Игнорируем.
+        }
+
+        public void CompleteNotification()
+        {
+            // Игнорируем.
         }
     }
 }

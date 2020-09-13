@@ -19,6 +19,7 @@ using System.IO;
 using DanilovSoft.vRPC.Context;
 using System.Text.Json;
 using System.ComponentModel;
+using ProtoBuf;
 
 namespace DanilovSoft.vRPC
 {
@@ -160,6 +161,7 @@ namespace DanilovSoft.vRPC
         private ReusableJNotification? _reusableJNotification = new ReusableJNotification();
         private ReusableVNotification? _reusableVNotification = new ReusableVNotification();
         private ReusableJRequest? _reusableJRequest;
+        private ReusableVRequest? _reusableVRequest;
         private RequestContext? _reusableContext;
 
         // ctor.
@@ -199,6 +201,7 @@ namespace DanilovSoft.vRPC
 
             _reusableJRequest = new ReusableJRequest(this);
             _reusableContext = new RequestContext(this);
+            _reusableVRequest = new ReusableVRequest(this);
         }
 
         /// <summary>
@@ -420,6 +423,7 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Task<TResult> OnServerRequestCall<TResult>(VRequest<TResult> vRequest)
         {
+            Debug.Assert(vRequest.Method.ReturnType == typeof(TResult));
             Debug.Assert(!vRequest.Method.IsNotificationRequest);
 
             if (TrySendRequest<TResult>(vRequest, out var errorTask))
@@ -491,16 +495,31 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                Debug.WriteLine("Не удалось переиспользовать объект запроса и был создан новый.");
-
-                var request = new VRequest<TResult>(method, args);
-
-                if (TrySendRequest<TResult>(request, out var errorTask))
+                ReusableVRequest? reusableRequest = Interlocked.Exchange(ref _reusableVRequest, null);
+                if (reusableRequest != null)
                 {
-                    return request.Task;
+                    Task<TResult> task = reusableRequest.Initialize<TResult>(method, args);
+
+                    if (TrySendRequest<TResult>(reusableRequest, out var error))
+                    {
+                        return task;
+                    }
+                    else
+                        return error;
                 }
                 else
-                    return errorTask;
+                {
+                    Debug.WriteLine("Не удалось переиспользовать объект запроса и был создан новый.");
+
+                    var request = new VRequest<TResult>(method, args);
+
+                    if (TrySendRequest<TResult>(request, out var errorTask))
+                    {
+                        return request.Task;
+                    }
+                    else
+                        return errorTask;
+                }
             }
         }
 
@@ -546,7 +565,6 @@ namespace DanilovSoft.vRPC
 
         private INotification CreateNotification(RequestMethodMeta method, object[] args)
         {
-            // TODO добавить переиспользование.
             if (method.IsJsonRpc)
             {
                 var notification = Interlocked.Exchange(ref _reusableJNotification, null);
@@ -604,6 +622,13 @@ namespace DanilovSoft.vRPC
             Debug.Assert(Volatile.Read(ref _reusableJRequest) == null);
 
             Volatile.Write(ref _reusableJRequest, reusable);
+        }
+
+        internal void ReleaseReusable(ReusableVRequest reusable)
+        {
+            Debug.Assert(Volatile.Read(ref _reusableVRequest) == null);
+
+            Volatile.Write(ref _reusableVRequest, reusable);
         }
 
         #endregion
@@ -828,7 +853,7 @@ namespace DanilovSoft.vRPC
         {
             try
             {
-                var header = CustomSerializer.DeserializeHeader(buffer);
+                var header = CustomVSerializer.DeserializeHeader(buffer);
                 header.Assert();
                 errorTask = null;
                 return header;
@@ -1168,10 +1193,10 @@ namespace DanilovSoft.vRPC
                         {
                             #region Десериализация запроса
 
-                            if (CustomSerializer.TryDeserializeRequest(this, payload, method, in header, out RequestContext? requestContext, out IActionResult? error))
+                            if (CustomVSerializer.TryDeserializeArgs(payload, method, in header, out object[]? args, out IActionResult? error))
                             {
                                 // Начать выполнение запроса в отдельном потоке.
-                                requestContext.StartProcessRequest();
+                                CreateRequestContextAndStart(header.Id, method, args, isJsonRpc: false);
                             }
                             else
                             // Не удалось десериализовать запрос.
@@ -1545,9 +1570,23 @@ namespace DanilovSoft.vRPC
                         }
                         else
                         {
-                            // TODO нужно предотвратить крах всего процесса.
-                            // Исключение сериализации пользовательского ответа может крашнуть процесс.
-                            ArrayBufferWriter<byte> buffer = response.SerializeResponseAsVrpc(out int headerSize);
+                            int headerSize;
+                            ArrayBufferWriter<byte> buffer;
+                            try
+                            {
+                                buffer = response.SerializeResponseAsVrpc(out headerSize);
+                            }
+                            catch (JsonException)
+                            {
+                                response.Result = new InternalErrorResult("Не удалось сериализовать ответ в json.");
+                                buffer = response.SerializeResponseAsVrpc(out headerSize);
+                            }
+                            catch (ProtoException)
+                            {
+                                response.Result = new InternalErrorResult("Не удалось сериализовать ответ в proto-buf.");
+                                buffer = response.SerializeResponseAsVrpc(out headerSize);
+                            }
+
                             try
                             {
                                 // Размер сообщения без заголовка.
@@ -1640,8 +1679,13 @@ namespace DanilovSoft.vRPC
                                     catch (Exception ex)
                                     // Обрыв соединения.
                                     {
+                                        var vException = new VRpcException(SR.SenderLoopError, ex);
+
                                         // Оповестить об обрыве.
-                                        TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+                                        TryDispose(CloseReason.FromException(vException, _shutdownRequest));
+
+                                        // Если запрос является нотификацией то нужно передать исключение ожидающему потоку.
+                                        vRequest.CompleteNotification(vException);
 
                                         // Завершить поток.
                                         return;
@@ -1659,14 +1703,22 @@ namespace DanilovSoft.vRPC
                                         catch (Exception ex)
                                         // Обрыв соединения.
                                         {
+                                            var vException = new VRpcException(SR.SenderLoopError, ex);
+
                                             // Оповестить об обрыве.
-                                            TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+                                            TryDispose(CloseReason.FromException(vException, _shutdownRequest));
+
+                                            // Если запрос является нотификацией то нужно передать исключение ожидающему потоку.
+                                            vRequest.CompleteNotification(vException);
 
                                             // Завершить поток.
                                             return;
                                         }
                                     }
                                     #endregion
+
+                                    // Если запрос является нотификацией то нужно завершить ожидание отправки.
+                                    vRequest.CompleteNotification();
                                 }
                                 else
                                 // Пользователь запросил остановку сервиса.
@@ -1706,12 +1758,20 @@ namespace DanilovSoft.vRPC
                                     catch (Exception ex)
                                     // Обрыв соединения.
                                     {
+                                        var vException = new VRpcException(SR.SenderLoopError, ex);
+
                                         // Оповестить об обрыве.
-                                        TryDispose(CloseReason.FromException(new VRpcException(SR.SenderLoopError, ex), _shutdownRequest));
+                                        TryDispose(CloseReason.FromException(vException, _shutdownRequest));
+
+                                        // Если запрос является нотификацией то нужно передать исключение ожидающему потоку.
+                                        jRequest.CompleteNotification(vException);
 
                                         // Завершить поток.
                                         return;
                                     }
+
+                                    // Если запрос является нотификацией то нужно завершить ожидание отправки.
+                                    jRequest.CompleteNotification();
                                 }
                                 else
                                     return;
@@ -1806,6 +1866,10 @@ namespace DanilovSoft.vRPC
                         {
                             buffer.Dispose();
                         }
+                    }
+                    else if (message is INotification)
+                    {
+
                     }
 #if DEBUG
                     else
@@ -2012,7 +2076,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                requestContext.Dispose();
+                requestContext.DisposeArgs();
             }
         }
 
@@ -2034,14 +2098,14 @@ namespace DanilovSoft.vRPC
                 catch (VRpcInternalErrorException ex)
                 {
                     // Вернуть результат с ошибкой.
-                    SendInternalErrorResult(requestContext, ex);
+                    SendInternalErrorResponse(requestContext, ex.Message);
                     return;
                 }
                 catch (Exception)
                 // Злая ошибка обработки запроса -> Internal error (аналогично ошибке 500).
                 {
                     // Вернуть результат с ошибкой.
-                    SendInternalError(requestContext);
+                    SendInternalErrorResponse(requestContext);
                     return;
                 }
 
@@ -2070,16 +2134,17 @@ namespace DanilovSoft.vRPC
                             requestToInvoke.Result = await task.ConfigureAwait(false);
                         }
                         catch (VRpcInternalErrorException ex)
+                        // Специальный тип исключения позволяющий быстро возвращать сообщение об ошибке.
                         {
                             // Вернуть результат с ошибкой.
-                            SendInternalErrorResult(requestToInvoke, ex);
+                            SendInternalErrorResponse(requestToInvoke, ex.Message);
                             return;
                         }
                         catch (Exception)
                         // Злая ошибка обработки запроса. Аналогично ошибке 500.
                         {
                             // Вернуть результат с ошибкой.
-                            SendInternalError(requestToInvoke);
+                            SendInternalErrorResponse(requestToInvoke);
                             return;
                         }
                         SendOkResponse(requestToInvoke);
@@ -2174,7 +2239,7 @@ namespace DanilovSoft.vRPC
             finally
             {
                 if (requestToDispose)
-                    requestContext.Dispose();
+                    requestContext.DisposeArgs();
 
                 // ServiceScope выполнит Dispose всем созданным экземплярам.
                 scopeToDispose?.Dispose();
@@ -2183,12 +2248,18 @@ namespace DanilovSoft.vRPC
             static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> task, IServiceScope scope, RequestContext pendingRequest)
             {
                 using (scope)
-                using (pendingRequest)
                 {
-                    object? result = await task.ConfigureAwait(false);
+                    try
+                    {
+                        object? result = await task.ConfigureAwait(false);
 
-                    // Результат успешно получен без исключения.
-                    return result;
+                        // Результат успешно получен без исключения.
+                        return result;
+                    }
+                    finally
+                    {
+                        pendingRequest.DisposeArgs();
+                    }
                 }
             }
         }
@@ -2256,32 +2327,38 @@ namespace DanilovSoft.vRPC
             TryPostMessage(requestContext);
         }
 
-        private void SendInternalError(RequestContext requestContext)
+        /// <summary>
+        /// Отправляет ответ как "Internal error".
+        /// </summary>
+        private void SendInternalErrorResponse(RequestContext requestContext, string message = "Internal error")
         {
             Debug.Assert(requestContext.Id != null);
 
-            requestContext.Result = new InternalErrorResult("Internal error");
+            requestContext.Result = new InternalErrorResult(message);
 
             // Вернуть результат с ошибкой.
             TryPostMessage(requestContext);
         }
 
-        private void SendInternalErrorResult(RequestContext requestContext, VRpcInternalErrorException exception)
-        {
-            Debug.Assert(requestContext.IsResponseRequired);
-            Debug.Assert(requestContext.Id != null);
+        ///// <summary>
+        ///// Отправляет ответ как InternalError с о.
+        ///// </summary>
+        //private void SendInternalErrorResponse(RequestContext requestContext, VRpcInternalErrorException exception)
+        //{
+        //    Debug.Assert(requestContext.IsResponseRequired);
+        //    Debug.Assert(requestContext.Id != null);
 
-            requestContext.Result = new InternalErrorResult(exception.Message);
+        //    requestContext.Result = new InternalErrorResult(exception.Message);
 
-            // Вернуть результат с ошибкой.
-            TryPostMessage(requestContext);
-        }
+        //    // Вернуть результат с ошибкой.
+        //    TryPostMessage(requestContext);
+        //}
 
         #endregion // Обработка запроса в отдельном потоке.
 
         /// <summary>
         /// Потокобезопасно освобождает ресурсы соединения. Вызывается при закрытии соединения.
-        /// Взводит <see cref="Completion"/> и передаёт исключение всем ожидающие потокам.
+        /// Взводит <see cref="Completion"/> и передаёт исключение всем ожидающим запросам.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
         /// <param name="possibleReason">Одна из возможных причин обрыва соединения.</param>

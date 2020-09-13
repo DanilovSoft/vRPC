@@ -1,27 +1,25 @@
-﻿using DanilovSoft.vRPC.Context;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class ReusableJRequest : IJRequest, IRequest
+    internal sealed class ReusableVRequest : IVRequest, IRequest
     {
         private readonly ManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
         public int Id { get; set; }
         private object? _tcs;
-        private Action<object?, ReusableJRequest>? _setResult;
-        private Action<Exception, ReusableJRequest>? _setException;
+        private Action<object?, ReusableVRequest>? _setResult;
+        private Action<Exception, ReusableVRequest>? _setException;
 
-        public ReusableJRequest(ManagedConnection context)
+        public ReusableVRequest(ManagedConnection context)
         {
             _context = context;
         }
@@ -58,7 +56,7 @@ namespace DanilovSoft.vRPC
             return tcs.Task;
         }
 
-        private static void SetResult<TResult>(object? result, ReusableJRequest self)
+        private static void SetResult<TResult>(object? result, ReusableVRequest self)
         {
             var tcs = self._tcs as TaskCompletionSource<TResult>;
             Debug.Assert(tcs != null);
@@ -69,7 +67,7 @@ namespace DanilovSoft.vRPC
             tcs.TrySetResult((TResult)result!);
         }
 
-        private static void SetException<TResult>(Exception exception, ReusableJRequest self)
+        private static void SetException<TResult>(Exception exception, ReusableVRequest self)
         {
             var tcs = self._tcs as TaskCompletionSource<TResult>;
             Debug.Assert(tcs != null);
@@ -102,63 +100,39 @@ namespace DanilovSoft.vRPC
 
         public void SetJResponse(ref Utf8JsonReader reader)
         {
-            Debug.Assert(Method != null);
-
-            if (Method.ReturnType != typeof(VoidStruct))
-            // Поток ожидает некий объект как результат.
-            {
-                object result;
-                try
-                {
-                    // Шаблонный сериализатор экономит на упаковке.
-                    result = JsonSerializer.Deserialize(ref reader, Method.ReturnType);
-                }
-                catch (JsonException deserializationException)
-                {
-                    // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
-                    SetException(new VRpcProtocolErrorException(
-                        $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
-
-                    return;
-                }
-                SetResult(result);
-            }
-            else
-            // void.
-            {
-                SetResult(default(VoidStruct));
-            }
-        }
-
-        public void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
-        {
             Debug.Assert(false, "Сюда не должны попадать");
             throw new NotSupportedException();
         }
 
-        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
+        public void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        {
+            Debug.Assert(Method != null);
+
+            var result = Method.DeserializeVResponse(in header, payload, out VRpcException? vException);
+
+            if (vException == null)
+            {
+                SetResult(result);
+            }
+            else
+            {
+                SetException(vException);
+            }
+        }
+
+        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
         {
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);
 
-            buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
-            try
+            if (Method.TrySerializeVRequest(Args, Id, out headerSize, out buffer, out var vException))
             {
-                JsonRpcSerializer.SerializeRequest(buffer, Method.FullName, Args, Id);
-                toDispose = null; // Предотвратить Dispose.
                 return true;
             }
-            catch (Exception ex)
+            else
             {
-                var vex = new VRpcSerializationException("Ошибка при сериализации пользовательских данных.", ex);
-                SetException(vex);
+                SetException(vException);
                 return false;
-            }
-            finally
-            {
-                Args = null; // Освободить память.
-                toDispose?.Dispose();
             }
         }
 

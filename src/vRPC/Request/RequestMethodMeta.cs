@@ -2,9 +2,11 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC.Content;
 using DanilovSoft.vRPC.Source;
@@ -156,9 +158,110 @@ namespace DanilovSoft.vRPC
         //    }
         //}
 
-        internal void SerializeRequest(object[] args, ArrayBufferWriter<byte> buffer)
+        internal object DeserializeVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload, out VRpcException? vException)
         {
-            ExtensionMethods.SerializeObject(buffer, args);
+            Debug.Assert(header.IsRequest == false);
+
+            if (header.StatusCode == StatusCode.Ok)
+            // Запрос на удалённой стороне был выполнен успешно.
+            {
+                #region Передать успешный результат
+
+                if (ReturnType != typeof(VoidStruct))
+                // Поток ожидает некий объект как результат.
+                {
+                    if (!payload.IsEmpty)
+                    {
+                        try
+                        {
+                            vException = null;
+                            return DeserializeResponse(ReturnType, payload, header.PayloadEncoding);
+                        }
+                        catch (Exception deserializationException)
+                        {
+                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
+                            vException = new VRpcProtocolErrorException($"Ошибка десериализации ответа на запрос \"{FullName}\".", deserializationException);
+                            return default!;
+                        }
+                    }
+                    else
+                    // У ответа отсутствует контент — это равнозначно Null.
+                    {
+                        if (ReturnType.CanBeNull())
+                        // Результат запроса поддерживает Null.
+                        {
+                            vException = null;
+                            return default!;
+                        }
+                        else
+                        // Результатом этого запроса не может быть Null.
+                        {
+                            // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
+                            vException = new VRpcProtocolErrorException($"Ожидался не пустой результат запроса но был получен ответ без результата.");
+                            return default!;
+                        }
+                    }
+                }
+                else
+                // void.
+                {
+                    vException = null;
+                    return VoidStruct.RefInstance;
+                }
+                #endregion
+            }
+            else
+            // Сервер прислал код ошибки.
+            {
+                // Телом ответа в этом случае будет строка.
+                string errorMessage = payload.ReadAsString();
+
+                // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
+                vException = ExceptionHelper.ToException(header.StatusCode, errorMessage);
+
+                return default!;
+            }
+        }
+
+        private static object DeserializeResponse(Type returnType, ReadOnlyMemory<byte> payload, string? contentEncoding)
+        {
+            return contentEncoding switch
+            {
+                KnownEncoding.ProtobufEncoding => ExtensionMethods.DeserializeProtoBuf(payload, returnType),
+                _ => JsonSerializer.Deserialize(payload.Span, returnType), // Сериализатор по умолчанию.
+            };
+        }
+
+        internal bool TrySerializeVRequest(object[] args, int? id,
+            out int headerSize,
+            [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer,
+            [NotNullWhen(false)] out VRpcSerializationException? exception)
+        {
+            buffer = new ArrayBufferWriter<byte>();
+            var toDispose = buffer;
+            try
+            {
+                ExtensionMethods.SerializeRequestArgsJson(buffer, args);
+                toDispose = null;
+                exception = null;
+            }
+            catch (Exception ex)
+            {
+                exception = new VRpcSerializationException($"Не удалось сериализовать запрос в json.", ex);
+                headerSize = -1;
+                return false;
+            }
+            finally
+            {
+                toDispose?.Dispose();
+            }
+
+            var header = new HeaderDto(id, buffer.WrittenCount, contentEncoding: null, FullName);
+
+            // Записать заголовок в конец стрима. Не бросает исключения.
+            headerSize = header.SerializeJson(buffer);
+
+            return true;
         }
 
         ///// <summary>

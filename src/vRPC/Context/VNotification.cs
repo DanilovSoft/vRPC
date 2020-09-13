@@ -11,7 +11,6 @@ namespace DanilovSoft.vRPC
     {
         public RequestMethodMeta Method { get; }
         public object[] Args { get; }
-        public bool IsNotification => true;
 
         public VNotification(RequestMethodMeta method, object[] args)
         {
@@ -29,6 +28,18 @@ namespace DanilovSoft.vRPC
         }
 
         public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
+        {
+            Debug.Assert(false);
+            throw new NotImplementedException();
+        }
+
+        public void CompleteNotification(VRpcException exception)
+        {
+            Debug.Assert(false);
+            throw new NotImplementedException();
+        }
+
+        public void CompleteNotification()
         {
             Debug.Assert(false);
             throw new NotImplementedException();

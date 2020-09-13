@@ -165,11 +165,14 @@ namespace DanilovSoft.vRPC
                 {
                     writer.WriteNumber(JsonUid, Id.Value);
                 }
+
                 writer.WriteNumber(JsonPayload, PayloadLength);
+
                 if (PayloadEncoding != null)
                 {
                     writer.WriteString(JsonEncoding, PayloadEncoding);
                 }
+
                 if (MethodName != null)
                 {
                     writer.WriteString(JsonMethod, MethodName);

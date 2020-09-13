@@ -105,7 +105,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
+            RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
 
             Task<T> pendingRequest = Connection.OnServerRequestCall(new VRequest<T>(methodMeta, args));
             return new ValueTask<T>(task: pendingRequest);
@@ -117,7 +117,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
+            RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
 
             Task<T> pendingRequest = Connection.OnServerRequestCall(new VRequest<T>(methodMeta, args));
             return pendingRequest;
@@ -129,7 +129,7 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
+            RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
 
             Task<T> pendingRequest = Connection.OnServerRequestCall(new VRequest<T>(methodMeta, args));
 
