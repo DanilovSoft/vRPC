@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DanilovSoft.AsyncEx;
 using DanilovSoft.vRPC;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
@@ -182,6 +184,19 @@ namespace XUnitTest
         }
 
         [Test]
+        public async Task TestJNotificationAsync()
+        {
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
+
+            using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
+            var iface = cli.GetProxy<IServerTestController>();
+
+            await iface.NotifyAsync(123);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
+        }
+
+        [Test]
         public void TestNotification()
         {
             using var listener = VRpcListener.StartNew(IPAddress.Any);
@@ -234,9 +249,43 @@ namespace XUnitTest
 
             iface.NotifyCallback(123);
 
-            Assert.True(mre.Wait(30_000));
+            Assert.True(mre.Wait(30_000), "Превышено время ожидания обратного вызова");
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
+        }
+
+        [Test]
+        public void TestJNotificationCallback()
+        {
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
+
+            using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
+            var mre = new ManualResetEventSource<int>();
+            cli.ConfigureService(x => x.AddSingleton(mre));
+            var iface = cli.GetProxy<IServerTestController>();
+
+            mre.Reset();
+            iface.JNotifyCallback(123);
+
+            Assert.True(mre.Wait(TimeSpan.FromSeconds(30), out int n), "Превышено время ожидания обратного вызова");
+            Assert.True(n == 123);
+
+            cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
+        }
+
+        [Test]
+        public async Task TestJWorseRequest()
+        {
+            var listener = VRpcListener.StartNew(IPAddress.Any);
+            var ws = new DanilovSoft.WebSockets.ClientWebSocket();
+
+            await ws.ConnectAsync(new Uri($"ws://localhost:{listener.Port}"), default);
+            await ws.SendAsync(Encoding.UTF8.GetBytes(@"{""jsonrpc"": ""2.0"", ""params"": [1,2], ""method"": ""Sum"", ""id"": 1}"), WebSocketMessageType.Text, true, default);
+
+            var buf = new byte[1024];
+            var m = await ws.ReceiveAsync(buf, default);
+
+            Assert.Fail();
         }
 
         [Test]

@@ -50,10 +50,10 @@ namespace DanilovSoft.vRPC
             result.WriteVRpcResult(ref context);
         }
 
-        public void WriteJsonRpcResult(int? id, IBufferWriter<byte> buffer)
+        void IActionResult.WriteJsonRpcResult(int? id, ArrayBufferWriter<byte> buffer)
         {
             ActionResult result = Convert();
-            result.WriteJsonRpcResult(id, buffer);
+            result.InnerWriteJsonRpcResult(id, buffer);
         }
     }
 }

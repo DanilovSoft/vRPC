@@ -6,7 +6,8 @@ namespace DanilovSoft.vRPC
     {
         RequestMethodMeta Method { get; }
         object[]? Args { get; }
-        bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer);
+        bool TrySerialize(out ArrayBufferWriter<byte> buffer);
+        bool IsNotification { get; }
         /// <summary>
         /// Если запрос является нотификацией то завершает его ожидание отправки.
         /// </summary>

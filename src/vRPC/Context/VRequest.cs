@@ -38,6 +38,7 @@ namespace DanilovSoft.vRPC
         }
 #endif
         public int Id { get; set; }
+        public bool IsNotification => false;
 
         // ctor
         internal VRequest(RequestMethodMeta method, object[] args)
@@ -114,7 +115,7 @@ namespace DanilovSoft.vRPC
             throw new InvalidOperationException();
         }
 
-        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
+        public bool TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize)
         {
             Debug.Assert(Args != null);
 

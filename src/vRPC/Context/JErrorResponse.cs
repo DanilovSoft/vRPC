@@ -28,18 +28,19 @@ namespace DanilovSoft.vRPC
         internal ArrayBufferWriter<byte> Serialize()
         {
             var buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
+            bool dispose = true;
             try
             {
                 // Сериализуем ответ.
                 _errorResult.WriteJsonRpcResult(Id, buffer);
 
-                toDispose = null; // Предотвратить Dispose.
+                dispose = false; // Предотвратить Dispose.
                 return buffer;
             }
             finally
             {
-                toDispose?.Dispose();
+                if (dispose)
+                    buffer.Dispose();
             }
         }
     }

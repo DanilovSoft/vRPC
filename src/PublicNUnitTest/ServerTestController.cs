@@ -24,10 +24,20 @@ namespace XUnitTest
 
         [Notification]
         void Notify(int n);
+        
         [Notification]
         Task NotifyAsync(int n);
+        
+        [JsonRpc]
+        [Notification]
+        Task JNotifyAsync(int n);
+
         [Notification]
         void NotifyCallback(int n);
+
+        [JsonRpc]
+        [Notification]
+        void JNotifyCallback(int n);
 
         string MakeCallback(string msg);
         string MakeAsyncCallback(string msg);
@@ -92,6 +102,11 @@ namespace XUnitTest
             Debug.Assert(IsNotification);
         }
 
+        public void JNotify(int n)
+        {
+            Debug.Assert(IsNotification);
+        }
+
         public string MakeCallback(string msg)
         {
             string echo = Context.GetProxy<IClientTestController>().Echo(msg);
@@ -115,6 +130,13 @@ namespace XUnitTest
             Debug.Assert(IsNotification);
 
             Context.GetProxy<IClientTestController>().EchoNotification(n);
+        }
+
+        public void JNotifyCallback(int n)
+        {
+            Debug.Assert(IsNotification);
+
+            Context.GetProxy<IClientTestController>().JEchoNotification(n);
         }
     }
 }

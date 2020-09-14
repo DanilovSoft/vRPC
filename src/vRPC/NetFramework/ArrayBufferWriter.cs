@@ -15,16 +15,10 @@ namespace DanilovSoft.vRPC
     {
         private const int MinimumBufferSize = 256;
 
-        private T[] _rentedBuffer;
+        private T[]? _rentedBuffer;
         private int _index;
 
-        public ArrayBufferWriter()
-        {
-            _rentedBuffer = ArrayPool<T>.Shared.Rent(MinimumBufferSize);
-            _index = 0;
-        }
-
-        public ArrayBufferWriter(int initialCapacity)
+        public ArrayBufferWriter(int initialCapacity = MinimumBufferSize)
         {
             if (initialCapacity <= 0)
                 ThrowHelper.ThrowArgumentException(nameof(initialCapacity));
@@ -57,6 +51,8 @@ namespace DanilovSoft.vRPC
         {
             get
             {
+                Debug.Assert(_rentedBuffer != null);
+
                 CheckIfDisposed();
 
                 return _rentedBuffer.Length;
@@ -67,6 +63,8 @@ namespace DanilovSoft.vRPC
         {
             get
             {
+                Debug.Assert(_rentedBuffer != null);
+
                 CheckIfDisposed();
 
                 return _rentedBuffer.Length - _index;
@@ -88,19 +86,6 @@ namespace DanilovSoft.vRPC
             _index = 0;
         }
 
-        // Returns the rented buffer back to the pool
-        public void Dispose()
-        {
-            if (_rentedBuffer == null)
-            {
-                return;
-            }
-
-            ClearHelper();
-            ArrayPool<T>.Shared.Return(_rentedBuffer);
-            _rentedBuffer = null;
-        }
-
         private void CheckIfDisposed()
         {
             if (_rentedBuffer == null)
@@ -111,6 +96,8 @@ namespace DanilovSoft.vRPC
 
         public void Advance(int count)
         {
+            Debug.Assert(_rentedBuffer != null);
+
             CheckIfDisposed();
 
             if (count < 0)
@@ -173,6 +160,17 @@ namespace DanilovSoft.vRPC
 
             Debug.Assert(_rentedBuffer.Length - _index > 0);
             Debug.Assert(_rentedBuffer.Length - _index >= sizeHint);
+        }
+
+        // Returns the rented buffer back to the pool
+        public void Dispose()
+        {
+            if (_rentedBuffer != null)
+            {
+                //ClearHelper();
+                ArrayPool<T>.Shared.Return(_rentedBuffer, clearArray: false);
+                _rentedBuffer = null;
+            }
         }
     }
 }

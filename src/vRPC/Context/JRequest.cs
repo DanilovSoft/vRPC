@@ -17,6 +17,7 @@ namespace DanilovSoft.vRPC
         public int Id { get; set; }
         public Task<TResult> Task => _tcs.Task;
         public object[]? Args { get; private set; }
+        public bool IsNotification => false;
 
         public JRequest(RequestMethodMeta method, object[] args)
         {
@@ -30,28 +31,21 @@ namespace DanilovSoft.vRPC
         /// Сериализация пользовательских данных может спровоцировать исключение 
         /// <exception cref="VRpcSerializationException"/> которое будет перенаправлено ожидающему потоку.
         /// </summary>
-        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
+        public bool TrySerialize(out ArrayBufferWriter<byte> buffer)
         {
             Debug.Assert(Args != null);
 
-            buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
-            try
-            {
-                JsonRpcSerializer.SerializeRequest(buffer, Method.FullName, Args, Id);
-                toDispose = null; // Предотвратить Dispose.
-                return true;
-            }
-            catch (Exception ex)
-            {
-                var vex = new VRpcSerializationException("Ошибка при сериализации пользовательских данных.", ex);
-                SetException(vex);
-                return false;
-            }
-            finally
+            if (JsonRpcSerializer.TrySerializeRequest(Method.FullName, Args, Id, out buffer, out var exception))
             {
                 Args = null; // Освободить память.
-                toDispose?.Dispose();
+                return true;
+            }
+            else
+            {
+                Args = null; // Освободить память.
+
+                SetException(exception);
+                return false;
             }
         }
 

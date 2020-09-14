@@ -234,15 +234,15 @@ namespace DanilovSoft.vRPC
 
         internal bool TrySerializeVRequest(object[] args, int? id,
             out int headerSize,
-            [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer,
+            out ArrayBufferWriter<byte> buffer,
             [NotNullWhen(false)] out VRpcSerializationException? exception)
         {
             buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
+            bool dispose = true;
             try
             {
                 ExtensionMethods.SerializeRequestArgsJson(buffer, args);
-                toDispose = null;
+                dispose = false;
                 exception = null;
             }
             catch (Exception ex)
@@ -253,7 +253,8 @@ namespace DanilovSoft.vRPC
             }
             finally
             {
-                toDispose?.Dispose();
+                if (dispose)
+                    buffer.Dispose();
             }
 
             var header = new HeaderDto(id, buffer.WrittenCount, contentEncoding: null, FullName);

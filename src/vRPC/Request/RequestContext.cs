@@ -86,7 +86,7 @@ namespace DanilovSoft.vRPC
             Debug.Assert(Id != null);
 
             var buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
+            bool dispose = true;
             try
             {
                 if (Result is IActionResult actionResult)
@@ -117,12 +117,13 @@ namespace DanilovSoft.vRPC
                         headerSize = AppendHeader(buffer, Id.Value, StatusCode.Ok, null);
                     }
                 }
-                toDispose = null;
+                dispose = false;
                 return buffer;
             }
             finally
             {
-                toDispose?.Dispose();
+                if (dispose)
+                    buffer.Dispose();
             }
         }
 
@@ -132,7 +133,7 @@ namespace DanilovSoft.vRPC
             Debug.Assert(Id != null);
 
             var buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
+            bool dispose = true;
             try
             {
                 if (Result is IActionResult actionResult)
@@ -147,12 +148,13 @@ namespace DanilovSoft.vRPC
                     // Сериализуем ответ.
                     JsonRpcSerializer.SerializeResponse(buffer, Id.Value, Result);
                 }
-                toDispose = null; // Предотвратить Dispose.
+                dispose = false; // Предотвратить Dispose.
                 return buffer;
             }
             finally
             {
-                toDispose?.Dispose();
+                if (dispose)
+                    buffer.Dispose();
             }
         }
 

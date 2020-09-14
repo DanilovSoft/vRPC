@@ -22,7 +22,7 @@ namespace DanilovSoft.vRPC
             _message = message;
         }
 
-        public void WriteJsonRpcResult(int? id, IBufferWriter<byte> buffer)
+        void IActionResult.WriteJsonRpcResult(int? id, ArrayBufferWriter<byte> buffer)
         {
             JsonRpcSerializer.SerializeErrorResponse(buffer, DefaultStatusCode, _message, id);
         }

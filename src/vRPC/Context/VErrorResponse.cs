@@ -19,7 +19,7 @@ namespace DanilovSoft.vRPC.Context
         internal ArrayBufferWriter<byte> Serialize(out int headerSize)
         {
             var buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
+            bool dispose = true;
             var context = new ActionContext(Id, null, buffer);
             try
             {
@@ -28,12 +28,13 @@ namespace DanilovSoft.vRPC.Context
 
                 headerSize = AppendHeader(buffer, Id, context.StatusCode, context.ProducesEncoding);
 
-                toDispose = null; // Предотвратить Dispose.
+                dispose = false; // Предотвратить Dispose.
                 return buffer;
             }
             finally
             {
-                toDispose?.Dispose();
+                if (dispose)
+                    buffer.Dispose();
             }
         }
 

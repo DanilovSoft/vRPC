@@ -395,23 +395,7 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(method.IsNotificationRequest);
 
-            Debug.Assert(false);
-            throw new NotImplementedException();
-
-            // Сериализуем запрос в память.
-            //SerializedMessageToSend serMsg = method.SerializeRequest(args);
-            //SerializedMessageToSend? serMsgToDispose = serMsg;
-            //try
-            //{
-            //    // Отправляем запрос.
-            //    ValueTask task = SendNotification(serMsg);
-            //    serMsgToDispose = null;
-            //    return task;
-            //}
-            //finally
-            //{
-            //    serMsgToDispose?.Dispose();
-            //}
+            return CreateAndSendNotification(method, args);
         }
 
         /// <summary>
@@ -538,7 +522,7 @@ namespace DanilovSoft.vRPC
                 ManagedConnection connection = connectionTask.Result; // у ValueTask можно обращаться к Result.
 
                 // Отправляет уведомление через очередь.
-                return connection.OnClientNotificationCall(method, args);
+                return connection.CreateAndSendNotification(method, args);
             }
             else
             // Подключение к серверу ещё не завершено.
@@ -551,11 +535,11 @@ namespace DanilovSoft.vRPC
             {
                 ClientSideConnection connection = await connectionTask.ConfigureAwait(false);
 
-                await connection.OnClientNotificationCall(method, args).ConfigureAwait(false);
+                await connection.CreateAndSendNotification(method, args).ConfigureAwait(false);
             }
         }
 
-        private ValueTask OnClientNotificationCall(RequestMethodMeta method, object[] args)
+        private ValueTask CreateAndSendNotification(RequestMethodMeta method, object[] args)
         {
             var notification = CreateNotification(method, args);
 
@@ -1098,13 +1082,13 @@ namespace DanilovSoft.vRPC
                 if (method != null)
                 // Нотификация.
                 {
-                    Debug.Assert(false);
+                    Debug.Assert(false, "NotImplemented");
                     throw new NotImplementedException();
                 }
                 else if (error != default)
                 // Ошибка без айдишника.
                 {
-                    Debug.Assert(false);
+                    Debug.Assert(false, "NotImplemented");
                     throw new NotImplementedException();
                 }
                 else
@@ -1657,12 +1641,12 @@ namespace DanilovSoft.vRPC
                     else if (message is IVRequest vRequest)
                     // Отправляем запрос на который нужно получить ответ.
                     {
-                        if (vRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer, out int headerSize))
+                        if (vRequest.TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize))
                         {
                             try
                             {
                                 //  Увеличить счетчик активных запросов.
-                                if (TryIncreaseActiveRequestsCount())
+                                if (TryIncreaseActiveRequestsCount(isResponseRequired: !vRequest.IsNotification))
                                 {
                                     // Размер сообщения без заголовка.
                                     int messageSize = buffer.WrittenCount - headerSize;
@@ -1741,12 +1725,12 @@ namespace DanilovSoft.vRPC
                     else if (message is IJRequest jRequest)
                     // Отправляем запрос на который нужно получить ответ.
                     {
-                        if (jRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer))
+                        if (jRequest.TrySerialize(out ArrayBufferWriter<byte> buffer))
                         {
                             try
                             {
                                 //  Увеличить счетчик активных запросов.
-                                if (TryIncreaseActiveRequestsCount())
+                                if (TryIncreaseActiveRequestsCount(isResponseRequired: !jRequest.IsNotification))
                                 {
                                     SetTcpNoDelay(jRequest.Method.TcpNoDelay);
 
@@ -1778,7 +1762,7 @@ namespace DanilovSoft.vRPC
                             }
                             finally
                             {
-                                buffer?.Dispose();
+                                buffer.Dispose();
                             }
                         }
                         else

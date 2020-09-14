@@ -2048,6 +2048,12 @@
             Словарь используемый только для чтения.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.JsonRpcSerializer.SerializeRequest(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte},System.String,System.Object[],System.Int32)">
+            <exception cref="T:System.Text.Json.JsonException"/>
+        </member>
+        <member name="M:DanilovSoft.vRPC.JsonRpcSerializer.TrySerializeRequest(System.String,System.Object[],System.Int32,DanilovSoft.vRPC.ArrayBufferWriter{System.Byte}@,DanilovSoft.vRPC.VRpcSerializationException@)">
+            <remarks>Не бросает исключения.</remarks>
+        </member>
         <member name="T:DanilovSoft.vRPC.LockedDictionary`2">
             <summary>
             Использует блокировку для GetOrAdd.

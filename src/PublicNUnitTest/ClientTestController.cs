@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DanilovSoft.AsyncEx;
 using DanilovSoft.vRPC;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,6 +17,10 @@ namespace XUnitTest
 
         [Notification]
         void EchoNotification(int n);
+
+        [JsonRpc]
+        [Notification]
+        void JEchoNotification(int n);
     }
 
     internal class ClientTestController : ClientController
@@ -33,7 +39,18 @@ namespace XUnitTest
 
         public void EchoNotification(int n)
         {
+            Debug.Assert(IsNotification);
+
             _serviceProvider.GetRequiredService<ManualResetEventSlim>().Set();
+        }
+        
+        public void JEchoNotification(int n)
+        {
+            Debug.Assert(IsNotification);
+
+            var mre = _serviceProvider.GetRequiredService<ManualResetEventSource<int>>();
+
+            mre.TrySet(n);
         }
     }
 }

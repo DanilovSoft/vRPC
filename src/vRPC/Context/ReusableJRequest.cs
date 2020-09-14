@@ -17,6 +17,7 @@ namespace DanilovSoft.vRPC
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
         public int Id { get; set; }
+        public bool IsNotification => false;
         private object? _tcs;
         private Action<object?, ReusableJRequest>? _setResult;
         private Action<Exception, ReusableJRequest>? _setException;
@@ -136,29 +137,22 @@ namespace DanilovSoft.vRPC
             throw new NotSupportedException();
         }
 
-        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
+        public bool TrySerialize(out ArrayBufferWriter<byte> buffer)
         {
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);
 
-            buffer = new ArrayBufferWriter<byte>();
-            var toDispose = buffer;
-            try
+            var args = Args;
+            Args = null;
+
+            if (JsonRpcSerializer.TrySerializeRequest(Method.FullName, args, Id, out buffer, out var exception))
             {
-                JsonRpcSerializer.SerializeRequest(buffer, Method.FullName, Args, Id);
-                toDispose = null; // Предотвратить Dispose.
                 return true;
             }
-            catch (Exception ex)
+            else
             {
-                var vex = new VRpcSerializationException("Ошибка при сериализации пользовательских данных.", ex);
-                SetException(vex);
+                SetException(exception);
                 return false;
-            }
-            finally
-            {
-                Args = null; // Освободить память.
-                toDispose?.Dispose();
             }
         }
 

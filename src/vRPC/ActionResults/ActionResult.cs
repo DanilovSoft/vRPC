@@ -30,7 +30,12 @@ namespace DanilovSoft.vRPC
 
         private protected abstract void FinalWriteResult(ref ActionContext context);
 
-        public void WriteJsonRpcResult(int? id, IBufferWriter<byte> buffer)
+        void IActionResult.WriteJsonRpcResult(int? id, ArrayBufferWriter<byte> buffer)
+        {
+            InnerWriteJsonRpcResult(id, buffer);
+        }
+
+        internal void InnerWriteJsonRpcResult(int? id, ArrayBufferWriter<byte> buffer)
         {
             FinalWriteJsonRpcResult(id, buffer);
         }

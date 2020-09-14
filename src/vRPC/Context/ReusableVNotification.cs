@@ -12,6 +12,7 @@ namespace DanilovSoft.vRPC
     {
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
+        public bool IsNotification => true;
         private ManualResetValueTaskSourceCore<VoidStruct> _mrv;
 
         /// <summary>
@@ -41,7 +42,7 @@ namespace DanilovSoft.vRPC
             _mrv.SetException(exception);
         }
 
-        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
+        public bool TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize)
         {
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);
@@ -57,11 +58,6 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public VoidStruct GetResult(short token)
-        {
-            return _mrv.GetResult(token);
-        }
-
         public ValueTaskSourceStatus GetStatus(short token)
         {
             return _mrv.GetStatus(token);
@@ -72,7 +68,7 @@ namespace DanilovSoft.vRPC
             _mrv.OnCompleted(continuation, state, token, flags);
         }
 
-        void IValueTaskSource.GetResult(short token)
+        public void GetResult(short token)
         {
             _mrv.GetResult(token);
             _mrv.Reset();

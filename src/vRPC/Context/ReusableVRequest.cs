@@ -15,6 +15,7 @@ namespace DanilovSoft.vRPC
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
         public int Id { get; set; }
+        public bool IsNotification => false;
         private object? _tcs;
         private Action<object?, ReusableVRequest>? _setResult;
         private Action<Exception, ReusableVRequest>? _setException;
@@ -120,12 +121,15 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
+        public bool TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize)
         {
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);
 
-            if (Method.TrySerializeVRequest(Args, Id, out headerSize, out buffer, out var vException))
+            var args = Args;
+            Args = null;
+
+            if (Method.TrySerializeVRequest(args, Id, out headerSize, out buffer, out var vException))
             {
                 return true;
             }

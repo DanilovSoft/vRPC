@@ -8,14 +8,16 @@ using System.Threading.Tasks.Sources;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class ReusableJNotification : INotification
+    internal sealed class ReusableJNotification : INotification, IValueTaskSource
     {
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
+        public bool IsNotification => true;
+        private ManualResetValueTaskSourceCore<VoidStruct> _mrv;
 
         public ReusableJNotification()
         {
-
+            _mrv.RunContinuationsAsynchronously = true;
         }
 
         internal void Initialize(RequestMethodMeta method, object[] args)
@@ -29,37 +31,44 @@ namespace DanilovSoft.vRPC
 
         public ValueTask WaitNotificationAsync()
         {
-            Debug.Assert(false);
-            throw new NotImplementedException();
-
-            //if (_continuation == s_completedSentinel)
-            //// Операция уже завершена.
-            //{
-            //    ResetTaskState();
-            //    return default;
-            //}
-            //else
-            //{
-            //    return new ValueTask(this, _token);
-            //}
+            return new ValueTask(this, _mrv.Version);
         }
 
-        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
+        private void SetException(VRpcException exception)
+        {
+            _mrv.SetException(exception);
+        }
+
+        public bool TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize)
         {
             Debug.Assert(false);
             throw new NotImplementedException();
+        }
+
+        public ValueTaskSourceStatus GetStatus(short token)
+        {
+            return _mrv.GetStatus(token);
+        }
+
+        public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+        {
+            _mrv.OnCompleted(continuation, state, token, flags);
+        }
+
+        public void GetResult(short token)
+        {
+            _mrv.GetResult(token);
+            _mrv.Reset();
         }
 
         public void CompleteNotification(VRpcException exception)
         {
-            Debug.Assert(false);
-            throw new NotImplementedException();
+            _mrv.SetException(exception);
         }
 
         public void CompleteNotification()
         {
-            Debug.Assert(false);
-            throw new NotImplementedException();
+            _mrv.SetResult(default);
         }
     }
 }
