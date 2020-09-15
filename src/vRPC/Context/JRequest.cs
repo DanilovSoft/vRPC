@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class JRequest<TResult> : IJRequest, IRequest
+    internal sealed class JRequest<TResult> : IJRequest, IResponseAwaiter
     {
         private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         public RequestMethodMeta Method { get; }
@@ -35,15 +35,15 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(Args != null);
 
-            if (JsonRpcSerializer.TrySerializeRequest(Method.FullName, Args, Id, out buffer, out var exception))
+            var args = Args;
+            Args = null; // Освободить память.
+
+            if (JsonRpcSerializer.TrySerializeRequest(Method.FullName, args, Id, out buffer, out var exception))
             {
-                Args = null; // Освободить память.
                 return true;
             }
             else
             {
-                Args = null; // Освободить память.
-
                 SetException(exception);
                 return false;
             }

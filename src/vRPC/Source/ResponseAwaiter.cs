@@ -5,12 +5,15 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using DanilovSoft.vRPC.Context;
 using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC
 {
-    internal interface IResponseAwaiter
+    internal interface IResponseAwaiter : IMessageToSend
     {
+        int Id { get; set; }
+
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>

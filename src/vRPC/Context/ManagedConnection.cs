@@ -626,9 +626,9 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         /// <returns>Таск с результатом от сервера.</returns>
-        private protected bool TrySendRequest<TResult>(IRequest request, [NotNullWhen(false)] out Task<TResult>? errorTask)
+        private protected bool TrySendRequest<TResult>(IResponseAwaiter request, [NotNullWhen(false)] out Task<TResult>? errorTask)
         {
-            Debug.Assert(!request.Method.IsNotificationRequest);
+            //Debug.Assert(!request.Method.IsNotificationRequest);
 
             // Shutdown нужно проверять раньше чем Dispose потому что Dispose может быть по причине Shutdown.
             if (_shutdownRequest == null) // volatile проверка.
@@ -918,6 +918,7 @@ namespace DanilovSoft.vRPC
                         {
                             Debug.Assert(args != null, "Если нашли метод, то и параметры уже инициализировали.");
                             TryParseJsonArgs(method, args, reader, out paramsError);
+                            // Нужно продолжить искать айдишник.
                         }
                         else if (methodName == null)
                         {
@@ -1082,6 +1083,15 @@ namespace DanilovSoft.vRPC
                 if (method != null)
                 // Нотификация.
                 {
+                    if (paramsError == null)
+                    {
+                        Debug.Assert(args != null);
+                    }
+                    else
+                    {
+
+                    }
+
                     Debug.Assert(false, "NotImplemented");
                     throw new NotImplementedException();
                 }
@@ -1850,10 +1860,6 @@ namespace DanilovSoft.vRPC
                         {
                             buffer.Dispose();
                         }
-                    }
-                    else if (message is INotification)
-                    {
-
                     }
 #if DEBUG
                     else

@@ -13,7 +13,7 @@ using System.Threading.Tasks.Sources;
 namespace DanilovSoft.vRPC
 {
     [DebuggerDisplay(@"\{Request = {Method.FullName}\}")]
-    internal sealed class VRequest<TResult> : IMessageToSend, IVRequest, IRequest
+    internal sealed class VRequest<TResult> : IVRequest, IResponseAwaiter
     {
         private readonly TaskCompletionSource<TResult> _tcs;
         public RequestMethodMeta Method { get; }

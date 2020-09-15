@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class ReusableVRequest : IVRequest, IRequest
+    internal sealed class ReusableVRequest : IVRequest, IResponseAwaiter
     {
         private readonly ManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }

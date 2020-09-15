@@ -784,16 +784,6 @@
         <member name="M:DanilovSoft.vRPC.ClientSideConnection.PrivateSignOutAsync">
             <exception cref="T:System.Net.Sockets.SocketException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.IJRequest.CompleteNotification(DanilovSoft.vRPC.VRpcException)">
-            <summary>
-            Если запрос является нотификацией то завершает его ожидание отправки.
-            </summary>
-        </member>
-        <member name="M:DanilovSoft.vRPC.IJRequest.CompleteNotification">
-            <summary>
-            Если запрос является нотификацией то завершает его ожидание отправки.
-            </summary>
-        </member>
         <member name="P:DanilovSoft.vRPC.IMessageMeta.IsRequest">
             <summary>
             True если сообщение является запросом, иначе 
@@ -811,12 +801,12 @@
             </summary>
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.IVRequest.CompleteNotification(DanilovSoft.vRPC.VRpcException)">
+        <member name="M:DanilovSoft.vRPC.IRequest.CompleteNotification(DanilovSoft.vRPC.VRpcException)">
             <summary>
             Если запрос является нотификацией то завершает его ожидание отправки.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.IVRequest.CompleteNotification">
+        <member name="M:DanilovSoft.vRPC.IRequest.CompleteNotification">
             <summary>
             Если запрос является нотификацией то завершает его ожидание отправки.
             </summary>
@@ -1031,7 +1021,7 @@
             <exception cref="T:DanilovSoft.vRPC.VRpcShutdownException"/>
             <exception cref="T:System.ObjectDisposedException"/>
         </member>
-        <member name="M:DanilovSoft.vRPC.ManagedConnection.TrySendRequest``1(DanilovSoft.vRPC.IRequest,System.Threading.Tasks.Task{``0}@)">
+        <member name="M:DanilovSoft.vRPC.ManagedConnection.TrySendRequest``1(DanilovSoft.vRPC.IResponseAwaiter,System.Threading.Tasks.Task{``0}@)">
             <summary>
             Отправляет запрос и ожидает ответ.
             Передаёт владение объектом <paramref name="request"/> другому потоку.
@@ -2048,7 +2038,7 @@
             Словарь используемый только для чтения.
             </summary>
         </member>
-        <member name="M:DanilovSoft.vRPC.JsonRpcSerializer.SerializeRequest(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte},System.String,System.Object[],System.Int32)">
+        <member name="M:DanilovSoft.vRPC.JsonRpcSerializer.SerializeRequest(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte},System.String,System.Object[],System.Nullable{System.Int32})">
             <exception cref="T:System.Text.Json.JsonException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.JsonRpcSerializer.TrySerializeRequest(System.String,System.Object[],System.Int32,DanilovSoft.vRPC.ArrayBufferWriter{System.Byte}@,DanilovSoft.vRPC.VRpcSerializationException@)">

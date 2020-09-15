@@ -8,7 +8,7 @@ using System.Threading.Tasks.Sources;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class ReusableVNotification : INotification, IValueTaskSource
+    internal sealed class ReusableVNotification : IVRequest, INotification, IValueTaskSource
     {
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }

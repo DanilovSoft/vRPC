@@ -6,6 +6,6 @@ namespace DanilovSoft.vRPC.Context
 {
     internal interface IMessageToSend
     {
-        //ManagedConnection Context { get; }
+        
     }
 }

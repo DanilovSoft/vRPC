@@ -8,7 +8,7 @@ using System.Threading.Tasks.Sources;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class ReusableJNotification : INotification, IValueTaskSource
+    internal sealed class ReusableJNotification : IJRequest, INotification, IValueTaskSource
     {
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
@@ -39,10 +39,23 @@ namespace DanilovSoft.vRPC
             _mrv.SetException(exception);
         }
 
-        public bool TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize)
+        public bool TrySerialize(out ArrayBufferWriter<byte> buffer)
         {
-            Debug.Assert(false);
-            throw new NotImplementedException();
+            Debug.Assert(Method != null);
+            Debug.Assert(Args != null);
+
+            var args = Args;
+            Args = null;
+
+            if (JsonRpcSerializer.TrySerializeNotification(Method.FullName, args, out buffer, out var exception))
+            {
+                return true;
+            }
+            else
+            {
+                SetException(exception);
+                return false;
+            }
         }
 
         public ValueTaskSourceStatus GetStatus(short token)

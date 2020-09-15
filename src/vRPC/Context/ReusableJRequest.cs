@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
-    internal sealed class ReusableJRequest : IJRequest, IRequest
+    internal sealed class ReusableJRequest : IJRequest, IResponseAwaiter
     {
         private readonly ManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }
