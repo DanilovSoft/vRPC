@@ -6,25 +6,47 @@ using System;
 using System.Buffers;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace DanilovSoft.vRPC
 {
-    [SuppressMessage("Usage", "CA2208:Правильно создавайте экземпляры исключений аргументов", Justification = "<Ожидание>")]
-    // Note: this is currently an internal class that will be replaced with a shared version.
+    /// <summary>
+    /// Этот класс передаётся через интерфейс поэтому лучше не делать структурой.
+    /// </summary>
+    [StructLayout(LayoutKind.Auto)]
     internal sealed class ArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
     {
-        private const int MinimumBufferSize = 256;
+        public const int MinimumBufferSize = 256;
 
         private T[]? _rentedBuffer;
         private int _index;
+        public bool IsInitialized => _rentedBuffer != null;
 
-        public ArrayBufferWriter(int initialCapacity = MinimumBufferSize)
+        public ArrayBufferWriter(bool initialize = true)
         {
-            if (initialCapacity <= 0)
-                ThrowHelper.ThrowArgumentException(nameof(initialCapacity));
+            if (initialize)
+            {
+                Initialize();
+            }
+        }
 
-            _rentedBuffer = ArrayPool<T>.Shared.Rent(initialCapacity);
+        public void Initialize()
+        {
+            Debug.Assert(_rentedBuffer == null);
+
+            _rentedBuffer = ArrayPool<T>.Shared.Rent(MinimumBufferSize);
             _index = 0;
+        }
+
+        public void Reset()
+        {
+            Debug.Assert(_rentedBuffer != null);
+
+            if (_rentedBuffer != null)
+            {
+                ArrayPool<T>.Shared.Return(_rentedBuffer, clearArray: false);
+                _rentedBuffer = null;
+            }
         }
 
         public ReadOnlyMemory<T> WrittenMemory
@@ -88,10 +110,10 @@ namespace DanilovSoft.vRPC
 
         private void CheckIfDisposed()
         {
-            if (_rentedBuffer == null)
-            {
-                ThrowHelper.ThrowObjectDisposedException(nameof(ArrayBufferWriter<T>));
-            }
+            if (_rentedBuffer != null)
+                return;
+            
+            ThrowHelper.ThrowObjectDisposedException(nameof(ArrayBufferWriter<T>));
         }
 
         public void Advance(int count)
@@ -165,12 +187,7 @@ namespace DanilovSoft.vRPC
         // Returns the rented buffer back to the pool
         public void Dispose()
         {
-            if (_rentedBuffer != null)
-            {
-                //ClearHelper();
-                ArrayPool<T>.Shared.Return(_rentedBuffer, clearArray: false);
-                _rentedBuffer = null;
-            }
+            Reset();
         }
     }
 }

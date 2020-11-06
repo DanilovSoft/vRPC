@@ -285,6 +285,8 @@ namespace XUnitTest
             var buf = new byte[1024];
             var m = await ws.ReceiveAsync(buf, default);
 
+            string response = Encoding.UTF8.GetString(buf, 0, m.Count);
+
             Assert.Fail();
         }
 

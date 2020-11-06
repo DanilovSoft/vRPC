@@ -25,23 +25,10 @@ namespace DanilovSoft.vRPC
             _errorResult = errorResult;
         }
 
+        // Не бросает исключения так как не сериализует пользовательские данные.        
         internal ArrayBufferWriter<byte> Serialize()
         {
-            var buffer = new ArrayBufferWriter<byte>();
-            bool dispose = true;
-            try
-            {
-                // Сериализуем ответ.
-                _errorResult.WriteJsonRpcResult(Id, buffer);
-
-                dispose = false; // Предотвратить Dispose.
-                return buffer;
-            }
-            finally
-            {
-                if (dispose)
-                    buffer.Dispose();
-            }
+            return _errorResult.WriteJsonRpcResult(Id);
         }
     }
 }

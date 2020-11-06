@@ -31,7 +31,7 @@ namespace DanilovSoft.vRPC
         /// Сериализация пользовательских данных может спровоцировать исключение 
         /// <exception cref="VRpcSerializationException"/> которое будет перенаправлено ожидающему потоку.
         /// </summary>
-        public bool TrySerialize(out ArrayBufferWriter<byte> buffer)
+        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
         {
             Debug.Assert(Args != null);
 

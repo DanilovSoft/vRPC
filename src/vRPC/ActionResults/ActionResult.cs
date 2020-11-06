@@ -41,5 +41,11 @@ namespace DanilovSoft.vRPC
         }
 
         private protected abstract void FinalWriteJsonRpcResult(int? id, IBufferWriter<byte> buffer);
+
+        ArrayBufferWriter<byte> IActionResult.WriteJsonRpcResult(int? id)
+        {
+            Debug.Assert(false);
+            throw new NotImplementedException();
+        }
     }
 }

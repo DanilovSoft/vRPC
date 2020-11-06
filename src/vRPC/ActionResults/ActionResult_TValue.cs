@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
@@ -54,6 +55,12 @@ namespace DanilovSoft.vRPC
         {
             ActionResult result = Convert();
             result.InnerWriteJsonRpcResult(id, buffer);
+        }
+
+        ArrayBufferWriter<byte> IActionResult.WriteJsonRpcResult(int? id)
+        {
+            Debug.Assert(false);
+            throw new NotImplementedException();
         }
     }
 }

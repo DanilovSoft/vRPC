@@ -13,6 +13,7 @@ namespace DanilovSoft.vRPC
 {
     internal sealed class ReusableJRequest : IJRequest, IResponseAwaiter
     {
+        private readonly ArrayBufferWriter<byte> _reusableBuffer = new ArrayBufferWriter<byte>(initialize: false);
         private readonly ManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
@@ -35,6 +36,7 @@ namespace DanilovSoft.vRPC
             _setResult = null;
             _setException = null;
             Id = 0;
+            Debug.Assert(!_reusableBuffer.IsInitialized);
 
             _context.ReleaseReusable(this);
         }
@@ -46,7 +48,9 @@ namespace DanilovSoft.vRPC
             Debug.Assert(_tcs == null);
             Debug.Assert(_setResult == null);
             Debug.Assert(_setException == null);
+            Debug.Assert(_reusableBuffer != null);
 
+            _reusableBuffer.Initialize();
             Method = method;
             Args = args;
 
@@ -137,7 +141,7 @@ namespace DanilovSoft.vRPC
             throw new NotSupportedException();
         }
 
-        public bool TrySerialize(out ArrayBufferWriter<byte> buffer)
+        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
         {
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);
@@ -145,13 +149,16 @@ namespace DanilovSoft.vRPC
             var args = Args;
             Args = null;
 
-            if (JsonRpcSerializer.TrySerializeRequest(Method.FullName, args, Id, out buffer, out var exception))
+            if (JsonRpcSerializer.TrySerializeRequest(Method.FullName, args, Id, _reusableBuffer, out var exception))
             {
+                buffer = _reusableBuffer;
                 return true;
             }
             else
             {
+                _reusableBuffer.Reset();
                 SetException(exception);
+                buffer = null;
                 return false;
             }
         }

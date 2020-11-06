@@ -4,6 +4,6 @@ namespace DanilovSoft.vRPC
 {
     internal interface IJRequest : IRequest
     {
-        bool TrySerialize(out ArrayBufferWriter<byte> buffer);
+        bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer);
     }
 }

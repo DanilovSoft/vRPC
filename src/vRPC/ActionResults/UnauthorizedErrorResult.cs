@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace DanilovSoft.vRPC
@@ -24,6 +25,12 @@ namespace DanilovSoft.vRPC
         {
             context.StatusCode = DefaultStatusCode;
             context.ResponseBuffer.WriteStringBinary(_message);
+        }
+
+        ArrayBufferWriter<byte> IActionResult.WriteJsonRpcResult(int? id)
+        {
+            Debug.Assert(false);
+            throw new NotImplementedException();
         }
     }
 }

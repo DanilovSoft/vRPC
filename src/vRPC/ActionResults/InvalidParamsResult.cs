@@ -32,5 +32,10 @@ namespace DanilovSoft.vRPC
         {
             JsonRpcSerializer.SerializeErrorResponse(buffer, DefaultStatusCode, _message, id);
         }
+
+        ArrayBufferWriter<byte> IActionResult.WriteJsonRpcResult(int? id)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

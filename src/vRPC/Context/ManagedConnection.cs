@@ -890,7 +890,9 @@ namespace DanilovSoft.vRPC
             ControllerMethodMeta? method = null;
             object[]? args = null;
             IActionResult? paramsError = null;
-            JRpcErrorDto error = default;
+            JRpcErrorModel errorModel = default;
+
+            // Если параметры в Json записаны раньше чем Id то придётся перематывать.
             JsonReaderState paramsState;
 
             var reader = new Utf8JsonReader(utf8Json);
@@ -917,12 +919,13 @@ namespace DanilovSoft.vRPC
                         if (method != default)
                         {
                             Debug.Assert(args != null, "Если нашли метод, то и параметры уже инициализировали.");
+
+                            // В случае ошибки нужно продолжить искать айдишник запроса.
                             TryParseJsonArgs(method, args, reader, out paramsError);
-                            // Нужно продолжить искать айдишник.
                         }
                         else if (methodName == null)
                         {
-                            //Debug.Assert(false, "TODO найти метод и перечитать параметры.");
+                            // TODO найти метод и перечитать параметры.
                             paramsState = reader.CurrentState;
                         }
                     }
@@ -983,7 +986,7 @@ namespace DanilovSoft.vRPC
                             }
                         }
                     }
-                    else if (error == default && reader.ValueTextEquals(JsonRpcSerializer.Error.EncodedUtf8Bytes))
+                    else if (errorModel == default && reader.ValueTextEquals(JsonRpcSerializer.Error.EncodedUtf8Bytes))
                     // Это ответ на запрос.
                     {
                         if (reader.Read())
@@ -994,14 +997,14 @@ namespace DanilovSoft.vRPC
                                 {
                                     if (reader.Read() && reader.TokenType == JsonTokenType.Number)
                                     {
-                                        error.Code = (StatusCode)reader.GetInt32();
+                                        errorModel.Code = (StatusCode)reader.GetInt32();
                                     }
                                 }
                                 else if (reader.ValueTextEquals(JsonRpcSerializer.Message.EncodedUtf8Bytes))
                                 {
                                     if (reader.Read() && reader.TokenType == JsonTokenType.String)
                                     {
-                                        error.Message = reader.GetString();
+                                        errorModel.Message = reader.GetString();
                                     }
                                 }
                             }
@@ -1016,33 +1019,43 @@ namespace DanilovSoft.vRPC
                 if (method != null)
                 // Запрос.
                 {
-                    if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
+                    if (paramsError == null)
                     {
-                        Debug.Assert(args != null);
+                        // Атомарно запускаем запрос.
+                        if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
+                        {
+                            Debug.Assert(args != null);
 
-                        CreateRequestContextAndStart(id, method, args, isJsonRpc: true);
+                            CreateRequestContextAndStart(id, method, args, isJsonRpc: true);
 
-                        errorResponse = null;
-                        return true;
+                            errorResponse = null;
+                            return true;
+                        }
+                        else
+                        // Происходит остановка. Выполнять запрос не нужно.
+                        {
+                            errorResponse = null;
+                            return false; // Завершить поток чтения.
+                        }
                     }
                     else
-                    // Происходит остановка. Выполнять запрос не нужно.
+                    // Неудалось разобрать параметры запроса.
                     {
-                        errorResponse = null;
-                        return false; // Завершить поток чтения.
+                        errorResponse = new JErrorResponse(id.Value, paramsError);
+                        return true;
                     }
                 }
                 else
                 // Отсутствует метод -> может быть ответ на запрос.
                 {
-                    if (error != default)
+                    if (errorModel != default)
                     // Ответ на запрос где результат — ошибка.
                     {
-                        if (_pendingRequests.TryRemove(id.Value, out IResponseAwaiter? awaiter))
+                        if (_pendingRequests.TryRemove(id.Value, out IResponseAwaiter? pendingRequest))
                         {
                             // На основе кода и сообщения можно создать исключение.
-                            var exception = ExceptionHelper.ToException(error.Code, error.Message);
-                            awaiter.SetException(exception);
+                            var exception = ExceptionHelper.ToException(errorModel.Code, errorModel.Message);
+                            pendingRequest.SetException(exception);
                         }
                         else
                         {
@@ -1076,7 +1089,7 @@ namespace DanilovSoft.vRPC
                 }
             }
             else
-            // id отсутствует.
+            // id отсутствует — может быть нотификация или сообщение об ошибке.
             {
                 // {"jsonrpc": "2.0", "method": "update", "params": [1,2,3,4,5]}
 
@@ -1086,20 +1099,24 @@ namespace DanilovSoft.vRPC
                     if (paramsError == null)
                     {
                         Debug.Assert(args != null);
+
+                        CreateRequestContextAndStart(id: null, method, args, isJsonRpc: true);
+
+                        errorResponse = null;
+                        return true;
                     }
                     else
                     {
-
+                        errorResponse = new JErrorResponse(id: null, paramsError);
+                        return true; // Продолжить получение сообщений.
                     }
-
-                    Debug.Assert(false, "NotImplemented");
-                    throw new NotImplementedException();
                 }
-                else if (error != default)
+                else if (errorModel != default)
                 // Ошибка без айдишника.
                 {
                     Debug.Assert(false, "NotImplemented");
-                    throw new NotImplementedException();
+                    errorResponse = null;
+                    return true;
                 }
                 else
                 // Получено невалидное сообщение.
@@ -1735,7 +1752,7 @@ namespace DanilovSoft.vRPC
                     else if (message is IJRequest jRequest)
                     // Отправляем запрос на который нужно получить ответ.
                     {
-                        if (jRequest.TrySerialize(out ArrayBufferWriter<byte> buffer))
+                        if (jRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer))
                         {
                             try
                             {
@@ -1959,7 +1976,8 @@ namespace DanilovSoft.vRPC
         /// Проверяет доступность запрашиваемого метода для удаленного пользователя.
         /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
-        private protected abstract bool ActionPermissionCheck(ControllerMethodMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user);
+        private protected abstract bool ActionPermissionCheck(ControllerMethodMeta actionMeta, 
+            out IActionResult? permissionError, out ClaimsPrincipal? user);
 
         #region Монитор активных запросов.
 
@@ -2036,6 +2054,10 @@ namespace DanilovSoft.vRPC
 
         #region Обработка запроса в отдельном потоке
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="id">Может быть Null если нотификация.</param>
         private void CreateRequestContextAndStart(int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
         {
             RequestContext? request = Interlocked.Exchange(ref _reusableContext, null);

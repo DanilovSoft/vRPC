@@ -12,14 +12,15 @@ namespace DanilovSoft.vRPC
         private const StatusCode DefaultStatusCode = StatusCode.InvalidRequest;
         private readonly string _message;
 
-        public InvalidRequestResult()
-        {
-            _message = "Invalid Request";
-        }
-
-        public InvalidRequestResult(string message)
+        public InvalidRequestResult(string message = "Invalid Request")
         {
             _message = message;
+        }
+
+        public void WriteVRpcResult(ref ActionContext context)
+        {
+            context.StatusCode = DefaultStatusCode;
+            context.ResponseBuffer.WriteStringBinary(_message);
         }
 
         void IActionResult.WriteJsonRpcResult(int? id, ArrayBufferWriter<byte> buffer)
@@ -27,10 +28,10 @@ namespace DanilovSoft.vRPC
             JsonRpcSerializer.SerializeErrorResponse(buffer, DefaultStatusCode, _message, id);
         }
 
-        public void WriteVRpcResult(ref ActionContext context)
+        ArrayBufferWriter<byte> IActionResult.WriteJsonRpcResult(int? id)
         {
-            context.StatusCode = DefaultStatusCode;
-            context.ResponseBuffer.WriteStringBinary(_message);
+            JsonRpcSerializer.TrySerializeErrorResponse(id, DefaultStatusCode, _message, out var buffer, out _);
+            return buffer;
         }
     }
 }

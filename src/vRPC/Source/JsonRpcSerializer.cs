@@ -22,7 +22,7 @@ namespace DanilovSoft.vRPC
         internal static readonly JsonEncodedText Id = JsonEncodedText.Encode("id");
 
         /// <exception cref="JsonException"/>
-        internal static void SerializeRequest(ArrayBufferWriter<byte> buffer, string method, object[] args, int? id)
+        private static void SerializeRequest(ArrayBufferWriter<byte> buffer, string method, object[] args, int? id)
         {
             using (var writer = new Utf8JsonWriter(buffer))
             {
@@ -58,7 +58,26 @@ namespace DanilovSoft.vRPC
         }
 
         /// <remarks>Не бросает исключения.</remarks>
-        internal static bool TrySerializeRequest(string method, object[] args, int id, out ArrayBufferWriter<byte> buffer,
+        internal static bool TrySerializeRequest(string method, object[] args, int id, ArrayBufferWriter<byte> buffer,
+            [NotNullWhen(false)] out VRpcSerializationException? exception)
+        {
+            try
+            {
+                SerializeRequest(buffer, method, args, id);
+
+                exception = null;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                exception = new VRpcSerializationException("Ошибка при сериализации пользовательских данных.", ex);
+                return false;
+            }
+        }
+
+        /// <remarks>Не бросает исключения.</remarks>
+        internal static bool TrySerializeRequest(string method, object[] args, int id,
+            [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer,
             [NotNullWhen(false)] out VRpcSerializationException? exception)
         {
             buffer = new ArrayBufferWriter<byte>();
@@ -83,6 +102,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        /// <exception cref="JsonException"/>
         internal static void SerializeResponse(ArrayBufferWriter<byte> buffer, int id, object? result)
         {
             // {"jsonrpc": "2.0", "result": 19, "id": 1}
@@ -114,6 +134,34 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        /// <remarks>Не бросает исключения.</remarks>
+        internal static bool TrySerializeErrorResponse(int? id, StatusCode code, string message,
+            [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer,
+            [NotNullWhen(false)] out VRpcSerializationException? exception)
+        {
+            buffer = new ArrayBufferWriter<byte>();
+            bool dispose = true;
+            try
+            {
+                SerializeErrorResponse(buffer, code, message, id);
+
+                dispose = false; // Предотвратить Dispose.
+                exception = null;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                exception = new VRpcSerializationException("Ошибка при сериализации пользовательских данных.", ex);
+                return false;
+            }
+            finally
+            {
+                if (dispose)
+                    buffer.Dispose();
+            }
+        }
+
+        /// <exception cref="JsonException"/>
         internal static void SerializeErrorResponse(ArrayBufferWriter<byte> buffer, StatusCode code, string message, int? id)
         {
             // {"jsonrpc": "2.0", "id": "1", "error": {"code": -32601, "message": "Method not found"}}
@@ -154,7 +202,7 @@ namespace DanilovSoft.vRPC
         }
 
         internal static bool TrySerializeNotification(string method, object[] args,
-            out ArrayBufferWriter<byte> buffer,
+            [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer,
             [NotNullWhen(false)] out VRpcSerializationException? exception)
         {
             buffer = new ArrayBufferWriter<byte>();
