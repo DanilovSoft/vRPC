@@ -3,6 +3,7 @@ using DanilovSoft.WebSockets;
 using System;
 using System.Buffers;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net.Sockets;
 using System.Net.WebSockets;
@@ -285,28 +286,10 @@ namespace DanilovSoft.vRPC
             return method.Name;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <exception cref="IOException"/>
-        /// <exception cref="SocketException"/>
         //[DebuggerStepThrough]
-        public static Exception ToException(this ReceiveResult receiveResult)
+        public static VRpcSocketException ToException(this SocketError socketError)
         {
-            if (receiveResult.SocketError != SocketError.Success)
-            {
-                return new SocketException((int)receiveResult.SocketError);
-            }
-            else
-            {
-                return new IOException("Unexpected connection closed during read.");
-            }
-        }
-
-        //[DebuggerStepThrough]
-        public static SocketException ToException(this SocketError socketError)
-        {
-            return new SocketException((int)socketError);
+            return new VRpcSocketException("Unexpected socket error.", new SocketException((int)socketError));
         }
 
         /// <remarks>Может быть производными типа <see cref="VRpcException"/> или <see cref="ObjectDisposedException"/></remarks>
@@ -413,10 +396,18 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        internal static void ValidateAccessToken(this AccessToken accessToken, string arguemntName)
+        internal static bool AccessTokenIsValid(this AccessToken accessToken, string argumentName, [NotNullWhen(false)] out ArgumentOutOfRangeException? exception)
         {
-            if (accessToken.Bytes.Length == 0)
-                ThrowHelper.ThrowArgumentOutOfRangeException("AccessToken is empty", arguemntName);
+            if (accessToken.Bytes.Length != 0)
+            {
+                exception = null;
+                return true;
+            }
+            else
+            {
+                exception = new ArgumentOutOfRangeException(argumentName, "AccessToken is empty");
+                return false;
+            }
         }
 
         internal static VRpcShutdownException ToException(this ShutdownRequest shutdownRequest)

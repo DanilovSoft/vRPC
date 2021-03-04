@@ -23,7 +23,6 @@ namespace DanilovSoft.vRPC.Decorator
     /// </summary>
     /// <remarks>Тип должен быть публичным и не запечатанным.</remarks>
     [DebuggerDisplay(@"\{Proxy to remote controller {ControllerName}, ConnectionState = {Client}\}")]
-    [SuppressMessage("Design", "CA1062:Проверить аргументы или открытые методы", Justification = "Логически не может быть Null")]
     public class ClientInterfaceProxy<TIface> : ClientInterfaceProxy, IInterfaceProxy, IInterfaceDecorator<TIface> where TIface : class
     {
         public TIface? Proxy { get; private set; }
@@ -39,11 +38,12 @@ namespace DanilovSoft.vRPC.Decorator
         /// </summary>
         /// <typeparam name="TResult">Возвращаемый тип метода.</typeparam>
         /// <param name="targetMethod"></param>
-        /// <returns></returns>
+        /// <exception cref="Exception">Могут быть неизвестные исключения.</exception>
         private RequestMethodMeta GetMeta<TResult>(MethodInfo targetMethod)
         {
             // Метаданные запроса.
-            var methodMeta = ClientSideConnection.MethodDict.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, typeof(TResult), cn), ControllerName);
+            var methodMeta = ClientSideConnection.MethodDict.GetOrAdd(targetMethod, 
+                (tm, cn) => new RequestMethodMeta(tm, typeof(TResult), cn), ControllerName);
 
             return methodMeta;
         }
@@ -62,23 +62,32 @@ namespace DanilovSoft.vRPC.Decorator
             return self;
         }
 
+        #region Асинхронные псевдо-публичные точки входа
+
         // Вызывается через рефлексию — не переименовывать.
         protected Task EmptyTaskInvoke(MethodInfo targetMethod, object[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta method = GetMeta<VoidStruct>(targetMethod);
+            try
+            {
+                RequestMethodMeta method = GetMeta<VoidStruct>(targetMethod);
 
-            if (!method.IsNotificationRequest)
-            {
-                Task<VoidStruct> task = Client.OnClientMethodCall<VoidStruct>(method, args);
-                return task;
+                if (!method.IsNotificationRequest)
+                {
+                    Task<VoidStruct> task = Client.OnClientMethodCall<VoidStruct>(method, args);
+                    return task;
+                }
+                else
+                {
+                    ValueTask valueTask = Client.OnClientNotificationCall(method, args);
+                    return valueTask.AsTask();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                ValueTask valueTask = Client.OnClientNotificationCall(method, args);
-                return valueTask.AsTask();
+                return Task.FromException(ex);
             }
         }
 
@@ -88,18 +97,26 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
+            Task<VoidStruct> pendingRequest;
+            try
+            {
+                RequestMethodMeta methodMeta = GetMeta<VoidStruct>(targetMethod);
 
-            if (!methodMeta.IsNotificationRequest)
-            {
-                Task<VoidStruct> pendingRequest = Client.OnClientMethodCall<VoidStruct>(methodMeta, args);
-                return new ValueTask(task: pendingRequest);
+                if (!methodMeta.IsNotificationRequest)
+                {
+                    pendingRequest = Client.OnClientMethodCall<VoidStruct>(methodMeta, args);
+                }
+                else
+                {
+                    ValueTask valueTask = Client.OnClientNotificationCall(methodMeta, args);
+                    return valueTask;
+                }
             }
-            else
+            catch (Exception ex)
             {
-                ValueTask valueTask = Client.OnClientNotificationCall(methodMeta, args);
-                return valueTask;
+                return new(Task.FromException(ex));
             }
+            return new(task: pendingRequest);
         }
 
         // Вызывается через рефлексию — не переименовывать.
@@ -108,9 +125,17 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
-            Task<T> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
-            return new ValueTask<T>(task: pendingRequest);
+            Task<T> pendingRequest;
+            try
+            {
+                RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
+                pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
+            }
+            catch (Exception ex)
+            {
+                return new(Task.FromException<T>(ex));
+            }
+            return new(task: pendingRequest);
         }
 
         // Вызывается через рефлексию — не переименовывать.
@@ -119,11 +144,20 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
-
-            Task<T> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
+            Task<T> pendingRequest;
+            try
+            {
+                RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
+                pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
+            }
+            catch (Exception ex)
+            {
+                return Task.FromException<T>(ex);
+            }
             return pendingRequest;
         }
+
+        #endregion
 
         // Вызывается через рефлексию — не переименовывать.
         protected T Invoke<T>(MethodInfo targetMethod, object[] args)

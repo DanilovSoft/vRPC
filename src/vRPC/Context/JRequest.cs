@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
 {
     internal sealed class JRequest<TResult> : IJRequest, IResponseAwaiter
     {
-        private readonly TaskCompletionSource<TResult> _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<TResult> _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public RequestMethodMeta Method { get; }
         public int Id { get; set; }
         public Task<TResult> Task => _tcs.Task;

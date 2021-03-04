@@ -20,14 +20,14 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Internal запрос для аутентификации.
         /// </summary>
-        private static readonly RequestMethodMeta SignInAsyncMeta = new RequestMethodMeta("", "SignIn", typeof(VoidStruct), isNotification: false);
-        private static readonly RequestMethodMeta SignOutAsyncMeta = new RequestMethodMeta("", "SignOut", typeof(VoidStruct), isNotification: false);
-        internal static readonly LockedDictionary<MethodInfo, RequestMethodMeta> MethodDict = new LockedDictionary<MethodInfo, RequestMethodMeta>();
+        private static readonly RequestMethodMeta SignInAsyncMeta = new("", "SignIn", typeof(VoidStruct), isNotification: false);
+        private static readonly RequestMethodMeta SignOutAsyncMeta = new("", "SignOut", typeof(VoidStruct), isNotification: false);
+        internal static readonly LockedDictionary<MethodInfo, RequestMethodMeta> MethodDict = new();
         /// <summary>
         /// Методы SignIn, SignOut (async) должны выполняться последовательно
         /// что-бы синхронизироваться со свойством IsAuthenticated.
         /// </summary>
-        private readonly object _authLock = new object();
+        private readonly object _authLock = new();
         public VRpcClient Client { get; }
         /// <summary>
         /// Установка свойства только через блокировку <see cref="_authLock"/>.
@@ -144,7 +144,8 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// 
         /// </summary>
-        /// <exception cref="SocketException"/>
+        /// <exception cref="VRpcException"/>
+        /// <exception cref="ObjectDisposedException"/>
         internal async Task SignOutAsync()
         {
             bool retryRequired;
@@ -190,13 +191,14 @@ namespace DanilovSoft.vRPC
             } while (retryRequired);
         }
 
-        /// <exception cref="SocketException"/>
+        /// <exception cref="VRpcException"/>
+        /// <exception cref="ObjectDisposedException"/>
         private async Task PrivateSignOutAsync()
         {
             var request = new VRequest<VoidStruct>(SignOutAsyncMeta, Array.Empty<object>());
 
             // Ждём завершения SignOut — исключений быть не может, только при обрыве связи.
-            if (TrySendRequest<VoidStruct>(request, out var error))
+            if (TrySendRequest(request, out Task<VoidStruct>? error))
             {
                 await request.Task.ConfigureAwait(false);
             }

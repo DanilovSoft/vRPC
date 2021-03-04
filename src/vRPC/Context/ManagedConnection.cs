@@ -36,12 +36,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Для Completion.
         /// </summary>
-        private readonly TaskCompletionSource<CloseReason> _completionTcs = new TaskCompletionSource<CloseReason>(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<CloseReason> _completionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         /// <summary>
         /// Взводится при обрыве соединения.
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
-        private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private readonly CancellationTokenSource _cts = new();
         /// <summary>
         /// Срабатывает когда соединение переходит в закрытое состояние.
         /// </summary>
@@ -158,8 +158,8 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Потоки могут арендровать этот экземпляр, по очереди.
         /// </summary>
-        private ReusableJNotification? _reusableJNotification = new ReusableJNotification();
-        private ReusableVNotification? _reusableVNotification = new ReusableVNotification();
+        private ReusableJNotification? _reusableJNotification = new();
+        private ReusableVNotification? _reusableVNotification = new();
         private ReusableJRequest? _reusableJRequest;
         private ReusableVRequest? _reusableVRequest;
         private RequestContext? _reusableContext;
@@ -422,6 +422,7 @@ namespace DanilovSoft.vRPC
         /// Происходит при обращении к проксирующему интерфейсу.
         /// </summary>
         /// <remarks>Со стороны клиента.</remarks>
+        /// <exception cref="VRpcConnectionNotOpenException"/>
         /// <exception cref="Exception">Могут быть исключения не инкапсулированные в Task.</exception>
         internal static Task<TResult> OnClientRequestCall<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
         {
@@ -429,10 +430,16 @@ namespace DanilovSoft.vRPC
 
             if (connectionTask.IsCompleted)
             {
-                // Может быть исключение если не удалось подключиться.
-                ClientSideConnection connection = connectionTask.Result; // у ValueTask можно обращаться к Result.
-
-                return connection.SendRequest<TResult>(method, args);
+                try
+                {
+                    // Может быть исключение если не удалось подключиться.
+                    ClientSideConnection connection = connectionTask.Result; // у ValueTask можно обращаться к Result.
+                    return connection.SendRequest<TResult>(method, args);
+                }
+                catch (Exception ex)
+                {
+                    return Task.FromException<TResult>(ex);
+                }
             }
             else
             {
@@ -456,6 +463,7 @@ namespace DanilovSoft.vRPC
                 {
                     Task<TResult> task = reusableRequest.Initialize<TResult>(method, args);
 
+                    // Не бросает исключения.
                     if (TrySendRequest<TResult>(reusableRequest, out Task<TResult>? error))
                     {
                         return task;
@@ -621,22 +629,27 @@ namespace DanilovSoft.vRPC
         /// Отправляет запрос и ожидает ответ.
         /// Передаёт владение объектом <paramref name="request"/> другому потоку.
         /// </summary>
-        /// <remarks>Происходит при обращении к прокси-интерфейсу.</remarks>
-        /// <exception cref="SocketException"/>
-        /// <exception cref="VRpcShutdownException"/>
-        /// <exception cref="ObjectDisposedException"/>
-        /// <returns>Таск с результатом от сервера.</returns>
+        /// <param name="errorTask">Может быть <see cref="ObjectDisposedException"/></param>
+        /// <remarks>Происходит при обращении к прокси-интерфейсу. Не бросает исключения.</remarks>
+        /// <returns>Таск с результатом от сервера или с исключением.</returns>
         private protected bool TrySendRequest<TResult>(IResponseAwaiter request, [NotNullWhen(false)] out Task<TResult>? errorTask)
         {
-            //Debug.Assert(!request.Method.IsNotificationRequest);
-
             // Shutdown нужно проверять раньше чем Dispose потому что Dispose может быть по причине Shutdown.
             if (_shutdownRequest == null) // volatile проверка.
             {
                 if (!IsDisposed) // volatile проверка.
                 {
-                    // Добавить запрос в словарь для последующей связки с ответом.
-                    _pendingRequests.Add(request, out int id);
+                    int id;
+                    try
+                    {
+                        // Добавить запрос в словарь для последующей связки с ответом.
+                        _pendingRequests.Add(request, out id);
+                    }
+                    catch (Exception ex)
+                    {
+                        errorTask = Task.FromException<TResult>(ex);
+                        return false;
+                    }
 
                     // Назначить запросу уникальный идентификатор.
                     request.Id = id;

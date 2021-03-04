@@ -14,11 +14,11 @@ namespace DanilovSoft.vRPC
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"Count = {_list.Count}" + "}";
-        internal readonly object SyncRoot = new object();
+        internal readonly object SyncRoot = new();
         /// <summary>
         /// Доступ осуществляется только через блокировку <see cref="SyncRoot"/>.
         /// </summary>
-        private readonly List<ServerSideConnection> _list = new List<ServerSideConnection>();
+        private readonly List<ServerSideConnection> _list = new();
         /// <summary>
         /// Доступ осуществляется только через блокировку <see cref="SyncRoot"/>.
         /// Если коллекция уже была удалена из словаря подключений, то значение будет <see langword="true"/> 

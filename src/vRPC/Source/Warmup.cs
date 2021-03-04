@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
@@ -7,13 +8,21 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Выполняет AOT(Ahead-Of-Time) оптимизацию.
         /// </summary>
-        public static void DoWarmup()
+        private static void DoWarmup()
         {
-            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(ManagedConnection).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(ManagedConnection).TypeHandle);
 
 #pragma warning disable CA2012 // Используйте ValueTasks правильно
             DynamicAwaiter.ConvertToTask(new ValueTask());
 #pragma warning restore CA2012 // Используйте ValueTasks правильно
+        }
+
+#if !NET472 && !NETSTANDARD2_0 && !NETCOREAPP3_1
+        [ModuleInitializer]
+#endif
+        internal static void InitializeModule()
+        {
+            DoWarmup();
         }
     }
 }

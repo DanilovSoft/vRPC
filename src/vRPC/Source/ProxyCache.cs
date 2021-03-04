@@ -15,11 +15,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Содержит прокси созданные из интерфейсов.
         /// </summary>
-        private static readonly Dictionary<Type, IInterfaceProxy> _staticDict = new Dictionary<Type, IInterfaceProxy>();
+        private static readonly Dictionary<Type, IInterfaceProxy> _staticDict = new();
         /// <summary>
         /// Содержит прокси созданные из интерфейсов.
         /// </summary>
-        private readonly Dictionary<Type, IInterfaceProxy> _instanceDict = new Dictionary<Type, IInterfaceProxy>();
+        private readonly Dictionary<Type, IInterfaceProxy> _instanceDict = new();
 
         private static void InitializePropxy<T>(string controllerName, ServerInterfaceProxy<T> p, ManagedConnection connection) where T : class
         {

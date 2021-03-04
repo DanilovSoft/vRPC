@@ -16,8 +16,8 @@ namespace Client
     class Program
     {
         private const int Port = 65125;
-        private static readonly object _conLock = new object();
-        private static bool _appExit;
+        private static readonly object ConLock = new();
+        private static bool AppExit;
         private static int Threads;
 
         static void Main()
@@ -56,7 +56,7 @@ namespace Client
             {
                 var t = Task.Run(async () =>
                 {
-                    if (_appExit)
+                    if (AppExit)
                         return;
 
                     Interlocked.Increment(ref activeThreads);
@@ -136,22 +136,22 @@ namespace Client
 
         private static void PrintConsole(int activeThreads, int reqPerSec)
         {
-            lock (_conLock)
+            lock (ConLock)
             {
                 Console.SetCursorPosition(0, 0);
-                Console.WriteLine($"Active Threads: {activeThreads.ToString().PadRight(10, ' ')}");
-                Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10, ' ')}");
+                Console.WriteLine($"Active Threads: {activeThreads,-10}");
+                Console.WriteLine($"Request per second: {reqPerSec,-10}");
             }
         }
 
         private static void Console_CancelKeyPress(ConsoleCancelEventArgs e, VRpcClient client)
         {
-            _appExit = true;
+            AppExit = true;
 
             if (!e.Cancel)
             {
                 e.Cancel = true;
-                lock (_conLock)
+                lock (ConLock)
                 {
                     Console.WriteLine("Stopping...");
                 }

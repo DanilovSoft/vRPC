@@ -23,15 +23,15 @@ namespace DanilovSoft.vRPC
     public sealed class ServerSideConnection : ManagedConnection, IGetProxy
     {
         // TODO: вынести в параметры.
-        private const string PassPhrase = "Pas5pr@se";        // Может быть любой строкой.
-        private const string InitVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
-        private const string Salt = "M6PgwzAnHy02Jv8z5FPIoOn5NeJP7bx7";
+        private const string _passPhrase = "Pas5pr@se";        // Может быть любой строкой.
+        private const string _initVector = "@1B2c3D4e5F6g7H8"; // Должно быть 16 байт.
+        private const string _salt = "M6PgwzAnHy02Jv8z5FPIoOn5NeJP7bx7";
 
-        internal static readonly ServerConcurrentDictionary<MethodInfo, RequestMethodMeta> MethodDict = new ServerConcurrentDictionary<MethodInfo, RequestMethodMeta>();
-        private readonly ProxyCache _proxyCache = new ProxyCache();
+        internal static readonly ServerConcurrentDictionary<MethodInfo, RequestMethodMeta> _methodDict = new();
+        private readonly ProxyCache _proxyCache = new();
 
         private RijndaelEnhanced? _jwt;
-        private RijndaelEnhanced Jwt => LazyInitializer.EnsureInitialized(ref _jwt, () => new RijndaelEnhanced(PassPhrase, InitVector, 8, 16, 256, Salt, 1000));
+        private RijndaelEnhanced Jwt => LazyInitializer.EnsureInitialized(ref _jwt, () => new RijndaelEnhanced(_passPhrase, _initVector, 8, 16, 256, _salt, 1000));
         private volatile ClaimsPrincipal _user;
         public sealed override bool IsAuthenticated => true;
         /// <summary>
@@ -186,8 +186,9 @@ namespace DanilovSoft.vRPC
         public void SignOut()
         {
             // volatile копия.
-            var user = _user;
-            if (user.Identity.IsAuthenticated)
+            ClaimsPrincipal user = _user;
+
+            if (user.Identity?.IsAuthenticated == true)
             {
                 _user = CreateUnauthorizedUser();
                 Listener.OnUserSignedOut(this, user);
@@ -202,7 +203,6 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Проверяет доступность запрашиваемого метода пользователем.
         /// </summary>
-        /// <exception cref="VRpcBadRequestException"/>
         private protected sealed override bool ActionPermissionCheck(ControllerMethodMeta actionMeta, [NotNullWhen(false)] out IActionResult? permissionError, out ClaimsPrincipal user)
         {
             Debug.Assert(actionMeta != null);
@@ -211,7 +211,7 @@ namespace DanilovSoft.vRPC
             user = _user;
 
             // 1. Проверить доступен ли метод пользователю.
-            if (user.Identity.IsAuthenticated)
+            if (user.Identity?.IsAuthenticated == true)
             {
                 permissionError = null;
                 return true;

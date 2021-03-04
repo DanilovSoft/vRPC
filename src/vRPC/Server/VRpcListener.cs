@@ -22,18 +22,18 @@ namespace DanilovSoft.vRPC
         /// Triggered when the application host has fully started.
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
-        private readonly CancellationTokenSource _applicationStarted = new CancellationTokenSource();
+        private readonly CancellationTokenSource _applicationStarted = new();
 
         /// <summary>
         /// Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
-        private readonly CancellationTokenSource _applicationStopping = new CancellationTokenSource();
+        private readonly CancellationTokenSource _applicationStopping = new();
         /// <summary>
         /// Triggered when the application host is performing a graceful shutdown. Shutdown will block until this event completes.
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2213", Justification = "Не требует вызывать Dispose если гарантированно будет вызван Cancel")]
-        private readonly CancellationTokenSource _applicationStopped = new CancellationTokenSource();
+        private readonly CancellationTokenSource _applicationStopped = new();
 
         public CancellationToken ApplicationStarted => _applicationStarted.Token;
         public CancellationToken ApplicationStopping => _applicationStopping.Token;
@@ -44,17 +44,17 @@ namespace DanilovSoft.vRPC
         /// Хранит все доступные контроллеры. Не учитывает регистр.
         /// </summary>
         internal readonly InvokeActionsDictionary InvokeActions;
-        private readonly WebSocketServer _wsServ = new WebSocketServer();
+        private readonly WebSocketServer _wsServ = new();
         /// <summary>
         /// Доступ через блокировку SyncObj.
         /// </summary>
-        private readonly ClientConnections _connections = new ClientConnections();
-        private readonly ServiceCollection _serviceCollection = new ServiceCollection();
+        private readonly ClientConnections _connections = new();
+        private readonly ServiceCollection _serviceCollection = new();
         /// <summary>
         /// Для доступа к <see cref="_stopRequired"/> и <see cref="_started"/>.
         /// </summary>
         private object StartLock => _completionTcs;
-        private readonly TaskCompletionSource<bool> _completionTcs = new TaskCompletionSource<bool>();
+        private readonly TaskCompletionSource<bool> _completionTcs = new();
         /// <summary>
         /// <see cref="Task"/> который завершается когда все 
         /// соединения перешли в закрытое состояние и сервис полностью остановлен.
@@ -90,11 +90,6 @@ namespace DanilovSoft.vRPC
         public TimeSpan ClientKeepAliveInterval { get => _wsServ.ClientKeepAliveInterval; set => _wsServ.ClientKeepAliveInterval = value; }
         public TimeSpan ClientReceiveTimeout { get => _wsServ.ClientReceiveTimeout; set => _wsServ.ClientReceiveTimeout = value; }
         public int Port => _wsServ.Port;
-
-        static VRpcListener()
-        {
-            Warmup.DoWarmup();
-        }
 
         // ctor.
         public VRpcListener(IPAddress ipAddress) : this (ipAddress, port: 0, Assembly.GetCallingAssembly()) { }
@@ -177,7 +172,7 @@ namespace DanilovSoft.vRPC
 
         internal void OnUserSignedOut(ServerSideConnection connection, ClaimsPrincipal user)
         {
-            Debug.Assert(user.Identity.IsAuthenticated);
+            Debug.Assert(user.Identity?.IsAuthenticated == true);
 
             ClientSignedOut?.Invoke(this, new ClientSignedOutEventArgs(connection, user));
         }
@@ -308,7 +303,14 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcException"/>
         public Task<bool> RunAsync()
         {
-            TrySyncStart(shouldThrow: true);
+            try
+            {
+                TrySyncStart(shouldThrow: true);
+            }
+            catch (Exception ex)
+            {
+                return Task.FromException<bool>(ex);
+            }
             return Completion;
         }
 
@@ -327,7 +329,14 @@ namespace DanilovSoft.vRPC
         /// <exception cref="OperationCanceledException"/>
         public Task<bool> RunAsync(TimeSpan disconnectTimeout, string closeDescription, CancellationToken cancellationToken)
         {
-            TrySyncStart(shouldThrow: true);
+            try
+            {
+                TrySyncStart(shouldThrow: true);
+            }
+            catch (Exception ex)
+            {
+                return Task.FromException<bool>(ex);
+            }
 
             // Только один поток зайдёт в этот блок.
             return InnerRunAsync(disconnectTimeout, closeDescription, cancellationToken);

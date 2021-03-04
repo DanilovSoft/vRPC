@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Модификация коллекции <see cref="VRpcListener._connections"/> допускается с захватом этой блокировки.
         /// </summary>
-        public readonly object SyncObj = new object();
+        public readonly object SyncObj = new();
         private readonly List<ServerSideConnection> _list;
         public int Count => _list.Count;
         public bool IsReadOnly => false;

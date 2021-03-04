@@ -5,7 +5,7 @@ namespace DanilovSoft.vRPC
 {
     internal sealed class SyncDictionary<TKey, TValue> where TKey : notnull
     {
-        private readonly Dictionary<TKey, TValue> _dict = new Dictionary<TKey, TValue>();
+        private readonly Dictionary<TKey, TValue> _dict = new();
 
         public TValue GetOrAdd(TKey key, Func<TKey, Type, TValue> factory, Type returnType)
         {

@@ -15,8 +15,8 @@ namespace Server
     public class Program
     {
         private const int Port = 65125;
-        private static readonly RecyclableMemoryStreamManager _memoryManager = new RecyclableMemoryStreamManager();
-        private static readonly object _conLock = new object();
+        private static readonly RecyclableMemoryStreamManager _memoryManager = new();
+        private static readonly object _conLock = new();
         private static long _connections;
         public static long ReqCount;
 

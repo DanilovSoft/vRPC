@@ -44,7 +44,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private readonly InvokeActionsDictionary _invokeActions;
         private readonly ProxyCache _proxyCache;
-        private readonly ServiceCollection _serviceCollection = new ServiceCollection();
+        private readonly ServiceCollection _serviceCollection = new();
         private bool IsAutoConnectAllowed { get; }
         public Uri ServerAddress { get; private set; }
         private ApplicationBuilder? _appBuilder;
@@ -106,11 +106,7 @@ namespace DanilovSoft.vRPC
         public System.Net.EndPoint? LocalEndPoint => _connection?.LocalEndPoint;
         public System.Net.EndPoint? RemoteEndPoint => _connection?.RemoteEndPoint;
 
-        // ctor.
-        static VRpcClient()
-        {
-            Warmup.DoWarmup();
-        }
+        #region Public ctor
 
         // ctor.
         /// <summary>
@@ -134,6 +130,10 @@ namespace DanilovSoft.vRPC
             
         }
 
+        #endregion
+
+        #region Ctor
+
         // ctor.
         /// <summary>
         /// Конструктор клиента.
@@ -156,6 +156,10 @@ namespace DanilovSoft.vRPC
 
             InnerConfigureIoC(controllerTypes.Values);
         }
+
+        #endregion
+
+        #region Public
 
         /// <summary>
         /// Позволяет настроить IoC контейнер.
@@ -198,12 +202,12 @@ namespace DanilovSoft.vRPC
         public void ConfigureAutoAuthentication(Func<AccessToken> configure)
         {
             if (configure == null)
-                ThrowHelper.ThrowArgumentNullException(nameof(configure));
+                ThrowArgumentNullException(nameof(configure));
 
             ThrowIfDisposed();
 
             if (_autoAuthentication != null)
-                ThrowHelper.ThrowVRpcException("Auto authentication already configured.");
+                ThrowVRpcException("Auto authentication already configured.");
 
             _autoAuthentication = configure;
         }
@@ -286,13 +290,25 @@ namespace DanilovSoft.vRPC
         /// <exception cref="ObjectDisposedException"/>
         public Task<ConnectResult> ConnectExAsync()
         {
-            ThrowIfDisposed();
-            ThrowIfWasShutdown();
+            if (IsDisposed(out var disEx))
+                return Task.FromException<ConnectResult>(disEx);
+
+            if (WasShutdown(out var shutdEx))
+                return Task.FromException<ConnectResult>(shutdEx);
 
             ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync(default);
-            if(t.IsCompletedSuccessfully)
+            if(t.IsCompleted)
             {
-                InnerConnectionResult conRes = t.Result;
+                InnerConnectionResult conRes;
+                try
+                {
+                    // Может бросить исключение.
+                    conRes = t.Result;
+                }
+                catch (Exception ex)
+                {
+                    return Task.FromException<ConnectResult>(ex);
+                }
                 return Task.FromResult(conRes.ToPublicConnectResult());
             }
             else
@@ -345,18 +361,30 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcConnectionNotOpenException"/>
         public Task SignInAsync(AccessToken accessToken)
         {
-            accessToken.ValidateAccessToken(nameof(accessToken));
-            ThrowIfDisposed();
-            ThrowIfWasShutdown();
+            if (!accessToken.AccessTokenIsValid(nameof(accessToken), out var argEx))
+                return Task.FromException(argEx);
+
+            if (IsDisposed(out var disEx))
+                return Task.FromException(disEx);
+
+            if (WasShutdown(out var shutdEx))
+                return Task.FromException(shutdEx);
 
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(accessToken);
 
             if (connectionTask.IsCompleted)
             {
-                // Может бросить исключение.
-                ClientSideConnection connection = connectionTask.Result;
-
+                ClientSideConnection connection;
+                try
+                {
+                    // Может бросить исключение.
+                    connection = connectionTask.Result;
+                }
+                catch (Exception ex)
+                {
+                    return Task.FromException(ex);
+                }
                 return connection.SignInAsync(accessToken);
             }
             else
@@ -382,13 +410,16 @@ namespace DanilovSoft.vRPC
             SignOutAsync().GetAwaiter().GetResult();
         }
 
-        /// <exception cref="ObjectDisposedException"/>
-        /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="VRpcConnectionNotOpenException"/>
+        /// <exception cref="VRpcShutdownException"/>
+        /// <exception cref="ObjectDisposedException"/>
         public Task SignOutAsync()
         {
-            ThrowIfDisposed();
-            ThrowIfWasShutdown();
+            if (IsDisposed(out var ex))
+                return Task.FromException(ex);
+
+            if (WasShutdown(out var ex2))
+                return Task.FromException(ex2);
 
             // Копия volatile.
             ClientSideConnection? connection = _connection;
@@ -427,27 +458,6 @@ namespace DanilovSoft.vRPC
             return decorator;
         }
 
-        // Когда выполняют вызов метода через интерфейс.
-        internal Task<TResult> OnClientMethodCall<TResult>(RequestMethodMeta method, object[] args)
-        {
-            Debug.Assert(method.ReturnType == typeof(TResult));
-            Debug.Assert(!method.IsNotificationRequest);
-
-            // Начать соединение или взять существующее.
-            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(accessToken: default);
-
-            return ManagedConnection.OnClientRequestCall<TResult>(connectionTask, method, args);
-        }
-
-        // Когда выполняют вызов метода через интерфейс.
-        internal ValueTask OnClientNotificationCall(RequestMethodMeta methodMeta, object[] args)
-        {
-            // Начать соединение или взять существующее.
-            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
-
-            return ManagedConnection.OnClientNotificationCall(connectionTask, methodMeta, args);
-        }
-
         /// <summary>
         /// Выполняет грациозную остановку. Блокирует поток не дольше чем задано в <paramref name="disconnectTimeout"/>.
         /// </summary>
@@ -481,6 +491,119 @@ namespace DanilovSoft.vRPC
         {
             return PrivateShutdownAsync(disconnectTimeout, closeDescription);
         }
+
+        public void Dispose()
+        {
+            lock (StateLock)
+            {
+                if (!_disposed)
+                {
+                    _disposed = true;
+
+                    // Прервать установку подключения если она выполняется.
+                    Interlocked.Exchange(ref _connectingWs, null)?.Dispose();
+
+                    _connection?.Dispose();
+                    ServiceProvider?.Dispose();
+                    Connected = null;
+                }
+            }
+        }
+
+        #endregion
+
+        #region Internal
+
+        /// <summary>
+        /// Возвращает существующее подключение или создаёт новое если это разрешает свойство <see cref="IsAutoConnectAllowed"/>.
+        /// </summary>
+        /// <exception cref="VRpcShutdownException"/>
+        /// <exception cref="VRpcConnectionNotOpenException"/>
+        internal ValueTask<ClientSideConnection> GetOrOpenConnection(AccessToken accessToken)
+        {
+            // Копия volatile.
+            ClientSideConnection? connection = _connection;
+
+            if (connection != null)
+            // Есть живое соединение.
+            {
+                return new ValueTask<ClientSideConnection>(connection);
+            }
+            else
+            // Нужно установить подключение.
+            {
+                if (IsAutoConnectAllowed)
+                {
+                    if (!TryGetShutdownException(out ValueTask<ClientSideConnection> shutdownException))
+                    {
+                        ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync(accessToken);
+                        if (t.IsCompletedSuccessfully)
+                        {
+                            InnerConnectionResult connectionResult = t.Result; // Взять успешный результат.
+                            return connectionResult.ToManagedConnectionTask();
+                        }
+                        else
+                        {
+                            return WaitForConnectionAsync(t);
+                        }
+                    }
+                    else
+                    // Уже был вызван Shutdown.
+                    {
+                        return shutdownException;
+                    }
+                }
+                else
+                {
+                    // Копия volatile.
+                    ShutdownRequest? shutdownRequest = _shutdownRequest;
+                    if (shutdownRequest != null)
+                    {
+                        return new(Task.FromException<ClientSideConnection>(shutdownRequest.ToException()));
+                    }
+                    else
+                        return new(Task.FromException<ClientSideConnection>(new VRpcConnectionNotOpenException()));
+                }
+            }
+
+            // Локальная.
+            static async ValueTask<ClientSideConnection> WaitForConnectionAsync(ValueTask<InnerConnectionResult> t)
+            {
+                InnerConnectionResult connectionResult = await t.ConfigureAwait(false);
+                return connectionResult.ToManagedConnection();
+            }
+        }
+
+        // Когда выполняют вызов метода через интерфейс.
+        /// <exception cref="VRpcShutdownException"/>
+        /// <exception cref="VRpcConnectionNotOpenException"/>
+        internal Task<TResult> OnClientMethodCall<TResult>(RequestMethodMeta method, object[] args)
+        {
+            Debug.Assert(method.ReturnType == typeof(TResult));
+            Debug.Assert(!method.IsNotificationRequest);
+
+            // Начать соединение или взять существующее.
+            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(accessToken: default);
+
+            return ManagedConnection.OnClientRequestCall<TResult>(connectionTask, method, args);
+        }
+
+        /// <summary>
+        /// Когда выполняют вызов метода через интерфейс.
+        /// </summary>
+        /// <exception cref="VRpcShutdownException"/>
+        /// <exception cref="VRpcConnectionNotOpenException"/>
+        internal ValueTask OnClientNotificationCall(RequestMethodMeta methodMeta, object[] args)
+        {
+            // Начать соединение или взять существующее.
+            ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
+
+            return ManagedConnection.OnClientNotificationCall(connectionTask, methodMeta, args);
+        }
+
+        #endregion
+
+        #region Private
 
         private async Task<CloseReason> PrivateShutdownAsync(TimeSpan disconnectTimeout, string? closeDescription)
         {
@@ -539,68 +662,6 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>
-        /// Возвращает существующее подключение или создаёт новое если это разрешает свойство <see cref="IsAutoConnectAllowed"/>.
-        /// </summary>
-        /// <exception cref="SocketException"/>
-        /// <exception cref="VRpcShutdownException"/>
-        /// <exception cref="VRpcConnectionNotOpenException"/>
-        internal ValueTask<ClientSideConnection> GetOrOpenConnection(AccessToken accessToken)
-        {
-            // Копия volatile.
-            ClientSideConnection? connection = _connection;
-
-            if (connection != null)
-            // Есть живое соединение.
-            {
-                //createdNew = false;
-                return new ValueTask<ClientSideConnection>(connection);
-            }
-            else
-            // Нужно установить подключение.
-            {
-                if (IsAutoConnectAllowed)
-                {
-                    if (!TryGetShutdownException(out ValueTask<ClientSideConnection> shutdownException))
-                    {
-                        ValueTask<InnerConnectionResult> t = ConnectOrGetExistedConnectionAsync(accessToken);
-                        if (t.IsCompletedSuccessfully)
-                        {
-                            InnerConnectionResult connectionResult = t.Result; // Взять успешный результат.
-                            return connectionResult.ToManagedConnectionTask();
-                        }
-                        else
-                        {
-                            return WaitForConnectionAsync(t);
-                        }
-                    }
-                    else
-                    // Уже был вызван Shutdown.
-                    {
-                        return shutdownException;
-                    }
-                }
-                else
-                {
-                    // Копия volatile.
-                    ShutdownRequest? shutdownRequest = _shutdownRequest;
-                    if (shutdownRequest != null)
-                    {
-                        return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(shutdownRequest.ToException()));
-                    }
-                    else
-                        return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(new VRpcConnectionNotOpenException()));
-                }
-            }
-
-            // Локальная.
-            static async ValueTask<ClientSideConnection> WaitForConnectionAsync(ValueTask<InnerConnectionResult> t)
-            {
-                InnerConnectionResult connectionResult = await t.ConfigureAwait(false);
-                return connectionResult.ToManagedConnection();
-            }
-        }
-
-        /// <summary>
         /// Событие — обрыв сокета. Потокобезопасно. Срабатывает только один раз.
         /// </summary>
         private void OnDisconnected(object? sender, SocketDisconnectedEventArgs e)
@@ -615,6 +676,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Выполнить подключение сокета если еще не подключен.
         /// </summary>
+        /// <exception cref="ObjectDisposedException"/>
         private ValueTask<InnerConnectionResult> ConnectOrGetExistedConnectionAsync(AccessToken accessToken)
         {
             // Копия volatile.
@@ -623,7 +685,7 @@ namespace DanilovSoft.vRPC
             if (connection != null)
             // Есть живое соединение.
             {
-                return new ValueTask<InnerConnectionResult>(InnerConnectionResult.FromExistingConnection(connection));
+                return new(InnerConnectionResult.FromExistingConnection(connection));
             }
             else
             // Подключение отсутствует.
@@ -671,6 +733,7 @@ namespace DanilovSoft.vRPC
             return conResult;
         }
 
+        /// <exception cref="ObjectDisposedException"/>
         private async ValueTask<InnerConnectionResult> LockAquiredConnectAsync(AccessToken accessToken)
         {
             // Копия volatile.
@@ -684,18 +747,18 @@ namespace DanilovSoft.vRPC
                     if (!_disposed)
                     {
                         // Пока в блокировке можно безопасно трогать свойство _shutdownRequest.
-                        if (_shutdownRequest != null)
-                        {
-                            // Нельзя создавать новое подключение если был вызван Stop.
-                            return InnerConnectionResult.FromShutdownRequest(_shutdownRequest);
-                        }
-                        else
+                        if (_shutdownRequest == null)
                         {
                             if (serviceProvider == null)
                             {
                                 serviceProvider = _serviceCollection.BuildServiceProvider();
                                 ServiceProvider = serviceProvider;
                             }
+                        }
+                        else
+                        {
+                            // Нельзя создавать новое подключение если был вызван Stop.
+                            return InnerConnectionResult.FromShutdownRequest(_shutdownRequest);
                         }
                     }
                     else
@@ -734,7 +797,7 @@ namespace DanilovSoft.vRPC
                         throw new VRpcConnectException("Unable to connect to the remote server.", ex);
                     }
 
-                    if (Interlocked.Exchange(ref _connectingWs, null) == null)
+                    if (Interlocked.Exchange<ClientWebSocket?>(ref _connectingWs, null) == null)
                     // Другой поток уничтожил наш web-socket.
                     {
                         // Предотвратим лишний Dispose.
@@ -873,7 +936,21 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                ThrowHelper.ThrowObjectDisposedException(GetType().FullName);
+                ThrowObjectDisposedException(GetType().FullName);
+            }
+        }
+
+        private bool IsDisposed([NotNullWhen(true)] out ObjectDisposedException? exception)
+        {
+            if (!_disposed)
+            {
+                exception = null;
+                return false;
+            }
+            else
+            {
+                exception = new ObjectDisposedException(GetType().FullName);
+                return true;
             }
         }
 
@@ -893,7 +970,25 @@ namespace DanilovSoft.vRPC
             else
             // В этом экземпляре уже был запрос на остановку.
             {
-                ThrowHelper.ThrowWasShutdownException(shutdownRequired);
+                ThrowWasShutdownException(shutdownRequired);
+            }
+        }
+
+        private bool WasShutdown([NotNullWhen(true)] out VRpcShutdownException? exception)
+        {
+            // volatile копия.
+            ShutdownRequest? shutdownRequired = _shutdownRequest;
+
+            if (shutdownRequired == null)
+            {
+                exception = null;
+                return false;
+            }
+            else
+            // В этом экземпляре уже был запрос на остановку.
+            {
+                exception = new VRpcShutdownException(shutdownRequired);
+                return true;
             }
         }
 
@@ -913,28 +1008,12 @@ namespace DanilovSoft.vRPC
             else
             // В этом экземпляре уже был запрос на остановку.
             {
-                exceptionTask = new ValueTask<T>(Task.FromException<T>(new VRpcShutdownException(stopRequired)));
+                exceptionTask = new(Task.FromException<T>(new VRpcShutdownException(stopRequired)));
                 return true;
             }
         }
 
-        public void Dispose()
-        {
-            lock (StateLock)
-            {
-                if (!_disposed)
-                {
-                    _disposed = true;
-
-                    // Прервать установку подключения если она выполняется.
-                    Interlocked.Exchange(ref _connectingWs, null)?.Dispose();
-
-                    _connection?.Dispose();
-                    ServiceProvider?.Dispose();
-                    Connected = null;
-                }
-            }
-        }
+        #endregion
 
         //private sealed class DebugProxy
         //{

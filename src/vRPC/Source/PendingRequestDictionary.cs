@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
     internal sealed class PendingRequestDictionary
     {
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        private readonly Dictionary<int, IResponseAwaiter> _dict = new Dictionary<int, IResponseAwaiter>();
+        private readonly Dictionary<int, IResponseAwaiter> _dict = new();
         /// <summary>
         /// Не является потокобезопасным.
         /// </summary>

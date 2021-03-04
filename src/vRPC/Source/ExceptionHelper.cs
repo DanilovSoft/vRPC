@@ -6,7 +6,7 @@ namespace DanilovSoft.vRPC.Source
 {
     internal static class ExceptionHelper
     {
-        private static readonly Dictionary<StatusCode, Func<string?, VRpcException>> _dict = new Dictionary<StatusCode, Func<string?, VRpcException>>
+        private static readonly Dictionary<StatusCode, Func<string?, VRpcException>> _dict = new()
         {
             [StatusCode.InvalidRequest] = (msg) => new VRpcInvalidRequestException(msg),
             [StatusCode.MethodNotFound] = (msg) => new VRpcMethodNotFoundException(msg),

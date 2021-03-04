@@ -62,6 +62,7 @@ namespace DanilovSoft.vRPC
             return new InnerConnectionResult(socketError);
         }
 
+        /// <remarks>Не бросает исключения.</remarks>
         public static InnerConnectionResult FromShutdownRequest(ShutdownRequest shutdownRequest)
         {
             return new InnerConnectionResult(shutdownRequest);
@@ -75,7 +76,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Может бросить исключение.
         /// </summary>
-        /// <exception cref="SocketException"/>
+        /// <exception cref="VRpcSocketException"/>
         /// <exception cref="VRpcShutdownException"/>
         public ClientSideConnection ToManagedConnection()
         {
@@ -102,25 +103,25 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Может бросить исключение.
         /// </summary>
-        /// <exception cref="SocketException"/>
+        /// <exception cref="VRpcSocketException"/>
         /// <exception cref="VRpcShutdownException"/>
         public ValueTask<ClientSideConnection> ToManagedConnectionTask()
         {
             if (Connection != null)
             // Успешно подключились.
             {
-                return new ValueTask<ClientSideConnection>(Connection);
+                return new(Connection);
             }
             else if (SocketError != null)
             // Не удалось подключиться.
             {
-                return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(SocketError.Value.ToException()));
+                return new(Task.FromException<ClientSideConnection>(SocketError.Value.ToException()));
             }
             else
             // Пользователь запросил остановку.
             {
                 Debug.Assert(ShutdownRequest != null);
-                return new ValueTask<ClientSideConnection>(Task.FromException<ClientSideConnection>(new VRpcShutdownException(ShutdownRequest)));
+                return new(Task.FromException<ClientSideConnection>(new VRpcShutdownException(ShutdownRequest)));
             }
         }
     }

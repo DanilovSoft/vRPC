@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
     internal sealed class LockedDictionary<TKey, TValue> : IConcurrentDictionary<TKey, TValue> where TKey : notnull
     {
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        private readonly Dictionary<TKey, TValue> _dict = new Dictionary<TKey, TValue>();
+        private readonly Dictionary<TKey, TValue> _dict = new();
 
         [DebuggerStepThrough]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

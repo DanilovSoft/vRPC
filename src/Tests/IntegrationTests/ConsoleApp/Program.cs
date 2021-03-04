@@ -46,14 +46,14 @@ namespace ConsoleApp
         {
             var listener = VRpcListener.StartNew(IPAddress.Any);
 
-            var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
+            var cli = new VRpcClient("127.0.0.1", listener.Port, false, allowAutoConnect: false);
             var iface = cli.GetProxy<IServerTestController>();
 
-            cli.Connect();
+            //cli.Connect();
 
             while (true)
             {
-                int sum = iface.GetSum(1, 2);
+                await iface.GetSumAsync(1, 2);
             }
 
 

@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
     internal sealed class ServerConcurrentDictionary<TKey, TValue> : IConcurrentDictionary<TKey, TValue> where TKey : notnull
     {
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        private readonly ConcurrentDictionary<TKey, TValue> _dict = new ConcurrentDictionary<TKey, TValue>();
+        private readonly ConcurrentDictionary<TKey, TValue> _dict = new();
 
         public ServerConcurrentDictionary()
         {
