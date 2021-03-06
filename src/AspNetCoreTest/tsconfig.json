@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "noEmitOnError": true,
+    "noImplicitReturns": true,
+    //"strictFunctionTypes": true,
+    "removeComments": false,
+    "sourceMap": true,
+    "target": "ES2020",
+    "module": "ES2020",
+    //"lib": [ "ES6" ],
+    //"allowJs": true,
+    "outDir": "wwwroot/js"
+  },
+  "compileOnSave": true,
+  "include": [
+    "scripts/**/*"
+  ]
+}

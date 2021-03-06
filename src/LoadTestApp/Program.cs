@@ -22,30 +22,30 @@ namespace LoadTestApp
 
     class Program
     {
-        private static int _connectionsCount;
-        private static VRpcClient[] _clients;
-        private static int _port;
+        private static int ConnectionsCount;
+        private static VRpcClient[] Clients;
+        private static int Port;
 
         static void Main()
         {
             var listener = VRpcListener.StartNew(IPAddress.Any);
-            _port = listener.Port;
+            Port = listener.Port;
 
             int count = GetConnectionsCount();
-            _clients = new VRpcClient[count];
+            Clients = new VRpcClient[count];
 
             ThreadPool.QueueUserWorkItem(async delegate
             {
                 for (int i = 0; i < count; i++)
                 {
-                    _clients[i] = CreateClient();
+                    Clients[i] = CreateClient();
                     ThreadPool.UnsafeQueueUserWorkItem(s => ThreadEntry(s), i);
                 }
 
                 while (true)
                 {
                     await Task.Delay(200);
-                    var cli = _clients[new Random().Next(_clients.Length)];
+                    var cli = Clients[new Random().Next(Clients.Length)];
                     if (cli.State == VRpcState.Open)
                     {
                         var result = cli.Shutdown(TimeSpan.Zero, "Провоцируем обрыв");
@@ -60,7 +60,7 @@ namespace LoadTestApp
             while (true)
             {
                 Console.CursorLeft = pos;
-                string sCount = Volatile.Read(ref _connectionsCount).ToString();
+                string sCount = Volatile.Read(ref ConnectionsCount).ToString();
                 Console.Write(sCount.PadRight(10));
                 Console.CursorLeft = pos + sCount.Length;
                 Thread.Sleep(200);
@@ -72,7 +72,7 @@ namespace LoadTestApp
             int index = (int)state;
             while (true)
             {
-                var cli = _clients[index];
+                var cli = Clients[index];
                 var p = cli.GetProxy<ITestController>();
                 ConnectResult res;
                 try
@@ -82,13 +82,13 @@ namespace LoadTestApp
                 catch (VRpcException ex)
                 {
                     await Task.Delay(100);
-                    _clients[index] = CreateClient();
+                    Clients[index] = CreateClient();
                     continue;
                 }
 
                 if (res.State == ConnectionState.Connected)
                 {
-                    Interlocked.Increment(ref _connectionsCount);
+                    Interlocked.Increment(ref ConnectionsCount);
                     bool skipNextDelay = false;
                     while (cli.State == VRpcState.Open)
                     {
@@ -98,9 +98,9 @@ namespace LoadTestApp
                         }
                         catch (VRpcShutdownException)
                         {
-                            Interlocked.Decrement(ref _connectionsCount);
+                            Interlocked.Decrement(ref ConnectionsCount);
                             await Task.Delay(100);
-                            _clients[index] = CreateClient();
+                            Clients[index] = CreateClient();
                             skipNextDelay = true;
                             break;
                         }
@@ -109,14 +109,14 @@ namespace LoadTestApp
 
                     if (!skipNextDelay)
                     {
-                        Interlocked.Decrement(ref _connectionsCount);
-                        _clients[index] = CreateClient();
+                        Interlocked.Decrement(ref ConnectionsCount);
+                        Clients[index] = CreateClient();
                     }
                 }
                 else if (res.State == ConnectionState.ShutdownRequest)
                 {
                     await Task.Delay(100);
-                    _clients[index] = CreateClient();
+                    Clients[index] = CreateClient();
                 }
                 else
                 {
@@ -127,7 +127,7 @@ namespace LoadTestApp
 
         private static VRpcClient CreateClient()
         {
-            return new VRpcClient("127.0.0.1", _port, false, false);
+            return new VRpcClient("127.0.0.1", Port, false, false);
         }
 
         private static int GetConnectionsCount()

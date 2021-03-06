@@ -30,6 +30,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PublicNUnitTest", "PublicNU
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspNetCoreTest", "AspNetCoreTest\AspNetCoreTest.csproj", "{AC46173A-3B96-4624-9282-BC5E8EC172BA}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DanilovSoft.WebSockets", "..\..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSockets.csproj", "{98AE183C-F5CA-42C2-A631-6612D5BA8429}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -68,6 +70,10 @@ Global
 		{AC46173A-3B96-4624-9282-BC5E8EC172BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC46173A-3B96-4624-9282-BC5E8EC172BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC46173A-3B96-4624-9282-BC5E8EC172BA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{98AE183C-F5CA-42C2-A631-6612D5BA8429}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{98AE183C-F5CA-42C2-A631-6612D5BA8429}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{98AE183C-F5CA-42C2-A631-6612D5BA8429}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{98AE183C-F5CA-42C2-A631-6612D5BA8429}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

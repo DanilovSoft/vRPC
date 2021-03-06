@@ -46,7 +46,6 @@
   <!--<DefineConstants Condition=" '$(TargetFrameworkVersion)' != 'v4.0' ">NOT_RUNNING_ON_4</DefineConstants>-->
 
   <ItemGroup>
-    <PackageReference Include="DanilovSoft.WebSocket" Version="2.1.13" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.1" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.4.0" />
     <PackageReference Include="protobuf-net" Version="3.0.73" />
@@ -82,6 +81,9 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="JsonRpc\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSockets.csproj" />
   </ItemGroup>
 
 </Project>

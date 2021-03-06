@@ -15,10 +15,10 @@ namespace Server
     public class Program
     {
         private const int Port = 65125;
-        private static readonly RecyclableMemoryStreamManager _memoryManager = new();
-        private static readonly object _conLock = new();
-        private static long _connections;
-        public static long ReqCount;
+        private static readonly RecyclableMemoryStreamManager MemoryManager = new();
+        private static readonly object ConLock = new();
+        private static readonly long ReqCount;
+        private static long Connections;
 
         static async Task Main()
         {
@@ -26,7 +26,7 @@ namespace Server
             Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal;
             Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
 
-            RpcInitializer.Initialize(_memoryManager);
+            RpcInitializer.Initialize(MemoryManager);
             using (var listener = new VRpcListener(IPAddress.Any, Port))
             {
                 listener.ConfigureService(ioc =>
@@ -44,7 +44,7 @@ namespace Server
                 Console.CancelKeyPress += (_, e) =>
                 {
                     e.Cancel = true;
-                    lock (_conLock)
+                    lock (ConLock)
                     {
                         Console.WriteLine("Stopping...");
                     }
@@ -80,18 +80,18 @@ namespace Server
 
         private static void ToConsole(long connections, int reqPerSec, long reqCount)
         {
-            lock (_conLock)
+            lock (ConLock)
             {
                 Console.SetCursorPosition(0, 0);
-                Console.WriteLine($"Connections: {connections.ToString().PadRight(10)}");
-                Console.WriteLine($"Request per second: {reqPerSec.ToString().PadRight(10)}");
-                Console.WriteLine($"Requests: {reqCount.ToString("g").PadRight(15)}");
+                Console.WriteLine($"Connections: {connections,-10}");
+                Console.WriteLine($"Request per second: {reqPerSec,-10}");
+                Console.WriteLine($"Requests: {reqCount,-15:g}");
             }
         }
 
         private static void Listener_ClientDisconnected(object sender, ClientDisconnectedEventArgs e)
         {
-            Interlocked.Decrement(ref _connections);
+            Interlocked.Decrement(ref Connections);
         }
 
         private static void Listener_ClientConnected(object sender, ClientConnectedEventArgs e)
@@ -101,7 +101,7 @@ namespace Server
 
             //var logger = e.Connection.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-            Interlocked.Increment(ref _connections);
+            Interlocked.Increment(ref Connections);
 
             //while (true)
             //{

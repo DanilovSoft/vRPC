@@ -1498,10 +1498,8 @@ namespace DanilovSoft.vRPC
                 try
                 {
                     // Отключаемся от сокета с небольшим таймаутом.
-                    using (var cts = new CancellationTokenSource(1_000))
-                    {
-                        await _ws.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError, closeDescription, cts.Token).ConfigureAwait(false);
-                    }
+                    using var cts = new CancellationTokenSource(1_000);
+                    await _ws.CloseAsync(Ms.WebSocketCloseStatus.ProtocolError, closeDescription, cts.Token).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 // Злой обрыв соединения.
