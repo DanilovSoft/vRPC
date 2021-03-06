@@ -6,9 +6,11 @@ namespace AspNetCoreTest
     using Microsoft.AspNetCore.Http;
     using Microsoft.AspNetCore.Http.Connections;
     using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
     using Microsoft.Extensions.Hosting;
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using System.Linq;
     using System.Threading.Tasks;
 
@@ -34,6 +36,17 @@ namespace AspNetCoreTest
             }
 
             app.UseRouting();
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+            // добавляем поддержку каталога node_modules
+            app.UseFileServer(new FileServerOptions()
+            {
+                FileProvider = new PhysicalFileProvider(
+                    Path.Combine(env.ContentRootPath, "node_modules")
+                ),
+                RequestPath = "/node_modules",
+                EnableDirectoryBrowsing = false
+            });
 
             app.UseEndpoints(endpoints =>
             {
