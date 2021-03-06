@@ -26,6 +26,8 @@
     <NeutralLanguage>en</NeutralLanguage>
     <Nullable>enable</Nullable>
     <PackageProjectUrl>https://github.com/DanilovSoft/vRPC</PackageProjectUrl>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

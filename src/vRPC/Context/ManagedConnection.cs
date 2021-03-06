@@ -1551,7 +1551,7 @@ namespace DanilovSoft.vRPC
             while (await _sendChannel.Reader.WaitToReadAsync().ConfigureAwait(false))
             {
                 // Всегда true — у нас только один читатель.
-                _sendChannel.Reader.TryRead(out IMessageToSend message);
+                _sendChannel.Reader.TryRead(out IMessageToSend? message);
                 Debug.Assert(message != null);
 
                 if (!IsDisposed) // Даже после Dispose мы должны опустошить очередь и сделать Dispose всем сообщениям.

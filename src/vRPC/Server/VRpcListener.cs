@@ -369,7 +369,7 @@ namespace DanilovSoft.vRPC
         /// Потокобезопасно запускает сервер. Только первый поток получит True.
         /// </summary>
         /// <exception cref="VRpcException"/>
-        private bool TrySyncStart(bool shouldThrow)
+        private void TrySyncStart(bool shouldThrow)
         {
             bool success;
             lock (StartLock)
@@ -381,8 +381,6 @@ namespace DanilovSoft.vRPC
             {
                 _applicationStarted.Cancel();
             }
-
-            return success;
         }
 
         /// <summary>
