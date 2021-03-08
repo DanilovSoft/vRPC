@@ -45,7 +45,7 @@
 
         public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            return _stream.ReadAsync(buffer, offset, count, cancellationToken);
         }
 
         public ValueTask<int> ReadAsync(Memory<byte> memory, CancellationToken cancellationToken)
@@ -70,17 +70,17 @@
 
         public Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            return _stream.WriteAsync(buffer, offset, count, cancellationToken);
         }
 
         public ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
         {
-            throw new NotImplementedException();
+            return _stream.WriteAsync(buffer);
         }
 
         public ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            return _stream.WriteAsync(buffer, cancellationToken);
         }
     }
 }

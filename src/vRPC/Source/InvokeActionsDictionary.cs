@@ -1,6 +1,7 @@
 ﻿using DanilovSoft.vRPC.Controllers;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -9,11 +10,13 @@ using System.Threading.Tasks;
 
 namespace DanilovSoft.vRPC
 {
+    [DebuggerDisplay("Count = {_actionsDict.Count}")]
     internal sealed class InvokeActionsDictionary
     {
         /// <summary>
         /// Словарь используемый только для чтения.
         /// </summary>
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
         private readonly Dictionary<string, ControllerMethodMeta> _actionsDict;
 
         public InvokeActionsDictionary(Dictionary<string, Type> controllers)

@@ -11,9 +11,11 @@ namespace DanilovSoft.vRPC
     {
         private const StatusCode DefaultStatusCode = StatusCode.MethodNotFound;
         private readonly string _message;
+        private readonly string _methodName;
 
-        public MethodNotFoundResult(string message = "Method not found")
+        public MethodNotFoundResult(string methodName, string message)
         {
+            _methodName = methodName;
             _message = message;
         }
 
@@ -30,7 +32,10 @@ namespace DanilovSoft.vRPC
 
         ArrayBufferWriter<byte> IActionResult.WriteJsonRpcResult(int? id)
         {
+            // Не может вернуть False.
             JsonRpcSerializer.TrySerializeErrorResponse(id, DefaultStatusCode, _message, out var buffer, out _);
+
+            Debug.Assert(buffer != null);
             return buffer;
         }
     }

@@ -31,7 +31,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Аргументы для вызываемого метода.
         /// </summary>
-        public object[]? Args { get; private set; }
+        public object?[]? Args { get; private set; }
         public VrpcManagedConnection Context { get; }
         /// <summary>
         /// Если запрос получен в формате JSON-RPC, то и ответ должен быть в формате JSON-RPC.
@@ -46,7 +46,7 @@ namespace DanilovSoft.vRPC
         }
 
         // ctor
-        public RequestContext(VrpcManagedConnection connection, int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
+        public RequestContext(VrpcManagedConnection connection, int? id, ControllerMethodMeta method, object?[] args, bool isJsonRpc)
         {
             IsReusable = false;
             Context = connection;
@@ -62,7 +62,7 @@ namespace DanilovSoft.vRPC
             Result = null;
         }
 
-        internal void Initialize(int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
+        internal void Initialize(int? id, ControllerMethodMeta method, object?[] args, bool isJsonRpc)
         {
             Debug.Assert(Id == null);
             Debug.Assert(Method == null);

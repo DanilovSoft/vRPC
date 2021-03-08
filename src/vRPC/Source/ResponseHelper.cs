@@ -12,17 +12,17 @@ namespace DanilovSoft.vRPC.Source
     {
         private const string ArgumentsCountMismatch = "Argument count mismatch for method '{0}'. {1} arguments was expected.";
 
-        internal static MethodNotFoundResult MethodNotFound(string actionName)
+        internal static MethodNotFoundResult MethodNotFound(string methodName)
         {
-            int controllerIndex = actionName.IndexOf(GlobalVars.ControllerNameSplitter, StringComparison.Ordinal);
+            int controllerIndex = methodName.IndexOf(GlobalVars.ControllerNameSplitter, StringComparison.Ordinal);
 
             if (controllerIndex > 0)
             {
-                return new MethodNotFoundResult($"Method \"{actionName}\" not found.");
+                return new MethodNotFoundResult(methodName, $"Method \"{methodName}\" not found.");
             }
             else
             {
-                return new MethodNotFoundResult($"Controller name not specified in request \"{actionName}\".");
+                return new MethodNotFoundResult(methodName, $"Controller name not specified in request \"{methodName}\".");
             }
         }
 

@@ -30,7 +30,7 @@ namespace DanilovSoft.vRPC
         public string MethodFullName { get; }
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)] // Отладчик путает педали.
-        public Func<object, object[], object?> FastInvokeDelegate { get; }
+        public Func<object, object?[], object?> FastInvokeDelegate { get; }
         
         /// <summary>
         /// Контроллер для активации через IoC.

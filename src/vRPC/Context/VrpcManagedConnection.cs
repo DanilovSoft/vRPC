@@ -61,7 +61,7 @@ namespace DanilovSoft.vRPC
         public Task<CloseReason> Completion => _completionTcs.Task;
         public event EventHandler<Exception>? NotificationError;
         internal bool IsServer { get; }
-        public ServiceProvider ServiceProvider { get; }
+        public IServiceProvider ServiceProvider { get; }
         /// <summary>
         /// Подключенный TCP сокет.
         /// </summary>
@@ -168,7 +168,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Принимает открытое соединение Web-Socket.
         /// </summary>
-        internal VrpcManagedConnection(ManagedWebSocket webSocket, bool isServer, ServiceProvider serviceProvider, InvokeActionsDictionary actions)
+        internal VrpcManagedConnection(ManagedWebSocket webSocket, bool isServer, IServiceProvider serviceProvider, InvokeActionsDictionary actions)
         {
             IsServer = isServer;
 
@@ -177,7 +177,7 @@ namespace DanilovSoft.vRPC
             LocalEndPoint = webSocket.LocalEndPoint;
             RemoteEndPoint = webSocket.RemoteEndPoint;
             _ws = webSocket;
-            _tcpNoDelay = webSocket.Socket.NoDelay;
+            _tcpNoDelay = webSocket.Socket?.NoDelay ?? false;
             //_pipe = new Pipe();
 
             _pendingRequests = new PendingRequestDictionary();
@@ -207,7 +207,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Запускает бесконечный цикл обработки запросов.
         /// </summary>
-        internal void StartReceiveLoopThreads()
+        internal void StartReceiveSendLoop()
         {
             // Не бросает исключения.
             _senderTask = SendLoop();
@@ -904,7 +904,7 @@ namespace DanilovSoft.vRPC
             int? id = null;
             string? methodName = null;
             ControllerMethodMeta? method = null;
-            object[]? args = null;
+            object?[]? args = null;
             IActionResult? paramsError = null;
             JRpcErrorModel errorModel = default;
 
@@ -923,9 +923,12 @@ namespace DanilovSoft.vRPC
                             if (reader.TokenType == JsonTokenType.String)
                             {
                                 methodName = reader.GetString();
-                                if (_invokeMethods.TryGetAction(methodName, out method))
+                                if (methodName != null)
                                 {
-                                    args = method.PrepareArgs();
+                                    if (_invokeMethods.TryGetAction(methodName, out method))
+                                    {
+                                        args = method.PrepareArgs();
+                                    }
                                 }
                             }
                         }
@@ -1086,7 +1089,7 @@ namespace DanilovSoft.vRPC
                         if (TryIncreaseActiveRequestsCount(isResponseRequired: true))
                         {
                             // Передать на отправку результат с ошибкой через очередь.
-                            errorResponse = new JErrorResponse(id.Value, new MethodNotFoundResult());
+                            errorResponse = new JErrorResponse(id.Value, new MethodNotFoundResult(methodName, "Method not found"));
                             return true;
                         }
                         else
@@ -1144,7 +1147,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <returns>True если параметры успешно десериализованы.</returns>
-        private static bool TryParseJsonArgs(ControllerMethodMeta method, object[] args, Utf8JsonReader reader, [MaybeNullWhen(true)] out IActionResult? error)
+        private static bool TryParseJsonArgs(ControllerMethodMeta method, object?[] args, Utf8JsonReader reader, [MaybeNullWhen(true)] out IActionResult? error)
         {
             if (reader.Read())
             {
@@ -1920,9 +1923,12 @@ namespace DanilovSoft.vRPC
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetTcpNoDelay(bool tcpNoDelay)
         {
-            if (tcpNoDelay != _tcpNoDelay)
+            if (_ws.Socket != null)
             {
-                _ws.Socket.NoDelay = _tcpNoDelay = tcpNoDelay;
+                if (tcpNoDelay != _tcpNoDelay)
+                {
+                    _ws.Socket.NoDelay = _tcpNoDelay = tcpNoDelay;
+                }
             }
         }
 
@@ -2074,7 +2080,7 @@ namespace DanilovSoft.vRPC
         /// 
         /// </summary>
         /// <param name="id">Может быть Null если нотификация.</param>
-        private void CreateRequestContextAndStart(int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
+        private void CreateRequestContextAndStart(int? id, ControllerMethodMeta method, object?[] args, bool isJsonRpc)
         {
             RequestContext? request = Interlocked.Exchange(ref _reusableContext, null);
             if (request != null)
@@ -2212,6 +2218,7 @@ namespace DanilovSoft.vRPC
 
                     // Инициализируем Scope текущим соединением.
                     var getProxyScope = scope.ServiceProvider.GetService<RequestContextScope>();
+                    Debug.Assert(getProxyScope != null);
                     getProxyScope.ConnectionContext = this;
 
                     // Активируем контроллер через IoC.

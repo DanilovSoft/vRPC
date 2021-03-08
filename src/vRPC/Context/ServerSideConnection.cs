@@ -46,7 +46,7 @@ namespace DanilovSoft.vRPC
 
         // ctor.
         // Только Listener может создать этот класс.
-        internal ServerSideConnection(ManagedWebSocket clientConnection, ServiceProvider serviceProvider, VRpcListener listener)
+        internal ServerSideConnection(ManagedWebSocket clientConnection, IServiceProvider serviceProvider, VRpcListener listener)
             : base(clientConnection, isServer: true, serviceProvider, listener.InvokeActions)
         {
             Listener = listener;

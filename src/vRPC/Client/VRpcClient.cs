@@ -857,7 +857,7 @@ namespace DanilovSoft.vRPC
                         if (stopRequired == null)
                         // Запроса на остановку сервиса ещё не было.
                         {
-                            connection.StartReceiveLoopThreads();
+                            connection.StartReceiveSendLoop();
                             connection.Disconnected += OnDisconnected;
 
                             if (accessToken == (default))

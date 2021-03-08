@@ -526,7 +526,7 @@ namespace DanilovSoft.vRPC
             if (connection != null)
             {
                 // Сервер разрешил установку этого соединения, можно начать чтение.
-                connection.StartReceiveLoopThreads();
+                connection.StartReceiveSendLoop();
 
                 // Сначала нужно запустить чтение, а потом вызвать событие.
                 ClientConnected?.Invoke(this, new ClientConnectedEventArgs(connection));

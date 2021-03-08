@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace InternalConsoleApp
 {
-    [ControllerContract("TestController")]
+    [ControllerContract("Test")]
     public interface IServerTestController
     {
         void TestException(string exceptionMessage);
@@ -15,7 +15,7 @@ namespace InternalConsoleApp
         int GetSum(int x1, int x2);
         int GetSum2(int x1, int x2);
         [JsonRpc]
-        Task<int> GetSumAsync(int x1, int x2);
+        Task<int> GetSumAsync(int x, int y);
         Task<string> GetNullStringAsync();
         string GetString();
         string GetNullString();

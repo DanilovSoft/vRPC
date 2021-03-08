@@ -17,9 +17,11 @@ using Microsoft.AspNetCore.Http.Features;
 
     internal class ServiceRouteBuilder
     {
-        public ServiceRouteBuilder()
-        {
+        private readonly InvokeActionsDictionary _controllers;
 
+        public ServiceRouteBuilder(InvokeActionsDictionary controllers)
+        {
+            _controllers = controllers;
         }
 
         internal List<IEndpointConventionBuilder> Build(string pattern, IEndpointRouteBuilder endpointRouteBuilder)
@@ -50,8 +52,11 @@ using Microsoft.AspNetCore.Http.Features;
                 return;
             }
 
-            VrpcManagedConnection rpcConnection = await JsonRpcConnection.AcceptAsync(context, feature);
-            await rpcConnection.Completion;
+            VrpcManagedConnection rpcConnection = await JsonRpcConnection.AcceptAsync(new JrpcAcceptContext(context, feature, _controllers));
+
+            rpcConnection.StartReceiveSendLoop();
+
+            var closeReason = await rpcConnection.Completion;
         }
     }
 }

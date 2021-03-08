@@ -134,6 +134,9 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        /// <summary>
+        /// Если не удалось сериализовать пользовательские данные то возвращает False.
+        /// </summary>
         /// <remarks>Не бросает исключения.</remarks>
         internal static bool TrySerializeErrorResponse(int? id, StatusCode code, string message,
             [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer,
