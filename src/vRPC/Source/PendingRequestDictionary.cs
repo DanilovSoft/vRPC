@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
     internal sealed class PendingRequestDictionary
     {
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-        private readonly Dictionary<int, IResponseAwaiter> _dict = new();
+        private readonly Dictionary<int, IResponseAwaiter> _pendingRequests = new();
         /// <summary>
         /// Не является потокобезопасным.
         /// </summary>
@@ -42,17 +42,17 @@ namespace DanilovSoft.vRPC
         {
             do
             {
-                lock (_dict)
+                lock (_pendingRequests)
                 {
                     if (_disconnectException == null)
                     {
-                        if (_dict.Count < int.MaxValue)
+                        if (_pendingRequests.Count < int.MaxValue)
                         // Словарь еще не переполнен — можно найти свободный ключ.
                         {
                             do
                             {
                                 uid = IncrementSeq();
-                            } while (!_dict.TryAdd(uid, request));
+                            } while (!_pendingRequests.TryAdd(uid, request));
 
                             return;
                         }
@@ -74,9 +74,9 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public bool TryRemove(int id, [MaybeNullWhen(false)] out IResponseAwaiter tcs)
         {
-            lock (_dict)
+            lock (_pendingRequests)
             {
-                return _dict.Remove(id, out tcs);
+                return _pendingRequests.Remove(id, out tcs);
             }
         }
 
@@ -86,18 +86,18 @@ namespace DanilovSoft.vRPC
         /// <remarks>Не бросает исключения. Потокобезопасно.</remarks>
         internal void TryPropagateExceptionAndLockup(Exception exception)
         {
-            lock (_dict)
+            lock (_pendingRequests)
             {
                 if (_disconnectException == null)
                 {
                     _disconnectException = exception;
-                    if (_dict.Count > 0)
+                    if (_pendingRequests.Count > 0)
                     {
-                        foreach (IResponseAwaiter tcs in _dict.Values)
+                        foreach (IResponseAwaiter tcs in _pendingRequests.Values)
                         {
-                            tcs.SetException(exception);
+                            tcs.SetErrorResponse(exception);
                         }
-                        _dict.Clear();
+                        _pendingRequests.Clear();
                     }
                 }
             }

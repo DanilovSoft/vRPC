@@ -15,7 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DanilovSoft.vRPC
 {
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public sealed class ClientSideConnection : ManagedConnection
+    public sealed class ClientSideConnection : VrpcManagedConnection
     {
         /// <summary>
         /// Internal запрос для аутентификации.

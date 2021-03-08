@@ -17,11 +17,11 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
-        void SetException(VRpcException exception);
+        void SetErrorResponse(VRpcException exception);
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
-        void SetException(Exception exception);
+        void SetErrorResponse(Exception exception);
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>

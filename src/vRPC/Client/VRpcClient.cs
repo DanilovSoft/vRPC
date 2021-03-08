@@ -585,7 +585,7 @@ namespace DanilovSoft.vRPC
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(accessToken: default);
 
-            return ManagedConnection.OnClientRequestCall<TResult>(connectionTask, method, args);
+            return VrpcManagedConnection.OnClientRequestCall<TResult>(connectionTask, method, args);
         }
 
         /// <summary>
@@ -598,7 +598,7 @@ namespace DanilovSoft.vRPC
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
 
-            return ManagedConnection.OnClientNotificationCall(connectionTask, methodMeta, args);
+            return VrpcManagedConnection.OnClientNotificationCall(connectionTask, methodMeta, args);
         }
 
         #endregion

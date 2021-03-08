@@ -27,7 +27,7 @@ namespace DanilovSoft.vRPC
     /// Контекст соединения Web-Сокета. Владеет соединением.
     /// </summary>
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public abstract class ManagedConnection : IDisposable, IGetProxy, IThreadPoolWorkItem
+    public abstract class VrpcManagedConnection : IDisposable, IGetProxy, IThreadPoolWorkItem
     {
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
@@ -168,7 +168,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Принимает открытое соединение Web-Socket.
         /// </summary>
-        internal ManagedConnection(ManagedWebSocket webSocket, bool isServer, ServiceProvider serviceProvider, InvokeActionsDictionary actions)
+        internal VrpcManagedConnection(ManagedWebSocket webSocket, bool isServer, ServiceProvider serviceProvider, InvokeActionsDictionary actions)
         {
             IsServer = isServer;
 
@@ -218,7 +218,7 @@ namespace DanilovSoft.vRPC
 
             static void ReceiveLoopStart(object? state)
             {
-                var self = state as ManagedConnection;
+                var self = state as VrpcManagedConnection;
                 self.ReceiveLoop();
             }
 #else
@@ -527,7 +527,7 @@ namespace DanilovSoft.vRPC
             if (connectionTask.IsCompleted)
             {
                 // Может бросить исключение.
-                ManagedConnection connection = connectionTask.Result; // у ValueTask можно обращаться к Result.
+                VrpcManagedConnection connection = connectionTask.Result; // у ValueTask можно обращаться к Result.
 
                 // Отправляет уведомление через очередь.
                 return connection.CreateAndSendNotification(method, args);
@@ -616,6 +616,9 @@ namespace DanilovSoft.vRPC
             Volatile.Write(ref _reusableJRequest, reusable);
         }
 
+        /// <summary>
+        /// Записывает ссылку в глобальную переменную вместо Null, делая объект доступным для переиспользования.
+        /// </summary>
         internal void ReleaseReusable(ReusableVRequest reusable)
         {
             Debug.Assert(Volatile.Read(ref _reusableVRequest) == null);
@@ -1068,7 +1071,7 @@ namespace DanilovSoft.vRPC
                         {
                             // На основе кода и сообщения можно создать исключение.
                             var exception = ExceptionHelper.ToException(errorModel.Code, errorModel.Message);
-                            pendingRequest.SetException(exception);
+                            pendingRequest.SetErrorResponse(exception);
                         }
                         else
                         {
@@ -1679,48 +1682,29 @@ namespace DanilovSoft.vRPC
                     else if (message is IVRequest vRequest)
                     // Отправляем запрос на который нужно получить ответ.
                     {
-                        if (vRequest.TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize))
+                        if (vRequest.TryBeginSend())
                         {
-                            try
+                            // Если не удалось сериализовать -> игнорируем отправку, пользователь получит исключение.
+                            // Переводит состояние сообщения в GotErrorResponse.
+                            if (vRequest.TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize))
                             {
-                                //  Увеличить счетчик активных запросов.
-                                if (TryIncreaseActiveRequestsCount(isResponseRequired: !vRequest.IsNotification))
+                                try
                                 {
-                                    // Размер сообщения без заголовка.
-                                    int messageSize = buffer.WrittenCount - headerSize;
-
-                                    SetTcpNoDelay(vRequest.Method.TcpNoDelay);
-
-                                    #region Отправка заголовка
-
-                                    try
+                                    //  Увеличить счетчик активных запросов.
+                                    if (TryIncreaseActiveRequestsCount(isResponseRequired: !vRequest.IsNotification))
                                     {
-                                        // Заголовок лежит в конце стрима.
-                                        await SendBufferAsync(buffer.WrittenMemory.Slice(messageSize, headerSize), endOfMessage: true).ConfigureAwait(false);
-                                    }
-                                    catch (Exception ex)
-                                    // Обрыв соединения.
-                                    {
-                                        var vException = new VRpcException(SR.SenderLoopError, ex);
+                                        // Размер сообщения без заголовка.
+                                        int messageSize = buffer.WrittenCount - headerSize;
 
-                                        // Оповестить об обрыве.
-                                        TryDispose(CloseReason.FromException(vException, _shutdownRequest));
+                                        Debug.Assert(vRequest.Method != null);
+                                        SetTcpNoDelay(vRequest.Method.TcpNoDelay);
 
-                                        // Если запрос является нотификацией то нужно передать исключение ожидающему потоку.
-                                        vRequest.CompleteNotification(vException);
+                                        #region Отправка заголовка
 
-                                        // Завершить поток.
-                                        return;
-                                    }
-                                    #endregion
-
-                                    #region Отправка тела сообщения (запрос или ответ на запрос)
-
-                                    if (messageSize > 0)
-                                    {
                                         try
                                         {
-                                            await SendBufferAsync(buffer.WrittenMemory.Slice(0, messageSize), true).ConfigureAwait(false);
+                                            // Заголовок лежит в конце стрима.
+                                            await SendBufferAsync(buffer.WrittenMemory.Slice(messageSize, headerSize), endOfMessage: true).ConfigureAwait(false);
                                         }
                                         catch (Exception ex)
                                         // Обрыв соединения.
@@ -1731,33 +1715,53 @@ namespace DanilovSoft.vRPC
                                             TryDispose(CloseReason.FromException(vException, _shutdownRequest));
 
                                             // Если запрос является нотификацией то нужно передать исключение ожидающему потоку.
-                                            vRequest.CompleteNotification(vException);
+                                            vRequest.CompleteSend(vException);
 
                                             // Завершить поток.
                                             return;
                                         }
-                                    }
-                                    #endregion
+                                        #endregion
 
-                                    // Если запрос является нотификацией то нужно завершить ожидание отправки.
-                                    vRequest.CompleteNotification();
+                                        #region Отправка тела сообщения (запрос или ответ на запрос)
+
+                                        if (messageSize > 0)
+                                        {
+                                            try
+                                            {
+                                                await SendBufferAsync(buffer.WrittenMemory.Slice(0, messageSize), true).ConfigureAwait(false);
+                                            }
+                                            catch (Exception ex)
+                                            // Обрыв соединения.
+                                            {
+                                                var vException = new VRpcException(SR.SenderLoopError, ex);
+
+                                                // Оповестить об обрыве.
+                                                TryDispose(CloseReason.FromException(vException, _shutdownRequest));
+
+                                                // Если запрос является нотификацией то нужно передать исключение ожидающему потоку.
+                                                vRequest.CompleteSend(vException);
+
+                                                // Завершить поток.
+                                                return;
+                                            }
+                                        }
+                                        #endregion
+
+                                        // Если запрос является нотификацией то нужно завершить ожидание отправки.
+                                        vRequest.CompleteSend();
+                                    }
+                                    else
+                                    // Пользователь запросил остановку сервиса.
+                                    {
+                                        // Завершить поток.
+                                        return;
+                                    }
                                 }
-                                else
-                                // Пользователь запросил остановку сервиса.
+                                finally
                                 {
-                                    // Завершить поток.
-                                    return;
+                                    buffer.Dispose();
                                 }
                             }
-                            finally
-                            {
-                                buffer.Dispose();
-                            }
-                        }
-                        else
-                        {
-                            // Не удалось сериализовать -> Игнорируем отправку, пользователь получит исключение.
-                            continue;
                         }
                     }
                     else if (message is IJRequest jRequest)
@@ -1770,6 +1774,7 @@ namespace DanilovSoft.vRPC
                                 //  Увеличить счетчик активных запросов.
                                 if (TryIncreaseActiveRequestsCount(isResponseRequired: !jRequest.IsNotification))
                                 {
+                                    Debug.Assert(jRequest.Method != null);
                                     SetTcpNoDelay(jRequest.Method.TcpNoDelay);
 
                                     DebugDisplayJson(buffer.WrittenMemory.Span);
@@ -1786,14 +1791,14 @@ namespace DanilovSoft.vRPC
                                         TryDispose(CloseReason.FromException(vException, _shutdownRequest));
 
                                         // Если запрос является нотификацией то нужно передать исключение ожидающему потоку.
-                                        jRequest.CompleteNotification(vException);
+                                        jRequest.CompleteSend(vException);
 
                                         // Завершить поток.
                                         return;
                                     }
 
                                     // Если запрос является нотификацией то нужно завершить ожидание отправки.
-                                    jRequest.CompleteNotification();
+                                    jRequest.CompleteSend();
                                 }
                                 else
                                     return;

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -91,6 +92,8 @@ namespace DanilovSoft.vRPC
         public TimeSpan ClientReceiveTimeout { get => _wsServ.ClientReceiveTimeout; set => _wsServ.ClientReceiveTimeout = value; }
         public int Port => _wsServ.Port;
 
+        #region ctor
+
         // ctor.
         public VRpcListener(IPAddress ipAddress) : this (ipAddress, port: 0, Assembly.GetCallingAssembly()) { }
 
@@ -102,7 +105,7 @@ namespace DanilovSoft.vRPC
         {
             _wsServ.HandshakeTimeout = TimeSpan.FromSeconds(30);
             _wsServ.Bind(new IPEndPoint(ipAddress, port));
-            _wsServ.ClientConnected += Listener_OnConnected;
+            _wsServ.ClientConnected += OnConnected;
 
             // Контроллеры будем искать в сборке которая вызвала текущую функцию.
             //var controllersAssembly = Assembly.GetCallingAssembly();
@@ -126,6 +129,10 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        #endregion
+
+        #region Public
+
         /// <summary>
         /// Позволяет настроить IoC контейнер.
         /// Выполняется единожды при инициализации подключения.
@@ -144,15 +151,6 @@ namespace DanilovSoft.vRPC
             _serviceProvider = BuildServiceCollection();
         }
 
-        private ServiceProvider BuildServiceCollection()
-        {
-            _serviceCollection.AddScoped<RequestContextScope>();
-            _serviceCollection.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
-            _serviceCollection.AddSingleton< IHostApplicationLifetime>(this);
-
-            return _serviceCollection.BuildServiceProvider();
-        }
-
         /// <exception cref="VRpcException"/>
         public void Configure(Action<ServiceProvider> configureApp)
         {
@@ -160,21 +158,6 @@ namespace DanilovSoft.vRPC
                 ThrowHelper.ThrowVRpcException($"Конфигурация должна осуществляться до начала приёма соединений.");
 
             _configureApp = configureApp;
-        }
-
-        internal void OnConnectionAuthenticated(ServerSideConnection connection, ClaimsPrincipal user)
-        {
-            Debug.Assert(user.Identity != null);
-            Debug.Assert(user.Identity.IsAuthenticated);
-
-            ClientAuthenticated?.Invoke(this, new ClientAuthenticatedEventArgs(connection, user));
-        }
-
-        internal void OnUserSignedOut(ServerSideConnection connection, ClaimsPrincipal user)
-        {
-            Debug.Assert(user.Identity?.IsAuthenticated == true);
-
-            ClientSignedOut?.Invoke(this, new ClientSignedOutEventArgs(connection, user));
         }
 
         /// <summary>
@@ -213,6 +196,153 @@ namespace DanilovSoft.vRPC
         {
             InnerBeginShutdown(disconnectTimeout, closeDescription);
             return Completion;
+        }
+
+        /// <summary>
+        /// Начинает приём подключений и обработку запросов до полной остановки методом Stop.
+        /// Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
+        /// Повторный вызов не допускается.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <exception cref="VRpcException"/>
+        public Task<bool> RunAsync()
+        {
+            try
+            {
+                TrySyncStart(shouldThrow: true);
+            }
+            catch (Exception ex)
+            {
+                return Task.FromException<bool>(ex);
+            }
+            return Completion;
+        }
+
+        /// <summary>
+        /// Начинает приём подключений и обработку запросов до полной остановки методом Stop
+        /// или с помощью токена отмены.
+        /// Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
+        /// Повторный вызов не допускается.
+        /// Потокобезопасно.
+        /// </summary>
+        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов когда произойдёт остановка сервиса.</param>
+        /// <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
+        /// Может быть <see langword="null"/>.</param>
+        /// <param name="cancellationToken">Токен служащий для остановки сервиса.</param>
+        /// <exception cref="VRpcException"/>
+        /// <exception cref="OperationCanceledException"/>
+        public Task<bool> RunAsync(TimeSpan disconnectTimeout, string closeDescription, CancellationToken cancellationToken)
+        {
+            try
+            {
+                TrySyncStart(shouldThrow: true);
+            }
+            catch (Exception ex)
+            {
+                return Task.FromException<bool>(ex);
+            }
+
+            // Только один поток зайдёт в этот блок.
+            return InnerRunAsync(disconnectTimeout, closeDescription, cancellationToken);
+        }
+
+        /// <summary>
+        /// Начинает приём новых подключений.
+        /// Повторный вызов спровоцирует исключение.
+        /// Потокобезопасно.
+        /// </summary>
+        public void Start()
+        {
+            TrySyncStart(shouldThrow: false);
+        }
+
+        /// <summary>
+        /// Возвращает копию коллекции подключенных клиентов.
+        /// Потокобезопасно.
+        /// </summary>
+        public ServerSideConnection[] GetConnections()
+        {
+            lock (_connections.SyncObj)
+            {
+                if (_connections.Count > 0)
+                    return _connections.ToArray();
+            }
+            return Array.Empty<ServerSideConnection>();
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                _disposed = true;
+                _wsServ.Dispose();
+                _serviceProvider?.Dispose();
+                DisposeAllConnections();
+            }
+        }
+
+        #endregion
+
+        #region Internal
+
+        internal void OnConnectionAuthenticated(ServerSideConnection connection, ClaimsPrincipal user)
+        {
+            Debug.Assert(user.Identity != null);
+            Debug.Assert(user.Identity.IsAuthenticated);
+
+            ClientAuthenticated?.Invoke(this, new ClientAuthenticatedEventArgs(connection, user));
+        }
+
+        internal void OnUserSignedOut(ServerSideConnection connection, ClaimsPrincipal user)
+        {
+            Debug.Assert(user.Identity?.IsAuthenticated == true);
+
+            ClientSignedOut?.Invoke(this, new ClientSignedOutEventArgs(connection, user));
+        }
+
+        /// <summary>
+        /// Возвращает копию коллекции подключенных клиентов кроме <paramref name="exceptCon"/>.
+        /// Потокобезопасно.
+        /// </summary>
+        internal ServerSideConnection[] GetConnectionsExcept(ServerSideConnection exceptCon)
+        {
+            lock (_connections.SyncObj)
+            {
+                int selfIndex = _connections.IndexOf(exceptCon);
+                if (selfIndex != -1)
+                {
+                    if (_connections.Count > 1)
+                    {
+                        var ar = new ServerSideConnection[_connections.Count - 1];
+                        for (int i = 0; i < _connections.Count; i++)
+                        {
+                            if (i != selfIndex)
+                            {
+                                ar[i] = _connections[i];
+                            }
+                        }
+                        return ar;
+                    }
+                }
+                else
+                {
+                    return _connections.ToArray();
+                }
+            }
+            return Array.Empty<ServerSideConnection>();
+        }
+
+        #endregion
+
+        #region Private
+
+        private ServiceProvider BuildServiceCollection()
+        {
+            _serviceCollection.AddScoped<RequestContextScope>();
+            _serviceCollection.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
+            _serviceCollection.AddSingleton<IHostApplicationLifetime>(this);
+
+            return _serviceCollection.BuildServiceProvider();
         }
 
         /// <summary>
@@ -294,75 +424,17 @@ namespace DanilovSoft.vRPC
             _applicationStopped.Cancel();
         }
 
-        /// <summary>
-        /// Начинает приём подключений и обработку запросов до полной остановки методом Stop.
-        /// Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
-        /// Повторный вызов не допускается.
-        /// Потокобезопасно.
-        /// </summary>
-        /// <exception cref="VRpcException"/>
-        public Task<bool> RunAsync()
-        {
-            try
-            {
-                TrySyncStart(shouldThrow: true);
-            }
-            catch (Exception ex)
-            {
-                return Task.FromException<bool>(ex);
-            }
-            return Completion;
-        }
-
-        /// <summary>
-        /// Начинает приём подключений и обработку запросов до полной остановки методом Stop
-        /// или с помощью токена отмены.
-        /// Эквивалентно вызову метода Start с дальнейшим <see langword="await"/> Completion.
-        /// Повторный вызов не допускается.
-        /// Потокобезопасно.
-        /// </summary>
-        /// <param name="disconnectTimeout">Максимальное время ожидания завершения выполняющихся запросов когда произойдёт остановка сервиса.</param>
-        /// <param name="closeDescription">Причина остановки сервиса которая будет передана удалённой стороне.
-        /// Может быть <see langword="null"/>.</param>
-        /// <param name="cancellationToken">Токен служащий для остановки сервиса.</param>
-        /// <exception cref="VRpcException"/>
-        /// <exception cref="OperationCanceledException"/>
-        public Task<bool> RunAsync(TimeSpan disconnectTimeout, string closeDescription, CancellationToken cancellationToken)
-        {
-            try
-            {
-                TrySyncStart(shouldThrow: true);
-            }
-            catch (Exception ex)
-            {
-                return Task.FromException<bool>(ex);
-            }
-
-            // Только один поток зайдёт в этот блок.
-            return InnerRunAsync(disconnectTimeout, closeDescription, cancellationToken);
-        }
-
         /// <exception cref="OperationCanceledException"/>
         private async Task<bool> InnerRunAsync(TimeSpan disconnectTimeout, string closeDescription, CancellationToken cancellationToken)
         {
             using (cancellationToken.Register(s => BeginShutdown(disconnectTimeout, closeDescription), false))
             {
                 bool graceful = await Completion.ConfigureAwait(false);
-                
+
                 cancellationToken.ThrowIfCancellationRequested();
 
                 return graceful;
             }
-        }
-
-        /// <summary>
-        /// Начинает приём новых подключений.
-        /// Повторный вызов спровоцирует исключение.
-        /// Потокобезопасно.
-        /// </summary>
-        public void Start()
-        {
-            TrySyncStart(shouldThrow: false);
         }
 
         /// <summary>
@@ -425,7 +497,7 @@ namespace DanilovSoft.vRPC
             return false;
         }
 
-        private void Listener_OnConnected(object? sender, DanilovSoft.WebSockets.ClientConnectedEventArgs e)
+        private void OnConnected(object? sender, DanilovSoft.WebSockets.ClientConnectedEventArgs e)
         {
             // Возможно сервер находится в режиме остановки.
             ServerSideConnection? connection;
@@ -436,8 +508,8 @@ namespace DanilovSoft.vRPC
                     Debug.Assert(_serviceProvider != null, "На этом этапе контейнер должен быть инициализирован");
 
                     // Создать контекст для текущего подключения.
-                    connection = new ServerSideConnection(e.WebSocket, _serviceProvider, listener: this);
-                    
+                    connection = new ServerSideConnection(e.WebSocket, _serviceProvider, this);
+
                     _connections.Add(connection);
                 }
                 else
@@ -493,59 +565,13 @@ namespace DanilovSoft.vRPC
             ClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(context, e.DisconnectReason));
         }
 
-        /// <summary>
-        /// Возвращает копию коллекции подключенных клиентов.
-        /// Потокобезопасно.
-        /// </summary>
-        public ServerSideConnection[] GetConnections()
-        {
-            lock (_connections.SyncObj)
-            {
-                if (_connections.Count > 0)
-                    return _connections.ToArray();
-            }
-            return Array.Empty<ServerSideConnection>();
-        }
-
-        /// <summary>
-        /// Возвращает копию коллекции подключенных клиентов кроме <paramref name="exceptCon"/>.
-        /// Потокобезопасно.
-        /// </summary>
-        internal ServerSideConnection[] GetConnectionsExcept(ServerSideConnection exceptCon)
-        {
-            lock (_connections.SyncObj)
-            {
-                int selfIndex = _connections.IndexOf(exceptCon);
-                if (selfIndex != -1)
-                {
-                    if (_connections.Count > 1)
-                    {
-                        var ar = new ServerSideConnection[_connections.Count - 1];
-                        for (int i = 0; i < _connections.Count; i++)
-                        {
-                            if (i != selfIndex)
-                            {
-                                ar[i] = _connections[i];
-                            }
-                        }
-                        return ar;
-                    }
-                }
-                else
-                {
-                    return _connections.ToArray();
-                }
-            }
-            return Array.Empty<ServerSideConnection>();
-        }
-
         private void DisposeAllConnections()
         {
             ServerSideConnection[] connections;
 
             lock (_connections.SyncObj)
             {
-                connections = _connections.Count > 0 
+                connections = _connections.Count > 0
                     ? _connections.ToArray()
                     : Array.Empty<ServerSideConnection>();
 
@@ -558,15 +584,6 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                _disposed = true;
-                _wsServ.Dispose();
-                _serviceProvider?.Dispose();
-                DisposeAllConnections();
-            }
-        }
+        #endregion
     }
 }

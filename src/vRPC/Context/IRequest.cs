@@ -8,16 +8,21 @@ namespace DanilovSoft.vRPC
 {
     internal interface IRequest : IMessageToSend
     {
-        RequestMethodMeta Method { get; }
+        RequestMethodMeta? Method { get; }
         object[]? Args { get; }
         bool IsNotification { get; }
         /// <summary>
-        /// Если запрос является нотификацией то завершает его ожидание отправки.
+        /// Переводит сообщение в состояние отправки, что-бы другие потоки не вмешивались.
         /// </summary>
-        void CompleteNotification(VRpcException exception);
+        bool TryBeginSend();
+        //void EndSend();
         /// <summary>
         /// Если запрос является нотификацией то завершает его ожидание отправки.
         /// </summary>
-        void CompleteNotification();
+        void CompleteSend(VRpcException exception);
+        /// <summary>
+        /// Если запрос является нотификацией то завершает его ожидание отправки.
+        /// </summary>
+        void CompleteSend();
     }
 }

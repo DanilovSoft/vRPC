@@ -1,0 +1,86 @@
+﻿namespace DanilovSoft.vRPC.AspNetCore
+{
+    using DanilovSoft.WebSockets;
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+    using System.Net;
+    using System.Net.Sockets;
+    using System.Text;
+    using System.Threading;
+    using System.Threading.Tasks;
+
+    internal sealed class JRpcStream : IJrpcStream
+    {
+        private readonly Stream _stream;
+
+        public JRpcStream(Stream stream, EndPoint localEndPoint, EndPoint remoteEndPoint)
+        {
+            _stream = stream;
+            LocalEndPoint = localEndPoint;
+            RemoteEndPoint = remoteEndPoint;
+        }
+
+        public Socket? Socket { get; }
+        public bool CanRead => true;
+        public bool CanWrite => true;
+        public EndPoint RemoteEndPoint { get; }
+        public EndPoint LocalEndPoint { get; }
+
+        public IAsyncResult BeginRead(byte[] buffer, int offset, int count, AsyncCallback callback, object state)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Close()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Dispose()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTask<int> ReadAsync(Memory<byte> memory, CancellationToken cancellationToken)
+        {
+            return _stream.ReadAsync(memory, cancellationToken);
+        }
+
+        public ValueTask<SocketReceiveResult> ReceiveAsync(Memory<byte> buffer, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTask<SocketError> SendAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Shutdown(SocketShutdown how)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTask WriteAsync(ReadOnlyMemory<byte> buffer)
+        {
+            throw new NotImplementedException();
+        }
+
+        public ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+    }
+}

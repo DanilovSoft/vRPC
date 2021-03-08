@@ -53,16 +53,16 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
-        public void SetException(VRpcException rpcException)
+        public void SetErrorResponse(VRpcException rpcException)
         {
-            SetException(exception: rpcException);
+            SetErrorResponse(exception: rpcException);
         }
 
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetException(Exception exception)
+        public void SetErrorResponse(Exception exception)
         {
             Debug.Assert(_tcs != null);
 
@@ -101,7 +101,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                SetException(vException);
+                SetErrorResponse(vException);
             }
         }
 
@@ -125,7 +125,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                SetException(vException);
+                SetErrorResponse(vException);
                 return false;
             }
         }
@@ -145,14 +145,19 @@ namespace DanilovSoft.vRPC
             throw new NotImplementedException();
         }
 
-        public void CompleteNotification(VRpcException exception)
+        public void CompleteSend(VRpcException exception)
         {
             // Игнорируем.
         }
 
-        public void CompleteNotification()
+        public void CompleteSend()
         {
             // Игнорируем.
+        }
+
+        public bool TryBeginSend()
+        {
+            throw new NotImplementedException();
         }
     }
 }

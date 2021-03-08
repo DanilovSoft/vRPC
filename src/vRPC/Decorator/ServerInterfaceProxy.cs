@@ -18,7 +18,7 @@ namespace DanilovSoft.vRPC.Decorator
         /// <summary>
         /// Никогда не Null.
         /// </summary>
-        public ManagedConnection? Connection { get; protected set; }
+        public VrpcManagedConnection? Connection { get; protected set; }
     }
 
     /// <summary>
@@ -36,7 +36,7 @@ namespace DanilovSoft.vRPC.Decorator
             // Этот конструктор является базовым для динамически созданного наследника.
         }
 
-        internal void InitializeClone(string controllerName, ManagedConnection connection)
+        internal void InitializeClone(string controllerName, VrpcManagedConnection connection)
         {
             Proxy = this as TIface;
             ControllerName = controllerName;

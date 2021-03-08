@@ -1,4 +1,4 @@
-﻿import { JSONRPCClient, JSONRPCServerAndClient, JSONRPCServer } from "json-rpc-2.0";
+﻿import { JSONRPCClient, JSONRPCServerAndClient, JSONRPCServer } from "../node_modules/json-rpc-2.0";
 
 const webSocket = new WebSocket("ws://localhost:44343/jrpc");
 

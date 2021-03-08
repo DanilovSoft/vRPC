@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
     internal sealed class ReusableJRequest : IJRequest, IResponseAwaiter
     {
         private readonly ArrayBufferWriter<byte> _reusableBuffer = new(initialize: false);
-        private readonly ManagedConnection _context;
+        private readonly VrpcManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
         public int Id { get; set; }
@@ -23,7 +23,7 @@ namespace DanilovSoft.vRPC
         private Action<object?, ReusableJRequest>? _setResult;
         private Action<Exception, ReusableJRequest>? _setException;
 
-        public ReusableJRequest(ManagedConnection context)
+        public ReusableJRequest(VrpcManagedConnection context)
         {
             _context = context;
         }
@@ -85,20 +85,20 @@ namespace DanilovSoft.vRPC
             tcs.TrySetException(exception);
         }
 
-        public void SetException(VRpcException vException)
+        public void SetErrorResponse(VRpcException vException)
         {
-            SetException(exception: vException);
+            SetErrorResponse(exception: vException);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetException(Exception exception)
+        public void SetErrorResponse(Exception exception)
         {
             Debug.Assert(_setException != null);
 
             _setException(exception, this);
         }
 
-        private void SetResult(object result)
+        private void SetResult(object? result)
         {
             Debug.Assert(_setResult != null);
 
@@ -112,7 +112,7 @@ namespace DanilovSoft.vRPC
             if (Method.ReturnType != typeof(VoidStruct))
             // Поток ожидает некий объект как результат.
             {
-                object result;
+                object? result;
                 try
                 {
                     // Шаблонный сериализатор экономит на упаковке.
@@ -121,7 +121,7 @@ namespace DanilovSoft.vRPC
                 catch (JsonException deserializationException)
                 {
                     // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
-                    SetException(new VRpcProtocolErrorException(
+                    SetErrorResponse(new VRpcProtocolErrorException(
                         $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
 
                     return;
@@ -135,7 +135,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        void IResponseAwaiter.SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             Debug.Assert(false, "Сюда не должны попадать");
             throw new NotSupportedException();
@@ -157,20 +157,25 @@ namespace DanilovSoft.vRPC
             else
             {
                 _reusableBuffer.Reset();
-                SetException(exception);
+                SetErrorResponse(exception);
                 buffer = null;
                 return false;
             }
         }
 
-        public void CompleteNotification(VRpcException exception)
+        public void CompleteSend(VRpcException exception)
         {
             // Игнорируем.
         }
 
-        public void CompleteNotification()
+        public void CompleteSend()
         {
             // Игнорируем.
+        }
+
+        public bool TryBeginSend()
+        {
+            throw new NotImplementedException();
         }
     }
 }

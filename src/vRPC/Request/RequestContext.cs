@@ -32,21 +32,21 @@ namespace DanilovSoft.vRPC
         /// Аргументы для вызываемого метода.
         /// </summary>
         public object[]? Args { get; private set; }
-        public ManagedConnection Context { get; }
+        public VrpcManagedConnection Context { get; }
         /// <summary>
         /// Если запрос получен в формате JSON-RPC, то и ответ должен быть в формате JSON-RPC.
         /// </summary>
         public bool IsJsonRpcRequest { get; private set; }
         internal object? Result { get; set; }
 
-        public RequestContext(ManagedConnection context)
+        public RequestContext(VrpcManagedConnection context)
         {
             Context = context;
             IsReusable = true;
         }
 
         // ctor
-        public RequestContext(ManagedConnection connection, int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
+        public RequestContext(VrpcManagedConnection connection, int? id, ControllerMethodMeta method, object[] args, bool isJsonRpc)
         {
             IsReusable = false;
             Context = connection;

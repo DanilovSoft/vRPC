@@ -10,7 +10,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public ClientSideConnection? Context { get; private set; }
 
-        internal sealed override void BeforeInvokeController(ManagedConnection connection, ClaimsPrincipal? user)
+        internal sealed override void BeforeInvokeController(VrpcManagedConnection connection, ClaimsPrincipal? user)
         {
             Context = connection as ClientSideConnection;
             Debug.Assert(Context != null, "Возможно перепутаны серверный и клиентский тип контроллера.");

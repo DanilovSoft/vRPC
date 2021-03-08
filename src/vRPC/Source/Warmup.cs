@@ -10,14 +10,14 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private static void DoWarmup()
         {
-            RuntimeHelpers.RunClassConstructor(typeof(ManagedConnection).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(VrpcManagedConnection).TypeHandle);
 
 #pragma warning disable CA2012 // Используйте ValueTasks правильно
             DynamicAwaiter.ConvertToTask(new ValueTask());
 #pragma warning restore CA2012 // Используйте ValueTasks правильно
         }
 
-#if !NET472 && !NETSTANDARD2_0 && !NETCOREAPP3_1
+#if !NET472 && !NETSTANDARD2_0 && !NETCOREAPP3_0
         [ModuleInitializer]
 #endif
         internal static void InitializeModule()

@@ -20,7 +20,7 @@ namespace DanilovSoft.vRPC
     /// Подключенный к серверу клиент.
     /// </summary>
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public sealed class ServerSideConnection : ManagedConnection, IGetProxy
+    public sealed class ServerSideConnection : VrpcManagedConnection, IGetProxy
     {
         // TODO: вынести в параметры.
         private const string _passPhrase = "Pas5pr@se";        // Может быть любой строкой.

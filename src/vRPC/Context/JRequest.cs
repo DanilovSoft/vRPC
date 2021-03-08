@@ -44,18 +44,18 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                SetException(exception);
+                SetErrorResponse(exception);
                 return false;
             }
         }
 
-        public void SetException(VRpcException rpcException)
+        public void SetErrorResponse(VRpcException rpcException)
         {
-            SetException(exception: rpcException);
+            SetErrorResponse(exception: rpcException);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetException(Exception exception)
+        public void SetErrorResponse(Exception exception)
         {
             _tcs.TrySetException(exception);
         }
@@ -80,7 +80,7 @@ namespace DanilovSoft.vRPC
                 catch (JsonException deserializationException)
                 {
                     // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
-                    SetException(new VRpcProtocolErrorException(
+                    SetErrorResponse(new VRpcProtocolErrorException(
                         $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
 
                     return;
@@ -94,14 +94,19 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public void CompleteNotification(VRpcException exception)
+        public void CompleteSend(VRpcException exception)
         {
             // Игнорируем.
         }
 
-        public void CompleteNotification()
+        public void CompleteSend()
         {
             // Игнорируем.
+        }
+
+        public bool TryBeginSend()
+        {
+            throw new NotImplementedException();
         }
     }
 }

@@ -74,14 +74,19 @@ namespace DanilovSoft.vRPC
             _mrv.Reset();
         }
 
-        public void CompleteNotification(VRpcException exception)
+        public void CompleteSend(VRpcException exception)
         {
             _mrv.SetException(exception);
         }
 
-        public void CompleteNotification()
+        public void CompleteSend()
         {
             _mrv.SetResult(default);
+        }
+
+        public bool TryBeginSend()
+        {
+            throw new NotImplementedException();
         }
     }
 }

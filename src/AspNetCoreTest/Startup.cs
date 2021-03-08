@@ -5,13 +5,15 @@ namespace AspNetCoreTest
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.Http;
     using Microsoft.AspNetCore.Http.Connections;
+    using Microsoft.AspNetCore.Http.Features;
     using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileProviders;
+    using Microsoft.Extensions.FileProviders;
     using Microsoft.Extensions.Hosting;
     using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
+using System.Net.WebSockets;
     using System.Threading.Tasks;
 
     public class Startup
@@ -22,9 +24,7 @@ using Microsoft.Extensions.FileProviders;
         {
             services.AddControllersWithViews();
 
-            services.AddSignalR();
-
-            //services.AddSingleton<HttpConnectionDispatcher>
+            services.AddJsonRpc();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -48,28 +48,39 @@ using Microsoft.Extensions.FileProviders;
                 EnableDirectoryBrowsing = false
             });
 
+            //app.UseWebSockets();
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllerRoute(
                    name: "default",
                    pattern: "{controller=Home}/{action=Index}");
 
-                //endpoints.MapGet("/", async context =>
-                //{
-                //    await context.Response.WriteAsync("Hello World!");
-                //});
-
+                endpoints.MapJsonRpcService("/jrpc");
                 endpoints.MapControllers();
-                endpoints.MapConnectionHandler<VRpcConnectionHandler>("/jrpc");
             });
-        }
 
-        public class VRpcConnectionHandler : ConnectionHandler
-        {
-            public override async Task OnConnectedAsync(ConnectionContext connection)
-            {
-                
-            }
+            //app.Use(async (context, next) =>
+            //{
+            //    if (context.Request.Path == "/ws")
+            //    {
+            //        if (context.WebSockets.IsWebSocketRequest)
+            //        {
+            //            using (WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync())
+            //            {
+            //                await Echo(context, webSocket);
+            //            }
+            //        }
+            //        else
+            //        {
+            //            context.Response.StatusCode = 400;
+            //        }
+            //    }
+            //    else
+            //    {
+            //        await next();
+            //    }
+            //});
         }
     }
 }

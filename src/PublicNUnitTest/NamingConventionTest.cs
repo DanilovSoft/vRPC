@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace XUnitTest
 {
-    public class UnitTest1
+    public class NamingConventionTest
     {
         [Test]
         public void TestInterfaceNaming()

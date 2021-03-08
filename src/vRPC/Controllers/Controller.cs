@@ -13,7 +13,7 @@ namespace DanilovSoft.vRPC
 
         }
 
-        internal abstract void BeforeInvokeController(ManagedConnection connection, ClaimsPrincipal? user);
+        internal abstract void BeforeInvokeController(VrpcManagedConnection connection, ClaimsPrincipal? user);
 
         internal void BeforeInvokeController(in RequestContext requestContext)
         {

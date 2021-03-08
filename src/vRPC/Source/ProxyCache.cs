@@ -21,7 +21,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private readonly Dictionary<Type, IInterfaceProxy> _instanceDict = new();
 
-        private static void InitializePropxy<T>(string controllerName, ServerInterfaceProxy<T> p, ManagedConnection connection) where T : class
+        private static void InitializePropxy<T>(string controllerName, ServerInterfaceProxy<T> p, VrpcManagedConnection connection) where T : class
         {
             p.InitializeClone(controllerName, connection);
         }
@@ -31,9 +31,9 @@ namespace DanilovSoft.vRPC
             p.InitializeClone(rpcClient, controllerName);
         }
 
-        internal ServerInterfaceProxy<TIface> GetProxyDecorator<TIface>(ManagedConnection connection) where TIface : class
+        internal ServerInterfaceProxy<TIface> GetProxyDecorator<TIface>(VrpcManagedConnection connection) where TIface : class
         {
-            return GetProxy<ServerInterfaceProxy<TIface>, TIface, ManagedConnection>(InitializePropxy, connection);
+            return GetProxy<ServerInterfaceProxy<TIface>, TIface, VrpcManagedConnection>(InitializePropxy, connection);
         }
 
         internal ClientInterfaceProxy<TIface> GetProxyDecorator<TIface>(VRpcClient rpcClient) where TIface : class

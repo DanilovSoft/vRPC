@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net5.0;netcoreapp3.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <LangVersion>Latest</LangVersion>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>DanilovSoft.vRPC.pfx</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\vRPC\DanilovSoft.vRPC.csproj" />
+  </ItemGroup>
+  
+</Project>
