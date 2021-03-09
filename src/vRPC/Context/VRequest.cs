@@ -130,21 +130,6 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public TResult GetResult(short token)
-        {
-            throw new NotImplementedException();
-        }
-
-        public ValueTaskSourceStatus GetStatus(short token)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
-        {
-            throw new NotImplementedException();
-        }
-
         public void CompleteSend(VRpcException exception)
         {
             // Игнорируем.

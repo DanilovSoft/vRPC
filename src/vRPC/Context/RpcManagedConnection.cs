@@ -1575,8 +1575,7 @@ namespace DanilovSoft.vRPC
                                 SetTcpNoDelay(response.Method.TcpNoDelay);
 
                                 // Нужно освободить ресурс перед отправкой сообщения.
-                                if (response.IsReusable)
-                                    ReleaseReusable(response);
+                                ReleaseReusable(response);
 
                                 DebugDisplayJson(buffer.WrittenMemory.Span);
                                 try
@@ -1625,8 +1624,7 @@ namespace DanilovSoft.vRPC
                                 SetTcpNoDelay(response.Method.TcpNoDelay);
 
                                 // Нужно освободить ресурс перед отправкой сообщения.
-                                if (response.IsReusable)
-                                    ReleaseReusable(response);
+                                ReleaseReusable(response);
 
                                 #region Отправка заголовка
 
@@ -1772,51 +1770,50 @@ namespace DanilovSoft.vRPC
                     else if (message is IJRequest jRequest)
                     // Отправляем запрос на который нужно получить ответ.
                     {
-                        if (jRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer))
+                        if (jRequest.TryBeginSend())
                         {
-                            try
+                            // Если не удалось сериализовать -> Игнорируем отправку, пользователь получит исключение.
+                            if (jRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer))
                             {
-                                //  Увеличить счетчик активных запросов.
-                                if (TryIncreaseActiveRequestsCount(isResponseRequired: !jRequest.IsNotification))
+                                try
                                 {
-                                    Debug.Assert(jRequest.Method != null);
-                                    SetTcpNoDelay(jRequest.Method.TcpNoDelay);
-
-                                    DebugDisplayJson(buffer.WrittenMemory.Span);
-                                    try
+                                    //  Увеличить счетчик активных запросов.
+                                    if (TryIncreaseActiveRequestsCount(isResponseRequired: !jRequest.IsNotification))
                                     {
-                                        await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
+                                        Debug.Assert(jRequest.Method != null);
+                                        SetTcpNoDelay(jRequest.Method.TcpNoDelay);
+
+                                        DebugDisplayJson(buffer.WrittenMemory.Span);
+                                        try
+                                        {
+                                            await SendBufferAsync(buffer.WrittenMemory, Ms.WebSocketMessageType.Text, endOfMessage: true).ConfigureAwait(false);
+                                        }
+                                        catch (Exception ex)
+                                        // Обрыв соединения.
+                                        {
+                                            var vException = new VRpcException(SR.SenderLoopError, ex);
+
+                                            // Оповестить об обрыве.
+                                            TryDispose(CloseReason.FromException(vException, _shutdownRequest));
+
+                                            // Если запрос является нотификацией то нужно передать исключение ожидающему потоку.
+                                            jRequest.CompleteSend(vException);
+
+                                            // Завершить поток.
+                                            return;
+                                        }
+
+                                        // Если запрос является нотификацией то нужно завершить ожидание отправки.
+                                        jRequest.CompleteSend();
                                     }
-                                    catch (Exception ex)
-                                    // Обрыв соединения.
-                                    {
-                                        var vException = new VRpcException(SR.SenderLoopError, ex);
-
-                                        // Оповестить об обрыве.
-                                        TryDispose(CloseReason.FromException(vException, _shutdownRequest));
-
-                                        // Если запрос является нотификацией то нужно передать исключение ожидающему потоку.
-                                        jRequest.CompleteSend(vException);
-
-                                        // Завершить поток.
+                                    else
                                         return;
-                                    }
-
-                                    // Если запрос является нотификацией то нужно завершить ожидание отправки.
-                                    jRequest.CompleteSend();
                                 }
-                                else
-                                    return;
+                                finally
+                                {
+                                    buffer.Dispose();
+                                }
                             }
-                            finally
-                            {
-                                buffer.Dispose();
-                            }
-                        }
-                        else
-                        {
-                            // Не удалось сериализовать -> Игнорируем отправку, пользователь получит исключение.
-                            continue;
                         }
                     }
                     else if (message is JErrorResponse jError)
@@ -2349,11 +2346,14 @@ namespace DanilovSoft.vRPC
 
         private void ReleaseReusable(RequestContext reusableRequest)
         {
-            Debug.Assert(Volatile.Read(ref _reusableContext) == null);
+            if (reusableRequest.IsReusable)
+            {
+                Debug.Assert(_reusableContext == null);
 
-            reusableRequest.Reset();
+                reusableRequest.Reset();
 
-            Volatile.Write(ref _reusableContext, reusableRequest);
+                Volatile.Write(ref _reusableContext, reusableRequest);
+            }
         }
 
         /// <exception cref="Exception">Ошибка сериализации пользовательских данных.</exception>
