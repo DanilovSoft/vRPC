@@ -18,7 +18,7 @@ namespace DanilovSoft.vRPC.Decorator
         /// <summary>
         /// Никогда не Null.
         /// </summary>
-        public VrpcManagedConnection? Connection { get; protected set; }
+        public RpcManagedConnection? Connection { get; protected set; }
     }
 
     /// <summary>
@@ -36,7 +36,7 @@ namespace DanilovSoft.vRPC.Decorator
             // Этот конструктор является базовым для динамически созданного наследника.
         }
 
-        internal void InitializeClone(string controllerName, VrpcManagedConnection connection)
+        internal void InitializeClone(string controllerName, RpcManagedConnection connection)
         {
             Proxy = this as TIface;
             ControllerName = controllerName;
@@ -54,7 +54,7 @@ namespace DanilovSoft.vRPC.Decorator
         private RequestMethodMeta GetMeta<T>(MethodInfo targetMethod)
         {
             // Метаданные метода.
-            var requestMeta = ServerSideConnection._methodDict.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, typeof(T), cn), ControllerName);
+            var requestMeta = OldServerSideConnection._methodDict.GetOrAdd(targetMethod, (tm, cn) => new RequestMethodMeta(tm, typeof(T), cn), ControllerName);
             return requestMeta;
         }
 

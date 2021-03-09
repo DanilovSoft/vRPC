@@ -21,6 +21,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InternalConsoleApp", "Tests
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{0D90D039-7036-4E0D-9DF6-6758DA12CD93}"
 	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
 		..\README.md = ..\README.md
 	EndProjectSection
 EndProject
@@ -32,7 +33,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DanilovSoft.WebSockets", ".
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DanilovSoft.vRPC.AspNetCore", "DanilovSoft.vRPC.AspNetCore\DanilovSoft.vRPC.AspNetCore.csproj", "{4A1D5403-2DF7-463C-BF5C-92AB60A7F124}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspNetCoreXUnits", "AspNetCoreXUnits\AspNetCoreXUnits.csproj", "{B637F94A-6B15-43BE-AE8D-449244EFDC41}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AspNetCoreXUnits", "AspNetCoreXUnits\AspNetCoreXUnits.csproj", "{B637F94A-6B15-43BE-AE8D-449244EFDC41}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

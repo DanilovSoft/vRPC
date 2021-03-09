@@ -24,17 +24,18 @@
             services.AddOptions();
             services.TryAddSingleton<JrpcMarkerService>();
 
-            var jrpcServices = new ServiceCollection();
             var controllers = new InvokeActionsDictionary(controllerTypes);
             // Добавим скрытый контроллер для авторизации.
-            jrpcServices.AddScoped(typeof(DanilovSoft.vRPC.Controllers.AccountController));
+            services.AddScoped(typeof(DanilovSoft.vRPC.Controllers.AccountController));
 
             // Добавить контроллеры в IoC.
             foreach (Type controllerType in controllerTypes.Values)
             {
-                jrpcServices.AddScoped(controllerType);
+                services.AddScoped(controllerType);
             }
-            var rpcServices = BuildServiceCollection(jrpcServices);
+            services.AddScoped<RequestContextScope>();
+            services.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
+            services.AddSingleton<IHostApplicationLifetime, HostApplicationLifetimeBridge>();
 
             services.TryAddSingleton(controllers);
 
@@ -42,15 +43,6 @@
             services.TryAddSingleton(typeof(ServiceRouteBuilder));
 
             return new JrpcServerBuilder(services);
-        }
-
-        private static ServiceProvider BuildServiceCollection(ServiceCollection serviceCollection)
-        {
-            serviceCollection.AddScoped<RequestContextScope>();
-            serviceCollection.AddScoped(typeof(IProxy<>), typeof(ProxyFactory<>));
-            serviceCollection.AddSingleton<IHostApplicationLifetime>(this);
-
-            return serviceCollection.BuildServiceProvider();
         }
     }
 }

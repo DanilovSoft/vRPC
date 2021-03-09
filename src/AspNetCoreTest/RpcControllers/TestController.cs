@@ -7,8 +7,13 @@
     using System.Threading.Tasks;
 
     [AllowAnonymous]
-    public class TestController : ServerController
+    public class TestController : RpcController
     {
+        public TestController()
+        {
+            
+        }
+
         public int GetSum(int x, int y)
         {
             return 2;

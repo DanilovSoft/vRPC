@@ -12,7 +12,7 @@ namespace DanilovSoft.vRPC
 {
     internal sealed class ReusableVRequest : IVRequest, IResponseAwaiter
     {
-        private readonly VrpcManagedConnection _context;
+        private readonly RpcManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
         public int Id { get; set; }
@@ -28,7 +28,7 @@ namespace DanilovSoft.vRPC
         private ReusableRequestState _state;
         //private int _state = 0;
 
-        public ReusableVRequest(VrpcManagedConnection context)
+        public ReusableVRequest(RpcManagedConnection context)
         {
             _context = context;
         }

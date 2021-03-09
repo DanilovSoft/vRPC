@@ -32,24 +32,24 @@ namespace DanilovSoft.vRPC
         /// Аргументы для вызываемого метода.
         /// </summary>
         public object?[]? Args { get; private set; }
-        public VrpcManagedConnection Context { get; }
+        public RpcManagedConnection Connection { get; }
         /// <summary>
         /// Если запрос получен в формате JSON-RPC, то и ответ должен быть в формате JSON-RPC.
         /// </summary>
         public bool IsJsonRpcRequest { get; private set; }
         internal object? Result { get; set; }
 
-        public RequestContext(VrpcManagedConnection context)
+        public RequestContext(RpcManagedConnection context)
         {
-            Context = context;
+            Connection = context;
             IsReusable = true;
         }
 
         // ctor
-        public RequestContext(VrpcManagedConnection connection, int? id, ControllerMethodMeta method, object?[] args, bool isJsonRpc)
+        public RequestContext(RpcManagedConnection connection, int? id, ControllerMethodMeta method, object?[] args, bool isJsonRpc)
         {
             IsReusable = false;
-            Context = connection;
+            Connection = connection;
             Initialize(id, method, args, isJsonRpc);
         }
 
@@ -185,7 +185,7 @@ namespace DanilovSoft.vRPC
             static void ProcessRequestThreadEntryPoint(object? state)
             {
                 var request = (RequestContext)state!;
-                request.Context.OnStartProcessRequest(request);
+                request.Connection.OnStartProcessRequest(request);
             }  
 #else
             ThreadPool.UnsafeQueueUserWorkItem(this, preferLocal: true);
@@ -195,7 +195,7 @@ namespace DanilovSoft.vRPC
         // Вызывается пулом потоков.
         public void Execute()
         {
-            Context.OnStartProcessRequest(this);
+            Connection.OnStartProcessRequest(this);
         }
 
         public void DisposeArgs()

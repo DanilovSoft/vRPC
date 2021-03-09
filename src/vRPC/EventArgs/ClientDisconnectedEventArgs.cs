@@ -7,7 +7,7 @@ namespace DanilovSoft.vRPC
 {
     public sealed class ClientDisconnectedEventArgs : EventArgs
     {
-        public ServerSideConnection Connection { get; }
+        public OldServerSideConnection Connection { get; }
         /// <summary>
         /// Причина закрытия соединения.
         /// </summary>
@@ -15,7 +15,7 @@ namespace DanilovSoft.vRPC
         public VRpcListener Listener => Connection.Listener;
 
         [DebuggerStepThrough]
-        internal ClientDisconnectedEventArgs(ServerSideConnection clientContext, CloseReason closeReason)
+        internal ClientDisconnectedEventArgs(OldServerSideConnection clientContext, CloseReason closeReason)
         {
             Connection = clientContext;
             CloseReason = closeReason;

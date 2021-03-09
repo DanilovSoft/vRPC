@@ -6,12 +6,12 @@ namespace DanilovSoft.vRPC
 {
     public sealed class ClientAuthenticatedEventArgs : EventArgs
     {
-        public ServerSideConnection Connection { get; }
+        public OldServerSideConnection Connection { get; }
         public ClaimsPrincipal User { get; }
         public VRpcListener Listener => Connection.Listener;
 
         [DebuggerStepThrough]
-        internal ClientAuthenticatedEventArgs(ServerSideConnection connection, ClaimsPrincipal user)
+        internal ClientAuthenticatedEventArgs(OldServerSideConnection connection, ClaimsPrincipal user)
         {
             Connection = connection;
             User = user;

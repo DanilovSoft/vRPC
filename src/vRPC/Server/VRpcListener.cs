@@ -260,14 +260,14 @@ namespace DanilovSoft.vRPC
         /// Возвращает копию коллекции подключенных клиентов.
         /// Потокобезопасно.
         /// </summary>
-        public ServerSideConnection[] GetConnections()
+        public OldServerSideConnection[] GetConnections()
         {
             lock (_connections.SyncObj)
             {
                 if (_connections.Count > 0)
                     return _connections.ToArray();
             }
-            return Array.Empty<ServerSideConnection>();
+            return Array.Empty<OldServerSideConnection>();
         }
 
         public void Dispose()
@@ -285,7 +285,7 @@ namespace DanilovSoft.vRPC
 
         #region Internal
 
-        internal void OnConnectionAuthenticated(ServerSideConnection connection, ClaimsPrincipal user)
+        internal void OnConnectionAuthenticated(OldServerSideConnection connection, ClaimsPrincipal user)
         {
             Debug.Assert(user.Identity != null);
             Debug.Assert(user.Identity.IsAuthenticated);
@@ -293,7 +293,7 @@ namespace DanilovSoft.vRPC
             ClientAuthenticated?.Invoke(this, new ClientAuthenticatedEventArgs(connection, user));
         }
 
-        internal void OnUserSignedOut(ServerSideConnection connection, ClaimsPrincipal user)
+        internal void OnUserSignedOut(OldServerSideConnection connection, ClaimsPrincipal user)
         {
             Debug.Assert(user.Identity?.IsAuthenticated == true);
 
@@ -304,7 +304,7 @@ namespace DanilovSoft.vRPC
         /// Возвращает копию коллекции подключенных клиентов кроме <paramref name="exceptCon"/>.
         /// Потокобезопасно.
         /// </summary>
-        internal ServerSideConnection[] GetConnectionsExcept(ServerSideConnection exceptCon)
+        internal OldServerSideConnection[] GetConnectionsExcept(OldServerSideConnection exceptCon)
         {
             lock (_connections.SyncObj)
             {
@@ -313,7 +313,7 @@ namespace DanilovSoft.vRPC
                 {
                     if (_connections.Count > 1)
                     {
-                        var ar = new ServerSideConnection[_connections.Count - 1];
+                        var ar = new OldServerSideConnection[_connections.Count - 1];
                         for (int i = 0; i < _connections.Count; i++)
                         {
                             if (i != selfIndex)
@@ -329,7 +329,7 @@ namespace DanilovSoft.vRPC
                     return _connections.ToArray();
                 }
             }
-            return Array.Empty<ServerSideConnection>();
+            return Array.Empty<OldServerSideConnection>();
         }
 
         #endregion
@@ -380,7 +380,7 @@ namespace DanilovSoft.vRPC
             _applicationStopping.Cancel();
 
             // Необходимо закрыть все соединения.
-            ServerSideConnection[] activeConnections = Array.Empty<ServerSideConnection>();
+            OldServerSideConnection[] activeConnections = Array.Empty<OldServerSideConnection>();
             lock (_connections.SyncObj)
             {
                 if (_connections.Count > 0)
@@ -398,7 +398,7 @@ namespace DanilovSoft.vRPC
                 // Грациозно останавливаем соединения.
                 for (int i = 0; i < activeConnections.Length; i++)
                 {
-                    ServerSideConnection clientConnection = activeConnections[i];
+                    OldServerSideConnection clientConnection = activeConnections[i];
 
                     // Прекращаем принимать запросы.
                     // Не бросает исключений.
@@ -500,7 +500,7 @@ namespace DanilovSoft.vRPC
         private void OnConnected(object? sender, DanilovSoft.WebSockets.ClientConnectedEventArgs e)
         {
             // Возможно сервер находится в режиме остановки.
-            ServerSideConnection? connection;
+            OldServerSideConnection? connection;
             lock (_connections.SyncObj)
             {
                 if (_stopRequired == null) // volatile.
@@ -508,7 +508,7 @@ namespace DanilovSoft.vRPC
                     Debug.Assert(_serviceProvider != null, "На этом этапе контейнер должен быть инициализирован");
 
                     // Создать контекст для текущего подключения.
-                    connection = new ServerSideConnection(e.WebSocket, _serviceProvider, this);
+                    connection = new OldServerSideConnection(e.WebSocket, _serviceProvider, this);
 
                     _connections.Add(connection);
                 }
@@ -555,7 +555,7 @@ namespace DanilovSoft.vRPC
 
         private void Context_Disconnected(object? sender, SocketDisconnectedEventArgs e)
         {
-            var context = sender as ServerSideConnection;
+            var context = sender as OldServerSideConnection;
             Debug.Assert(context != null);
 
             lock (_connections.SyncObj)
@@ -567,13 +567,13 @@ namespace DanilovSoft.vRPC
 
         private void DisposeAllConnections()
         {
-            ServerSideConnection[] connections;
+            OldServerSideConnection[] connections;
 
             lock (_connections.SyncObj)
             {
                 connections = _connections.Count > 0
                     ? _connections.ToArray()
-                    : Array.Empty<ServerSideConnection>();
+                    : Array.Empty<OldServerSideConnection>();
 
                 _connections.Clear();
             }

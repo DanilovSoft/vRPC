@@ -18,16 +18,16 @@ using System.Net;
     using System.Threading;
     using System.Threading.Tasks;
 
-    internal sealed class JsonRpcConnection : VrpcManagedConnection
+    internal sealed class JsonRpcConnection : RpcManagedConnection
     {
-        private readonly ProxyCache _proxyCache = new();
-
         public JsonRpcConnection(ManagedWebSocket webSocket, bool isServer, IServiceProvider serviceProvider, InvokeActionsDictionary actions) 
             : base(webSocket, isServer, serviceProvider, actions)
         {
         }
 
-        public static async Task<VrpcManagedConnection> AcceptAsync(JrpcAcceptContext acceptContext)
+        public override bool IsAuthenticated => throw new NotImplementedException();
+
+        public static async Task<JsonRpcConnection> AcceptAsync(JrpcAcceptContext acceptContext)
         {
             if (acceptContext.Context.Connection.LocalIpAddress == null)
                 throw new InvalidOperationException("Не удалось получить LocalIpAddress");
@@ -46,7 +46,9 @@ using System.Net;
             string key = acceptContext.Context.Request.Headers[HeaderNames.SecWebSocketKey];
             HandshakeHelpers.GenerateResponseHeaders(key, subProtocol: null, acceptContext.Context.Response.Headers);
 
-            Stream opaqueTransport = await acceptContext.Feature.UpgradeAsync(); // Sets status code to 101
+            // Установит статус 101 и отправит хедеры.
+            Stream opaqueTransport = await acceptContext.Feature.UpgradeAsync();
+
             var stream = new JRpcStream(opaqueTransport, localEndPoint, remoteEndPoint);
 
             TimeSpan keepAliveInterval = TimeSpan.FromMinutes(2);
@@ -56,38 +58,9 @@ using System.Net;
             return rpc;
         }
 
-        public override bool IsAuthenticated => false;
-
         private protected override bool ActionPermissionCheck(ControllerMethodMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user)
         {
-            // TODO
-            permissionError = null;
-            user = null;
-            return true;
-        }
-
-        private protected override T InnerGetProxy<T>() => GetProxy<T>();
-
-        /// <summary>
-        /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
-        /// Полученный экземпляр можно привести к типу <see cref="ServerInterfaceProxy"/>.
-        /// Метод является шорткатом для <see cref="GetProxyDecorator"/>
-        /// </summary>
-        /// <typeparam name="T">Интерфейс.</typeparam>
-        public T GetProxy<T>() where T : class
-        {
-            T? proxy = GetProxyDecorator<T>().Proxy;
-            Debug.Assert(proxy != null);
-            return proxy;
-        }
-
-        /// <summary>
-        /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
-        /// </summary>
-        /// <typeparam name="T">Интерфейс.</typeparam>
-        public ServerInterfaceProxy<T> GetProxyDecorator<T>() where T : class
-        {
-            return _proxyCache.GetProxyDecorator<T>(this);
+            throw new NotImplementedException();
         }
     }
 }

@@ -20,6 +20,7 @@ using DanilovSoft.vRPC.Context;
 using System.Text.Json;
 using System.ComponentModel;
 using ProtoBuf;
+using DanilovSoft.vRPC.Decorator;
 
 namespace DanilovSoft.vRPC
 {
@@ -27,8 +28,9 @@ namespace DanilovSoft.vRPC
     /// Контекст соединения Web-Сокета. Владеет соединением.
     /// </summary>
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public abstract class VrpcManagedConnection : IDisposable, IGetProxy, IThreadPoolWorkItem
+    public abstract class RpcManagedConnection : IDisposable, /*IGetProxy,*/ IThreadPoolWorkItem
     {
+        private readonly ProxyCache _proxyCache = new();
         /// <summary>
         /// Содержит все доступные для вызова экшены контроллеров.
         /// </summary>
@@ -168,7 +170,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Принимает открытое соединение Web-Socket.
         /// </summary>
-        internal VrpcManagedConnection(ManagedWebSocket webSocket, bool isServer, IServiceProvider serviceProvider, InvokeActionsDictionary actions)
+        internal RpcManagedConnection(ManagedWebSocket webSocket, bool isServer, IServiceProvider serviceProvider, InvokeActionsDictionary actions)
         {
             IsServer = isServer;
 
@@ -218,7 +220,7 @@ namespace DanilovSoft.vRPC
 
             static void ReceiveLoopStart(object? state)
             {
-                var self = state as VrpcManagedConnection;
+                var self = state as RpcManagedConnection;
                 self.ReceiveLoop();
             }
 #else
@@ -527,7 +529,7 @@ namespace DanilovSoft.vRPC
             if (connectionTask.IsCompleted)
             {
                 // Может бросить исключение.
-                VrpcManagedConnection connection = connectionTask.Result; // у ValueTask можно обращаться к Result.
+                RpcManagedConnection connection = connectionTask.Result; // у ValueTask можно обращаться к Result.
 
                 // Отправляет уведомление через очередь.
                 return connection.CreateAndSendNotification(method, args);
@@ -2219,15 +2221,15 @@ namespace DanilovSoft.vRPC
                     // Инициализируем Scope текущим соединением.
                     var getProxyScope = scope.ServiceProvider.GetService<RequestContextScope>();
                     Debug.Assert(getProxyScope != null);
-                    getProxyScope.ConnectionContext = this;
+                    getProxyScope.Connection = this;
 
                     // Активируем контроллер через IoC.
-                    var controller = scope.ServiceProvider.GetRequiredService(requestContext.Method.ControllerType) as Controller;
+                    var controller = scope.ServiceProvider.GetRequiredService(requestContext.Method.ControllerType) as RpcController;
                     Debug.Assert(controller != null);
 
                     // Подготавливаем контроллер.
                     controller.BeforeInvokeController(requestContext);
-                    controller.BeforeInvokeController(this, user);
+                    //controller.BeforeInvokeController(this, user);
 
                     //BeforeInvokeController(controller);
 
@@ -2465,10 +2467,32 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        T IGetProxy.GetProxy<T>() where T : class => InnerGetProxy<T>();
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //T IGetProxy.GetProxy<T>() where T : class => InnerGetProxy<T>();
 
-        private protected abstract T InnerGetProxy<T>() where T : class;
+        //private protected abstract T InnerGetProxy<T>() where T : class;
+
+        /// <summary>
+        /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
+        /// Полученный экземпляр можно привести к типу <see cref="ServerInterfaceProxy"/>.
+        /// Метод является шорткатом для <see cref="GetProxyDecorator"/>
+        /// </summary>
+        /// <typeparam name="T">Интерфейс.</typeparam>
+        public T GetProxy<T>() where T : class
+        {
+            T? proxy = GetProxyDecorator<T>().Proxy;
+            Debug.Assert(proxy != null);
+            return proxy;
+        }
+
+        /// <summary>
+        /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
+        /// </summary>
+        /// <typeparam name="T">Интерфейс.</typeparam>
+        public ServerInterfaceProxy<T> GetProxyDecorator<T>() where T : class
+        {
+            return _proxyCache.GetProxyDecorator<T>(this);
+        }
 
         protected virtual void DisposeManaged()
         {

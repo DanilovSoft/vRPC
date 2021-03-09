@@ -15,7 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DanilovSoft.vRPC
 {
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public sealed class ClientSideConnection : VrpcManagedConnection
+    public sealed class ClientSideConnection : RpcManagedConnection
     {
         /// <summary>
         /// Internal запрос для аутентификации.
@@ -45,8 +45,8 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Принимает открытое соединение Web-Socket.
         /// </summary>
-        internal ClientSideConnection(VRpcClient client, ClientWebSocket ws, ServiceProvider serviceProvider, InvokeActionsDictionary controllers)
-            : base(ws.ManagedWebSocket, isServer: false, serviceProvider, controllers)
+        internal ClientSideConnection(VRpcClient client, ManagedWebSocket ws, ServiceProvider serviceProvider, InvokeActionsDictionary controllers)
+            : base(ws, isServer: false, serviceProvider, controllers)
         {
             Client = client;
         }
@@ -59,11 +59,11 @@ namespace DanilovSoft.vRPC
             return true;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private protected sealed override T InnerGetProxy<T>()
-        {
-            return Client.GetProxy<T>();
-        }
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //private protected sealed override T InnerGetProxy<T>()
+        //{
+        //    return Client.GetProxy<T>();
+        //}
 
         /// <summary>
         /// Выполняет аутентификацию соединения.

@@ -7,7 +7,7 @@ using System.Text;
 namespace DanilovSoft.vRPC.Controllers
 {
     [AllowAnonymous]
-    internal sealed class AccountController : ServerController
+    internal sealed class AccountController : RpcController
     {
         public static readonly MethodInfo SignInMethod = typeof(AccountController).GetMethod(nameof(SignIn))!;
         public static readonly MethodInfo SignOutMethod = typeof(AccountController).GetMethod(nameof(SignOut))!;
@@ -21,12 +21,18 @@ namespace DanilovSoft.vRPC.Controllers
 #endif
         public AccountController()
         {
-
+            
         }
 
         public IActionResult SignIn(AccessToken accessToken)
         {
-            return Context.SignIn(accessToken);
+            throw new NotImplementedException();
+            //return Connection.SignIn(accessToken);
+        }
+
+        public IActionResult SignOut()
+        {
+            throw new NotImplementedException();
         }
     }
 }

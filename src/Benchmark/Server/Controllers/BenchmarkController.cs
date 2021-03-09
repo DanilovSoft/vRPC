@@ -7,11 +7,12 @@ using System.Threading.Tasks;
 using DanilovSoft.vRPC;
 using System.Diagnostics;
 using DanilovSoft.vRPC.Decorator;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Server.Controllers
 {
     [AllowAnonymous]
-    internal class BenchmarkController : ServerController
+    internal class BenchmarkController : RpcController
     {
         private readonly ILogger _logger;
         private readonly Program _program;
@@ -71,7 +72,7 @@ namespace Server.Controllers
         {
             try
             {
-                var cr = await Context.ShutdownAsync(TimeSpan.FromSeconds(100), "test");
+                var cr = await Connection.ShutdownAsync(TimeSpan.FromSeconds(100), "test");
             }
             catch (Exception ex)
             {

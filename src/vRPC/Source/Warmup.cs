@@ -10,7 +10,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private static void DoWarmup()
         {
-            RuntimeHelpers.RunClassConstructor(typeof(VrpcManagedConnection).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(RpcManagedConnection).TypeHandle);
 
 #pragma warning disable CA2012 // Используйте ValueTasks правильно
             DynamicAwaiter.ConvertToTask(new ValueTask());

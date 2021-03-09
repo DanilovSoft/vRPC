@@ -23,21 +23,25 @@ namespace DanilovSoft.vRPC
     }
 
     // Это единственная имплементация для IProxy<T>.
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <typeparam name="TIface">Интерфейс пользователя для которого нужно создать прокси.</typeparam>
     [DebuggerDisplay("{Proxy}")]
-    internal sealed class ProxyFactory<T> : IProxy<T> where T : class
+    internal sealed class ProxyFactory<TIface> : IProxy<TIface> where TIface : class
     {
         /// <summary>
         /// Прозрачный прокси к удалённой стороне.
         /// </summary>
-        public T Proxy { get; }
-        public string? RemoteControllerName => ((IInterfaceDecorator<T>)Proxy).ControllerName;
+        public TIface Proxy { get; }
+        public string? RemoteControllerName => ((IInterfaceDecorator<TIface>)Proxy).ControllerName;
 
         // Вызывается через рефлексию.
         public ProxyFactory(RequestContextScope getProxyScope)
         {
-            Debug.Assert(getProxyScope.ConnectionContext != null);
+            Debug.Assert(getProxyScope.Connection != null);
 
-            Proxy = getProxyScope.ConnectionContext.GetProxy<T>();
+            Proxy = getProxyScope.Connection.GetProxy<TIface>();
         }
     }
 }

@@ -15,14 +15,12 @@
         public HttpContext Context { get; }
         public IHttpUpgradeFeature Feature { get; }
         public InvokeActionsDictionary Controllers { get; }
-        public ServiceCollection ServiceCollection { get; }
 
-        public JrpcAcceptContext(HttpContext context, IHttpUpgradeFeature feature, InvokeActionsDictionary controllers, ServiceCollection serviceCollection)
+        public JrpcAcceptContext(HttpContext context, IHttpUpgradeFeature feature, InvokeActionsDictionary controllers)
         {
             Context = context;
             Feature = feature;
             Controllers = controllers;
-            ServiceCollection = serviceCollection;
         }
     }
 }

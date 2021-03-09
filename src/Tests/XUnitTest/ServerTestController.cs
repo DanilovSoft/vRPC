@@ -9,47 +9,8 @@ using DanilovSoft.vRPC;
 
 namespace XUnitTest
 {
-    public interface IServerTestController
-    {
-        void InvalidParamsResult(string exceptionMessage);
-        void TestInternalErrorThrow(string exceptionMessage);
-        void TestDelay();
-        Task Test2Async();
-        int GetSum(int x1, int x2);
-        int GetSum2(int x1, int x2);
-        Task<int> GetSumAsync(int x1, int x2);
-        Task<string> GetNullStringAsync();
-        string GetString();
-        string GetNullString();
-
-        [Notification]
-        void Notify(int n);
-        
-        [Notification]
-        Task NotifyAsync(int n);
-        
-        [JsonRpc]
-        [Notification]
-        Task JNotifyAsync(int n);
-
-        [Notification]
-        void NotifyCallback(int n);
-
-        [JsonRpc]
-        [Notification]
-        void JNotifyCallback(int n);
-
-        string MakeCallback(string msg);
-        string MakeAsyncCallback(string msg);
-        void NotExistedMethod();
-        [JsonRpc]
-        void JNotExistedMethod();
-        [JsonRpc]
-        void JTestInternalError();
-    }
-
     [AllowAnonymous]
-    internal class ServerTestController : ServerController
+    internal class ServerTestController : RpcController
     {
         public void JTestInternalError()
         {
@@ -99,17 +60,17 @@ namespace XUnitTest
 
         public void Notify(int n)
         {
-            Debug.Assert(IsNotification);
+            Debug.Assert(IsNotificationRequest);
         }
 
         public void JNotify(int n)
         {
-            Debug.Assert(IsNotification);
+            Debug.Assert(IsNotificationRequest);
         }
 
         public string MakeCallback(string msg)
         {
-            string echo = Context.GetProxy<IClientTestController>().Echo(msg);
+            string echo = Connection.GetProxy<IClientTestController>().Echo(msg);
 
             Debug.Assert(echo == msg, "Эхо-сообщения не идентичны");
 
@@ -118,7 +79,7 @@ namespace XUnitTest
         
         public async Task<string> MakeAsyncCallback(string msg)
         {
-            string echo = await Context.GetProxy<IClientTestController>().EchoAsync(msg);
+            string echo = await Connection.GetProxy<IClientTestController>().EchoAsync(msg);
             
             Debug.Assert(echo == msg, "Эхо-сообщения не идентичны");
 
@@ -127,16 +88,16 @@ namespace XUnitTest
 
         public void NotifyCallback(int n)
         {
-            Debug.Assert(IsNotification);
+            Debug.Assert(IsNotificationRequest);
 
-            Context.GetProxy<IClientTestController>().EchoNotification(n);
+            Connection.GetProxy<IClientTestController>().EchoNotification(n);
         }
 
         public void JNotifyCallback(int n)
         {
-            Debug.Assert(IsNotification);
+            Debug.Assert(IsNotificationRequest);
 
-            Context.GetProxy<IClientTestController>().JEchoNotification(n);
+            Connection.GetProxy<IClientTestController>().JEchoNotification(n);
         }
     }
 }

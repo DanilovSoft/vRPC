@@ -20,7 +20,7 @@ namespace DanilovSoft.vRPC
     /// Контекст клиентского соединения.
     /// </summary>
     [DebuggerDisplay(@"\{{DebugDisplay,nq}\}")]
-    public sealed class VRpcClient : IDisposable, IGetProxy
+    public sealed class VRpcClient : IDisposable/*, IGetProxy*/
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay
@@ -585,7 +585,7 @@ namespace DanilovSoft.vRPC
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(accessToken: default);
 
-            return VrpcManagedConnection.OnClientRequestCall<TResult>(connectionTask, method, args);
+            return RpcManagedConnection.OnClientRequestCall<TResult>(connectionTask, method, args);
         }
 
         /// <summary>
@@ -598,7 +598,7 @@ namespace DanilovSoft.vRPC
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
 
-            return VrpcManagedConnection.OnClientNotificationCall(connectionTask, methodMeta, args);
+            return RpcManagedConnection.OnClientNotificationCall(connectionTask, methodMeta, args);
         }
 
         #endregion
@@ -830,7 +830,8 @@ namespace DanilovSoft.vRPC
                         {
                             if (!_disposed)
                             {
-                                connection = new ClientSideConnection(this, ws, serviceProvider, _invokeActions);
+                                Debug.Assert(ws.ManagedWebSocket != null);
+                                connection = new ClientSideConnection(this, ws.ManagedWebSocket, serviceProvider, _invokeActions);
 
                                 // Предотвратить Dispose.
                                 toDispose = null;

@@ -10,10 +10,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Подключенный к серверу клиент.
         /// </summary>
-        public ServerSideConnection Connection { get; }
+        public OldServerSideConnection Connection { get; }
 
         [DebuggerStepThrough]
-        internal ClientConnectedEventArgs(ServerSideConnection clientContext)
+        internal ClientConnectedEventArgs(OldServerSideConnection clientContext)
         {
             Connection = clientContext;
         }

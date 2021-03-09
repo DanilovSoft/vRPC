@@ -10,7 +10,7 @@ namespace DanilovSoft.vRPC
     /// </summary>
     [DebuggerDisplay("{DebugDisplay,nq}")]
     [DebuggerTypeProxy(typeof(TypeProxy))]
-    public class UserConnectionCollection : IList<ServerSideConnection>
+    public class UserConnectionCollection : IList<OldServerSideConnection>
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private string DebugDisplay => "{" + $"Count = {_list.Count}" + "}";
@@ -18,7 +18,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Доступ осуществляется только через блокировку <see cref="SyncRoot"/>.
         /// </summary>
-        private readonly List<ServerSideConnection> _list = new();
+        private readonly List<OldServerSideConnection> _list = new();
         /// <summary>
         /// Доступ осуществляется только через блокировку <see cref="SyncRoot"/>.
         /// Если коллекция уже была удалена из словаря подключений, то значение будет <see langword="true"/> 
@@ -26,7 +26,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         public bool IsDestroyed { get; set; }
 
-        public ServerSideConnection this[int index]
+        public OldServerSideConnection this[int index]
         {
             get
             {
@@ -57,7 +57,7 @@ namespace DanilovSoft.vRPC
 
         public bool IsReadOnly => false;
 
-        public void Add(ServerSideConnection context)
+        public void Add(OldServerSideConnection context)
         {
             lock(SyncRoot)
             {
@@ -73,7 +73,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public bool Contains(ServerSideConnection context)
+        public bool Contains(OldServerSideConnection context)
         {
             lock(SyncRoot)
             {
@@ -81,7 +81,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public void CopyTo(ServerSideConnection[] array, int arrayIndex)
+        public void CopyTo(OldServerSideConnection[] array, int arrayIndex)
         {
             lock(SyncRoot)
             {
@@ -89,7 +89,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public int IndexOf(ServerSideConnection context)
+        public int IndexOf(OldServerSideConnection context)
         {
             lock(SyncRoot)
             {
@@ -97,7 +97,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public void Insert(int index, ServerSideConnection context)
+        public void Insert(int index, OldServerSideConnection context)
         {
             lock(SyncRoot)
             {
@@ -105,7 +105,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public bool Remove(ServerSideConnection context)
+        public bool Remove(OldServerSideConnection context)
         {
             lock(SyncRoot)
             {
@@ -124,7 +124,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Возвращает копию своей коллекции.
         /// </summary>
-        public IEnumerator<ServerSideConnection> GetEnumerator()
+        public IEnumerator<OldServerSideConnection> GetEnumerator()
         {
             lock(SyncRoot)
             {
@@ -150,7 +150,7 @@ namespace DanilovSoft.vRPC
             }
 
             [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-            public ServerSideConnection[] Items => _self._list.ToArray();
+            public OldServerSideConnection[] Items => _self._list.ToArray();
         }
 #pragma warning restore CA1812
         #endregion

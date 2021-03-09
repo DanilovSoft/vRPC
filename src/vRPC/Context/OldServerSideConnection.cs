@@ -20,7 +20,7 @@ namespace DanilovSoft.vRPC
     /// Подключенный к серверу клиент.
     /// </summary>
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public sealed class ServerSideConnection : VrpcManagedConnection, IGetProxy
+    public class OldServerSideConnection : RpcManagedConnection/*, IGetProxy*/
     {
         // TODO: вынести в параметры.
         private const string _passPhrase = "Pas5pr@se";        // Может быть любой строкой.
@@ -28,7 +28,7 @@ namespace DanilovSoft.vRPC
         private const string _salt = "M6PgwzAnHy02Jv8z5FPIoOn5NeJP7bx7";
 
         internal static readonly ServerConcurrentDictionary<MethodInfo, RequestMethodMeta> _methodDict = new();
-        private readonly ProxyCache _proxyCache = new();
+        //private readonly ProxyCache _proxyCache = new();
 
         private RijndaelEnhanced? _jwt;
         private RijndaelEnhanced Jwt => LazyInitializer.EnsureInitialized(ref _jwt, () => new RijndaelEnhanced(_passPhrase, _initVector, 8, 16, 256, _salt, 1000));
@@ -46,7 +46,7 @@ namespace DanilovSoft.vRPC
 
         // ctor.
         // Только Listener может создать этот класс.
-        internal ServerSideConnection(ManagedWebSocket clientConnection, IServiceProvider serviceProvider, VRpcListener listener)
+        internal OldServerSideConnection(ManagedWebSocket clientConnection, IServiceProvider serviceProvider, VRpcListener listener)
             : base(clientConnection, isServer: true, serviceProvider, listener.InvokeActions)
         {
             Listener = listener;
@@ -60,27 +60,27 @@ namespace DanilovSoft.vRPC
             return new ClaimsPrincipal(new ClaimsIdentity());
         }
 
-        /// <summary>
-        /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
-        /// Полученный экземпляр можно привести к типу <see cref="ServerInterfaceProxy"/>.
-        /// Метод является шорткатом для <see cref="GetProxyDecorator"/>
-        /// </summary>
-        /// <typeparam name="T">Интерфейс.</typeparam>
-        public T GetProxy<T>() where T : class
-        {
-            T? proxy = GetProxyDecorator<T>().Proxy;
-            Debug.Assert(proxy != null);
-            return proxy;
-        }
+        ///// <summary>
+        ///// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
+        ///// Полученный экземпляр можно привести к типу <see cref="ServerInterfaceProxy"/>.
+        ///// Метод является шорткатом для <see cref="GetProxyDecorator"/>
+        ///// </summary>
+        ///// <typeparam name="T">Интерфейс.</typeparam>
+        //public T GetProxy<T>() where T : class
+        //{
+        //    T? proxy = GetProxyDecorator<T>().Proxy;
+        //    Debug.Assert(proxy != null);
+        //    return proxy;
+        //}
 
-        /// <summary>
-        /// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
-        /// </summary>
-        /// <typeparam name="T">Интерфейс.</typeparam>
-        public ServerInterfaceProxy<T> GetProxyDecorator<T>() where T : class
-        {
-            return _proxyCache.GetProxyDecorator<T>(this);
-        }
+        ///// <summary>
+        ///// Создает прокси к методам удалённой стороны на основе интерфейса. Повторное обращение вернет экземпляр из кэша.
+        ///// </summary>
+        ///// <typeparam name="T">Интерфейс.</typeparam>
+        //public ServerInterfaceProxy<T> GetProxyDecorator<T>() where T : class
+        //{
+        //    return _proxyCache.GetProxyDecorator<T>(this);
+        //}
 
         internal BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal, TimeSpan validTime)
         {
@@ -195,7 +195,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public ServerSideConnection[] GetConnectionsExceptSelf()
+        public OldServerSideConnection[] GetConnectionsExceptSelf()
         {
             return Listener.GetConnectionsExcept(this);
         }
@@ -235,8 +235,8 @@ namespace DanilovSoft.vRPC
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private protected sealed override T InnerGetProxy<T>() => GetProxy<T>();
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //private protected sealed override T InnerGetProxy<T>() => GetProxy<T>();
 
         #region Call Helpers
 

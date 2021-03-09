@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
     internal sealed class ReusableJRequest : IJRequest, IResponseAwaiter
     {
         private readonly ArrayBufferWriter<byte> _reusableBuffer = new(initialize: false);
-        private readonly VrpcManagedConnection _context;
+        private readonly RpcManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }
         public object[]? Args { get; private set; }
         public int Id { get; set; }
@@ -23,7 +23,7 @@ namespace DanilovSoft.vRPC
         private Action<object?, ReusableJRequest>? _setResult;
         private Action<Exception, ReusableJRequest>? _setException;
 
-        public ReusableJRequest(VrpcManagedConnection context)
+        public ReusableJRequest(RpcManagedConnection context)
         {
             _context = context;
         }

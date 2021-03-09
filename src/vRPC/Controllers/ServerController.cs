@@ -6,30 +6,31 @@ using System.Security.Claims;
 
 namespace DanilovSoft.vRPC
 {
-    public abstract class ServerController : Controller
+    [Obsolete("Используйте RpcController")]
+    public abstract class OldServerController : RpcController
     {
         /// <summary>
         /// Контекст подключения.
         /// </summary>
-        public ServerSideConnection? Context { get; private set; }
+        public OldServerSideConnection? Context { get; private set; }
         /// <summary>
         /// Пользователь ассоциированный с текущим запросом.
         /// </summary>
         public ClaimsPrincipal? User { get; private set; }
 
         // Должен быть пустой конструктор для наследников.
-        public ServerController()
+        public OldServerController()
         {
             
         }
 
-        internal sealed override void BeforeInvokeController(VrpcManagedConnection connection, ClaimsPrincipal? user)
-        {
-            Context = connection as ServerSideConnection;
-            Debug.Assert(Context != null, "Возможно перепутаны серверный и клиентский тип контроллера.");
+        //internal sealed override void BeforeInvokeController(VrpcManagedConnection connection, ClaimsPrincipal? user)
+        //{
+        //    Context = connection as ServerSideConnection;
+        //    Debug.Assert(Context != null, "Возможно перепутаны серверный и клиентский тип контроллера.");
 
-            User = user;
-        }
+        //    User = user;
+        //}
         
         /// <exception cref="VRpcException"/>
         public BearerToken CreateAccessToken(ClaimsPrincipal claimsPrincipal, TimeSpan validTime)

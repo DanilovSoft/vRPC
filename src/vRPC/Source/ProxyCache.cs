@@ -10,6 +10,9 @@ using System.Globalization;
 
 namespace DanilovSoft.vRPC
 {
+    /// <summary>
+    /// Содержит прокси созданные из интерфейсов.
+    /// </summary>
     internal sealed class ProxyCache
     {
         /// <summary>
@@ -21,7 +24,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         private readonly Dictionary<Type, IInterfaceProxy> _instanceDict = new();
 
-        private static void InitializePropxy<T>(string controllerName, ServerInterfaceProxy<T> p, VrpcManagedConnection connection) where T : class
+        private static void InitializePropxy<T>(string controllerName, ServerInterfaceProxy<T> p, RpcManagedConnection connection) where T : class
         {
             p.InitializeClone(controllerName, connection);
         }
@@ -31,17 +34,17 @@ namespace DanilovSoft.vRPC
             p.InitializeClone(rpcClient, controllerName);
         }
 
-        internal ServerInterfaceProxy<TIface> GetProxyDecorator<TIface>(VrpcManagedConnection connection) where TIface : class
+        internal ServerInterfaceProxy<TIface> GetProxyDecorator<TIface>(RpcManagedConnection connection) where TIface : class
         {
-            return GetProxy<ServerInterfaceProxy<TIface>, TIface, VrpcManagedConnection>(InitializePropxy, connection);
+            return GetOrCreateProxy<ServerInterfaceProxy<TIface>, TIface, RpcManagedConnection>(InitializePropxy, connection);
         }
 
         internal ClientInterfaceProxy<TIface> GetProxyDecorator<TIface>(VRpcClient rpcClient) where TIface : class
         {
-            return GetProxy<ClientInterfaceProxy<TIface>, TIface, VRpcClient>(InitializeAsyncPropxy, rpcClient);
+            return GetOrCreateProxy<ClientInterfaceProxy<TIface>, TIface, VRpcClient>(InitializeAsyncPropxy, rpcClient);
         }
 
-        private TClass GetProxy<TClass, TIface, TArg1>(Action<string, TClass, TArg1> initializeClone, TArg1 arg1) 
+        private TClass GetOrCreateProxy<TClass, TIface, TArg1>(Action<string, TClass, TArg1> initializeClone, TArg1 arg1) 
             where TClass : class, IInterfaceDecorator<TIface>, IInterfaceProxy where TIface : class
         {
             Type interfaceType = typeof(TIface);

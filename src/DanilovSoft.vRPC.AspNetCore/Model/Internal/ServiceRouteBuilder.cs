@@ -52,7 +52,7 @@ using Microsoft.AspNetCore.Http.Features;
                 return;
             }
 
-            VrpcManagedConnection rpcConnection = await JsonRpcConnection.AcceptAsync(new JrpcAcceptContext(context, feature, _controllers));
+            JsonRpcConnection rpcConnection = await JsonRpcConnection.AcceptAsync(new JrpcAcceptContext(context, feature, _controllers));
 
             rpcConnection.StartReceiveSendLoop();
 

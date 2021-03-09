@@ -23,7 +23,7 @@ namespace XUnitTest
         void JEchoNotification(int n);
     }
 
-    internal class ClientTestController : ClientController
+    internal class ClientTestController : RpcController
     {
         private readonly IServiceProvider _serviceProvider;
 
@@ -39,14 +39,14 @@ namespace XUnitTest
 
         public void EchoNotification(int n)
         {
-            Debug.Assert(IsNotification);
+            Debug.Assert(IsNotificationRequest);
 
             _serviceProvider.GetRequiredService<ManualResetEventSlim>().Set();
         }
         
         public void JEchoNotification(int n)
         {
-            Debug.Assert(IsNotification);
+            Debug.Assert(IsNotificationRequest);
 
             var mre = _serviceProvider.GetRequiredService<ManualResetEventSource<int>>();
 

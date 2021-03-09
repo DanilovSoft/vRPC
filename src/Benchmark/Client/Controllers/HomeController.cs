@@ -8,7 +8,7 @@ using System.Diagnostics;
 
 namespace Client.Controllers
 {
-    public class HomeController : ClientController
+    public class HomeController : RpcController
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IHostApplicationLifetime _lifetime;

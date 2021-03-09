@@ -6,7 +6,7 @@ using Xunit;
 
 namespace InternalXUnitTest
 {
-    public class StubController : ServerController
+    public class StubController : RpcController
     {
         public void Subtract() { }
     }

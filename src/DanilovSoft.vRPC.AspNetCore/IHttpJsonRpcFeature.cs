@@ -11,6 +11,6 @@
     internal interface IHttpJsonRpcFeature
     {
         bool IsJsonRpcRequest { get; }
-        Task<VrpcManagedConnection> AcceptAsync(JrpcAcceptContext acceptContext);
+        Task<RpcManagedConnection> AcceptAsync(JrpcAcceptContext acceptContext);
     }
 }

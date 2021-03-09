@@ -3,21 +3,23 @@ using System.Security.Claims;
 
 namespace DanilovSoft.vRPC
 {
-    public abstract class Controller
+    public abstract class RpcController
     {
-        public bool IsNotification { get; private set; }
+        private RequestContext? _requestContext;
+        public bool IsNotificationRequest => !_requestContext!.IsResponseRequired;
+        public RpcManagedConnection Connection => _requestContext!.Connection;
 
         // Должен быть пустой конструктор для наследников.
-        public Controller()
+        public RpcController()
         {
 
         }
 
-        internal abstract void BeforeInvokeController(VrpcManagedConnection connection, ClaimsPrincipal? user);
+        //internal abstract void BeforeInvokeController(VrpcManagedConnection connection, ClaimsPrincipal? user);
 
-        internal void BeforeInvokeController(in RequestContext requestContext)
+        internal void BeforeInvokeController(RequestContext requestContext)
         {
-            IsNotification = !requestContext.IsResponseRequired;
+            _requestContext = requestContext;
         }
 
         protected static InvalidParamsResult InvalidParams(string errorMessage)

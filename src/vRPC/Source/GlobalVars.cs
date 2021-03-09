@@ -40,7 +40,7 @@ namespace DanilovSoft.vRPC
 
             foreach (Type controllerType in types)
             {
-                if (controllerType.IsSubclassOf(typeof(Controller)))
+                if (controllerType.IsSubclassOf(typeof(RpcController)))
                 {
                     if (controllerType.IsPublic || IsInternal(controllerType))
                     {
