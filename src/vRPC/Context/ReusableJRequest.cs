@@ -16,12 +16,14 @@ namespace DanilovSoft.vRPC
         private readonly ArrayBufferWriter<byte> _reusableBuffer = new(initialize: false);
         private readonly RpcManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }
-        public object[]? Args { get; private set; }
+        public object?[]? Args { get; private set; }
         public int Id { get; set; }
         public bool IsNotification => false;
         private object? _tcs;
-        private Action<object?, ReusableJRequest>? _setResult;
-        private Action<Exception, ReusableJRequest>? _setException;
+        private Action<object?>? _trySetResponse;
+        private Func<Exception, bool>? _trySetErrorResponse;
+        // Решает какой поток будет выполнять Reset.
+        private ReusableRequestState _state = new(ReusableRequestStateEnum.Reset);
 
         public ReusableJRequest(RpcManagedConnection context)
         {
@@ -30,25 +32,31 @@ namespace DanilovSoft.vRPC
 
         private void Reset()
         {
+            Debug.Assert(!_reusableBuffer.IsInitialized);
+            Debug.Assert(_state.State
+                is ReusableRequestStateEnum.GotResponse
+                or ReusableRequestStateEnum.GotErrorResponse);
+
+            Id = 0;
             Method = null;
             Args = null;
             _tcs = null;
-            _setResult = null;
-            _setException = null;
-            Id = 0;
-            Debug.Assert(!_reusableBuffer.IsInitialized);
+            _trySetResponse = null;
+            _trySetErrorResponse = null;
 
-            _context.ReleaseReusable(this);
+            _state.Reset();
+            _context.AtomicReleaseReusableJ(this);
         }
 
-        internal Task<TResult> Initialize<TResult>(RequestMethodMeta method, object[] args)
+        internal Task<TResult> Initialize<TResult>(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(Method == null);
             Debug.Assert(Args == null);
             Debug.Assert(_tcs == null);
-            Debug.Assert(_setResult == null);
-            Debug.Assert(_setException == null);
+            Debug.Assert(_trySetResponse == null);
+            Debug.Assert(_trySetErrorResponse == null);
             Debug.Assert(_reusableBuffer != null);
+            Debug.Assert(!_reusableBuffer.IsInitialized);
 
             _reusableBuffer.Initialize();
             Method = method;
@@ -57,55 +65,39 @@ namespace DanilovSoft.vRPC
             var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             _tcs = tcs;
-            _setResult = SetResult<TResult>;
-            _setException = SetException<TResult>;
+            _trySetErrorResponse = tcs.TrySetException;
+            _trySetResponse = TrySetResponse<TResult>;
+            _state.SetReady();
 
             return tcs.Task;
         }
 
-        private static void SetResult<TResult>(object? result, ReusableJRequest self)
+        public void TrySetErrorResponse(Exception vException)
         {
-            var tcs = self._tcs as TaskCompletionSource<TResult>;
-            Debug.Assert(tcs != null);
+            var trySetErrorResponse = _trySetErrorResponse;
+            Debug.Assert(trySetErrorResponse != null);
 
-            // Нужно сделать сброс перед установкой результата.
-            self.Reset();
+            // Атомарно узнаём в каком состоянии было сообщение.
+            var prevState = _state.SetErrorResponse();
 
-            tcs.TrySetResult((TResult)result!);
+            Debug.Assert(prevState
+                is ReusableRequestStateEnum.ReadyToSend
+                or ReusableRequestStateEnum.Sending
+                or ReusableRequestStateEnum.Sended);
+
+            // upd: Может быть случай когда читающий поток завершается
+            // ошибкой ещё до отправки сообщения отправляющим потоком.
+            if (prevState != ReusableRequestStateEnum.Sending)
+            {
+                // Нужно сделать сброс перед установкой результата
+                // иначе другой поток может начать переиспользование это-го класса.
+                Reset();
+            }
+
+            trySetErrorResponse(vException);
         }
 
-        private static void SetException<TResult>(Exception exception, ReusableJRequest self)
-        {
-            var tcs = self._tcs as TaskCompletionSource<TResult>;
-            Debug.Assert(tcs != null);
-
-            // Нужно сделать сброс перед установкой результата.
-            self.Reset();
-
-            tcs.TrySetException(exception);
-        }
-
-        public void SetErrorResponse(VRpcException vException)
-        {
-            SetErrorResponse(exception: vException);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetErrorResponse(Exception exception)
-        {
-            Debug.Assert(_setException != null);
-
-            _setException(exception, this);
-        }
-
-        private void SetResult(object? result)
-        {
-            Debug.Assert(_setResult != null);
-
-            _setResult(result, this);
-        }
-
-        public void SetJResponse(ref Utf8JsonReader reader)
+        public void TrySetJResponse(ref Utf8JsonReader reader)
         {
             Debug.Assert(Method != null);
 
@@ -121,27 +113,22 @@ namespace DanilovSoft.vRPC
                 catch (JsonException deserializationException)
                 {
                     // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
-                    SetErrorResponse(new VRpcProtocolErrorException(
+                    TrySetErrorResponse(new VRpcProtocolErrorException(
                         $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
 
                     return;
                 }
-                SetResult(result);
+                TrySetResponse(result);
             }
             else
             // void.
             {
-                SetResult(default(VoidStruct));
+                TrySetResponse(default(VoidStruct));
             }
         }
 
-        void IResponseAwaiter.SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
-        {
-            Debug.Assert(false, "Сюда не должны попадать");
-            throw new NotSupportedException();
-        }
-
-        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
+        // TODO не диспозить с наружи - race condition!
+        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? reusableBuffer)
         {
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);
@@ -151,31 +138,72 @@ namespace DanilovSoft.vRPC
 
             if (JsonRpcSerializer.TrySerializeRequest(Method.FullName, args, Id, _reusableBuffer, out var exception))
             {
-                buffer = _reusableBuffer;
+                reusableBuffer = _reusableBuffer;
                 return true;
             }
             else
             {
                 _reusableBuffer.Reset();
-                SetErrorResponse(exception);
-                buffer = null;
+                TrySetErrorResponse(exception);
+                reusableBuffer = null;
                 return false;
+            }
+        }
+
+        public void CompleteSend()
+        {
+            var prevState = _state.TrySetSended();
+
+            // Во время отправки уже мог прийти ответ и поменять статус или могла произойти ошибка.
+            if (prevState is ReusableRequestStateEnum.GotResponse or ReusableRequestStateEnum.GotErrorResponse)
+            // Ответственность на сбросе на нас.
+            {
+                Reset();
             }
         }
 
         public void CompleteSend(VRpcException exception)
         {
-            // Игнорируем.
-        }
-
-        public void CompleteSend()
-        {
-            // Игнорируем.
+            _state.SetErrorResponse();
+            Reset();
         }
 
         public bool TryBeginSend()
         {
-            throw new NotImplementedException();
+            // Отправляющий поток пытается атомарно забрать объект.
+            var prevState = _state.TrySetSending();
+            return prevState == ReusableRequestStateEnum.ReadyToSend;
+        }
+
+        void IResponseAwaiter.TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        {
+            Debug.Assert(false, "Сюда не должны попадать");
+            throw new NotSupportedException();
+        }
+
+        private void TrySetResponse<TResult>(object? result)
+        {
+            var tcs = _tcs as TaskCompletionSource<TResult>;
+            Debug.Assert(tcs != null);
+
+            // Атомарно узнаём в каком состоянии было сообщение.
+            var prevState = _state.SetGotResponse();
+
+            // В редких случаях мы могли обогнать отправляющий поток,
+            // в этом случае сброс сделает отправляющий поток.
+            if (prevState != ReusableRequestStateEnum.Sending)
+            {
+                // Нужно сделать сброс перед установкой результата.
+                Reset();
+            }
+            tcs.TrySetResult((TResult)result!);
+        }
+
+        private void TrySetResponse(object? result)
+        {
+            Debug.Assert(_trySetResponse != null);
+
+            _trySetResponse(result);
         }
     }
 }

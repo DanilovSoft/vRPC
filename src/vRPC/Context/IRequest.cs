@@ -9,7 +9,7 @@ namespace DanilovSoft.vRPC
     internal interface IRequest : IMessageToSend
     {
         RequestMethodMeta? Method { get; }
-        object[]? Args { get; }
+        object?[]? Args { get; }
         bool IsNotification { get; }
         /// <summary>
         /// Переводит сообщение в состояние отправки, что-бы другие потоки не вмешивались.

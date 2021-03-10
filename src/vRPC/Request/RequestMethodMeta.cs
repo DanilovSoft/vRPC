@@ -158,7 +158,7 @@ namespace DanilovSoft.vRPC
         //    }
         //}
 
-        internal object DeserializeVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload, out VRpcException? vException)
+        internal object? DeserializeVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload, out VRpcException? vException)
         {
             Debug.Assert(header.IsRequest == false);
 
@@ -223,7 +223,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private static object DeserializeResponse(Type returnType, ReadOnlyMemory<byte> payload, string? contentEncoding)
+        private static object? DeserializeResponse(Type returnType, ReadOnlyMemory<byte> payload, string? contentEncoding)
         {
             return contentEncoding switch
             {
@@ -232,16 +232,16 @@ namespace DanilovSoft.vRPC
             };
         }
 
-        internal bool TrySerializeVRequest(object[] args, int? id,
+        internal bool TrySerializeVRequest(object?[] args, int? id,
             out int headerSize,
-            out ArrayBufferWriter<byte> buffer,
+            [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer,
             [NotNullWhen(false)] out VRpcSerializationException? exception)
         {
-            buffer = new ArrayBufferWriter<byte>();
+            var buf = new ArrayBufferWriter<byte>();
             bool dispose = true;
             try
             {
-                ExtensionMethods.SerializeRequestArgsJson(buffer, args);
+                ExtensionMethods.SerializeRequestArgsJson(buf, args);
                 dispose = false;
                 exception = null;
             }
@@ -249,19 +249,21 @@ namespace DanilovSoft.vRPC
             {
                 exception = new VRpcSerializationException($"Не удалось сериализовать запрос в json.", ex);
                 headerSize = -1;
+                buffer = null;
                 return false;
             }
             finally
             {
                 if (dispose)
-                    buffer.Dispose();
+                    buf.Dispose();
             }
 
-            var header = new HeaderDto(id, buffer.WrittenCount, contentEncoding: null, FullName);
+            var header = new HeaderDto(id, buf.WrittenCount, contentEncoding: null, FullName);
 
             // Записать заголовок в конец стрима. Не бросает исключения.
-            headerSize = header.SerializeJson(buffer);
+            headerSize = header.SerializeJson(buf);
 
+            buffer = buf;
             return true;
         }
 

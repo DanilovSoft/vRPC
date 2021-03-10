@@ -44,7 +44,7 @@ namespace DanilovSoft.vRPC
         /// Сериализует объект в JSON.
         /// </summary>
         /// <exception cref="JsonException"/>
-        internal static void SerializeRequestArgsJson(ArrayBufferWriter<byte> destination, object[] args)
+        internal static void SerializeRequestArgsJson(ArrayBufferWriter<byte> destination, object?[] args)
         {
             // Сериализовать Null не нужно (Отправлять тело сообщения при этом тоже не нужно).
             Debug.Assert(args != null);
@@ -85,7 +85,7 @@ namespace DanilovSoft.vRPC
         /// Десериализует Json.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static object DeserializeJson(ReadOnlySpan<byte> utf8Json, Type returnType)
+        public static object? DeserializeJson(ReadOnlySpan<byte> utf8Json, Type returnType)
         {
             return System.Text.Json.JsonSerializer.Deserialize(utf8Json, returnType);
         }
@@ -95,7 +95,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         //[Obsolete]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static object DeserializeJson(ReadOnlyMemory<byte> utf8Json, Type returnType)
+        public static object? DeserializeJson(ReadOnlyMemory<byte> utf8Json, Type returnType)
         {
             return JsonSerializer.Deserialize(utf8Json.Span, returnType);
         }
@@ -104,7 +104,7 @@ namespace DanilovSoft.vRPC
         /// Десериализует Json.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T DeserializeJson<T>(ReadOnlySpan<byte> utf8Json)
+        public static T? DeserializeJson<T>(ReadOnlySpan<byte> utf8Json)
         {
             return JsonSerializer.Deserialize<T>(utf8Json);
         }

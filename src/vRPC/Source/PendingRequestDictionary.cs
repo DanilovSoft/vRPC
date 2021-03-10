@@ -10,7 +10,7 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.
     /// </summary>
-    [DebuggerDisplay(@"\{Count = {_dict.Count}\}")]
+    [DebuggerDisplay(@"\{Count = {_pendingRequests.Count}\}")]
     internal sealed class PendingRequestDictionary
     {
         [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
@@ -95,7 +95,7 @@ namespace DanilovSoft.vRPC
                     {
                         foreach (IResponseAwaiter tcs in _pendingRequests.Values)
                         {
-                            tcs.SetErrorResponse(exception);
+                            tcs.TrySetErrorResponse(exception);
                         }
                         _pendingRequests.Clear();
                     }

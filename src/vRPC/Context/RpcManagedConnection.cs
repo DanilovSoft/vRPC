@@ -456,7 +456,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private Task<TResult> SendRequest<TResult>(RequestMethodMeta method, object[] args)
+        private Task<TResult> SendRequest<TResult>(RequestMethodMeta method, object?[] args)
         {
             if (method.IsJsonRpc)
             {
@@ -611,9 +611,9 @@ namespace DanilovSoft.vRPC
                 return new ValueTask(Task.FromException(new VRpcShutdownException(_shutdownRequest)));
         }
 
-        internal void ReleaseReusable(ReusableJRequest reusable)
+        internal void AtomicReleaseReusableJ(ReusableJRequest reusable)
         {
-            Debug.Assert(Volatile.Read(ref _reusableJRequest) == null);
+            Debug.Assert(_reusableJRequest == null);
 
             Volatile.Write(ref _reusableJRequest, reusable);
         }
@@ -621,9 +621,9 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Записывает ссылку в глобальную переменную вместо Null, делая объект доступным для переиспользования.
         /// </summary>
-        internal void ReleaseReusable(ReusableVRequest reusable)
+        internal void AtomicReleaseReusableV(ReusableVRequest reusable)
         {
-            Debug.Assert(Volatile.Read(ref _reusableVRequest) == null);
+            Debug.Assert(_reusableVRequest == null);
 
             Volatile.Write(ref _reusableVRequest, reusable);
         }
@@ -983,7 +983,7 @@ namespace DanilovSoft.vRPC
                                 if (_pendingRequests.TryRemove(id.Value, out IResponseAwaiter? jRequest))
                                 {
                                     // Десериализовать ответ в тип возврата.
-                                    jRequest.SetJResponse(ref reader);
+                                    jRequest.TrySetJResponse(ref reader);
 
                                     errorResponse = null;
 
@@ -1076,7 +1076,7 @@ namespace DanilovSoft.vRPC
                         {
                             // На основе кода и сообщения можно создать исключение.
                             var exception = ExceptionHelper.ToException(errorModel.Code, errorModel.Message);
-                            pendingRequest.SetErrorResponse(exception);
+                            pendingRequest.TrySetErrorResponse(exception);
                         }
                         else
                         {
@@ -1283,7 +1283,7 @@ namespace DanilovSoft.vRPC
                 if (header.Id != null && _pendingRequests.TryRemove(header.Id.Value, out IResponseAwaiter? vRequest))
                 // Передать ответ ожидающему потоку.
                 {
-                    vRequest.SetVResponse(in header, payload);
+                    vRequest.TrySetVResponse(in header, payload);
 
                     // Получен ожидаемый ответ на запрос.
                     return DecreaseActiveRequestsCountOrClose();
@@ -1683,13 +1683,13 @@ namespace DanilovSoft.vRPC
                         }
                     }
                     else if (message is IVRequest vRequest)
-                    // Отправляем запрос на который нужно получить ответ.
+                    // Отправляем запрос или нотификацию.
                     {
                         if (vRequest.TryBeginSend())
                         {
                             // Если не удалось сериализовать -> игнорируем отправку, пользователь получит исключение.
                             // Переводит состояние сообщения в GotErrorResponse.
-                            if (vRequest.TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize))
+                            if (vRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer, out int headerSize))
                             {
                                 try
                                 {
@@ -1768,7 +1768,7 @@ namespace DanilovSoft.vRPC
                         }
                     }
                     else if (message is IJRequest jRequest)
-                    // Отправляем запрос на который нужно получить ответ.
+                    // Отправляем запрос или нотификацию.
                     {
                         if (jRequest.TryBeginSend())
                         {

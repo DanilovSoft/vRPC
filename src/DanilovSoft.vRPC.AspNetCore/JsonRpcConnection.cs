@@ -25,7 +25,7 @@ using System.Net;
         {
         }
 
-        public override bool IsAuthenticated => throw new NotImplementedException();
+        public override bool IsAuthenticated => false;
 
         public static async Task<JsonRpcConnection> AcceptAsync(JrpcAcceptContext acceptContext)
         {
@@ -60,7 +60,10 @@ using System.Net;
 
         private protected override bool ActionPermissionCheck(ControllerMethodMeta actionMeta, out IActionResult? permissionError, out ClaimsPrincipal? user)
         {
-            throw new NotImplementedException();
+            // TODO
+            permissionError = null;
+            user = null;
+            return true;
         }
     }
 }

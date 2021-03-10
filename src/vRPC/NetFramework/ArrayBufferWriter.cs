@@ -13,6 +13,7 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Этот класс передаётся через интерфейс поэтому лучше не делать структурой.
     /// </summary>
+    [DebuggerDisplay(@"\{IsInitialized = {IsInitialized}\}")]
     [StructLayout(LayoutKind.Auto)]
     internal sealed class ArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
     {

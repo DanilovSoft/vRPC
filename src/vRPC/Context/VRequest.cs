@@ -17,9 +17,8 @@ namespace DanilovSoft.vRPC
     {
         private readonly TaskCompletionSource<TResult> _tcs;
         public RequestMethodMeta Method { get; }
-        public object[]? Args { get; private set; }
+        public object?[]? Args { get; private set; }
         public Task<TResult> Task => _tcs.Task;
-
 #if DEBUG
         [SuppressMessage("CodeQuality", "IDE0051:Удалите неиспользуемые закрытые члены", Justification = "Для отладчика")]
         private object? ValueForDebugDisplay
@@ -39,9 +38,10 @@ namespace DanilovSoft.vRPC
 #endif
         public int Id { get; set; }
         public bool IsNotification => false;
+        private ReusableRequestState _state = new(ReusableRequestStateEnum.ReadyToSend);
 
         // ctor
-        internal VRequest(RequestMethodMeta method, object[] args)
+        internal VRequest(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(!method.IsNotificationRequest);
 
@@ -50,46 +50,28 @@ namespace DanilovSoft.vRPC
             _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
-        /// <summary>
-        /// Передает ожидающему потоку исключение как результат запроса.
-        /// </summary>
-        public void SetErrorResponse(VRpcException rpcException)
+        public bool TryBeginSend()
         {
-            SetErrorResponse(exception: rpcException);
+            // Отправляющий поток пытается атомарно забрать объект.
+            var prevState = _state.TrySetSending();
+            return prevState == ReusableRequestStateEnum.ReadyToSend;
         }
 
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetErrorResponse(Exception exception)
+        public void TrySetErrorResponse(Exception exception)
         {
-            Debug.Assert(_tcs != null);
+            // Предотвратит бесмысленный TryBeginSend.
+            _state.SetErrorResponse();
 
             _tcs.TrySetException(exception);
         }
 
-        private void SetResult([AllowNull] TResult result)
-        {
-            Debug.Assert(_tcs != null);
-
-            _tcs.TrySetResult(result!);
-        }
-
-        //private void DeserializeResponse(ReadOnlyMemory<byte> payload, string? contentEncoding)
-        //{
-        //    TResult result = contentEncoding switch
-        //    {
-        //        KnownEncoding.ProtobufEncoding => ExtensionMethods.DeserializeProtoBuf<TResult>(payload),
-        //        _ => ExtensionMethods.DeserializeJson<TResult>(payload.Span), // Сериализатор по умолчанию.
-        //    };
-        //    SetResult(result);
-        //}
-
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        public void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        public void TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             Debug.Assert(header.IsRequest == false);
 
@@ -97,22 +79,12 @@ namespace DanilovSoft.vRPC
 
             if (vException == null)
             {
-                SetResult((TResult)result);
+                TrySetResult((TResult)result!);
             }
             else
             {
-                SetErrorResponse(vException);
+                TrySetErrorResponse(vException);
             }
-        }
-
-        /// <summary>
-        /// Передаёт ответ ожидающему потоку.
-        /// </summary>
-        /// <remarks>Не бросает исключения.</remarks>
-        public void SetJResponse(ref Utf8JsonReader reader)
-        {
-            Debug.Assert(false, "Сюда не должны попадать");
-            throw new InvalidOperationException();
         }
 
         public bool TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize)
@@ -125,24 +97,35 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                SetErrorResponse(vException);
+                TrySetErrorResponse(vException);
                 return false;
             }
         }
 
+        // Вызывает отправляющий поток.
         public void CompleteSend(VRpcException exception)
         {
             // Игнорируем.
         }
 
+        // Вызывает отправляющий поток.
         public void CompleteSend()
         {
             // Игнорируем.
         }
 
-        public bool TryBeginSend()
+        private void TrySetResult(TResult result)
         {
-            throw new NotImplementedException();
+            Debug.Assert(_tcs != null);
+
+            _tcs.TrySetResult(result);
+        }
+
+        /// <inheritdoc/>>
+        void IResponseAwaiter.TrySetJResponse(ref Utf8JsonReader reader)
+        {
+            Debug.Assert(false, "Сюда не должны попадать");
+            throw new InvalidOperationException();
         }
     }
 }

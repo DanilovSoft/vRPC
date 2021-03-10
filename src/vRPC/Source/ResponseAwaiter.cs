@@ -14,22 +14,23 @@ namespace DanilovSoft.vRPC
     {
         int Id { get; set; }
 
+        ///// <summary>
+        ///// Передает ожидающему потоку исключение как результат запроса.
+        ///// </summary>
+        //void TrySetErrorResponse(VRpcException exception);
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
-        void SetErrorResponse(VRpcException exception);
-        /// <summary>
-        /// Передает ожидающему потоку исключение как результат запроса.
-        /// </summary>
-        void SetErrorResponse(Exception exception);
+        void TrySetErrorResponse(Exception exception);
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
+        void TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload);
         /// <summary>
         /// Передаёт ответ ожидающему потоку.
         /// </summary>
-        void SetJResponse(ref Utf8JsonReader reader);
+        /// <param name="reader">Json ридер содержащий контент ответа.</param>
+        void TrySetJResponse(ref Utf8JsonReader reader);
     }
 
 //    /// <summary>

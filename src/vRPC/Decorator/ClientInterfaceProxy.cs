@@ -65,7 +65,7 @@ namespace DanilovSoft.vRPC.Decorator
         #region Асинхронные псевдо-публичные точки входа
 
         // Вызывается через рефлексию — не переименовывать.
-        protected Task EmptyTaskInvoke(MethodInfo targetMethod, object[] args)
+        protected Task EmptyTaskInvoke(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
@@ -92,7 +92,7 @@ namespace DanilovSoft.vRPC.Decorator
         }
 
         // Вызывается через рефлексию — не переименовывать.
-        protected ValueTask EmptyValueTaskInvoke(MethodInfo targetMethod, object[] args)
+        protected ValueTask EmptyValueTaskInvoke(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
@@ -120,7 +120,7 @@ namespace DanilovSoft.vRPC.Decorator
         }
 
         // Вызывается через рефлексию — не переименовывать.
-        protected ValueTask<T> ValueTaskInvoke<T>(MethodInfo targetMethod, object[] args)
+        protected ValueTask<T> ValueTaskInvoke<T>(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
@@ -139,7 +139,7 @@ namespace DanilovSoft.vRPC.Decorator
         }
 
         // Вызывается через рефлексию — не переименовывать.
-        protected Task<T> TaskInvoke<T>(MethodInfo targetMethod, object[] args)
+        protected Task<T> TaskInvoke<T>(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
@@ -160,7 +160,7 @@ namespace DanilovSoft.vRPC.Decorator
         #endregion
 
         // Вызывается через рефлексию — не переименовывать.
-        protected T Invoke<T>(MethodInfo targetMethod, object[] args)
+        protected T Invoke<T>(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
@@ -176,7 +176,7 @@ namespace DanilovSoft.vRPC.Decorator
         }
 
         // Вызывается через рефлексию — не переименовывать.
-        protected void NoResultInvoke(MethodInfo targetMethod, object[] args)
+        protected void NoResultInvoke(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);

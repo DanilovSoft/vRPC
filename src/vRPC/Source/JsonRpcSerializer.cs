@@ -22,7 +22,7 @@ namespace DanilovSoft.vRPC
         internal static readonly JsonEncodedText Id = JsonEncodedText.Encode("id");
 
         /// <exception cref="JsonException"/>
-        private static void SerializeRequest(ArrayBufferWriter<byte> buffer, string method, object[] args, int? id)
+        private static void SerializeRequest(ArrayBufferWriter<byte> buffer, string method, object?[] args, int? id)
         {
             using (var writer = new Utf8JsonWriter(buffer))
             {
@@ -58,13 +58,13 @@ namespace DanilovSoft.vRPC
         }
 
         /// <remarks>Не бросает исключения.</remarks>
-        internal static bool TrySerializeRequest(string method, object[] args, int id, ArrayBufferWriter<byte> buffer,
+        internal static bool TrySerializeRequest(string method, object?[] args, int id, 
+            ArrayBufferWriter<byte> buffer,
             [NotNullWhen(false)] out VRpcSerializationException? exception)
         {
             try
             {
                 SerializeRequest(buffer, method, args, id);
-
                 exception = null;
                 return true;
             }

@@ -18,6 +18,7 @@ namespace DanilovSoft.vRPC
         public Task<TResult> Task => _tcs.Task;
         public object[]? Args { get; private set; }
         public bool IsNotification => false;
+        private ReusableRequestState _state = new(ReusableRequestStateEnum.ReadyToSend);
 
         public JRequest(RequestMethodMeta method, object[] args)
         {
@@ -44,34 +45,25 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                SetErrorResponse(exception);
+                TrySetErrorResponse(exception);
                 return false;
             }
         }
 
-        public void SetErrorResponse(VRpcException rpcException)
+        public void TrySetErrorResponse(Exception exception)
         {
-            SetErrorResponse(exception: rpcException);
-        }
+            // Предотвратит бесмысленный TryBeginSend.
+            _state.SetErrorResponse();
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetErrorResponse(Exception exception)
-        {
             _tcs.TrySetException(exception);
         }
 
-        public void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
-        {
-            Debug.Assert(false, "Сюда не должны попадать");
-            throw new InvalidOperationException();
-        }
-
-        public void SetJResponse(ref Utf8JsonReader reader)
+        public void TrySetJResponse(ref Utf8JsonReader reader)
         {
             if (typeof(TResult) != typeof(VoidStruct))
             // Поток ожидает некий объект как результат.
             {
-                TResult result;
+                TResult? result;
                 try
                 {
                     // Шаблонный сериализатор экономит на упаковке.
@@ -80,12 +72,12 @@ namespace DanilovSoft.vRPC
                 catch (JsonException deserializationException)
                 {
                     // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
-                    SetErrorResponse(new VRpcProtocolErrorException(
+                    TrySetErrorResponse(new VRpcProtocolErrorException(
                         $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
 
                     return;
                 }
-                _tcs.TrySetResult(result);
+                _tcs.TrySetResult(result!);
             }
             else
             // void.
@@ -106,7 +98,15 @@ namespace DanilovSoft.vRPC
 
         public bool TryBeginSend()
         {
-            throw new NotImplementedException();
+            // Отправляющий поток пытается атомарно забрать объект.
+            var prevState = _state.TrySetSending();
+            return prevState == ReusableRequestStateEnum.ReadyToSend;
+        }
+
+        void IResponseAwaiter.TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        {
+            Debug.Assert(false, "Сюда не должны попадать");
+            throw new InvalidOperationException();
         }
     }
 }

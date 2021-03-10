@@ -34,12 +34,7 @@ namespace DanilovSoft.vRPC
             return new ValueTask(this, _mrv.Version);
         }
 
-        private void SetException(VRpcException exception)
-        {
-            _mrv.SetException(exception);
-        }
-
-        public bool TrySerialize(out ArrayBufferWriter<byte> buffer)
+        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer)
         {
             Debug.Assert(Method != null);
             Debug.Assert(Args != null);
@@ -53,7 +48,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                SetException(exception);
+                _mrv.SetException(exception);
                 return false;
             }
         }
@@ -86,7 +81,9 @@ namespace DanilovSoft.vRPC
 
         public bool TryBeginSend()
         {
-            throw new NotImplementedException();
+            // Нотификации не находятся в словаре запросов,
+            // поэтому их не может отменить другой поток.
+            return true;
         }
     }
 }

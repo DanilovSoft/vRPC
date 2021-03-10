@@ -4,7 +4,7 @@ using System;
 namespace InternalConsoleApp
 {
     [AllowAnonymous]
-    public class TestController : ServerController
+    public class TestController : RpcController
     {
         public void Message(string msg)
         {

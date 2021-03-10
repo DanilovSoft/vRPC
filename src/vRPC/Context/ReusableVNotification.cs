@@ -11,7 +11,7 @@ namespace DanilovSoft.vRPC
     internal sealed class ReusableVNotification : IVRequest, INotification, IValueTaskSource
     {
         public RequestMethodMeta? Method { get; private set; }
-        public object[]? Args { get; private set; }
+        public object?[]? Args { get; private set; }
         public bool IsNotification => true;
         private ManualResetValueTaskSourceCore<VoidStruct> _mrv;
 
@@ -23,7 +23,7 @@ namespace DanilovSoft.vRPC
             _mrv.RunContinuationsAsynchronously = true;   
         }
 
-        internal void Initialize(RequestMethodMeta method, object[] args)
+        internal void Initialize(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(!method.IsJsonRpc);
             Debug.Assert(method.IsNotificationRequest);
@@ -37,12 +37,8 @@ namespace DanilovSoft.vRPC
             return new ValueTask(this, _mrv.Version);
         }
 
-        private void SetException(VRpcException exception)
-        {
-            _mrv.SetException(exception);
-        }
-
-        public bool TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize)
+        // Вызывает отправляющий поток.
+        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
         {
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);
@@ -53,7 +49,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                SetException(vException);
+                _mrv.SetException(vException);
                 return false;
             }
         }
@@ -74,11 +70,13 @@ namespace DanilovSoft.vRPC
             _mrv.Reset();
         }
 
+        // Вызывает отправляющий поток.
         public void CompleteSend(VRpcException exception)
         {
             _mrv.SetException(exception);
         }
 
+        // Вызывает отправляющий поток.
         public void CompleteSend()
         {
             _mrv.SetResult(default);
@@ -86,7 +84,9 @@ namespace DanilovSoft.vRPC
 
         public bool TryBeginSend()
         {
-            throw new NotImplementedException();
+            // Нотификации не находятся в словаре запросов,
+            // поэтому их не может отменить другой поток.
+            return true;
         }
     }
 }

@@ -9,7 +9,7 @@ using Microsoft.IO;
 namespace ConsoleApp
 {
     [AllowAnonymous]
-    internal class BenchmarkController : ServerController
+    internal class BenchmarkController : RpcController
     {
         public void TestNotification()
         {

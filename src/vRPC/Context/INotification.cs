@@ -10,14 +10,4 @@ namespace DanilovSoft.vRPC
     {
         ValueTask WaitNotificationAsync();
     }
-
-    //internal interface IVNotification : IVRequest, INotification
-    //{
-        
-    //}
-
-    //internal interface IJNotification : IJRequest, INotification
-    //{
-        
-    //}
 }

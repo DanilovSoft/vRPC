@@ -18,23 +18,18 @@ namespace DanilovSoft.vRPC
         public int Id { get; set; }
         public bool IsNotification => false;
         private object? _tcs;
-        private Action<ReusableVRequest, object?>? _setResponse;
-        private Action<ReusableVRequest, Exception>? _setErrorResponse;
-
-        // 0 - сброшен. 1 - готов к отправке. 2 - в процессе отправки. 3 - отправлен, 4 - завершен с ошибкой, 5 - получен ответ.
-        /// <summary>
-        /// Решает какой поток будет выполнять Reset.
-        /// </summary>
-        private ReusableRequestState _state;
-        //private int _state = 0;
+        private Action<object?>? _trySetResponse;
+        private Func<Exception, bool>? _trySetErrorResponse;
+        // Решает какой поток будет выполнять Reset.
+        private ReusableRequestState _state = new(ReusableRequestStateEnum.Reset);
 
         public ReusableVRequest(RpcManagedConnection context)
         {
             _context = context;
         }
 
-        /// <summary>Переводит в состояние 0.</summary>
-        private void Reset(bool allowReuse)
+        /// <summary>Переводит в состояние 1.</summary>
+        private void Reset()
         {
             Debug.Assert(_state.State
                 is ReusableRequestStateEnum.GotResponse
@@ -44,24 +39,21 @@ namespace DanilovSoft.vRPC
             Method = null;
             Args = null;
             _tcs = null;
-            _setResponse = null;
-            _setErrorResponse = null;
+            _trySetResponse = null;
+            _trySetErrorResponse = null;
 
-            if (allowReuse)
-            {
-                _state.Reset();
-                _context.ReleaseReusable(this);
-            }
+            _state.Reset();
+            _context.AtomicReleaseReusableV(this);
         }
 
-        /// <summary>Переводит в состояние 1.</summary>
-        internal Task<TResult> Initialize<TResult>(RequestMethodMeta method, object[] args)
+        /// <summary>Переводит в состояние 2.</summary>
+        public Task<TResult> Initialize<TResult>(RequestMethodMeta method, object[] args)
         {
             Debug.Assert(Method == null);
             Debug.Assert(Args == null);
             Debug.Assert(_tcs == null);
-            Debug.Assert(_setResponse == null);
-            Debug.Assert(_setErrorResponse == null);
+            Debug.Assert(_trySetResponse == null);
+            Debug.Assert(_trySetErrorResponse == null);
 
             Method = method;
             Args = args;
@@ -69,14 +61,14 @@ namespace DanilovSoft.vRPC
             var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             _tcs = tcs;
-            _setResponse = SetResponse<TResult>;
-            _setErrorResponse = SetErrorResponse<TResult>;
-            _state.Ready();
+            _trySetErrorResponse = tcs.TrySetException;
+            _trySetResponse = TrySetResponse<TResult>;
+            _state.SetReady();
 
             return tcs.Task;
         }
 
-        /// <summary>Переводит в состояние 2.</summary>
+        /// <summary>Переводит в состояние 3.</summary>
         public bool TryBeginSend()
         {
             // Отправляющий поток пытается атомарно забрать объект.
@@ -84,7 +76,7 @@ namespace DanilovSoft.vRPC
             return prevState == ReusableRequestStateEnum.ReadyToSend;
         }
 
-        /// <summary>Переводит в состояние 3.</summary>
+        /// <summary>Переводит в состояние 4.</summary>
         public void CompleteSend()
         {
             var prevState = _state.TrySetSended();
@@ -93,62 +85,58 @@ namespace DanilovSoft.vRPC
             if (prevState is ReusableRequestStateEnum.GotResponse or ReusableRequestStateEnum.GotErrorResponse)
             // Ответственность на сбросе на нас.
             {
-                bool resetSatate = prevState == ReusableRequestStateEnum.GotResponse;
-                Reset(resetSatate);
+                Reset();
             }
         }
 
-        /// <summary>Переводит в состояние 4.</summary>
-        private void SetResponse(object result)
+        /// <summary>Переводит в состояние 5.</summary>
+        private void TrySetResponse(object? result)
         {
-            Debug.Assert(_setResponse != null);
+            Debug.Assert(_trySetResponse != null);
 
-            _setResponse(this, result);
+            _trySetResponse(result);
         }
 
-        /// <summary>Переводит в состояние 4.</summary>
-        private static void SetResponse<TResult>(ReusableVRequest self, object? result)
+        /// <summary>Переводит в состояние 5.</summary>
+        private void TrySetResponse<TResult>(object? result)
         {
-            var tcs = self._tcs as TaskCompletionSource<TResult>;
+            var tcs = _tcs as TaskCompletionSource<TResult>;
             Debug.Assert(tcs != null);
 
-            var prevState = self._state.SetGotResponse();
+            var prevState = _state.SetGotResponse();
 
             // В редких случаях мы могли обогнать отправляющий поток,
             // в этом случае сброс сделает отправляющий поток.
             if (prevState != ReusableRequestStateEnum.Sending)
             {
                 // Нужно сделать сброс перед установкой результата.
-                self.Reset(allowReuse: true);
+                Reset();
             }
-
             tcs.TrySetResult((TResult)result!);
         }
 
-        /// <summary>Переводит в состояние 5.</summary>
+        /// <summary>Переводит в состояние 6.</summary>
         public void CompleteSend(VRpcException exception)
         {
             _state.SetErrorResponse();
-
-            // На этот раз просто что-бы освободить память.
-            Reset(allowReuse: false);
+            Reset();
         }
 
         /// <summary>
         /// При получении ответа с ошибкой или при обрыве соединения что технически считается результатом на запрос.
         /// </summary>
-        /// <remarks>Переводит в состояние 5.</remarks>
-        private static void SetErrorResponse<TResult>(ReusableVRequest self, Exception exception)
+        /// <remarks>Переводит в состояние 6.</remarks>
+        public void TrySetErrorResponse(Exception exception)
         {
-            var tcs = self._tcs as TaskCompletionSource<TResult>;
-            Debug.Assert(tcs != null);
+            var trySetErrorResponse = _trySetErrorResponse;
+            Debug.Assert(trySetErrorResponse != null);
 
             // Атомарно узнаём в каком состоянии было сообщение.
-            var prevState = self._state.SetErrorResponse();
+            var prevState = _state.SetErrorResponse();
 
-            Debug.Assert(prevState 
-                is ReusableRequestStateEnum.ReadyToSend 
-                or ReusableRequestStateEnum.Sending 
+            Debug.Assert(prevState
+                is ReusableRequestStateEnum.ReadyToSend
+                or ReusableRequestStateEnum.Sending
                 or ReusableRequestStateEnum.Sended);
 
             // upd: Может быть случай когда читающий поток завершается
@@ -157,44 +145,25 @@ namespace DanilovSoft.vRPC
             {
                 // Нужно сделать сброс перед установкой результата
                 // иначе другой поток может начать переиспользование это-го класса.
-                self.Reset(allowReuse: true);
+                Reset();
             }
 
-            tcs.TrySetException(exception);
+            trySetErrorResponse(exception);
         }
 
-        public void SetErrorResponse(VRpcException vException)
-        {
-            SetErrorResponse(exception: vException);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetErrorResponse(Exception exception)
-        {
-            Debug.Assert(_setErrorResponse != null);
-
-            _setErrorResponse(this, exception);
-        }
-
-        void IResponseAwaiter.SetJResponse(ref Utf8JsonReader reader)
-        {
-            Debug.Assert(false, "Сюда не должны попадать");
-            throw new NotSupportedException();
-        }
-
-        public void SetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
+        public void TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)
         {
             Debug.Assert(Method != null);
 
-            var result = Method.DeserializeVResponse(in header, payload, out VRpcException? vException);
+            object? result = Method.DeserializeVResponse(in header, payload, out VRpcException? vException);
 
             if (vException == null)
             {
-                SetResponse(result);
+                TrySetResponse(result);
             }
             else
             {
-                SetErrorResponse(vException);
+                TrySetErrorResponse(vException);
             }
         }
 
@@ -212,9 +181,15 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                SetErrorResponse(vException);
+                TrySetErrorResponse(vException);
                 return false;
             }
+        }
+
+        void IResponseAwaiter.TrySetJResponse(ref Utf8JsonReader reader)
+        {
+            Debug.Assert(false, "Сюда не должны попадать");
+            throw new NotSupportedException();
         }
     }
 }
