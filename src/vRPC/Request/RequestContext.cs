@@ -123,7 +123,7 @@ namespace DanilovSoft.vRPC
             finally
             {
                 if (dispose)
-                    buffer.Dispose();
+                    buffer.Return();
             }
         }
 
@@ -154,7 +154,7 @@ namespace DanilovSoft.vRPC
             finally
             {
                 if (dispose)
-                    buffer.Dispose();
+                    buffer.Return();
             }
         }
 

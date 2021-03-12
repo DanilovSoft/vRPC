@@ -1594,7 +1594,7 @@ namespace DanilovSoft.vRPC
                             }
                             finally
                             {
-                                buffer.Dispose();
+                                buffer.Return();
                             }
                         }
                         else
@@ -1666,7 +1666,7 @@ namespace DanilovSoft.vRPC
                             }
                             finally
                             {
-                                buffer.Dispose();
+                                buffer.Return();
                             }
                         }
 
@@ -1762,7 +1762,7 @@ namespace DanilovSoft.vRPC
                                 }
                                 finally
                                 {
-                                    buffer.Dispose();
+                                    buffer.Return();
                                 }
                             }
                         }
@@ -1811,7 +1811,7 @@ namespace DanilovSoft.vRPC
                                 }
                                 finally
                                 {
-                                    buffer.Dispose();
+                                    buffer.Return();
                                 }
                             }
                         }
@@ -1840,7 +1840,7 @@ namespace DanilovSoft.vRPC
                         }
                         finally
                         {
-                            buffer.Dispose();
+                            buffer.Return();
                         }
                     }
                     else if (message is VErrorResponse vError)
@@ -1893,7 +1893,7 @@ namespace DanilovSoft.vRPC
                         }
                         finally
                         {
-                            buffer.Dispose();
+                            buffer.Return();
                         }
                     }
 #if DEBUG

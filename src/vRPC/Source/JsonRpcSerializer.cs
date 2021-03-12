@@ -76,7 +76,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <remarks>Не бросает исключения.</remarks>
-        internal static bool TrySerializeRequest(string method, object[] args, int id,
+        internal static bool TrySerializeRequest(string method, object?[] args, int id,
             [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer,
             [NotNullWhen(false)] out VRpcSerializationException? exception)
         {
@@ -98,7 +98,7 @@ namespace DanilovSoft.vRPC
             finally
             {
                 if (dispose)
-                    buffer.Dispose();
+                    buffer.Return();
             }
         }
 
@@ -160,7 +160,7 @@ namespace DanilovSoft.vRPC
             finally
             {
                 if (dispose)
-                    buffer.Dispose();
+                    buffer.Return();
             }
         }
 
@@ -226,7 +226,7 @@ namespace DanilovSoft.vRPC
             finally
             {
                 if (dispose)
-                    buffer.Dispose();
+                    buffer.Return();
             }
         }
     }

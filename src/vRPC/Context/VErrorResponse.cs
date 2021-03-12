@@ -34,7 +34,7 @@ namespace DanilovSoft.vRPC.Context
             finally
             {
                 if (dispose)
-                    buffer.Dispose();
+                    buffer.Return();
             }
         }
 

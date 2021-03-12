@@ -15,7 +15,7 @@ namespace DanilovSoft.vRPC
     /// </summary>
     [DebuggerDisplay(@"\{IsInitialized = {IsInitialized}\}")]
     [StructLayout(LayoutKind.Auto)]
-    internal sealed class ArrayBufferWriter<T> : IBufferWriter<T>, IDisposable
+    internal sealed class ArrayBufferWriter<T> : IBufferWriter<T>/*, IDisposable*/
     {
         public const int MinimumBufferSize = 256;
 
@@ -39,7 +39,7 @@ namespace DanilovSoft.vRPC
             _index = 0;
         }
 
-        public void Reset()
+        public void Return()
         {
             Debug.Assert(_rentedBuffer != null);
 
@@ -185,10 +185,10 @@ namespace DanilovSoft.vRPC
             Debug.Assert(_rentedBuffer.Length - _index >= sizeHint);
         }
 
-        // Returns the rented buffer back to the pool
-        public void Dispose()
-        {
-            Reset();
-        }
+        //// Returns the rented buffer back to the pool
+        //public void Dispose()
+        //{
+        //    Reset();
+        //}
     }
 }

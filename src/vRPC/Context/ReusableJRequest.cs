@@ -127,7 +127,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        // TODO не диспозить с наружи - race condition!
+        // TODO не диспозить снаружи - race condition!
         public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? reusableBuffer)
         {
             Debug.Assert(Args != null);
@@ -143,7 +143,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                _reusableBuffer.Reset();
+                _reusableBuffer.Return();
                 TrySetErrorResponse(exception);
                 reusableBuffer = null;
                 return false;
@@ -204,6 +204,11 @@ namespace DanilovSoft.vRPC
             Debug.Assert(_trySetResponse != null);
 
             _trySetResponse(result);
+        }
+
+        private void ResetReusableBuffer()
+        {
+            _reusableBuffer.Return();
         }
     }
 }

@@ -255,7 +255,7 @@ namespace DanilovSoft.vRPC
             finally
             {
                 if (dispose)
-                    buf.Dispose();
+                    buf.Return();
             }
 
             var header = new HeaderDto(id, buf.WrittenCount, contentEncoding: null, FullName);

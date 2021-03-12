@@ -16,11 +16,11 @@ namespace DanilovSoft.vRPC
         public RequestMethodMeta Method { get; }
         public int Id { get; set; }
         public Task<TResult> Task => _tcs.Task;
-        public object[]? Args { get; private set; }
+        public object?[]? Args { get; private set; }
         public bool IsNotification => false;
         private ReusableRequestState _state = new(ReusableRequestStateEnum.ReadyToSend);
 
-        public JRequest(RequestMethodMeta method, object[] args)
+        public JRequest(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(!method.IsNotificationRequest);
 

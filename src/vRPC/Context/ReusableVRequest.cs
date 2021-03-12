@@ -14,7 +14,7 @@ namespace DanilovSoft.vRPC
     {
         private readonly RpcManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }
-        public object[]? Args { get; private set; }
+        public object?[]? Args { get; private set; }
         public int Id { get; set; }
         public bool IsNotification => false;
         private object? _tcs;
@@ -47,7 +47,7 @@ namespace DanilovSoft.vRPC
         }
 
         /// <summary>Переводит в состояние 2.</summary>
-        public Task<TResult> Initialize<TResult>(RequestMethodMeta method, object[] args)
+        public Task<TResult> Initialize<TResult>(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(Method == null);
             Debug.Assert(Args == null);
@@ -167,7 +167,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        public bool TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize)
+        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
         {
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);
