@@ -523,7 +523,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <remarks>Со стороны клиента.</remarks>
         /// <exception cref="Exception">Могут быть исключения не инкапсулированные в Task.</exception>
-        internal static ValueTask OnClientNotificationCall(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
+        internal static ValueTask OnClientNotificationCall(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(method.IsNotificationRequest);
 
@@ -542,7 +542,7 @@ namespace DanilovSoft.vRPC
             }
 
             // Локальная функция.
-            static async ValueTask WaitAsync(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
+            static async ValueTask WaitAsync(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object?[] args)
             {
                 ClientSideConnection connection = await connectionTask.ConfigureAwait(false);
 
@@ -550,7 +550,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private ValueTask CreateAndSendNotification(RequestMethodMeta method, object[] args)
+        private ValueTask CreateAndSendNotification(RequestMethodMeta method, object?[] args)
         {
             var notification = CreateNotification(method, args);
 
@@ -558,7 +558,7 @@ namespace DanilovSoft.vRPC
             return SendNotification(notification);
         }
 
-        private INotification CreateNotification(RequestMethodMeta method, object[] args)
+        private INotification CreateNotification(RequestMethodMeta method, object?[] args)
         {
             if (method.IsJsonRpc)
             {
@@ -606,10 +606,10 @@ namespace DanilovSoft.vRPC
                     return notification.WaitNotificationAsync();
                 }
                 else
-                    return new ValueTask(Task.FromException(new ObjectDisposedException(GetType().FullName)));
+                    return new(Task.FromException(new ObjectDisposedException(GetType().FullName)));
             }
             else
-                return new ValueTask(Task.FromException(new VRpcShutdownException(_shutdownRequest)));
+                return new(Task.FromException(new VRpcShutdownException(_shutdownRequest)));
         }
 
         internal void AtomicRestoreReusableJ(ReusableJRequest reusable)

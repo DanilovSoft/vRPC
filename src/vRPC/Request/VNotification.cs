@@ -10,10 +10,10 @@ namespace DanilovSoft.vRPC
     internal sealed class VNotification : INotification
     {
         public RequestMethodMeta Method { get; }
-        public object[] Args { get; }
+        public object?[] Args { get; }
         public bool IsNotification => true;
 
-        public VNotification(RequestMethodMeta method, object[] args)
+        public VNotification(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(!method.IsJsonRpc);
             Debug.Assert(method.IsNotificationRequest);

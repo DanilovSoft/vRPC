@@ -11,7 +11,7 @@ namespace DanilovSoft.vRPC
     internal sealed class ReusableJNotification : IJRequest, INotification, IValueTaskSource
     {
         public RequestMethodMeta? Method { get; private set; }
-        public object[]? Args { get; private set; }
+        public object?[]? Args { get; private set; }
         public bool IsNotification => true;
         private ManualResetValueTaskSourceCore<VoidStruct> _mrv;
 
@@ -20,7 +20,7 @@ namespace DanilovSoft.vRPC
             _mrv.RunContinuationsAsynchronously = true;
         }
 
-        internal void Initialize(RequestMethodMeta method, object[] args)
+        internal void Initialize(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(method.IsJsonRpc);
             Debug.Assert(method.IsNotificationRequest);

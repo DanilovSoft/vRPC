@@ -204,7 +204,7 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        internal static bool TrySerializeNotification(string method, object[] args,
+        internal static bool TrySerializeNotification(string method, object?[] args,
             [NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer,
             [NotNullWhen(false)] out VRpcSerializationException? exception)
         {
