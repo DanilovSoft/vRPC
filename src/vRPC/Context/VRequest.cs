@@ -15,10 +15,10 @@ namespace DanilovSoft.vRPC
     [DebuggerDisplay(@"\{Request = {Method.FullName}\}")]
     internal sealed class VRequest<TResult> : IVRequest, IResponseAwaiter
     {
-        private readonly TaskCompletionSource<TResult> _tcs;
+        private readonly TaskCompletionSource<TResult?> _tcs;
         public RequestMethodMeta Method { get; }
         public object?[]? Args { get; private set; }
-        public Task<TResult> Task => _tcs.Task;
+        public Task<TResult?> Task => _tcs.Task;
 #if DEBUG
         [SuppressMessage("CodeQuality", "IDE0051:Удалите неиспользуемые закрытые члены", Justification = "Для отладчика")]
         private object? ValueForDebugDisplay
@@ -47,7 +47,7 @@ namespace DanilovSoft.vRPC
 
             Method = method;
             Args = args;
-            _tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         public bool TryBeginSend()
@@ -60,12 +60,10 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Передает ожидающему потоку исключение как результат запроса.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void TrySetErrorResponse(Exception exception)
         {
-            // Предотвратит бесмысленный TryBeginSend.
-            _state.SetErrorResponse();
-
-            _tcs.TrySetException(exception);
+            InnerTrySetErrorResponse(exception);
         }
 
         /// <summary>
@@ -75,19 +73,19 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(header.IsRequest == false);
 
-            var result = Method.DeserializeVResponse(in header, payload, out VRpcException? vException);
+            TResult? result = Method.DeserializeVResponse<TResult>(in header, payload, out VRpcException? vException);
 
             if (vException == null)
             {
-                TrySetResult((TResult)result!);
+                _tcs.TrySetResult(result);
             }
             else
             {
-                TrySetErrorResponse(vException);
+                InnerTrySetErrorResponse(vException);
             }
         }
 
-        public bool TrySerialize(out ArrayBufferWriter<byte> buffer, out int headerSize)
+        public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? buffer, out int headerSize)
         {
             Debug.Assert(Args != null);
 
@@ -114,11 +112,12 @@ namespace DanilovSoft.vRPC
             // Игнорируем.
         }
 
-        private void TrySetResult(TResult result)
+        private void InnerTrySetErrorResponse(Exception exception)
         {
-            Debug.Assert(_tcs != null);
+            // Предотвратит бесмысленный TryBeginSend.
+            _state.SetErrorResponse();
 
-            _tcs.TrySetResult(result);
+            _tcs.TrySetException(exception);
         }
 
         /// <inheritdoc/>>

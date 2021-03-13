@@ -45,17 +45,15 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                TrySetErrorResponse(exception);
+                InnerTrySetErrorResponse(exception);
                 return false;
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void TrySetErrorResponse(Exception exception)
         {
-            // Предотвратит бесмысленный TryBeginSend.
-            _state.SetErrorResponse();
-
-            _tcs.TrySetException(exception);
+            InnerTrySetErrorResponse(exception);
         }
 
         public void TrySetJResponse(ref Utf8JsonReader reader)
@@ -72,7 +70,7 @@ namespace DanilovSoft.vRPC
                 catch (JsonException deserializationException)
                 {
                     // Сообщить ожидающему потоку что произошла ошибка при разборе ответа для него.
-                    TrySetErrorResponse(new VRpcProtocolErrorException(
+                    InnerTrySetErrorResponse(new VRpcProtocolErrorException(
                         $"Ошибка десериализации ответа на запрос \"{Method.FullName}\".", deserializationException));
 
                     return;
@@ -101,6 +99,14 @@ namespace DanilovSoft.vRPC
             // Отправляющий поток пытается атомарно забрать объект.
             var prevState = _state.TrySetSending();
             return prevState == ReusableRequestStateEnum.ReadyToSend;
+        }
+
+        private void InnerTrySetErrorResponse(Exception exception)
+        {
+            // Предотвратит бесмысленный TryBeginSend.
+            _state.SetErrorResponse();
+
+            _tcs.TrySetException(exception);
         }
 
         void IResponseAwaiter.TrySetVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload)

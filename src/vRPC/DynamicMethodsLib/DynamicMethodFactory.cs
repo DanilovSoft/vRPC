@@ -21,7 +21,7 @@ namespace DynamicMethodsLib
             return dynamicMethod;
         }
 
-        internal static Func<object, object[], object?> CreateMethodCall(MethodInfo methodInfo, bool skipConvertion = false)
+        internal static Func<object, object?[], object?> CreateMethodCall(MethodInfo methodInfo, bool skipConvertion = false)
         {
             if (methodInfo != null)
             {
@@ -38,7 +38,7 @@ namespace DynamicMethodsLib
                 ILGenerator il = dynamicMethod.GetILGenerator();
                 GenerateIL(methodInfo, il, 1, skipConvertion);
 
-                var invokeDelagate = (Func<object, object[], object>)dynamicMethod.CreateDelegate(typeof(Func<object, object[], object>));
+                var invokeDelagate = (Func<object, object?[], object?>)dynamicMethod.CreateDelegate(typeof(Func<object, object?[], object?>));
 
 #if NET471 && DECOMPILE
                 Decompiler.DecompileToConsoleAsync(methodInfo, skipConvertion).GetAwaiter().GetResult();

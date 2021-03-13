@@ -435,7 +435,8 @@ namespace DanilovSoft.vRPC
                 try
                 {
                     // Может быть исключение если не удалось подключиться.
-                    ClientSideConnection connection = connectionTask.Result; // у ValueTask можно обращаться к Result.
+                    // у ValueTask можно обращаться к Result.
+                    ClientSideConnection connection = connectionTask.Result;
                     return connection.SendRequest<TResult>(method, args);
                 }
                 catch (Exception ex)
@@ -450,8 +451,8 @@ namespace DanilovSoft.vRPC
                 static async Task<Task<TResult>> WaitAsync(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
                 {
                     var connection = await connectionTask.ConfigureAwait(false);
-
-                    return connection.SendRequest<TResult>(method, args);
+                    var task = connection.SendRequest<TResult>(method, args);
+                    return task;
                 }
             }
         }
@@ -466,7 +467,7 @@ namespace DanilovSoft.vRPC
                     Task<TResult> task = reusableRequest.Initialize<TResult>(method, args);
 
                     // Не бросает исключения.
-                    if (TrySendRequest<TResult>(reusableRequest, out Task<TResult>? error))
+                    if (TrySendRequest(reusableRequest, out Task<TResult>? error))
                     {
                         return task;
                     }
@@ -1075,7 +1076,7 @@ namespace DanilovSoft.vRPC
                         if (_pendingRequests.TryRemove(id.Value, out IResponseAwaiter? pendingRequest))
                         {
                             // На основе кода и сообщения можно создать исключение.
-                            var exception = ExceptionHelper.ToException(errorModel.Code, errorModel.Message);
+                            VRpcException exception = ExceptionHelper.ToException(errorModel.Code, errorModel.Message);
                             pendingRequest.TrySetErrorResponse(exception);
                         }
                         else
@@ -2246,7 +2247,7 @@ namespace DanilovSoft.vRPC
                             actionResult = actionResultAsTask.Result;
 
                             // Результат успешно получен без исключения.
-                            return new ValueTask<object?>(actionResult);
+                            return new(actionResult);
                         }
                         else
                         // Будем ждать асинхронный результат.
@@ -2261,13 +2262,13 @@ namespace DanilovSoft.vRPC
                     else
                     // Результатом контроллера был Null.
                     {
-                        return new ValueTask<object?>(result: null);
+                        return new(result: null);
                     }
                 }
                 else
                 // Нет доступа к методу контроллера.
                 {
-                    return new ValueTask<object?>(result: permissionError);
+                    return new(result: permissionError);
                 }
             }
             finally
@@ -2281,19 +2282,17 @@ namespace DanilovSoft.vRPC
 
             static async ValueTask<object?> WaitForControllerActionAsync(ValueTask<object?> task, IServiceScope scope, RequestContext pendingRequest)
             {
-                using (scope)
+                try
                 {
-                    try
-                    {
-                        object? result = await task.ConfigureAwait(false);
+                    object? result = await task.ConfigureAwait(false);
 
-                        // Результат успешно получен без исключения.
-                        return result;
-                    }
-                    finally
-                    {
-                        pendingRequest.DisposeArgs();
-                    }
+                    // Результат успешно получен без исключения.
+                    return result;
+                }
+                finally
+                {
+                    pendingRequest.DisposeArgs();
+                    scope.Dispose();
                 }
             }
         }
@@ -2376,20 +2375,6 @@ namespace DanilovSoft.vRPC
             // Вернуть результат с ошибкой.
             TryPostMessage(requestContext);
         }
-
-        ///// <summary>
-        ///// Отправляет ответ как InternalError с о.
-        ///// </summary>
-        //private void SendInternalErrorResponse(RequestContext requestContext, VRpcInternalErrorException exception)
-        //{
-        //    Debug.Assert(requestContext.IsResponseRequired);
-        //    Debug.Assert(requestContext.Id != null);
-
-        //    requestContext.Result = new InternalErrorResult(exception.Message);
-
-        //    // Вернуть результат с ошибкой.
-        //    TryPostMessage(requestContext);
-        //}
 
         #endregion // Обработка запроса в отдельном потоке.
 

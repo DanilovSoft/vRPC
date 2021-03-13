@@ -11,3 +11,6 @@ dotnet_diagnostic.CA1303.severity = none
 
 # CA2225: Для перегрузок операторов существуют варианты с именами
 dotnet_diagnostic.CA2225.severity = none
+
+# IDE0063: Использовать простой оператор using
+csharp_prefer_simple_using_statement = false

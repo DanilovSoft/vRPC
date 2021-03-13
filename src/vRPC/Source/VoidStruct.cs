@@ -8,6 +8,6 @@ namespace DanilovSoft.vRPC
     [StructLayout(LayoutKind.Auto)]
     internal readonly struct VoidStruct
     {
-        internal static readonly object RefInstance = new VoidStruct();
+        //internal static object ObjInstance { get; } = new VoidStruct();
     }
 }

@@ -158,9 +158,10 @@ namespace DanilovSoft.vRPC
         //    }
         //}
 
-        internal object? DeserializeVResponse(in HeaderDto header, ReadOnlyMemory<byte> payload, out VRpcException? vException)
+        internal TValue? DeserializeVResponse<TValue>(in HeaderDto header, ReadOnlyMemory<byte> payload, out VRpcException? vException)
         {
             Debug.Assert(header.IsRequest == false);
+            Debug.Assert(ReturnType == typeof(TValue));
 
             if (header.StatusCode == StatusCode.Ok)
             // Запрос на удалённой стороне был выполнен успешно.
@@ -175,7 +176,7 @@ namespace DanilovSoft.vRPC
                         try
                         {
                             vException = null;
-                            return DeserializeResponse(ReturnType, payload, header.PayloadEncoding);
+                            return DeserializeResponse<TValue>(payload, header.PayloadEncoding);
                         }
                         catch (Exception deserializationException)
                         {
@@ -191,14 +192,14 @@ namespace DanilovSoft.vRPC
                         // Результат запроса поддерживает Null.
                         {
                             vException = null;
-                            return default!;
+                            return default;
                         }
                         else
                         // Результатом этого запроса не может быть Null.
                         {
                             // Сообщить ожидающему потоку что произошла ошибка при разборе ответа удалённой стороны.
                             vException = new VRpcProtocolErrorException($"Ожидался не пустой результат запроса но был получен ответ без результата.");
-                            return default!;
+                            return default;
                         }
                     }
                 }
@@ -206,7 +207,7 @@ namespace DanilovSoft.vRPC
                 // void.
                 {
                     vException = null;
-                    return VoidStruct.RefInstance;
+                    return default;
                 }
                 #endregion
             }
@@ -219,8 +220,17 @@ namespace DanilovSoft.vRPC
                 // Сообщить ожидающему потоку что удаленная сторона вернула ошибку в результате выполнения запроса.
                 vException = ExceptionHelper.ToException(header.StatusCode, errorMessage);
 
-                return default!;
+                return default;
             }
+        }
+
+        private static TValue? DeserializeResponse<TValue>(ReadOnlyMemory<byte> payload, string? contentEncoding)
+        {
+            return contentEncoding switch
+            {
+                KnownEncoding.ProtobufEncoding => ExtensionMethods.DeserializeProtoBuf<TValue>(payload),
+                _ => JsonSerializer.Deserialize<TValue>(payload.Span), // Сериализатор по умолчанию.
+            };
         }
 
         private static object? DeserializeResponse(Type returnType, ReadOnlyMemory<byte> payload, string? contentEncoding)
