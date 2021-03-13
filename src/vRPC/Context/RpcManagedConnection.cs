@@ -1688,12 +1688,13 @@ namespace DanilovSoft.vRPC
                     {
                         if (vRequest.TryBeginSend())
                         {
-                            // Если не удалось сериализовать -> игнорируем отправку, пользователь получит исключение.
-                            // Переводит состояние сообщения в GotErrorResponse.
-                            if (vRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer, out int headerSize))
+                            try
                             {
-                                try
+                                // Если не удалось сериализовать -> игнорируем отправку, пользователь получит исключение.
+                                // Переводит состояние сообщения в GotErrorResponse.
+                                if (vRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer, out int headerSize))
                                 {
+
                                     //  Увеличить счетчик активных запросов.
                                     if (TryIncreaseActiveRequestsCount(isResponseRequired: !vRequest.IsNotification))
                                     {
@@ -1750,9 +1751,6 @@ namespace DanilovSoft.vRPC
                                             }
                                         }
                                         #endregion
-
-                                        // Если запрос является нотификацией то нужно завершить ожидание отправки.
-                                        vRequest.CompleteSend();
                                     }
                                     else
                                     // Пользователь запросил остановку сервиса.
@@ -1761,10 +1759,11 @@ namespace DanilovSoft.vRPC
                                         return;
                                     }
                                 }
-                                finally
-                                {
-                                    buffer.Return();
-                                }
+                            }
+                            finally
+                            {
+                                // Если запрос является нотификацией то нужно завершить ожидание отправки.
+                                vRequest.CompleteSend();
                             }
                         }
                     }
@@ -1773,11 +1772,12 @@ namespace DanilovSoft.vRPC
                     {
                         if (jRequest.TryBeginSend())
                         {
-                            // Если не удалось сериализовать -> Игнорируем отправку, пользователь получит исключение.
-                            if (jRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer))
+                            try
                             {
-                                try
+                                // Если не удалось сериализовать -> Игнорируем отправку, пользователь получит исключение.
+                                if (jRequest.TrySerialize(out ArrayBufferWriter<byte>? buffer))
                                 {
+
                                     //  Увеличить счетчик активных запросов.
                                     if (TryIncreaseActiveRequestsCount(isResponseRequired: !jRequest.IsNotification))
                                     {
@@ -1803,17 +1803,15 @@ namespace DanilovSoft.vRPC
                                             // Завершить поток.
                                             return;
                                         }
-
-                                        // Если запрос является нотификацией то нужно завершить ожидание отправки.
-                                        jRequest.CompleteSend();
                                     }
                                     else
                                         return;
                                 }
-                                finally
-                                {
-                                    buffer.Return();
-                                }
+                            }
+                            finally
+                            {
+                                // Если запрос является нотификацией то нужно завершить ожидание отправки.
+                                jRequest.CompleteSend();
                             }
                         }
                     }

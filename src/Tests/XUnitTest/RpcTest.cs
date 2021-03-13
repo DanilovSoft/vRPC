@@ -309,5 +309,16 @@ namespace XUnitTest
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
         }
+
+        [Fact]
+        public void TestReturnTypeSerializaionError()
+        {
+            throw new NotImplementedException();
+
+            using var listener = VRpcListener.StartNew(IPAddress.Any);
+            using var cli = new VRpcClient("127.0.0.1", listener.Port, ssl: false, allowAutoConnect: true);
+
+            var iface = cli.GetProxy<IServerTestController>();
+        }
     }
 }

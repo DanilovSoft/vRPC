@@ -37,6 +37,9 @@ namespace DanilovSoft.vRPC
         /// Если запрос получен в формате JSON-RPC, то и ответ должен быть в формате JSON-RPC.
         /// </summary>
         public bool IsJsonRpcRequest { get; private set; }
+        /// <summary>
+        /// Результат вызова метода контроллера.
+        /// </summary>
         internal object? Result { get; set; }
 
         public RequestContext(RpcManagedConnection context)
