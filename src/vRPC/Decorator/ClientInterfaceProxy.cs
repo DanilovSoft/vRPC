@@ -120,12 +120,12 @@ namespace DanilovSoft.vRPC.Decorator
         }
 
         // Вызывается через рефлексию — не переименовывать.
-        protected ValueTask<T> ValueTaskInvoke<T>(MethodInfo targetMethod, object?[] args)
+        protected ValueTask<T?> ValueTaskInvoke<T>(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<T> pendingRequest;
+            Task<T?> pendingRequest;
             try
             {
                 RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
@@ -133,18 +133,18 @@ namespace DanilovSoft.vRPC.Decorator
             }
             catch (Exception ex)
             {
-                return new(Task.FromException<T>(ex));
+                return new(Task.FromException<T?>(ex));
             }
             return new(task: pendingRequest);
         }
 
         // Вызывается через рефлексию — не переименовывать.
-        protected Task<T> TaskInvoke<T>(MethodInfo targetMethod, object?[] args)
+        protected Task<T?> TaskInvoke<T>(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<T> pendingRequest;
+            Task<T?> pendingRequest;
             try
             {
                 RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
@@ -152,7 +152,7 @@ namespace DanilovSoft.vRPC.Decorator
             }
             catch (Exception ex)
             {
-                return Task.FromException<T>(ex);
+                return Task.FromException<T?>(ex);
             }
             return pendingRequest;
         }
@@ -160,17 +160,17 @@ namespace DanilovSoft.vRPC.Decorator
         #endregion
 
         // Вызывается через рефлексию — не переименовывать.
-        protected T Invoke<T>(MethodInfo targetMethod, object?[] args)
+        protected T? Invoke<T>(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
             RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
             
-            Task<T> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
+            Task<T?> pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
 
             // Результатом может быть исключение.
-            T result = pendingRequest.GetAwaiter().GetResult();
+            T? result = pendingRequest.GetAwaiter().GetResult();
 
             return result!;
         }

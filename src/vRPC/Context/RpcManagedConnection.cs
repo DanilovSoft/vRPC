@@ -393,7 +393,7 @@ namespace DanilovSoft.vRPC
         /// <remarks>Со стороны сервера.</remarks>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
-        internal ValueTask OnServerNotificationCall(RequestMethodMeta method, object[] args)
+        internal ValueTask OnServerNotificationCall(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(method.IsNotificationRequest);
 
@@ -407,7 +407,7 @@ namespace DanilovSoft.vRPC
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="ObjectDisposedException"/>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal Task<TResult> OnServerRequestCall<TResult>(VRequest<TResult> vRequest)
+        internal Task<TResult?> OnServerRequestCall<TResult>(VRequest<TResult> vRequest)
         {
             Debug.Assert(vRequest.Method.ReturnType == typeof(TResult));
             Debug.Assert(!vRequest.Method.IsNotificationRequest);
@@ -426,7 +426,7 @@ namespace DanilovSoft.vRPC
         /// <remarks>Со стороны клиента.</remarks>
         /// <exception cref="VRpcConnectionNotOpenException"/>
         /// <exception cref="Exception">Могут быть исключения не инкапсулированные в Task.</exception>
-        internal static Task<TResult> OnClientRequestCall<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
+        internal static Task<TResult?> OnClientRequestCall<TResult>(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(!method.IsNotificationRequest);
 
@@ -441,14 +441,14 @@ namespace DanilovSoft.vRPC
                 }
                 catch (Exception ex)
                 {
-                    return Task.FromException<TResult>(ex);
+                    return Task.FromException<TResult?>(ex);
                 }
             }
             else
             {
                 return WaitAsync(connectionTask, method, args).Unwrap();
 
-                static async Task<Task<TResult>> WaitAsync(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object[] args)
+                static async Task<Task<TResult?>> WaitAsync(ValueTask<ClientSideConnection> connectionTask, RequestMethodMeta method, object?[] args)
                 {
                     var connection = await connectionTask.ConfigureAwait(false);
                     var task = connection.SendRequest<TResult>(method, args);
@@ -457,22 +457,22 @@ namespace DanilovSoft.vRPC
             }
         }
 
-        private Task<TResult> SendRequest<TResult>(RequestMethodMeta method, object?[] args)
+        private Task<TResult?> SendRequest<TResult>(RequestMethodMeta method, object?[] args)
         {
             if (method.IsJsonRpc)
             {
                 ReusableJRequest? reusableRequest = Interlocked.Exchange(ref _reusableJRequest, null);
                 if (reusableRequest != null)
                 {
-                    Task<TResult> task = reusableRequest.Initialize<TResult>(method, args);
+                    var task = reusableRequest.Initialize<TResult>(method, args);
 
                     // Не бросает исключения.
-                    if (TrySendRequest(reusableRequest, out Task<TResult>? error))
+                    if (TrySendRequest<TResult>(reusableRequest, out var errorTask))
                     {
                         return task;
                     }
                     else
-                        return error;
+                        return errorTask;
                 }
                 else
                 {
@@ -480,12 +480,12 @@ namespace DanilovSoft.vRPC
 
                     var request = new JRequest<TResult>(method, args);
 
-                    if (TrySendRequest<TResult>(request, out Task<TResult>? error))
+                    if (TrySendRequest<TResult>(request, out var errorTask))
                     {
                         return request.Task;
                     }
                     else
-                        return error;
+                        return errorTask;
                 }
             }
             else
@@ -493,14 +493,14 @@ namespace DanilovSoft.vRPC
                 ReusableVRequest? reusableRequest = Interlocked.Exchange(ref _reusableVRequest, null);
                 if (reusableRequest != null)
                 {
-                    Task<TResult> task = reusableRequest.Initialize<TResult>(method, args);
+                    var task = reusableRequest.Initialize<TResult>(method, args);
 
-                    if (TrySendRequest<TResult>(reusableRequest, out var error))
+                    if (TrySendRequest<TResult>(reusableRequest, out var errorTask))
                     {
                         return task;
                     }
                     else
-                        return error;
+                        return errorTask;
                 }
                 else
                 {
@@ -612,7 +612,7 @@ namespace DanilovSoft.vRPC
                 return new ValueTask(Task.FromException(new VRpcShutdownException(_shutdownRequest)));
         }
 
-        internal void AtomicReleaseReusableJ(ReusableJRequest reusable)
+        internal void AtomicRestoreReusableJ(ReusableJRequest reusable)
         {
             Debug.Assert(_reusableJRequest == null);
 
@@ -622,7 +622,7 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Записывает ссылку в глобальную переменную вместо Null, делая объект доступным для переиспользования.
         /// </summary>
-        internal void AtomicReleaseReusableV(ReusableVRequest reusable)
+        internal void AtomicRestoreReusableV(ReusableVRequest reusable)
         {
             Debug.Assert(_reusableVRequest == null);
 
@@ -638,7 +638,7 @@ namespace DanilovSoft.vRPC
         /// <param name="errorTask">Может быть <see cref="ObjectDisposedException"/></param>
         /// <remarks>Происходит при обращении к прокси-интерфейсу. Не бросает исключения.</remarks>
         /// <returns>Таск с результатом от сервера или с исключением.</returns>
-        private protected bool TrySendRequest<TResult>(IResponseAwaiter request, [NotNullWhen(false)] out Task<TResult>? errorTask)
+        private protected bool TrySendRequest<TResult>(IResponseAwaiter request, [NotNullWhen(false)] out Task<TResult?>? errorTask)
         {
             // Shutdown нужно проверять раньше чем Dispose потому что Dispose может быть по причине Shutdown.
             if (_shutdownRequest == null) // volatile проверка.
@@ -653,7 +653,7 @@ namespace DanilovSoft.vRPC
                     }
                     catch (Exception ex)
                     {
-                        errorTask = Task.FromException<TResult>(ex);
+                        errorTask = Task.FromException<TResult?>(ex);
                         return false;
                     }
 
@@ -668,13 +668,13 @@ namespace DanilovSoft.vRPC
                 }
                 else
                 {
-                    errorTask = Task.FromException<TResult>(new ObjectDisposedException(GetType().FullName));
+                    errorTask = Task.FromException<TResult?>(new ObjectDisposedException(GetType().FullName));
                     return false;
                 }
             }
             else
             {
-                errorTask = Task.FromException<TResult>(new VRpcShutdownException(_shutdownRequest));
+                errorTask = Task.FromException<TResult?>(new VRpcShutdownException(_shutdownRequest));
                 return false;
             }
         }

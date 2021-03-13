@@ -12,10 +12,10 @@ namespace DanilovSoft.vRPC
 {
     internal sealed class JRequest<TResult> : IJRequest, IResponseAwaiter
     {
-        private readonly TaskCompletionSource<TResult> _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<TResult?> _tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public RequestMethodMeta Method { get; }
         public int Id { get; set; }
-        public Task<TResult> Task => _tcs.Task;
+        public Task<TResult?> Task => _tcs.Task;
         public object?[]? Args { get; private set; }
         public bool IsNotification => false;
         private ReusableRequestState _state = new(ReusableRequestStateEnum.ReadyToSend);

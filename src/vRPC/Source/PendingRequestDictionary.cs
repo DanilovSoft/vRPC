@@ -93,9 +93,9 @@ namespace DanilovSoft.vRPC
                     _disconnectException = exception;
                     if (_pendingRequests.Count > 0)
                     {
-                        foreach (IResponseAwaiter tcs in _pendingRequests.Values)
+                        foreach (var pendingRequest in _pendingRequests.Values)
                         {
-                            tcs.TrySetErrorResponse(exception);
+                            pendingRequest.TrySetErrorResponse(exception);
                         }
                         _pendingRequests.Clear();
                     }

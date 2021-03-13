@@ -115,7 +115,7 @@ namespace DanilovSoft.vRPC.Decorator
         }
 
         // Вызывается через рефлексию — не переименовывать.
-        protected ValueTask<T> ValueTaskInvoke<T>(MethodInfo targetMethod, object?[] args)
+        protected ValueTask<T?> ValueTaskInvoke<T>(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
@@ -124,17 +124,17 @@ namespace DanilovSoft.vRPC.Decorator
             {
                 RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
 
-                Task<T> pendingRequest = Connection.OnServerRequestCall(new VRequest<T>(methodMeta, args));
+                Task<T?> pendingRequest = Connection.OnServerRequestCall(new VRequest<T>(methodMeta, args));
                 return new(task: pendingRequest);
             }
             catch (Exception ex)
             {
-                return new(Task.FromException<T>(ex));
+                return new(Task.FromException<T?>(ex));
             }
         }
 
         // Вызывается через рефлексию — не переименовывать.
-        protected Task<T> TaskInvoke<T>(MethodInfo targetMethod, object?[] args)
+        protected Task<T?> TaskInvoke<T>(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
@@ -143,26 +143,26 @@ namespace DanilovSoft.vRPC.Decorator
             {
                 RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
 
-                Task<T> pendingRequest = Connection.OnServerRequestCall(new VRequest<T>(methodMeta, args));
+                Task<T?> pendingRequest = Connection.OnServerRequestCall(new VRequest<T>(methodMeta, args));
                 return pendingRequest;
             }
             catch (Exception ex)
             {
-                return Task.FromException<T>(ex);
+                return Task.FromException<T?>(ex);
             }
         }
 
         #endregion
 
         // Вызывается через рефлексию — не переименовывать.
-        protected T Invoke<T>(MethodInfo targetMethod, object?[] args)
+        protected T? Invoke<T>(MethodInfo targetMethod, object?[] args)
         {
             Debug.Assert(Connection != null);
             Debug.Assert(targetMethod != null);
 
             RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
 
-            Task<T> pendingRequest = Connection.OnServerRequestCall(new VRequest<T>(methodMeta, args));
+            Task<T?> pendingRequest = Connection.OnServerRequestCall(new VRequest<T>(methodMeta, args));
 
             // Результатом может быть исключение.
             return pendingRequest.GetAwaiter().GetResult();

@@ -12,8 +12,9 @@ namespace DanilovSoft.vRPC
         object?[]? Args { get; }
         bool IsNotification { get; }
         /// <summary>
-        /// Переводит сообщение в состояние отправки, что-бы другие потоки не вмешивались.
+        /// Сообщение мог завершить другой поток, поэтому пробуем атомарно получить доступ.
         /// </summary>
+        /// <remarks>Переводит сообщение в состояние отправки.</remarks>
         bool TryBeginSend();
         //void EndSend();
         /// <summary>

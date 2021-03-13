@@ -95,7 +95,7 @@ namespace DanilovSoft.vRPC
             }
             else
             {
-                TrySetErrorResponse(vException);
+                InnerTrySetErrorResponse(vException);
                 return false;
             }
         }

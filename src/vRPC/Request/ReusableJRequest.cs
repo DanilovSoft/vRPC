@@ -30,7 +30,7 @@ namespace DanilovSoft.vRPC
             _context = context;
         }
 
-        public Task<TResult> Initialize<TResult>(RequestMethodMeta method, object?[] args)
+        public Task<TResult?> Initialize<TResult>(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(Method == null);
             Debug.Assert(Args == null);
@@ -44,7 +44,7 @@ namespace DanilovSoft.vRPC
             Method = method;
             Args = args;
 
-            var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var tcs = new TaskCompletionSource<TResult?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             _tcs = tcs;
             _trySetErrorResponse = tcs.TrySetException;
@@ -54,6 +54,7 @@ namespace DanilovSoft.vRPC
             return tcs.Task;
         }
 
+        // Метод может быть вызван и читающим потоком, и отправляющим одновременно!
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void TrySetErrorResponse(Exception vException)
         {
@@ -159,7 +160,7 @@ namespace DanilovSoft.vRPC
             _trySetErrorResponse = null;
 
             _state.Reset();
-            _context.AtomicReleaseReusableJ(this);
+            _context.AtomicRestoreReusableJ(this);
         }
 
         void IResponseAwaiter.TrySetVResponse(in HeaderDto _, ReadOnlyMemory<byte> __)

@@ -81,9 +81,6 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="JsonRpc\" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\..\..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSockets.csproj" />
   </ItemGroup>
 

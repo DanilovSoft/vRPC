@@ -28,26 +28,8 @@ namespace DanilovSoft.vRPC
             _context = context;
         }
 
-        /// <summary>Переводит в состояние 1.</summary>
-        private void Reset()
-        {
-            Debug.Assert(_state.State
-                is ReusableRequestStateEnum.GotResponse
-                or ReusableRequestStateEnum.GotErrorResponse);
-
-            Id = 0;
-            Method = null;
-            Args = null;
-            _tcs = null;
-            _trySetResponse = null;
-            _trySetErrorResponse = null;
-
-            _state.Reset();
-            _context.AtomicReleaseReusableV(this);
-        }
-
         /// <summary>Переводит в состояние 2.</summary>
-        public Task<TResult> Initialize<TResult>(RequestMethodMeta method, object?[] args)
+        public Task<TResult?> Initialize<TResult>(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(Method == null);
             Debug.Assert(Args == null);
@@ -58,7 +40,7 @@ namespace DanilovSoft.vRPC
             Method = method;
             Args = args;
 
-            var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var tcs = new TaskCompletionSource<TResult?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             _tcs = tcs;
             _trySetErrorResponse = tcs.TrySetException;
@@ -96,6 +78,7 @@ namespace DanilovSoft.vRPC
             Reset();
         }
 
+        // Метод может быть вызван и читающим потоком, и отправляющим одновременно!
         /// <summary>
         /// При получении ответа с ошибкой или при обрыве соединения что технически считается результатом на запрос.
         /// </summary>
@@ -130,6 +113,24 @@ namespace DanilovSoft.vRPC
                 InnerTrySetErrorResponse(vException);
                 return false;
             }
+        }
+
+        /// <summary>Переводит в состояние 1.</summary>
+        private void Reset()
+        {
+            Debug.Assert(_state.State
+                is ReusableRequestStateEnum.GotResponse
+                or ReusableRequestStateEnum.GotErrorResponse);
+
+            Id = 0;
+            Method = null;
+            Args = null;
+            _tcs = null;
+            _trySetResponse = null;
+            _trySetErrorResponse = null;
+
+            _state.Reset();
+            _context.AtomicRestoreReusableV(this);
         }
 
         /// <summary>Переводит в состояние 5.</summary>

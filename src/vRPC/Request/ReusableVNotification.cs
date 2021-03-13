@@ -18,12 +18,12 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Для создания синглтона.
         /// </summary>
-        internal ReusableVNotification() 
+        public ReusableVNotification() 
         {
             _mrv.RunContinuationsAsynchronously = true;   
         }
 
-        internal void Initialize(RequestMethodMeta method, object?[] args)
+        public void Initialize(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(!method.IsJsonRpc);
             Debug.Assert(method.IsNotificationRequest);

@@ -577,7 +577,7 @@ namespace DanilovSoft.vRPC
         // Когда выполняют вызов метода через интерфейс.
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="VRpcConnectionNotOpenException"/>
-        internal Task<TResult> OnClientMethodCall<TResult>(RequestMethodMeta method, object[] args)
+        internal Task<TResult?> OnClientMethodCall<TResult>(RequestMethodMeta method, object?[] args)
         {
             Debug.Assert(method.ReturnType == typeof(TResult));
             Debug.Assert(!method.IsNotificationRequest);
@@ -593,7 +593,7 @@ namespace DanilovSoft.vRPC
         /// </summary>
         /// <exception cref="VRpcShutdownException"/>
         /// <exception cref="VRpcConnectionNotOpenException"/>
-        internal ValueTask OnClientNotificationCall(RequestMethodMeta methodMeta, object[] args)
+        internal ValueTask OnClientNotificationCall(RequestMethodMeta methodMeta, object?[] args)
         {
             // Начать соединение или взять существующее.
             ValueTask<ClientSideConnection> connectionTask = GetOrOpenConnection(default);
