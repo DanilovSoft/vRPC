@@ -277,6 +277,29 @@ namespace DanilovSoft.vRPC
             return true;
         }
 
+        internal bool TrySerializeVRequest(object?[] args, int? id, out int headerSize, 
+            ArrayBufferWriter<byte> buffer,
+            [NotNullWhen(false)] out VRpcSerializationException? exception)
+        {
+            try
+            {
+                ExtensionMethods.SerializeRequestArgsJson(buffer, args);
+                exception = null;
+            }
+            catch (Exception ex)
+            {
+                exception = new VRpcSerializationException($"Не удалось сериализовать запрос в json.", ex);
+                headerSize = -1;
+                return false;
+            }
+
+            var header = new HeaderDto(id, buffer.WrittenCount, contentEncoding: null, FullName);
+
+            // Записать заголовок в конец стрима. Не бросает исключения.
+            headerSize = header.SerializeJson(buffer);
+            return true;
+        }
+
         ///// <summary>
         ///// Сериализует сообщение в память. Может бросить исключение сериализации.
         ///// </summary>

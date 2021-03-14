@@ -13,25 +13,25 @@ namespace DanilovSoft.vRPC
     /// <summary>
     /// Этот класс передаётся через интерфейс поэтому лучше не делать структурой.
     /// </summary>
-    [DebuggerDisplay(@"\{IsInitialized = {IsInitialized}\}")]
+    [DebuggerDisplay(@"\{IsRented = {IsRented}\}")]
     [StructLayout(LayoutKind.Auto)]
-    internal sealed class ArrayBufferWriter<T> : IBufferWriter<T>/*, IDisposable*/
+    internal sealed class ArrayBufferWriter<T> : IBufferWriter<T>
     {
         public const int MinimumBufferSize = 256;
 
         private T[]? _rentedBuffer;
         private int _index;
-        public bool IsInitialized => _rentedBuffer != null;
+        public bool IsRented => _rentedBuffer != null;
 
         public ArrayBufferWriter(bool initialize = true)
         {
             if (initialize)
             {
-                Initialize();
+                Rent();
             }
         }
 
-        public void Initialize()
+        public void Rent()
         {
             Debug.Assert(_rentedBuffer == null);
 
@@ -185,10 +185,12 @@ namespace DanilovSoft.vRPC
             Debug.Assert(_rentedBuffer.Length - _index >= sizeHint);
         }
 
-        //// Returns the rented buffer back to the pool
-        //public void Dispose()
-        //{
-        //    Reset();
-        //}
+#if DEBUG
+        ~ArrayBufferWriter()
+        {
+            Debug.Assert(false);
+            throw new NotSupportedException();
+        }
+#endif
     }
 }

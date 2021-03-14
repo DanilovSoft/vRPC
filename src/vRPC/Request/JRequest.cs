@@ -18,7 +18,7 @@ namespace DanilovSoft.vRPC
         public Task<TResult?> Task => _tcs.Task;
         public object?[]? Args { get; private set; }
         public bool IsNotification => false;
-        private ReusableRequestState _state = new(ReusableRequestStateEnum.ReadyToSend);
+        private OldReusableRequestState _state = new(ReusableRequestState.ReadyToSend);
 
         public JRequest(RequestMethodMeta method, object?[] args)
         {
@@ -97,8 +97,8 @@ namespace DanilovSoft.vRPC
         public bool TryBeginSend()
         {
             // Отправляющий поток пытается атомарно забрать объект.
-            var prevState = _state.TrySetSending();
-            return prevState == ReusableRequestStateEnum.ReadyToSend;
+            var prevState = _state.SetSending();
+            return prevState == ReusableRequestState.ReadyToSend;
         }
 
         private void InnerTrySetErrorResponse(Exception exception)

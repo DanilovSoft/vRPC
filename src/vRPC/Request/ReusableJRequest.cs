@@ -7,13 +7,17 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using static DanilovSoft.vRPC.ReusableRequestState;
 
 namespace DanilovSoft.vRPC
 {
     internal sealed class ReusableJRequest : IJRequest, IResponseAwaiter
     {
-        private readonly ArrayBufferWriter<byte> _reusableBuffer = new(initialize: false);
+        private readonly object _stateObj = new();
+        private object StateObj => _stateObj;
+        private readonly ArrayBufferWriter<byte> _reusableMemory = new(initialize: false);
         private readonly RpcManagedConnection _context;
         public RequestMethodMeta? Method { get; private set; }
         public object?[]? Args { get; private set; }
@@ -23,7 +27,8 @@ namespace DanilovSoft.vRPC
         private TrySetJResponseDelegate? _trySetResponse;
         private Func<Exception, bool>? _trySetErrorResponse;
         // Решает какой поток будет выполнять Reset.
-        private ReusableRequestState _state = new(ReusableRequestStateEnum.Reset);
+        //private ReusableRequestState _state = new(ReusableRequestStateEnum.Reset);
+        private ReusableRequestState _state = Reset;
 
         public ReusableJRequest(RpcManagedConnection context)
         {
@@ -37,10 +42,11 @@ namespace DanilovSoft.vRPC
             Debug.Assert(_tcs == null);
             Debug.Assert(_trySetResponse == null);
             Debug.Assert(_trySetErrorResponse == null);
-            Debug.Assert(_reusableBuffer != null);
-            Debug.Assert(!_reusableBuffer.IsInitialized);
+            Debug.Assert(_reusableMemory != null);
+            Debug.Assert(_reusableMemory.IsRented == false);
+            Debug.Assert(_state == Reset);
 
-            _reusableBuffer.Initialize();
+            _reusableMemory.Rent();
             Method = method;
             Args = args;
 
@@ -49,9 +55,25 @@ namespace DanilovSoft.vRPC
             _tcs = tcs;
             _trySetErrorResponse = tcs.TrySetException;
             _trySetResponse = TrySetResponse<TResult>;
-            _state.SetReady();
+            _state = ReadyToSend;
 
             return tcs.Task;
+        }
+
+        // Вызывается только отправляющим потоком.
+        public bool TryBeginSend()
+        {
+            // Отправляющий поток пытается забрать объект.
+            lock (StateObj)
+            {
+                if (_state == ReadyToSend)
+                {
+                    _state = Sending;
+                    return true;
+                }
+                else
+                    return false;
+            }
         }
 
         // Метод может быть вызван и читающим потоком, и отправляющим одновременно!
@@ -78,14 +100,14 @@ namespace DanilovSoft.vRPC
             var args = Args;
             Args = null;
 
-            if (JsonRpcSerializer.TrySerializeRequest(Method.FullName, args, Id, _reusableBuffer, out var exception))
+            if (JsonRpcSerializer.TrySerializeRequest(Method.FullName, args, Id, _reusableMemory, out var exception))
             {
-                reusableBuffer = _reusableBuffer;
+                reusableBuffer = _reusableMemory;
                 return true;
             }
             else
             {
-                _reusableBuffer.Return();
+                _reusableMemory.Return();
                 InnerTrySetErrorResponse(exception);
                 reusableBuffer = null;
                 return false;
@@ -95,62 +117,79 @@ namespace DanilovSoft.vRPC
         // Вызывается только отправляющим потоком.
         public void CompleteSend()
         {
-            var prevState = _state.TrySetSended();
-
-            // Во время отправки уже мог прийти ответ и поменять статус или могла произойти ошибка.
-            if (prevState is ReusableRequestStateEnum.GotResponse or ReusableRequestStateEnum.GotErrorResponse)
-            // Ответственность на сбросе на нас.
+            lock (StateObj)
             {
-                Reset();
+                Debug.Assert(_state is Sending or GotResponse or GotErrorResponse);
+
+                if (_state == Sending)
+                // Успешно отправили запрос.
+                {
+                    ReturnReusableMemory();
+                }
+                else if (_state is GotResponse or GotErrorResponse)
+                // Во время отправки произошла ошибка или уже пришел ответ и обогнал нас.
+                {
+                    // Другой поток не сбросил потому что видел что мы ещё отправляем.
+                    Reuse();
+                }
+                _state = WaitingResponse;
             }
         }
 
         // Вызывается только отправляющим потоком.
         public void CompleteSend(VRpcException exception)
         {
-            _state.SetErrorResponse();
-            Reset();
-        }
-
-        // Вызывается только отправляющим потоком.
-        public bool TryBeginSend()
-        {
-            // Отправляющий поток пытается атомарно забрать объект.
-            var prevState = _state.TrySetSending();
-            return prevState == ReusableRequestStateEnum.ReadyToSend;
+            lock (StateObj)
+            {
+                _state = GotErrorResponse;
+                Reuse();
+            }
         }
 
         private void InnerTrySetErrorResponse(Exception vException)
         {
             var trySetErrorResponse = _trySetErrorResponse;
             Debug.Assert(trySetErrorResponse != null);
+            Debug.Assert(_state is ReadyToSend or Sending or WaitingResponse);
 
-            // Атомарно узнаём в каком состоянии было сообщение.
-            var prevState = _state.SetErrorResponse();
-
-            Debug.Assert(prevState
-                is ReusableRequestStateEnum.ReadyToSend
-                or ReusableRequestStateEnum.Sending
-                or ReusableRequestStateEnum.Sended);
-
-            // upd: Может быть случай когда читающий поток завершается
-            // ошибкой ещё до отправки сообщения отправляющим потоком.
-            if (prevState != ReusableRequestStateEnum.Sending)
+            lock (StateObj)
             {
-                // Нужно сделать сброс перед установкой результата
-                // иначе другой поток может начать переиспользование это-го класса.
-                Reset();
-            }
+                if (_state == WaitingResponse)
+                // Ответственность на сбросе на нас.
+                {
+                    // Буффер уже освободил отправляющий поток.
+                    Debug.Assert(_reusableMemory.IsRented == false);
 
+                    Reuse();
+                }
+                else if (_state == ReadyToSend)
+                // Отправка еще не началась и мы успели её предотвратить.
+                {
+                    Debug.Assert(_reusableMemory.IsRented);
+
+                    // Буффер был заряжен.
+                    _reusableMemory.Return();
+
+                    // Ответственность на сбросе на нас.
+                    Reuse();
+                }
+                else if (_state == Sending)
+                {
+                    // Не можем сделать сброс потому что другой поток еще отправляет данные -> он сам сделает сброс.
+                }
+                _state = GotErrorResponse;
+            }
             trySetErrorResponse(vException);
         }
 
-        private void Reset()
+        /// <summary>
+        /// Арендованый буфер уже должен быть возвращён.
+        /// </summary>
+        private void Reuse()
         {
-            Debug.Assert(!_reusableBuffer.IsInitialized);
-            Debug.Assert(_state.State
-                is ReusableRequestStateEnum.GotResponse
-                or ReusableRequestStateEnum.GotErrorResponse);
+            Debug.Assert(Monitor.IsEntered(StateObj));
+            Debug.Assert(_reusableMemory.IsRented == false);
+            Debug.Assert(_state is GotResponse or GotErrorResponse);
 
             Id = 0;
             Method = null;
@@ -159,16 +198,13 @@ namespace DanilovSoft.vRPC
             _trySetResponse = null;
             _trySetErrorResponse = null;
 
-            _state.Reset();
+            ReturnReusableMemory();
+
+            _state = Reset;
             _context.AtomicRestoreReusableJ(this);
         }
 
-        void IResponseAwaiter.TrySetVResponse(in HeaderDto _, ReadOnlyMemory<byte> __)
-        {
-            Debug.Assert(false, "Сюда не должны попадать");
-            throw new NotSupportedException();
-        }
-
+        // Вызывается только читающим потоком.
         private void TrySetResponse<TResult>(ref Utf8JsonReader reader)
         {
             Debug.Assert(Method != null);
@@ -199,27 +235,44 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        // Вызывается только читающим потоком.
         private void TrySetResponse<TResult>(TResult? result)
         {
             var tcs = _tcs as TaskCompletionSource<TResult?>;
             Debug.Assert(tcs != null);
+            Debug.Assert(_state is Sending or WaitingResponse);
 
-            // Атомарно узнаём в каком состоянии было сообщение.
-            var prevState = _state.SetGotResponse();
-
-            // В редких случаях мы могли обогнать отправляющий поток,
-            // в этом случае сброс сделает отправляющий поток.
-            if (prevState != ReusableRequestStateEnum.Sending)
+            lock (StateObj)
             {
-                // Нужно сделать сброс перед установкой результата.
-                Reset();
+                if (_state == WaitingResponse)
+                {
+                    // Перед установкой результата нужно сделать объект снова доступным для переиспользования.
+                    Reuse();
+                }
+#if DEBUG
+                else if (_state == Sending)
+                // Мы обогнали отправляющий поток. В этом случае сброс сделает отправляющий поток.
+                {
+
+                }
+#endif
+                _state = GotResponse;
             }
             tcs.TrySetResult(result);
         }
 
-        private void ResetReusableBuffer()
+        private void ReturnReusableMemory()
         {
-            _reusableBuffer.Return();
+            //Debug.Assert(_reusableMemory.IsRented);
+
+            if (_reusableMemory.IsRented)
+                _reusableMemory.Return();
+        }
+
+        void IResponseAwaiter.TrySetVResponse(in HeaderDto _, ReadOnlyMemory<byte> __)
+        {
+            Debug.Assert(false, "Сюда не должны попадать");
+            throw new NotSupportedException();
         }
     }
 }
