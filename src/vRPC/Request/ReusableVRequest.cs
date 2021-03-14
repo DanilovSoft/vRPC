@@ -74,48 +74,32 @@ namespace DanilovSoft.vRPC
         {
             lock (StateObj)
             {
-                if (_state == Sending)
-                // Успешно отправили запрос.
-                {
-                    ReturnReusableMemory();
-                }
-                else if (_state is GotResponse or GotErrorResponse)
-                // Во время отправки произошла ошибка или уже пришел ответ и обогнал нас.
-                {
-                    ReturnReusableMemory();
-
-                    // Другой поток не сбросил потому что видел что мы ещё отправляем.
-                    Reuse();
-                }
-#if DEBUG
-                else
-                {
-                    Debug.Assert(false);
-                }
-#endif
-                _state = WaitingResponse;
-            }
-        }
-
-        /// <summary>Переводит в состояние 6.</summary>
-        public void CompleteSend(VRpcException exception)
-        {
-            lock (StateObj)
-            {
                 Debug.Assert(_state is Sending or GotResponse or GotErrorResponse);
 
                 if (_state == Sending)
                 // Успешно отправили запрос.
                 {
                     ReturnReusableMemory();
+                    _state = WaitingResponse;
                 }
                 else if (_state is GotResponse or GotErrorResponse)
                 // Во время отправки произошла ошибка или уже пришел ответ и обогнал нас.
                 {
+                    ReturnReusableMemory();
+
                     // Другой поток не сбросил потому что видел что мы ещё отправляем.
                     Reuse();
                 }
-                _state = WaitingResponse;
+            }
+        }
+
+        // Вызывается только отправляющим потоком.
+        public void CompleteSend(VRpcException exception)
+        {
+            lock (StateObj)
+            {
+                // CompleteSend() должен вызвать Reuse().
+                _state = GotErrorResponse;
             }
         }
 
@@ -163,7 +147,7 @@ namespace DanilovSoft.vRPC
         private void Reuse()
         {
             Debug.Assert(Monitor.IsEntered(StateObj));
-            Debug.Assert(_state is GotResponse or GotErrorResponse);
+            Debug.Assert(_state is WaitingResponse or GotResponse or GotErrorResponse);
 
             Id = 0;
             Method = null;
@@ -171,6 +155,8 @@ namespace DanilovSoft.vRPC
             _tcs = null;
             _trySetResponse = null;
             _trySetErrorResponse = null;
+
+            ReturnReusableMemory();
 
             _state = Reset;
             _context.AtomicRestoreReusableV(this);
@@ -207,14 +193,11 @@ namespace DanilovSoft.vRPC
                     // Перед установкой результата нужно сделать объект снова доступным для переиспользования.
                     Reuse();
                 }
-#if DEBUG
                 else if (_state == Sending)
                 // Мы обогнали отправляющий поток. В этом случае сброс сделает отправляющий поток.
                 {
-
+                    _state = GotResponse;
                 }
-#endif
-                _state = GotResponse;
             }
             tcs.TrySetResult(result!);
         }
@@ -230,27 +213,19 @@ namespace DanilovSoft.vRPC
                 if (_state == WaitingResponse)
                 // Ответственность на сбросе на нас.
                 {
-                    // Буффер уже освободил отправляющий поток.
-                    Debug.Assert(_reusableMemory.IsRented == false);
-
                     Reuse();
                 }
                 else if (_state == ReadyToSend)
                 // Отправка еще не началась и мы успели её предотвратить.
                 {
-                    Debug.Assert(_reusableMemory.IsRented);
-
-                    // Буффер был заряжен.
-                    _reusableMemory.Return();
-
                     // Ответственность на сбросе на нас.
                     Reuse();
                 }
                 else if (_state == Sending)
+                // Не можем сделать сброс потому что другой поток еще отправляет данные -> он сам сделает сброс.
                 {
-                    // Не можем сделать сброс потому что другой поток еще отправляет данные -> он сам сделает сброс.
+                    _state = GotErrorResponse;
                 }
-                _state = GotErrorResponse;
             }
             trySetErrorResponse(exception);
         }

@@ -185,12 +185,12 @@ namespace DanilovSoft.vRPC
             Debug.Assert(_rentedBuffer.Length - _index >= sizeHint);
         }
 
-#if DEBUG
-        ~ArrayBufferWriter()
-        {
-            Debug.Assert(false);
-            throw new NotSupportedException();
-        }
-#endif
+//#if DEBUG
+//        ~ArrayBufferWriter()
+//        {
+//            Debug.Assert(false);
+//            throw new NotSupportedException();
+//        }
+//#endif
     }
 }

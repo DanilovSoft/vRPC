@@ -834,8 +834,7 @@ namespace DanilovSoft.vRPC
                     }
                     else
                     {
-                        if (taskToWait != null)
-                            await taskToWait.ConfigureAwait(false);
+                        await taskToWait.ConfigureAwait(false);
 
                         // Завершить поток.
                         return;
@@ -872,7 +871,7 @@ namespace DanilovSoft.vRPC
 
         // Получен запрос или ответ json-rpc.
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool HandleJrpcMessage(ReadOnlySpan<byte> buffer, [MaybeNullWhen(true)] out Task? taskToWait)
+        private bool HandleJrpcMessage(ReadOnlySpan<byte> buffer, [NotNullWhen(false)] out Task? taskToWait)
         {
             bool result;
             IMessageToSend? error;
