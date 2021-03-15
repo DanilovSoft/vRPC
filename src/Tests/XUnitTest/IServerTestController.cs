@@ -12,9 +12,9 @@ namespace XUnitTest
         int GetSum(int x1, int x2);
         int GetSum2(int x1, int x2);
         Task<int> GetSumAsync(int x1, int x2);
-        Task<string> GetNullStringAsync();
+        Task<string?> GetNullStringAsync();
         string GetString();
-        string GetNullString();
+        string? GetNullString();
 
         [Notification]
         void Notify(int n);
@@ -40,5 +40,7 @@ namespace XUnitTest
         void JNotExistedMethod();
         [JsonRpc]
         void JTestInternalError();
+        [JsonRpc]
+        object GetSomeObject();
     }
 }

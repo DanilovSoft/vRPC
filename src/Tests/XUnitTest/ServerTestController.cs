@@ -99,5 +99,17 @@ namespace XUnitTest
 
             Connection.GetProxy<IClientTestController>().JEchoNotification(n);
         }
+
+        public Closure GetSomeObject()
+        {
+            var c = new Closure();
+            c.Parent = c;
+            return c;
+        }
+    }
+
+    class Closure
+    {
+        public Closure Parent { get; set; }
     }
 }

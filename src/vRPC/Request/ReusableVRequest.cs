@@ -40,7 +40,10 @@ namespace DanilovSoft.vRPC
             Debug.Assert(_tcs == null);
             Debug.Assert(_trySetResponse == null);
             Debug.Assert(_trySetErrorResponse == null);
+            Debug.Assert(_reusableMemory.IsRented == false);
+            Debug.Assert(_state == Reset);
 
+            _reusableMemory.Rent();
             Method = method;
             Args = args;
 
@@ -125,6 +128,7 @@ namespace DanilovSoft.vRPC
         {
             Debug.Assert(Args != null);
             Debug.Assert(Method != null);
+            Debug.Assert(_reusableMemory.IsRented);
 
             var args = Args;
             Args = null;

@@ -102,8 +102,9 @@ namespace DanilovSoft.vRPC
             }
         }
 
+        /// <param name="id">Идентификатор запроса.</param>
         /// <exception cref="JsonException"/>
-        internal static void SerializeResponse(ArrayBufferWriter<byte> buffer, int id, object? result)
+        internal static void SerializeResponse(IBufferWriter<byte> buffer, int id, object? result)
         {
             // {"jsonrpc": "2.0", "result": 19, "id": 1}
             using (var writer = new Utf8JsonWriter(buffer))

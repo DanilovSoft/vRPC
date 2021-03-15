@@ -1443,6 +1443,9 @@
             Происходит при обращении к выключенному экземпляру или находящемуся в процессе отключения по запросу пользователя.
             </summary>
         </member>
+        <member name="M:DanilovSoft.vRPC.IActionResult.WriteJsonRpcResult(System.Nullable{System.Int32},DanilovSoft.vRPC.ArrayBufferWriter{System.Byte})">
+            <exception cref="T:System.Text.Json.JsonException"/>
+        </member>
         <member name="P:DanilovSoft.vRPC.IHostApplicationLifetime.ApplicationStarted">
             <summary>
             Triggered when the application host has fully started.
@@ -1598,6 +1601,11 @@
             Когда Id не Null.
             </summary>
         </member>
+        <member name="P:DanilovSoft.vRPC.RequestContext.Id">
+            <summary>
+            Может быть Null если нотификация.
+            </summary>
+        </member>
         <member name="P:DanilovSoft.vRPC.RequestContext.Method">
             <summary>
             Запрашиваемый метод контроллера.
@@ -1676,6 +1684,7 @@
             <summary>
             Арендованый буфер уже должен быть возвращён.
             </summary>
+            <remarks>Переводит статус в Reset.</remarks>
         </member>
         <member name="M:DanilovSoft.vRPC.ReusableVNotification.#ctor">
             <summary>
@@ -2171,7 +2180,8 @@
         <member name="M:DanilovSoft.vRPC.JsonRpcSerializer.TrySerializeRequest(System.String,System.Object[],System.Int32,DanilovSoft.vRPC.ArrayBufferWriter{System.Byte}@,DanilovSoft.vRPC.VRpcSerializationException@)">
             <remarks>Не бросает исключения.</remarks>
         </member>
-        <member name="M:DanilovSoft.vRPC.JsonRpcSerializer.SerializeResponse(DanilovSoft.vRPC.ArrayBufferWriter{System.Byte},System.Int32,System.Object)">
+        <member name="M:DanilovSoft.vRPC.JsonRpcSerializer.SerializeResponse(System.Buffers.IBufferWriter{System.Byte},System.Int32,System.Object)">
+            <param name="id">Идентификатор запроса.</param>
             <exception cref="T:System.Text.Json.JsonException"/>
         </member>
         <member name="M:DanilovSoft.vRPC.JsonRpcSerializer.TrySerializeErrorResponse(System.Nullable{System.Int32},DanilovSoft.vRPC.StatusCode,System.String,DanilovSoft.vRPC.ArrayBufferWriter{System.Byte}@,DanilovSoft.vRPC.VRpcSerializationException@)">

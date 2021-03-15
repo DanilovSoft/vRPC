@@ -35,8 +35,8 @@ namespace DanilovSoft.vRPC
 
         private protected override void FinalWriteJsonRpcResult(int? id, IBufferWriter<byte> buffer)
         {
-            Debug.Assert(false);
-            throw new NotImplementedException();
+            // Сериализуем ответ.
+            JsonRpcSerializer.SerializeResponse(buffer, id.Value, Value);
 
             //JsonRpcSerializer.SerializeErrorResponse(buffer, DefaultStatusCode, _message, id);
         }

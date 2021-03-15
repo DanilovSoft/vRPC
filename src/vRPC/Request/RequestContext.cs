@@ -23,6 +23,9 @@ namespace DanilovSoft.vRPC
         /// Когда Id не Null.
         /// </summary>
         public bool IsResponseRequired => Id != null;
+        /// <summary>
+        /// Может быть Null если нотификация.
+        /// </summary>
         public int? Id { get; private set; }
         /// <summary>
         /// Запрашиваемый метод контроллера.
@@ -139,17 +142,26 @@ namespace DanilovSoft.vRPC
             bool dispose = true;
             try
             {
-                if (Result is IActionResult actionResult)
-                // Метод контроллера вернул специальный тип.
+                try
                 {
-                    // Сериализуем ответ.
-                    actionResult.WriteJsonRpcResult(Id.Value, buffer);
+                    if (Result is IActionResult actionResult)
+                    // Метод контроллера вернул специальный тип.
+                    {
+                        // Сериализуем ответ.
+                        actionResult.WriteJsonRpcResult(Id.Value, buffer);
+                    }
+                    else
+                    // Отправлять результат контроллера будем как есть.
+                    {
+                        // Сериализуем ответ.
+                        JsonRpcSerializer.SerializeResponse(buffer, Id.Value, Result);
+                    }
                 }
-                else
-                // Отправлять результат контроллера будем как есть.
+                catch (JsonException)
                 {
-                    // Сериализуем ответ.
-                    JsonRpcSerializer.SerializeResponse(buffer, Id.Value, Result);
+                    buffer.Clear();
+                    var response = (IActionResult)new InternalErrorResult("Ошибка сериализации ответа");
+                    response.WriteJsonRpcResult(Id.Value, buffer);
                 }
                 dispose = false; // Предотвратить Dispose.
                 return buffer;

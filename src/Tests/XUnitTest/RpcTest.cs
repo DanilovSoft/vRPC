@@ -150,7 +150,7 @@ namespace XUnitTest
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
-            string value = await iface.GetNullStringAsync();
+            string? value = await iface.GetNullStringAsync();
             Assert.Null(value);
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
@@ -313,12 +313,20 @@ namespace XUnitTest
         [Fact]
         public void TestReturnTypeSerializaionError()
         {
-            throw new NotImplementedException();
-
             using var listener = VRpcListener.StartNew(IPAddress.Any);
             using var cli = new VRpcClient("127.0.0.1", listener.Port, ssl: false, allowAutoConnect: true);
 
             var iface = cli.GetProxy<IServerTestController>();
+
+            try
+            {
+                iface.GetSomeObject();
+            }
+            catch (VRpcInternalErrorException ex)
+            {
+                return;
+            }
+            Assert.True(false);
         }
     }
 }
