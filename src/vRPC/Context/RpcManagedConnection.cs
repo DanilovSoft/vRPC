@@ -232,7 +232,7 @@ namespace DanilovSoft.vRPC
         private void WebSocket_Disconnected(object? sender, SocketDisconnectingEventArgs e)
         {
             CloseReason closeReason;
-            if (e.DisconnectingReason.Gracifully)
+            if (e.DisconnectingReason.Gracefully)
             {
                 closeReason = CloseReason.FromCloseFrame(e.DisconnectingReason.CloseStatus, 
                     e.DisconnectingReason.CloseDescription, e.DisconnectingReason.AdditionalDescription, _shutdownRequest);
