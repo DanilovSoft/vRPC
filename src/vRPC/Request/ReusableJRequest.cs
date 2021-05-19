@@ -91,7 +91,7 @@ namespace DanilovSoft.vRPC
             _trySetResponse(ref reader);
         }
 
-        // TODO не диспозить снаружи - race condition!
+        // TODO не диспозить буфер снаружи - race condition!
         public bool TrySerialize([NotNullWhen(true)] out ArrayBufferWriter<byte>? reusableBuffer)
         {
             Debug.Assert(Args != null);
@@ -121,17 +121,17 @@ namespace DanilovSoft.vRPC
             {
                 Debug.Assert(_state is Sending or GotResponse or GotErrorResponse);
 
-                if (_state == Sending)
+                switch (_state)
                 // Успешно отправили запрос.
                 {
-                    ReturnReusableMemory();
-                    _state = WaitingResponse;
-                }
-                else if (_state is GotResponse or GotErrorResponse)
-                // Во время отправки произошла ошибка или уже пришел ответ и обогнал нас.
-                {
-                    // Другой поток не сбросил потому что видел что мы ещё отправляем.
-                    Reuse();
+                    case Sending:
+                        ReturnReusableMemory();
+                        _state = WaitingResponse;
+                        break;
+                    case GotResponse or GotErrorResponse:
+                        // Другой поток не сбросил потому что видел что мы ещё отправляем.
+                        Reuse();
+                        break;
                 }
             }
         }
@@ -154,21 +154,19 @@ namespace DanilovSoft.vRPC
 
             lock (StateObj)
             {
-                if (_state == WaitingResponse)
+                switch (_state)
                 // Ответственность на сбросе на нас.
                 {
-                    Reuse();
-                }
-                else if (_state == ReadyToSend)
-                // Отправка еще не началась и мы успели её предотвратить.
-                {
-                    // Ответственность на сбросе на нас.
-                    Reuse();
-                }
-                else if (_state == Sending)
-                // Не можем сделать сброс потому что другой поток еще отправляет данные -> он сам сделает сброс.
-                {
-                    _state = GotErrorResponse;
+                    case WaitingResponse:
+                        Reuse();
+                        break;
+                    case ReadyToSend:
+                        // Ответственность на сбросе на нас.
+                        Reuse();
+                        break;
+                    case Sending:
+                        _state = GotErrorResponse;
+                        break;
                 }
             }
             trySetErrorResponse(vException);
@@ -236,15 +234,15 @@ namespace DanilovSoft.vRPC
 
             lock (StateObj)
             {
-                if (_state == WaitingResponse)
+                switch (_state)
                 {
-                    // Перед установкой результата нужно сделать объект снова доступным для переиспользования.
-                    Reuse();
-                }
-                else if (_state == Sending)
-                // Мы обогнали отправляющий поток. В этом случае сброс сделает отправляющий поток.
-                {
-                    _state = GotResponse;
+                    case WaitingResponse:
+                        // Перед установкой результата нужно сделать объект снова доступным для переиспользования.
+                        Reuse();
+                        break;
+                    case Sending:
+                        _state = GotResponse;
+                        break;
                 }
             }
             tcs.TrySetResult(result);
@@ -252,10 +250,10 @@ namespace DanilovSoft.vRPC
 
         private void ReturnReusableMemory()
         {
-            //Debug.Assert(_reusableMemory.IsRented);
-
             if (_reusableMemory.IsRented)
+            {
                 _reusableMemory.Return();
+            }
         }
 
         void IResponseAwaiter.TrySetVResponse(in HeaderDto _, ReadOnlyMemory<byte> __)

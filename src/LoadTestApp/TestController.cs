@@ -6,7 +6,7 @@ using System.Text;
 namespace LoadTestApp
 {
     [AllowAnonymous]
-    public class TestController : ServerController
+    public class TestController : RpcController
     {
         public string Ping(string msg)
         {

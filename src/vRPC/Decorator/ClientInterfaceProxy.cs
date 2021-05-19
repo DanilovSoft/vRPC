@@ -144,17 +144,16 @@ namespace DanilovSoft.vRPC.Decorator
             Debug.Assert(Client != null);
             Debug.Assert(targetMethod != null);
 
-            Task<T?> pendingRequest;
             try
             {
                 RequestMethodMeta methodMeta = GetMeta<T>(targetMethod);
-                pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
+                var pendingRequest = Client.OnClientMethodCall<T>(methodMeta, args);
+                return pendingRequest;
             }
             catch (Exception ex)
             {
                 return Task.FromException<T?>(ex);
             }
-            return pendingRequest;
         }
 
         #endregion

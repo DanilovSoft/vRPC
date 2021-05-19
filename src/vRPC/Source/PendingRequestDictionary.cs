@@ -23,7 +23,7 @@ namespace DanilovSoft.vRPC
         /// Может быть производным типом <see cref="VRpcException"/> или <see cref="ObjectDisposedException"/>.
         /// </summary>
         private Exception? _disconnectException;
-        private int _reqIdSeq;
+        private int _reqIdSeq = -1;
 
         /// <summary>
         /// Потокобезопасная очередь запросов к удалённой стороне ожидающих ответы.

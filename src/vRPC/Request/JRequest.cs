@@ -89,11 +89,13 @@ namespace DanilovSoft.vRPC
             // Игнорируем.
         }
 
+        /// <inheritdoc/>
         public void CompleteSend()
         {
             // Игнорируем.
         }
 
+        /// <inheritdoc/>
         public bool TryBeginSend()
         {
             // Отправляющий поток пытается атомарно забрать объект.

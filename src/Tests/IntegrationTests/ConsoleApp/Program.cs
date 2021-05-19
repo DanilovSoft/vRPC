@@ -12,12 +12,12 @@ namespace InternalConsoleApp
     {
         static async Task Main()
         {
-            //var listener = VRpcListener.StartNew(IPAddress.Any);
+            var listener = VRpcListener.StartNew(IPAddress.Any);
 
-            var cli = new VRpcClient(new Uri("wss://localhost:44343/jrpc"), allowAutoConnect: false);
+            var cli = new VRpcClient(new Uri($"ws://localhost:{listener.Port}"), allowAutoConnect: false);
             var iface = cli.GetProxy<IServerTestController>();
 
-            Thread.Sleep(2000);
+            //Thread.Sleep(2000);
             cli.Connect();
 
             while (true)
