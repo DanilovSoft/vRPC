@@ -274,13 +274,7 @@ namespace DanilovSoft.vRPC
 
 #if NETSTANDARD2_0 || NET472
             // Запустить цикл приёма сообщений.
-            ThreadPool.UnsafeQueueUserWorkItem(ReceiveLoopStart, state: this);
-
-            static void ReceiveLoopStart(object? state)
-            {
-                var self = state as RpcManagedConnection;
-                self.ReceiveLoop();
-            }
+            ThreadPool.UnsafeQueueUserWorkItem(static s => ((RpcManagedConnection)s).ReceiveLoop(), state: this);
 #else
             // Запустить цикл приёма сообщений.
             ThreadPool.UnsafeQueueUserWorkItem(callBack: this, preferLocal: false); // Через глобальную очередь.

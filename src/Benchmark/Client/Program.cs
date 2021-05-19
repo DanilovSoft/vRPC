@@ -30,7 +30,7 @@ namespace Client
             IPAddress ipAddress;
             do
             {
-                Console.Write("IP адрес сервера (127.0.0.1): ");
+                Console.Write("IP адрес сервера [127.0.0.1]: ");
                 ipStr = Console.ReadLine();
                 if (ipStr == "")
                     ipStr = "127.0.0.1";
@@ -41,7 +41,7 @@ namespace Client
             int processorCount = Environment.ProcessorCount;
             do
             {
-                Console.Write($"Ядер – {processorCount}. Сколько потоков (1): ");
+                Console.Write($"Ядер – {processorCount}. Сколько потоков [1]: ");
                 cpusStr = Console.ReadLine();
                 if (cpusStr == "")
                     cpusStr = $"{1}";
