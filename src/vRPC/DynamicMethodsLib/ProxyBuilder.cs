@@ -11,7 +11,7 @@ using DanilovSoft.vRPC;
 
 namespace DynamicMethodsLib
 {
-    internal static class ProxyBuilder<TClass>
+    internal static class ProxyBuilder<TClass> where TClass : notnull
     {
         private const BindingFlags _visibilityFlags = BindingFlags.Public | BindingFlags.Instance;
         private static readonly MethodInfo _invokeMethod = typeof(TClass).GetMethod("Invoke",
@@ -73,11 +73,14 @@ namespace DynamicMethodsLib
         /// <param name="source"></param>
         /// <param name="instance">Параметр который будет передан в конструктор <typeparamref name="TClass"/></param>
         /// <exception cref="VRpcException"/>
-        public static TClass CreateProxy<TIface>(TClass source = default, object? instance = null)
+        public static TClass CreateProxy<TIface>(TClass? source = default, object? instance = null)
         {
             var ifaceType = typeof(TIface);
+
             if (!ifaceType.IsPublic)
+            {
                 ThrowHelper.ThrowVRpcException($"Интерфейс {ifaceType.FullName} должен быть видимым для других сборок.");
+            }
             
             Debug.Assert(ifaceType.IsInterface, "Ожидался интерфейс");
 
@@ -294,11 +297,11 @@ namespace DynamicMethodsLib
             TClass proxy;
             if (instance != null)
             {
-                proxy = (TClass)Activator.CreateInstance(ti, args: instance);
+                proxy = (TClass)Activator.CreateInstance(ti, args: instance)!;
             }
             else
             {
-                proxy = (TClass)Activator.CreateInstance(ti);
+                proxy = (TClass)Activator.CreateInstance(ti)!;
             }
 
             foreach (var item in fields)
@@ -430,7 +433,7 @@ namespace DynamicMethodsLib
                     il.Emit(OpCodes.Ldelem_Ref);
 
                     // ref Type => Type (System.Int32& => System.Int32).
-                    Type paramType = v.Param.ParameterType.GetElementType();
+                    Type? paramType = v.Param.ParameterType.GetElementType();
                     if (paramType.IsValueType)
                     {
                         // Распаковать значимый тип.

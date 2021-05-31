@@ -28,7 +28,7 @@ namespace DanilovSoft.vRPC
     /// Контекст соединения Web-Сокета. Владеет соединением.
     /// </summary>
     [DebuggerDisplay(@"\{IsConnected = {IsConnected}\}")]
-    public abstract class RpcManagedConnection : IDisposable, /*IGetProxy,*/ IThreadPoolWorkItem
+    public abstract class RpcManagedConnection : IDisposable, IThreadPoolWorkItem
     {
         private readonly ProxyCache _proxyCache = new();
         /// <summary>
@@ -76,9 +76,8 @@ namespace DanilovSoft.vRPC
         /// <summary>
         /// Не Null если происходит остановка сервиса.
         /// Используется для проверки возможности начать новый запрос.
-        /// Использовать через блокировку <see cref="StopRequiredLock"/>.
+        /// Доступ через блокировку <see cref="StopRequiredLock"/>.
         /// </summary>
-        /// <remarks><see langword="volatile"/></remarks>
         private volatile ShutdownRequest? _shutdownRequest;
         private volatile bool _isConnected = true;
 
@@ -96,7 +95,6 @@ namespace DanilovSoft.vRPC
             RemoteEndPoint = webSocket.RemoteEndPoint;
             _ws = webSocket;
             _tcpNoDelay = webSocket.Socket?.NoDelay ?? false;
-            //_pipe = new Pipe();
 
             _pendingRequests = new PendingRequestDictionary();
 
@@ -602,7 +600,7 @@ namespace DanilovSoft.vRPC
         private void WebSocket_Disconnected(object? sender, SocketDisconnectingEventArgs e)
         {
             CloseReason closeReason;
-            if (e.DisconnectingReason.Gracefully)
+            if (e.DisconnectingReason.Gracifully)
             {
                 closeReason = CloseReason.FromCloseFrame(e.DisconnectingReason.CloseStatus, 
                     e.DisconnectingReason.CloseDescription, e.DisconnectingReason.AdditionalDescription, _shutdownRequest);
@@ -2496,11 +2494,6 @@ namespace DanilovSoft.vRPC
                 }
             }
         }
-
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        //T IGetProxy.GetProxy<T>() where T : class => InnerGetProxy<T>();
-
-        //private protected abstract T InnerGetProxy<T>() where T : class;
 
         protected virtual void DisposeManaged()
         {

@@ -45,11 +45,13 @@ namespace DanilovSoft.vRPC
         }
 
         private TClass GetOrCreateProxy<TClass, TIface, TArg1>(Action<string, TClass, TArg1> initializeClone, TArg1 arg1) 
-            where TClass : class, IInterfaceDecorator<TIface>, IInterfaceProxy where TIface : class
+            where TClass : class, IInterfaceDecorator<TIface>, IInterfaceProxy 
+            where TIface : class
         {
             Type interfaceType = typeof(TIface);
             Type classType = typeof(TClass);
-            lock (_instanceDict)
+
+            lock (_instanceDict) // Блокировка на инстанс.
             {
                 if (_instanceDict.TryGetValue(classType, out IInterfaceProxy? proxy))
                 {
@@ -63,7 +65,8 @@ namespace DanilovSoft.vRPC
                     
                     IInterfaceProxy? p;
                     TClass? createdStatic;
-                    lock (_staticDict) // Нужна блокировка на статичный словарь.
+
+                    lock (_staticDict) // Блокировка на статичный инстанс.
                     {
                         if (_staticDict.TryGetValue(interfaceType, out p))
                         {
