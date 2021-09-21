@@ -26,7 +26,7 @@ var listener = new VRpcListener(IPAddress.Any, 1234);
 listener.Start();
 
 [AllowAnonymous]
-class ChatController : ServerController
+class ChatController : RpcController
 {
     public string Echo(string msg) => msg;
 }
@@ -62,7 +62,7 @@ Server and client are considered equal parties and can make calls to each other.
 ##### Client Side
 
 ```csharp
-class CallbackController : ClientController
+class CallbackController : RpcController
 {
     string MessageFromServer(string msg) => msg;
 }
@@ -75,7 +75,7 @@ public interface ICallback
     string MessageFromServer(string msg);
 }
 
-class ChatController : ServerController
+class ChatController : RpcController
 {
     public string Echo(string msg)
     {
@@ -91,7 +91,7 @@ Client and server behave the same about DI.
 ```csharp
 listener.ConfigureService(s => s.AddScoped<MyService, IMyService>());
 
-class ChatController : ServerController
+class ChatController : RpcController
 {
     private readonly IMyService _myService;
     private readonly ICallback _clientCallback;
@@ -252,7 +252,7 @@ public interface IChat
     string GetUrgentStatus();
 }
 
-class ChatController : ServerController
+class ChatController : RpcController
 {
     [TcpNoDelay] // For quickest reply.
     public string GetUrgentStatus() => "OK";
@@ -261,7 +261,7 @@ class ChatController : ServerController
 ### ProtoBuf supportion
 
 ```csharp
-class ChatController : ServerController
+class ChatController : RpcController
 {
     [ProducesProtoBuf] // May speed up serialization of complex types.
     public MyClass GetData() => new MyClass();
