@@ -9,7 +9,7 @@
     <Description>Asynchronous full-duplex Remote Procedure Call based on WebSocket</Description>
     <PackageId>DanilovSoft.vRPC</PackageId>
     <Product>DanilovSoft.vRPC</Product>
-    <Version>3.2.1</Version>
+    <Version>3.2.2</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -47,8 +47,6 @@
     <PackageReference Include="protobuf-net" Version="3.0.101" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="System.IO.Pipelines" Version="6.0.1" />
-    <PackageReference Include="System.Text.Json" Version="6.0.1" />
-    <PackageReference Include="System.Threading.Channels" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1'">
@@ -56,8 +54,8 @@
   </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' Or '$(TargetFramework)' == 'net472'">
-    <PackageReference Include="System.Text.Json" Version="5.0.1" />
-    <PackageReference Include="System.Threading.Channels" Version="5.0.0" />
+    <PackageReference Include="System.Text.Json" Version="6.0.1" />
+    <PackageReference Include="System.Threading.Channels" Version="6.0.0" />
     <PackageReference Include="Nullable" Version="1.3.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

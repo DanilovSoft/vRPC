@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿using DanilovSoft.vRPC;
+using Xunit;
 
 namespace XUnitTest
 {

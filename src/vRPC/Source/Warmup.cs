@@ -17,7 +17,7 @@ namespace DanilovSoft.vRPC
 #pragma warning restore CA2012 // Используйте ValueTasks правильно
         }
 
-#if !NET472 && !NETSTANDARD2_0 && !NETCOREAPP3_0
+#if !NET472 && !NETSTANDARD2_0 && !NETCOREAPP3_1
         [ModuleInitializer]
 #endif
         internal static void InitializeModule()
