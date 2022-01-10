@@ -1,6 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-
-namespace DanilovSoft.vRPC.Decorator
+﻿namespace DanilovSoft.vRPC.Decorator
 {
     public interface IInterfaceDecorator<out TIface> where TIface : class
     {

@@ -1,14 +1,11 @@
-﻿namespace Microsoft.AspNetCore.Builder
-{
-    using DanilovSoft.vRPC.AspNetCore;
-    using DanilovSoft.vRPC.AspNetCore.Model.Internal;
-    using Microsoft.AspNetCore.Routing;
-    using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileSystemGlobbing.Internal.Patterns;
-    using System;
-    using System.Collections.Generic;
-    using System.Text;
+﻿using DanilovSoft.vRPC.AspNetCore;
+using DanilovSoft.vRPC.AspNetCore.Model.Internal;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using System;
 
+namespace Microsoft.AspNetCore.Builder
+{
     public static class JrpcEndpointRouteBuilderExtensions
     {
         public static JrpcServiceEndpointConventionBuilder MapJsonRpcService(this IEndpointRouteBuilder builder, string pattern)

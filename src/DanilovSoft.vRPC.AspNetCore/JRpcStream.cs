@@ -1,16 +1,13 @@
-﻿namespace DanilovSoft.vRPC.AspNetCore
-{
-    using DanilovSoft.WebSockets;
-    using System;
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
-    using System.Net;
-    using System.Net.Sockets;
-    using System.Text;
-    using System.Threading;
-    using System.Threading.Tasks;
+﻿using DanilovSoft.WebSockets;
+using System;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
 
+namespace DanilovSoft.vRPC.AspNetCore
+{
     internal sealed class JRpcStream : IJrpcStream
     {
         private readonly Stream _stream;

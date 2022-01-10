@@ -1,7 +1,4 @@
-﻿using System;
-using System.Diagnostics;
-
-namespace DanilovSoft.vRPC
+﻿namespace DanilovSoft.vRPC
 {
     //[DebuggerDisplay(@"\{BadRequestResult: {_message}\}")]
     //public class BadRequestResult : StatusCodeResult

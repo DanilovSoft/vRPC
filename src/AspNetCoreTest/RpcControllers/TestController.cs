@@ -1,11 +1,7 @@
-﻿namespace AspNetCore.RpcControllers
-{
-    using DanilovSoft.vRPC;
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Threading.Tasks;
+﻿using DanilovSoft.vRPC;
 
+namespace AspNetCore.RpcControllers
+{
     [AllowAnonymous]
     public class TestController : RpcController
     {

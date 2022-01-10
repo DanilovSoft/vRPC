@@ -1,9 +1,8 @@
-﻿namespace Microsoft.AspNetCore.Builder
-{
-    using System;
-    using System.Collections.Generic;
-    using System.Text;
+﻿using System;
+using System.Collections.Generic;
 
+namespace Microsoft.AspNetCore.Builder
+{
     public sealed class JrpcServiceEndpointConventionBuilder : IEndpointConventionBuilder
     {
         internal JrpcServiceEndpointConventionBuilder(List<IEndpointConventionBuilder> endpointConventionBuilders)

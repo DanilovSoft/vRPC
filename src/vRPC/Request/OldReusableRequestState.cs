@@ -1,11 +1,8 @@
-﻿namespace DanilovSoft.vRPC
-{
-    using System;
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Text;
-    using System.Threading;
+﻿using System.Diagnostics;
+using System.Threading;
 
+namespace DanilovSoft.vRPC
+{
     /// <summary>
     /// <list type="bullet">
     /// <item>1 - сброшен</item>

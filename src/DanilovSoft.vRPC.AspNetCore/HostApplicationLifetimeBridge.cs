@@ -1,12 +1,7 @@
-﻿namespace DanilovSoft.vRPC.AspNetCore
-{
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-    using System.Threading;
-    using System.Threading.Tasks;
+﻿using System.Threading;
 
+namespace DanilovSoft.vRPC.AspNetCore
+{
     internal sealed class HostApplicationLifetimeBridge : IHostApplicationLifetime
     {
         private readonly Microsoft.Extensions.Hosting.IHostApplicationLifetime _lifeTime;

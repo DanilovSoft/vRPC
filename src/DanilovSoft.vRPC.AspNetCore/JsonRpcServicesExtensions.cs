@@ -1,15 +1,14 @@
-﻿namespace Microsoft.Extensions.DependencyInjection
-{
-    using DanilovSoft.vRPC;
-    using DanilovSoft.vRPC.AspNetCore;
-    using DanilovSoft.vRPC.AspNetCore.Internal;
-    using DanilovSoft.vRPC.AspNetCore.Model.Internal;
-    using Microsoft.Extensions.DependencyInjection.Extensions;
-    using System;
-    using System.Collections.Generic;
-    using System.Reflection;
-    using System.Text;
+﻿using DanilovSoft.vRPC;
+using DanilovSoft.vRPC.AspNetCore;
+using DanilovSoft.vRPC.AspNetCore.Internal;
+using DanilovSoft.vRPC.AspNetCore.Model.Internal;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using System;
+using System.Collections.Generic;
+using System.Reflection;
 
+namespace Microsoft.Extensions.DependencyInjection
+{
     public static class JsonRpcServicesExtensions
     {
         public static IJsonRpcServerBuilder AddJsonRpc(this IServiceCollection services)

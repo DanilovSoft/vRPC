@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
-using System.Threading;
-
-namespace DanilovSoft.vRPC
+﻿namespace DanilovSoft.vRPC
 {
     ///// <summary>
     ///// Ответ на запрос для передачи удаленной стороне. Не подлежит сериализации.

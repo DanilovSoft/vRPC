@@ -1,9 +1,7 @@
-﻿namespace DanilovSoft.vRPC
-{
-    using System;
-    using System.Collections.Generic;
-    using System.Text;
+﻿using System;
 
+namespace DanilovSoft.vRPC
+{
     [Serializable]
     public sealed class VRpcSocketException : VRpcException
     {

@@ -1,23 +1,14 @@
-﻿namespace DanilovSoft.vRPC.AspNetCore
-{
-    using DanilovSoft.vRPC.Decorator;
-    using DanilovSoft.WebSockets;
-    using Microsoft.AspNetCore.Http;
-    using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.SignalR.Protocol;
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.Net.Http.Headers;
-    using System;
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.IO;
-using System.Linq;
+﻿using DanilovSoft.WebSockets;
+using Microsoft.Net.Http.Headers;
+using System;
+using System.IO;
 using System.Net;
-    using System.Runtime.InteropServices.ComTypes;
-    using System.Security.Claims;
-    using System.Threading;
-    using System.Threading.Tasks;
+using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
 
+namespace DanilovSoft.vRPC.AspNetCore
+{
     internal sealed class JsonRpcConnection : RpcManagedConnection
     {
         public JsonRpcConnection(ManagedWebSocket webSocket, bool isServer, IServiceProvider serviceProvider, InvokeActionsDictionary actions) 

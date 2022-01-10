@@ -1,14 +1,11 @@
-﻿namespace DanilovSoft.vRPC.AspNetCore
-{
-    using Microsoft.AspNetCore.Http;
-    using Microsoft.Net.Http.Headers;
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Security.Cryptography;
-    using System.Text;
-    using System.Threading.Tasks;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.Net.Http.Headers;
+using System;
+using System.Security.Cryptography;
+using System.Text;
 
+namespace DanilovSoft.vRPC.AspNetCore
+{
     internal static class HandshakeHelpers
     {
         // "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"

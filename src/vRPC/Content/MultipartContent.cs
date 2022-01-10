@@ -1,11 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
-using DanilovSoft.vRPC.Content;
-using DanilovSoft.vRPC.Source;
-
-namespace DanilovSoft.vRPC
+﻿namespace DanilovSoft.vRPC
 {
     //public class MultipartContent : VRpcContent, IEnumerable<VRpcContent>
     //{
@@ -13,7 +6,7 @@ namespace DanilovSoft.vRPC
 
     //    public MultipartContent()
     //    {
-            
+
     //    }
 
     //    public void Add(VRpcContent content)

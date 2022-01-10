@@ -1,7 +1,4 @@
-﻿using System.Diagnostics;
-using System.Security.Claims;
-
-namespace DanilovSoft.vRPC
+﻿namespace DanilovSoft.vRPC
 {
     //public abstract class ClientController : RpcController
     //{

@@ -1,7 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+﻿using System;
 using System.Security.Claims;
 
 namespace DanilovSoft.vRPC

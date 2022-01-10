@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29209.62
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.32014.148
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DanilovSoft.vRPC", "vRPC\DanilovSoft.vRPC.csproj", "{A0E0A5DE-B21F-45B3-9BB2-180458EB4288}"
 EndProject
@@ -29,11 +29,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LoadTestApp", "LoadTestApp\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AspNetCore", "AspNetCoreTest\AspNetCore.csproj", "{AC46173A-3B96-4624-9282-BC5E8EC172BA}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DanilovSoft.WebSockets", "..\..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSockets.csproj", "{98AE183C-F5CA-42C2-A631-6612D5BA8429}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DanilovSoft.vRPC.AspNetCore", "DanilovSoft.vRPC.AspNetCore\DanilovSoft.vRPC.AspNetCore.csproj", "{4A1D5403-2DF7-463C-BF5C-92AB60A7F124}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AspNetCoreXUnits", "AspNetCoreXUnits\AspNetCoreXUnits.csproj", "{B637F94A-6B15-43BE-AE8D-449244EFDC41}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DanilovSoft.WebSockets", "..\..\..\DanilovSoft.WebSocket\WebSockets\DanilovSoft.WebSockets.csproj", "{82DDE4B0-78D2-488D-BB0D-2010DAFFCD69}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -69,10 +69,6 @@ Global
 		{AC46173A-3B96-4624-9282-BC5E8EC172BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC46173A-3B96-4624-9282-BC5E8EC172BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC46173A-3B96-4624-9282-BC5E8EC172BA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{98AE183C-F5CA-42C2-A631-6612D5BA8429}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{98AE183C-F5CA-42C2-A631-6612D5BA8429}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{98AE183C-F5CA-42C2-A631-6612D5BA8429}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{98AE183C-F5CA-42C2-A631-6612D5BA8429}.Release|Any CPU.Build.0 = Release|Any CPU
 		{4A1D5403-2DF7-463C-BF5C-92AB60A7F124}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4A1D5403-2DF7-463C-BF5C-92AB60A7F124}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4A1D5403-2DF7-463C-BF5C-92AB60A7F124}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -81,6 +77,10 @@ Global
 		{B637F94A-6B15-43BE-AE8D-449244EFDC41}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B637F94A-6B15-43BE-AE8D-449244EFDC41}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B637F94A-6B15-43BE-AE8D-449244EFDC41}.Release|Any CPU.Build.0 = Release|Any CPU
+		{82DDE4B0-78D2-488D-BB0D-2010DAFFCD69}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82DDE4B0-78D2-488D-BB0D-2010DAFFCD69}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82DDE4B0-78D2-488D-BB0D-2010DAFFCD69}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82DDE4B0-78D2-488D-BB0D-2010DAFFCD69}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

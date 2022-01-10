@@ -1,12 +1,8 @@
-﻿namespace AspNetCoreTest.Controllers
-{
-	using EdjCase.JsonRpc.Router;
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Threading.Tasks;
+﻿using EdjCase.JsonRpc.Router;
 
-	public class TestController : RpcController
+namespace AspNetCoreTest.Controllers
+{
+    public class TestController : RpcController
 	{
 		public int GetSum(int x, int y)
 		{

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Security.Claims;
-
-namespace DanilovSoft.vRPC
+﻿namespace DanilovSoft.vRPC
 {
     public abstract class RpcController
     {

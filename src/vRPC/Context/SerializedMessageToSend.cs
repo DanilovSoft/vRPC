@@ -1,18 +1,4 @@
-﻿using System;
-using System.Buffers;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Text;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Threading.Tasks.Sources;
-using DanilovSoft.vRPC.Context;
-using DanilovSoft.vRPC.Source;
-
-namespace DanilovSoft.vRPC
+﻿namespace DanilovSoft.vRPC
 {
     //[Obsolete]
     //internal class SerializedMessageToSend : IMessageToSend

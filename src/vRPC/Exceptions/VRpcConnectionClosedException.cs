@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Net.WebSockets;
 using System.Runtime.Serialization;
 
 namespace DanilovSoft.vRPC

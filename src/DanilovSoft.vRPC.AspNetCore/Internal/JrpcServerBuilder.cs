@@ -1,10 +1,7 @@
-﻿namespace DanilovSoft.vRPC.AspNetCore.Internal
-{
-    using Microsoft.Extensions.DependencyInjection;
-    using System;
-    using System.Collections.Generic;
-    using System.Text;
+﻿using Microsoft.Extensions.DependencyInjection;
 
+namespace DanilovSoft.vRPC.AspNetCore.Internal
+{
     internal class JrpcServerBuilder : IJsonRpcServerBuilder
     {
         public IServiceCollection Services { get; }

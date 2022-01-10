@@ -4,12 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using DanilovSoft.vRPC;
-using System.Resources;
-using System.Buffers;
 
 namespace Client
 {

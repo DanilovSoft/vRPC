@@ -1,9 +1,7 @@
+using Xunit;
+
 namespace AspNetCoreXUnits
 {
-    using DanilovSoft.vRPC.AspNetCore;
-    using System;
-    using Xunit;
-
     public class ResponseKeyTest
     {
         private const string RequestKey = "FZW6qmoUGhS/Q+pLaES4Ig==";

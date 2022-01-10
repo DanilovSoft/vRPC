@@ -1,16 +1,9 @@
 ﻿using System;
 using System.Buffers;
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
-using System.Threading.Tasks;
 using DanilovSoft.vRPC.Content;
-using DanilovSoft.vRPC.DTO;
 using DanilovSoft.vRPC.Source;
 
 namespace DanilovSoft.vRPC

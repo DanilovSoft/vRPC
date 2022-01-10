@@ -1,10 +1,7 @@
-﻿namespace DanilovSoft.vRPC.AspNetCore
-{
-    using Microsoft.Extensions.DependencyInjection;
-    using System;
-    using System.Collections.Generic;
-    using System.Text;
+﻿using Microsoft.Extensions.DependencyInjection;
 
+namespace DanilovSoft.vRPC.AspNetCore
+{
     /// <summary>
     /// A builder abstraction for configuring gRPC servers.
     /// </summary>

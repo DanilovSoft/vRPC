@@ -1,9 +1,4 @@
-﻿using DanilovSoft.vRPC.Decorator;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace DanilovSoft.vRPC
+﻿namespace DanilovSoft.vRPC
 {
     //internal interface IGetProxy
     //{
