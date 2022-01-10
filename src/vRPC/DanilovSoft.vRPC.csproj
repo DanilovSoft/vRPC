@@ -5,14 +5,11 @@
     <LangVersion>Latest</LangVersion>
     <AssemblyName>DanilovSoft.vRPC</AssemblyName>
     <RootNamespace>DanilovSoft.vRPC</RootNamespace>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Company />
     <Description>Asynchronous full-duplex Remote Procedure Call based on WebSocket</Description>
-    <Copyright>Vitalii Danilov</Copyright>
-    <Authors>Vitalii Danilov</Authors>
     <PackageId>DanilovSoft.vRPC</PackageId>
     <Product>DanilovSoft.vRPC</Product>
-    <Version>3.1.1</Version>
+    <Version>3.2.1</Version>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -25,7 +22,6 @@
     <NoWarn>1701;1702;1573;1591</NoWarn>
     <NeutralLanguage>en</NeutralLanguage>
     <Nullable>enable</Nullable>
-    <PackageProjectUrl>https://github.com/DanilovSoft/vRPC</PackageProjectUrl>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
@@ -84,6 +80,24 @@
       <LogicalName>DanilovSoft.vRPC.Resources.SR.resources</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
-  
+
+	<!--Для NuGet-->
+	<PropertyGroup>
+		<PackageProjectUrl>https://github.com/DanilovSoft/vRPC</PackageProjectUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<Authors>Vitalii Danilov</Authors>
+		<Copyright>Vitalii Danilov</Copyright>
+		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+		<GenerateDocumentationFile Condition="'$(Configuration)'=='Release'">true</GenerateDocumentationFile>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<GeneratePackageOnBuild Condition="'$(Configuration)'=='Release'">true</GeneratePackageOnBuild>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
+	</ItemGroup>
+	<!--/Для NuGet-->
 
 </Project>

@@ -340,4 +340,4 @@ ASALocalRun/
 healthchecksdb
 src/vRPC/*.local.*
 /FeatureTest
-/vRPC/nuget.local.txt
+**.local.*
