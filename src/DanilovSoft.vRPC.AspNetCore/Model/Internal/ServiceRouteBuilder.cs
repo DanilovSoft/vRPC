@@ -44,7 +44,7 @@ namespace DanilovSoft.vRPC.AspNetCore.Model.Internal
                 return;
             }
 
-            JsonRpcConnection rpcConnection = await JsonRpcConnection.AcceptAsync(new JrpcAcceptContext(context, feature, _controllers));
+            var rpcConnection = await JsonRpcConnection.AcceptAsync(new JrpcAcceptContext(context, feature, _controllers));
 
             rpcConnection.StartReceiveSendLoop();
 

@@ -10,7 +10,7 @@ namespace XUnitTest
         public void Token()
         {
             var token = new AccessToken(new byte[] { 1, 2, 3 });
-            string j = JsonSerializer.Serialize(token);
+            var j = JsonSerializer.Serialize(token);
         }
     }
 }

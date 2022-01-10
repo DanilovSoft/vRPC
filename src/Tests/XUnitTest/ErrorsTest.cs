@@ -74,7 +74,7 @@ namespace PublicXUnitTest
 
             if (m.MessageType == WebSocketMessageType.Text)
             {
-                string wtf = Encoding.UTF8.GetString(buf, 0, m.Count);
+                var wtf = Encoding.UTF8.GetString(buf, 0, m.Count);
             }
 
             Assert.Equal("Parse error (-32700)", ws.CloseStatusDescription);

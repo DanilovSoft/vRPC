@@ -67,7 +67,7 @@ namespace XUnitTest
 
         public string MakeCallback(string msg)
         {
-            string echo = Connection.GetProxy<IClientTestController>().Echo(msg);
+            var echo = Connection.GetProxy<IClientTestController>().Echo(msg);
 
             Debug.Assert(echo == msg, "Эхо-сообщения не идентичны");
 
@@ -76,7 +76,7 @@ namespace XUnitTest
         
         public async Task<string> MakeAsyncCallback(string msg)
         {
-            string echo = await Connection.GetProxy<IClientTestController>().EchoAsync(msg);
+            var echo = await Connection.GetProxy<IClientTestController>().EchoAsync(msg);
             
             Debug.Assert(echo == msg, "Эхо-сообщения не идентичны");
 

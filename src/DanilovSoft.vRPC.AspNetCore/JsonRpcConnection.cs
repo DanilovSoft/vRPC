@@ -30,7 +30,7 @@ namespace DanilovSoft.vRPC.AspNetCore
             var remoteEndPoint = new IPEndPoint(acceptContext.Context.Connection.RemoteIpAddress, acceptContext.Context.Connection.RemotePort);
 
             // TODO добавить еще свой таймаут.
-            CancellationToken cancellationToken = acceptContext.Context.RequestAborted;
+            var cancellationToken = acceptContext.Context.RequestAborted;
 
             // TODO Проверить хедеры запроса.
 
@@ -38,11 +38,11 @@ namespace DanilovSoft.vRPC.AspNetCore
             HandshakeHelpers.GenerateResponseHeaders(key, subProtocol: null, acceptContext.Context.Response.Headers);
 
             // Установит статус 101 и отправит хедеры.
-            Stream opaqueTransport = await acceptContext.Feature.UpgradeAsync();
+            var opaqueTransport = await acceptContext.Feature.UpgradeAsync();
 
             var stream = new JRpcStream(opaqueTransport, localEndPoint, remoteEndPoint);
 
-            TimeSpan keepAliveInterval = TimeSpan.FromMinutes(2);
+            var keepAliveInterval = TimeSpan.FromMinutes(2);
             var webSocket = ManagedWebSocket.CreateFromConnectedStream(stream, isServer: true, subprotocol: null, keepAliveInterval);
 
             var rpc = new JsonRpcConnection(webSocket, isServer: true, acceptContext.Context.RequestServices, acceptContext.Controllers);

@@ -7,9 +7,9 @@ namespace XUnitTest
         [Fact]
         public void TestJwt()
         {
-            string plainText = "Проверка!";    // original plaintext
-            string passPhrase = "Pas5pr@sePas5pr@sePas5pr@sePas5pr@sePas5pr@se";        // can be any string
-            string initVector = "@1B2c3D4e5F6g7H8"; // must be 16 bytes
+            var plainText = "Проверка!";    // original plaintext
+            var passPhrase = "Pas5pr@sePas5pr@sePas5pr@sePas5pr@sePas5pr@se";        // can be any string
+            var initVector = "@1B2c3D4e5F6g7H8"; // must be 16 bytes
 
             // Before encrypting data, we will append plain text to a random
             // salt value, which will be between 4 and 8 bytes long (implicitly
@@ -19,7 +19,7 @@ namespace XUnitTest
                 // Encrypt the same plain text data 10 time (using the same key,
                 // initialization vector, etc) and see the resulting cipher text;
                 // encrypted values will be different.
-                for (int i = 0; i < 10; i++)
+                for (var i = 0; i < 10; i++)
                 {
                     string cipherText = rijndaelKey.Encrypt(plainText);
                     string decripted = rijndaelKey.Decrypt(cipherText);

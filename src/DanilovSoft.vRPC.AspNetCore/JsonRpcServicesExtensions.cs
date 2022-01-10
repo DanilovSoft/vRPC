@@ -17,7 +17,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 throw new ArgumentNullException(nameof(services));
 
             // Найти контроллеры в сборке.
-            Dictionary<string, Type> controllerTypes = GlobalVars.FindAllControllers(Assembly.GetCallingAssembly());
+            var controllerTypes = GlobalVars.FindAllControllers(Assembly.GetCallingAssembly());
 
             services.AddRouting();
             services.AddOptions();
@@ -28,7 +28,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddScoped(typeof(DanilovSoft.vRPC.Controllers.AccountController));
 
             // Добавить контроллеры в IoC.
-            foreach (Type controllerType in controllerTypes.Values)
+            foreach (var controllerType in controllerTypes.Values)
             {
                 services.AddScoped(controllerType);
             }

@@ -28,12 +28,12 @@ namespace LoadTestApp
             var listener = VRpcListener.StartNew(IPAddress.Any);
             Port = listener.Port;
 
-            int count = GetConnectionsCount();
+            var count = GetConnectionsCount();
             Clients = new VRpcClient[count];
 
             ThreadPool.QueueUserWorkItem(async delegate
             {
-                for (int i = 0; i < count; i++)
+                for (var i = 0; i < count; i++)
                 {
                     Clients[i] = CreateClient();
                     ThreadPool.UnsafeQueueUserWorkItem(s => ThreadEntry(s), i);
@@ -57,7 +57,7 @@ namespace LoadTestApp
             while (true)
             {
                 Console.CursorLeft = pos;
-                string sCount = Volatile.Read(ref ConnectionsCount).ToString();
+                var sCount = Volatile.Read(ref ConnectionsCount).ToString();
                 Console.Write(sCount.PadRight(10));
                 Console.CursorLeft = pos + sCount.Length;
                 Thread.Sleep(200);
@@ -66,7 +66,7 @@ namespace LoadTestApp
 
         private static async void ThreadEntry(object state)
         {
-            int index = (int)state;
+            var index = (int)state;
             while (true)
             {
                 var cli = Clients[index];
@@ -86,12 +86,12 @@ namespace LoadTestApp
                 if (res.State == ConnectionState.Connected)
                 {
                     Interlocked.Increment(ref ConnectionsCount);
-                    bool skipNextDelay = false;
+                    var skipNextDelay = false;
                     while (cli.State == VRpcState.Open)
                     {
                         try
                         {
-                            string pong = await p.PingAsync("ping");
+                            var pong = await p.PingAsync("ping");
                         }
                         catch (VRpcShutdownException)
                         {

@@ -92,7 +92,7 @@ namespace XUnitTest
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
-            int sum = iface.GetSum(1, 2);
+            var sum = iface.GetSum(1, 2);
             Assert.Equal(3, sum);
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
@@ -106,7 +106,7 @@ namespace XUnitTest
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
-            int sum = iface.GetSum2(1, 2);
+            var sum = iface.GetSum2(1, 2);
             Assert.Equal(3, sum);
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
@@ -120,7 +120,7 @@ namespace XUnitTest
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
-            string value = iface.GetString();
+            var value = iface.GetString();
             Assert.Equal("OK", value);
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
@@ -134,7 +134,7 @@ namespace XUnitTest
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
-            string value = iface.GetNullString();
+            var value = iface.GetNullString();
             Assert.Null(value);
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
@@ -148,7 +148,7 @@ namespace XUnitTest
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
-            string? value = await iface.GetNullStringAsync();
+            var value = await iface.GetNullStringAsync();
             Assert.Null(value);
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
@@ -162,7 +162,7 @@ namespace XUnitTest
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
-            int sum = await iface.GetSumAsync(1, 2);
+            var sum = await iface.GetSumAsync(1, 2);
             Assert.Equal(3, sum);
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
@@ -215,7 +215,7 @@ namespace XUnitTest
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
-            string selfEcho = iface.MakeCallback("qwerty");
+            var selfEcho = iface.MakeCallback("qwerty");
             Assert.Equal("qwerty", selfEcho);
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
@@ -229,7 +229,7 @@ namespace XUnitTest
             using var cli = new VRpcClient("127.0.0.1", listener.Port, false, true);
             var iface = cli.GetProxy<IServerTestController>();
 
-            string selfEcho = iface.MakeAsyncCallback("qwerty");
+            var selfEcho = iface.MakeAsyncCallback("qwerty");
             Assert.Equal("qwerty", selfEcho);
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
@@ -265,7 +265,7 @@ namespace XUnitTest
             mre.Reset();
             iface.JNotifyCallback(123);
 
-            Assert.True(mre.Wait(TimeSpan.FromSeconds(30), out int n), "Превышено время ожидания обратного вызова");
+            Assert.True(mre.Wait(TimeSpan.FromSeconds(30), out var n), "Превышено время ожидания обратного вызова");
             Assert.True(n == 123);
 
             cli.Shutdown(TimeSpan.FromSeconds(1), "Unit Test");
@@ -283,7 +283,7 @@ namespace XUnitTest
             var buf = new byte[1024];
             var m = await ws.ReceiveAsync(buf, default);
 
-            string response = Encoding.UTF8.GetString(buf, 0, m.Count);
+            var response = Encoding.UTF8.GetString(buf, 0, m.Count);
 
             Assert.True(false);
         }

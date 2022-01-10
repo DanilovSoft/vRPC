@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net5.0;netcoreapp3.0;net461</TargetFrameworks>
+    <TargetFrameworks>net6.0;netcoreapp3.1;net461</TargetFrameworks>
     <LangVersion>Latest</LangVersion>
 	  <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>

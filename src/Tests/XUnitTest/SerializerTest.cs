@@ -17,7 +17,7 @@ namespace InternalXUnitTest
         {
             var methods = new InvokeActionsDictionary(new Dictionary<string, Type> { ["Stub"] = typeof(StubController) });
 
-            string json = @"{""jsonrpc"": ""2.0"", ""method"": ""Stub/Subtract"", ""params"": [42, 23], ""id"": 1.114}";
+            var json = @"{""jsonrpc"": ""2.0"", ""method"": ""Stub/Subtract"", ""params"": [42, 23], ""id"": 1.114}";
         }
 
         [Fact]
@@ -25,7 +25,7 @@ namespace InternalXUnitTest
         {
             var methods = new InvokeActionsDictionary(new Dictionary<string, Type> { ["Stub"] = typeof(StubController) });
 
-            string json = @"{""jsonrpc"": ""2.0"", ""params"": [42, 23], ""method"": ""Stub/Subtract"", ""id"": 1}";
+            var json = @"{""jsonrpc"": ""2.0"", ""params"": [42, 23], ""method"": ""Stub/Subtract"", ""id"": 1}";
         }
     }
 }

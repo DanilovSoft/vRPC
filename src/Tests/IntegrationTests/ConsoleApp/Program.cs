@@ -20,7 +20,7 @@ namespace InternalConsoleApp
             {
                 try
                 {
-                    int sum = await iface.GetSumAsync(1, 2);
+                    var sum = await iface.GetSumAsync(1, 2);
                 }
                 catch (Exception ex)
                 {

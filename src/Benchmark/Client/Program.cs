@@ -35,7 +35,7 @@ namespace Client
             } while (!IPAddress.TryParse(ipStr, out ipAddress));
 
             string cpusStr;
-            int processorCount = Environment.ProcessorCount;
+            var processorCount = Environment.ProcessorCount;
             do
             {
                 Console.Write($"Ядер – {processorCount}. Сколько потоков [1]: ");
@@ -46,10 +46,10 @@ namespace Client
             } while (!int.TryParse(cpusStr, out Threads));
 
             long reqCount = 0;
-            int activeThreads = 0;
+            var activeThreads = 0;
 
             var threads = new List<Task>(Threads);
-            for (int i = 0; i < Threads; i++)
+            for (var i = 0; i < Threads; i++)
             {
                 var t = Task.Run(async () =>
                 {
@@ -104,7 +104,7 @@ namespace Client
                             }
                         }
                         // Подождать грациозное закрытие.
-                        CloseReason closeReason = client.WaitCompletion();
+                        var closeReason = client.WaitCompletion();
                     }
                     Interlocked.Decrement(ref activeThreads);
                 });
@@ -118,9 +118,9 @@ namespace Client
             while (threads.TrueForAll(x => x.Status != TaskStatus.RanToCompletion))
             {
                 Thread.Sleep(1000);
-                long elapsedMs = sw.ElapsedMilliseconds;
-                long rCount = Interlocked.Read(ref reqCount);
-                ulong reqPerSecond = unchecked((ulong)(rCount - prev));
+                var elapsedMs = sw.ElapsedMilliseconds;
+                var rCount = Interlocked.Read(ref reqCount);
+                var reqPerSecond = unchecked((ulong)(rCount - prev));
                 prev = rCount;
                 sw.Restart();
 

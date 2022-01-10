@@ -57,7 +57,7 @@ namespace DanilovSoft.vRPC.AspNetCore
         internal static int HashData(ReadOnlySpan<byte> source, Span<byte> destination)
         {
             using var sha = SHA1.Create();
-            if (!sha.TryComputeHash(source, destination, out int bytesWritten))
+            if (!sha.TryComputeHash(source, destination, out var bytesWritten))
                 throw new ArgumentException("Destination too short", nameof(destination));
 
             return bytesWritten;

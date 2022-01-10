@@ -20,7 +20,7 @@ namespace Client.Controllers
         {
             Console.WriteLine($"Сервер сказал: {s}");
             Console.Write("Введите ответ для сервера: ");
-            string line = await Console.In.ReadLineAsync();
+            var line = await Console.In.ReadLineAsync();
             return line;
         }
 
